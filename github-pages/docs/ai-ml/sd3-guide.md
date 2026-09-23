@@ -1,6 +1,6 @@
 ---
 layout: docs
-title: "AI/ML: Stable Diffusion 3 Guide"
+title: "AI/ML: Stable Diffusion 3 and 3.5"
 parent: AI/ML Documentation
 nav_order: 6
 permalink: /docs/ai-ml/sd3-guide.html
@@ -12,243 +12,284 @@ toc_icon: "cog"
 
 [AI/ML Documentation](./) &raquo; Stable Diffusion 3 Guide
 
-A focused guide to Stable Diffusion 3 (and SD3.5): the Multimodal Diffusion Transformer backbone, rectified-flow / flow-matching training, why it renders text and follows prompts better than SDXL, and the licensing you need to understand before deploying it.
+**Stable Diffusion 3** (SD3) and its refresh **SD3.5** are Stability AI's transformer-based text-to-image models. They replace the U-Net used by SD 1.5 and SDXL with a **Multimodal Diffusion Transformer (MM-DiT)**, train it with **rectified flow**, and condition it on three text encoders including T5-XXL. This page covers the architecture, the flow-matching objective, the model variants and their settings, licensing, and where the family sits relative to SDXL and FLUX as of late 2026.
 
 ## Overview
 
-SD3 marks the Stable Diffusion lineage's shift from the U-Net to a **Multimodal Diffusion Transformer (MM-DiT)** trained with **rectified flow** - the same family of ideas behind FLUX, but with different design choices and lower resource demands. It is the bridge between the mature U-Net ecosystem (SD 1.5, SDXL, Pony) and the newer transformer flow-matching models, and it was the first model in the family to bring credible in-image text rendering and strong prompt adherence to consumer hardware.
+SD3 was announced in February 2024; the 2B-parameter **SD3 Medium** weights followed in June 2024. That first release was widely criticized, for anatomy failures on simple prompts (people lying on grass became a running joke) and for a license that was unclear about commercial use and fine-tunes. Stability answered in October 2024 with **SD3.5**: an 8.1B **Large** model, a 4-step distilled **Large Turbo**, and a redesigned 2.5B **Medium**, all released under a clearer Community License. ControlNets for 3.5 Large (Blur, Canny, Depth) followed in November 2024.
 
-If you have read [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html), the short version is this: SD3 keeps the latent-diffusion idea (work in a compressed VAE latent, not pixels) but replaces *both* the denoising network (U-Net → transformer) *and* the training objective (noise prediction → velocity / rectified flow). Three changes define the family:
+Architecturally, SD3 keeps the latent-diffusion idea (denoise a compressed VAE latent rather than pixels) but changes nearly everything else:
 
-- **Transformer, not U-Net.** MM-DiT processes image and text tokens jointly with shared attention, replacing the convolutional U-Net and its cross-attention.
-- **Rectified flow.** Trained to follow a near-straight path from noise to data, so fewer steps and a lower CFG produce coherent images.
-- **Text you can read.** A large T5 encoder alongside two CLIP encoders lets SD3 render legible words and follow long natural-language prompts.
+| Component | SD 1.5 / SDXL | SD3 / SD3.5 |
+|-----------|---------------|-------------|
+| Denoiser | Convolutional U-Net | MM-DiT (transformer over patch and text tokens) |
+| Text conditioning | Cross-attention (text is read-only) | Joint attention (text and image streams update each other) |
+| Text encoders | CLIP (SD 1.5), CLIP-L + OpenCLIP-bigG (SDXL) | CLIP-L + OpenCLIP-bigG + T5-XXL |
+| Training objective | Noise prediction (DDPM-style) | Rectified flow (velocity prediction) |
+| VAE latent | 4 channels | 16 channels |
 
-## Technical Specifications
+The 16-channel VAE is easy to overlook. Quadrupling the latent channels lets the autoencoder keep much more fine detail (small text, faces at a distance, fabric texture), and the SD3 paper shows reconstruction quality rising with channel count. It is also why SD3 LoRAs, ControlNets, and VAEs are incompatible with SDXL ones: the latent space itself is different.
 
-| Property | Value |
-|----------|-------|
-| Architecture | MM-DiT (Multimodal Diffusion Transformer) |
-| Parameters | 2B (Medium), 8B (Large) |
-| Text encoders | CLIP L/14 + OpenCLIP bigG/14 + T5-v1.1-XXL (77 + 77 + 256 tokens) |
-| Training | Rectified flow (like FLUX) |
-| Resolution | 1024×1024 base, up to 2048×2048 |
-| File size | ~6 GB (Medium), ~18 GB (Large) |
+## Model Variants
 
-> **Use SD3.5, not the original SD3 Medium.** The 3.5 Large/Medium refresh fixed much of the launch-day anatomy and licensing criticism and is the practical choice in this family today. Throughout this guide "SD3" refers to the family; settings apply to both unless noted.
+| Variant | Released | Parameters | Native resolution | Steps / CFG (reference) | Notes |
+|---------|----------|------------|-------------------|-------------------------|-------|
+| SD3 Medium | Jun 2024 | 2B | ~1 MP | 28 / ~4.5-7 | Original release; superseded, avoid for new work |
+| SD3.5 Large | Oct 2024 | 8.1B | ~1 MP | 28 / 3.5-4.5 | Highest quality in the family; QK-normalization |
+| SD3.5 Large Turbo | Oct 2024 | 8.1B | ~1 MP | 4 / 0 (no CFG) | Adversarial diffusion distillation of Large |
+| SD3.5 Medium | Oct 2024 | 2.5B | 0.25-2 MP | 40 / 4.5 | MMDiT-X backbone; progressive multi-resolution training |
 
-## The MMDiT Architecture
+Weight files are roughly 16 GB (Large, bf16) and 5 GB (Medium), **not counting the text encoders**. T5-XXL alone is about 4.7B parameters (roughly 9.5 GB in fp16, half that in fp8), which is why quantized T5 builds matter on consumer GPUs.
+
+**MMDiT-X** (3.5 Medium only) adds extra image-only self-attention modules to the first 13 transformer layers and was trained progressively at 256, 512, 768, 1024, and 1440 px, with a final mixed-scale stage. The result is a small model that tolerates a wide range of output sizes. Stability also recommends **Skip Layer Guidance** (SLG) for 3.5 Medium: an extra guidance term computed by skipping a few middle layers during a portion of sampling, which improves structure and anatomy. ComfyUI exposes it as a node; diffusers exposes it as pipeline arguments.
+
+## The MM-DiT Architecture
 
 ### From U-Net to Diffusion Transformer
 
-The classic Stable Diffusion denoiser is a **convolutional U-Net**: it encodes the noisy latent down to a bottleneck and decodes it back up, injecting the text prompt at each level through **cross-attention** layers. The image is the "main" signal; the text is a side input that the image attends to.
-
-SD3 throws this out. Its denoiser is a **Diffusion Transformer (DiT)**: the noisy latent is cut into patches, each patch becomes a token (just like a vision transformer), and a stack of transformer blocks processes those tokens. There is no convolutional up/down sampling - the model is essentially a sequence model over image patches plus text tokens.
+A U-Net denoiser downsamples the noisy latent to a bottleneck and upsamples it back, reading the prompt at each resolution through cross-attention. A **Diffusion Transformer (DiT)** has no convolutional pyramid: the latent is cut into 2×2 patches, each patch becomes a token with a positional embedding, and a stack of transformer blocks processes the sequence. Timestep and a pooled text embedding modulate every block through adaptive layer norm (adaLN).
 
 ```mermaid
 flowchart TD
     subgraph UNet["U-Net line (SD 1.5 / SDXL)"]
-        IN1["Noisy latent"] --> ENC["Conv encoder (downsample)"]
+        IN1["Noisy latent"] --> ENC["Conv encoder<br/>(downsample)"]
         ENC --> BOT["Bottleneck"]
-        BOT --> DEC["Conv decoder (upsample)"]
-        TXT1["Text (CLIP)"] -->|cross-attention| ENC
+        BOT --> DEC["Conv decoder<br/>(upsample)"]
+        TXT1["CLIP text embeddings"] -->|cross-attention| ENC
         TXT1 -->|cross-attention| DEC
         DEC --> OUT1["Predicted noise"]
     end
-    subgraph DiT["MM-DiT line (SD3)"]
-        IN2["Noisy latent → patches → tokens"] --> MIX["Joint transformer blocks"]
-        TXT2["Text (CLIP + CLIP + T5) → tokens"] --> MIX
+    subgraph DiT["MM-DiT line (SD3 / SD3.5)"]
+        IN2["Noisy latent<br/>2x2 patches to tokens"] --> MIX["N x joint<br/>MM-DiT blocks"]
+        TXT2["CLIP-L + bigG + T5<br/>token sequence"] --> MIX
+        POOL["Timestep +<br/>pooled CLIP vector"] -.->|adaLN modulation| MIX
         MIX --> OUT2["Predicted velocity"]
     end
 ```
 
-### What the "MM" (Multimodal) Means
+### What "Multimodal" Means
 
-A plain DiT only attends over image tokens and pushes text in as a conditioning vector. SD3's **MM-DiT** instead treats the two **modalities** - image patches and text tokens - as **two token streams that attend to each other**. Concretely, in each block:
-
-- Image tokens and text tokens each get their **own** weights for the query/key/value projections and the feed-forward layer (the two streams are not forced to share parameters), and
-- They are **concatenated and run through one shared self-attention** so image patches can attend to text tokens and vice versa.
-
-This bidirectional, joint attention is the key difference from cross-attention. In a U-Net the text is read-only - the image attends to it but the text never "sees" the image. In MM-DiT the text representation is *updated* by the image as denoising proceeds, which is a large part of why SD3 follows prompts more faithfully and binds attributes to the right objects ("a **red** cube next to a **blue** sphere") more reliably than SDXL.
-
-| Aspect | U-Net cross-attention (SDXL) | MM-DiT joint attention (SD3) |
-|--------|------------------------------|------------------------------|
-| Backbone | Convolutional U-Net | Transformer over patch + text tokens |
-| Text role | Read-only conditioning | Co-equal token stream, updated each block |
-| Attribute binding | Weaker (attributes can swap) | Stronger (joint attention disambiguates) |
-| Scaling behavior | Saturates with depth | Scales smoothly with parameters (DiT property) |
-
-### Patches, Positions, and Scaling
-
-Because MM-DiT is a transformer over patches, it inherits the transformer's clean scaling story: Stability's SD3 paper reports that validation loss keeps falling predictably as you grow the model, which is why the family ships at multiple sizes (2B Medium, 8B Large) from one recipe. The 2D patch positions are encoded so the model knows where each patch sits in the image, and the same backbone handles 1024×1024 up to 2048×2048 by feeding more patch tokens.
-
-## Rectified Flow and Flow Matching
-
-### The objective, in one idea
-
-Traditional Stable Diffusion (DDPM) trains the network to **predict the noise** that was added to an image. Sampling then runs a stochastic reverse process over many steps. SD3 instead uses **rectified flow**, a form of **flow matching**: it learns a **velocity field** that transports a sample along a straight-ish path between pure noise and a real image.
-
-Think of it as defining, for each training pair, a straight line that interpolates between a data sample $x_0$ and a noise sample $x_1$:
-
-$$
-x_t = (1 - t)\, x_0 + t\, x_1, \qquad t \in [0, 1]
-$$
-
-The *target* velocity along that line is simply the constant direction from data to noise:
-
-$$
-v_t = \frac{d x_t}{d t} = x_1 - x_0
-$$
-
-The network $v_\theta(x_t, t, c)$ - conditioned on the timestep $t$ and the text $c$ - is trained to regress that velocity with a plain mean-squared error:
-
-$$
-\mathcal{L} = \mathbb{E}_{t,\, x_0,\, x_1}\left[\; \lVert v_\theta(x_t, t, c) - (x_1 - x_0) \rVert^2 \;\right]
-$$
-
-### Why "rectified"
-
-If the learned paths from noise to data were perfectly straight, you could integrate them in a **single Euler step** - that is the appeal of flow matching. In practice the paths bend, but they bend far less than a DDPM trajectory, so SD3 needs **far fewer steps** (≈28, sometimes fewer) than the old hundreds-of-steps DDPM regime, and the trajectory is **deterministic** given the starting noise.
-
-To sample, you start from noise $x_1$ and integrate the velocity field backward to $t = 0$:
-
-$$
-x_{t - \Delta t} = x_t - \Delta t \cdot v_\theta(x_t, t, c)
-$$
-
-repeating for the number of steps in your scheduler.
-
-### Timestep weighting and "shift"
-
-Not all timesteps are equally important - the hardest denoising happens in the middle of the trajectory, so SD3 trains with a **logit-normal** weighting that samples those middle timesteps more often. At inference, a **resolution-dependent timestep shift** rebalances where the model spends its steps; this surfaces as the **`shift`** parameter (~3.0 by default) in SD3 samplers. Raising shift pushes more sampling effort toward the high-noise end, which matters when you generate at higher resolutions. This is the SD3-specific knob with no SDXL analog.
-
-### How this changes guidance
-
-Because the model follows a near-straight, well-conditioned path, classifier-free guidance does not need to be cranked the way it is on U-Net models. SDXL typically runs CFG ≈ 5-9; SD3 runs at **CFG ≈ 5 or lower**, and pushing it high tends to over-saturate and "fry" the image rather than improve adherence.
-
-| Aspect | DDPM noise prediction (SDXL) | Rectified flow (SD3) |
-|--------|------------------------------|----------------------|
-| Network predicts | Added noise | Velocity (data → noise direction) |
-| Trajectory | Curved, stochastic | Near-straight, deterministic |
-| Typical steps | 25-50 | ~28 (can go lower) |
-| Typical CFG | 5-9 | ~5 or below |
-| Extra knob | — | `shift` (timestep rebalancing) |
-
-## Triple Text Encoding and Text Rendering
-
-### Three encoders, two jobs
-
-SD3's headline feature is **triple text encoding**. It runs the prompt through three encoders in parallel:
-
-| Encoder | Tokens | What it contributes |
-|---------|--------|---------------------|
-| CLIP ViT-L/14 | 77 | Visual concept vocabulary (the SD 1.5 encoder) |
-| OpenCLIP bigG/14 | 77 | Richer visual concept vocabulary (the SDXL encoder) |
-| T5-v1.1-XXL | 256 | Natural-language understanding, spelling, long prompts |
-
-The two CLIP encoders supply the "what does this concept look like" signal that earlier Stable Diffusion relied on. The large **T5** encoder is the new ingredient: a text-to-text language model that actually parses grammar, word order, and - critically - **individual letters**. That is what enables two of SD3's real advantages over SDXL: notably **stronger prompt adherence** and the ability to **render legible text** inside images.
-
-### Why text rendering finally works
-
-Rendering "OPEN" on a neon sign requires the model to know the *spelling* of the word as a sequence of glyphs, then place those glyphs coherently. CLIP encodes text as a bag of visual concepts and is famously bad at spelling; T5 carries character-level information through to the MM-DiT, where joint attention can lay the letters out. Combined, T5's spelling knowledge plus MM-DiT's joint attention is why SD3 can produce readable words where SDXL produces glyph soup.
-
-### The T5 trade-off
-
-T5-XXL is large (~4.7B parameters in fp16), so the triple encoder adds setup complexity and memory. Two practical notes:
-
-- You can **drop T5 at inference** to save VRAM. The model still works - you keep concept fidelity from the CLIP encoders - but you lose most of the long-prompt comprehension and text rendering. T5 is the part that makes SD3 special, so dropping it is a fallback, not a recommendation.
-- Stability ships **fp8 and other quantized T5 builds** specifically to make the triple encoder fit on consumer cards.
-
-### Prompting SD3
-
-Because of T5, SD3 rewards **natural-language description** over keyword spam - closer to how you prompt FLUX than how you prompt SD 1.5. Quality-tag stacks (`masterpiece, best quality, ...`) help far less here than they did on the U-Net models; a clear sentence that names the subject, setting, style, and any text-to-render does more work.
-
-For in-image text, put the literal words in quotes, e.g. *a vintage shop window with a neon sign reading "OPEN", rainy night, cinematic*. Keep rendered strings short - a few words render far more reliably than a full sentence.
-
-## Strengths and Weaknesses
-
-| Strengths | Weaknesses |
-|-----------|------------|
-| Best-in-class prompt following | More restrictive licensing than SD 1.5/SDXL |
-| Can render readable words and letters | Smaller ecosystem, fewer fine-tunes |
-| Medium runs well on ~10 GB VRAM | Triple encoder adds setup complexity |
-| FLUX-class quality at lower cost; standard workflows | Large variant is resource-heavy |
-
-## Optimal Settings
-
-| Setting | Value |
-|---------|-------|
-| Resolution | 1024×1024 |
-| Steps | 28 (Stability's recommendation) |
-| CFG scale | ~5 (lower than U-Net models) |
-| Sampler | `dpmpp_2m` |
-| Shift | ~3.0 (important SD3 flow parameter) |
-
-A few practical pointers that follow from the architecture above:
-
-- **Do not raise CFG to SDXL levels.** Rectified flow follows prompts at a low guidance scale; CFG ≈ 8 over-saturates SD3.
-- **Tune `shift` with resolution.** At 1024 the default ~3.0 is fine; if you push toward 2048 a higher shift spends more steps on the structure-defining high-noise phase.
-- **Keep T5 loaded for text/long prompts.** If you only need stylized concept art on a tight VRAM budget, a CLIP-only run is acceptable - but you forfeit the feature set that justifies choosing SD3.
-
-### SD3 Inference Pipeline
-
-The data flow makes the triple-encoder + flow design concrete - three encoders feed the MM-DiT, which integrates the velocity field, and a VAE decodes the result:
+A plain DiT attends only over image tokens and injects text as a conditioning vector. MM-DiT treats image patches and text tokens as **two streams with separate weights** (their own Q/K/V projections, MLPs, and norms) that are **concatenated for a single shared attention operation**:
 
 ```mermaid
 flowchart LR
-    P["Prompt"] --> C1["CLIP L/14"]
-    P --> C2["OpenCLIP bigG/14"]
-    P --> T5["T5-v1.1-XXL"]
-    C1 --> MM["MM-DiT<br/>(rectified-flow sampler, ~28 steps, cfg ≈ 5)"]
-    C2 --> MM
-    T5 --> MM
-    N["Noise latent"] --> MM
-    MM --> V["VAE Decode"] --> IMG["Final image"]
+    I["Image tokens"] --> QI["Q, K, V<br/>(image weights)"]
+    T["Text tokens"] --> QT["Q, K, V<br/>(text weights)"]
+    QI --> CAT["Concatenate<br/>sequences"]
+    QT --> CAT
+    CAT --> ATT["Joint self-attention"]
+    ATT --> SI["Split"]
+    SI --> MI["Image MLP"] --> I2["Image tokens'"]
+    SI --> MT["Text MLP"] --> T2["Text tokens'"]
 ```
 
-## Licensing Notes
+Because attention runs over the combined sequence, image patches attend to words and words attend to image patches. In a U-Net the text embedding is fixed for the whole denoising process; in MM-DiT the text representation is refined block by block in light of the emerging image. This is the main reason SD3 binds attributes to the correct objects ("a **red** cube on a **blue** sphere") more reliably than SDXL.
 
-SD3 shipped under terms that are noticeably more restrictive than the permissive licenses behind SD 1.5 and SDXL, and the launch licensing was one of the loudest community criticisms. Treat licensing as a first-class part of model selection here.
+| Aspect | U-Net cross-attention (SDXL) | MM-DiT joint attention (SD3) |
+|--------|------------------------------|------------------------------|
+| Text role | Read-only conditioning | Co-equal token stream, updated each block |
+| Attribute binding | Attributes can leak between objects | Stronger binding |
+| Scaling | Gains flatten with depth | Validation loss falls predictably with size |
+| Cost driver | Resolution (convolutions) | Sequence length (attention is quadratic in tokens) |
 
-- **Not the old CreativeML/OpenRAIL terms.** SD 1.5 and SDXL are governed by permissive open licenses that allowed broad commercial use. SD3 moved to Stability's own community/commercial license structure with usage gates.
-- **Free tier with limits.** Stability's **Community License** generally permits research, non-commercial use, and commercial use **below a revenue/scale threshold**; organizations above that threshold need a paid **Enterprise** agreement. Thresholds and exact terms have changed across releases.
-- **The SD3.5 refresh eased concerns.** Part of why SD3.5 is the practical choice is that the relaunch clarified and loosened terms relative to the original SD3 Medium rollout.
-- **Verify before you ship.** License terms for this family have been revised multiple times. Always read the current license on the model's official Hugging Face card before any commercial deployment - do not rely on a guide (including this one) as legal authority.
+The SD3 paper trained a series of models with increasing depth and found validation loss decreased smoothly with model size and compute, correlating with human preference scores. SD3.5 Large also adds **QK-normalization** (normalizing queries and keys before the attention product), which stabilizes mixed-precision training at 8B scale. FLUX.1 uses a closely related hybrid: double-stream MM-DiT blocks followed by single-stream blocks.
 
-> **Rule of thumb:** for hobby and research use SD3.5 is freely usable; for a funded product, confirm whether your revenue/headcount crosses Stability's commercial threshold and obtain an Enterprise license if it does.
+## Rectified Flow
 
-## SD3 vs SDXL vs FLUX
+### The Objective
 
-SD3 sits between the mature U-Net ecosystem and FLUX. The table summarizes where it lands:
+DDPM-style models are trained to predict the noise added to an image and sample with a curved, many-step reverse process. SD3 uses **rectified flow**, a form of flow matching: the network learns a velocity field that moves samples along straight paths between data and noise.
 
-| | SDXL | SD3 / SD3.5 | FLUX |
-|--|------|-------------|------|
-| Backbone | U-Net | MM-DiT | DiT |
-| Training | DDPM noise prediction | Rectified flow | Flow matching |
-| Text encoders | 2× CLIP | 2× CLIP + T5 | T5 + CLIP |
-| Text rendering | Limited | Good | Excellent |
-| Typical CFG | 5-7 | ~5 | 1.0 (distilled guidance) |
-| VRAM (practical) | 8 GB | ~10 GB | 12 GB+ |
-| Ecosystem | Deepest, mature | Smaller, growing | Maturing fast |
-| Licensing | Permissive | Gated community/enterprise | Gated (varies by variant) |
+With data sample $x_0$, Gaussian noise $\epsilon$, and $t \in [0, 1]$, the forward path is a straight line:
 
-For the full cross-family treatment - including SD 1.5, SD 2.x, Pony, and FLUX variants - see the [Base Models Comparison](base-models-comparison.html).
+$$
+x_t = (1 - t)\, x_0 + t\, \epsilon
+$$
 
-## Key Takeaways
+Its time derivative, the target velocity, is constant along the path:
 
-- **SD3 swaps the whole denoiser:** convolutional U-Net → Multimodal Diffusion Transformer (MM-DiT) with joint image+text attention.
-- **It is trained with rectified flow,** learning a velocity field along near-straight noise→data paths - hence ~28 steps, a low CFG (~5), and the SD3-specific `shift` knob.
-- **Triple text encoding (2× CLIP + T5)** is what unlocks legible in-image text and strong prompt adherence; T5 is the special ingredient and prompting is natural-language.
-- **Prefer SD3.5** over the original SD3 Medium - it fixed launch-day anatomy and licensing complaints.
-- **Mind the license:** SD3 uses Stability's gated community/enterprise terms, not the permissive SD 1.5/SDXL licenses. Verify the current Hugging Face terms before any commercial use.
+$$
+v = \frac{d x_t}{d t} = \epsilon - x_0
+$$
+
+The network $v_\theta(x_t, t, c)$, conditioned on the timestep and the text $c$, regresses that velocity:
+
+$$
+\mathcal{L} = \mathbb{E}_{t,\, x_0,\, \epsilon}\left[ w(t)\, \lVert v_\theta(x_t, t, c) - (\epsilon - x_0) \rVert^2 \right]
+$$
+
+where $w(t)$ is the timestep weighting discussed below. Sampling starts from pure noise at $t = 1$ and integrates the learned field back to $t = 0$; the simplest solver is Euler:
+
+$$
+x_{t - \Delta t} = x_t - \Delta t \; v_\theta(x_t, t, c)
+$$
+
+### Why Straight Paths Help
+
+If the learned trajectories were perfectly straight, one Euler step would suffice. They are not, because many data points map to overlapping noise regions and the averaged field bends, but they are much straighter than DDPM trajectories. That is why SD3 produces coherent images in roughly 28 steps with a deterministic ODE sampler, and why distillation to 4 steps (Large Turbo) works well.
+
+### Timestep Sampling and Shift
+
+The SD3 paper compared many timestep distributions and found that sampling $t$ from a **logit-normal** distribution, which concentrates training on intermediate noise levels where the prediction task is hardest, worked best.
+
+At higher resolutions a given noise level destroys proportionally less information (neighboring pixels are more correlated), so the schedule has to be shifted toward high noise. The paper derives a resolution-dependent remapping; in practice it is exposed as a single **shift** parameter $s$:
+
+$$
+t' = \frac{s\, t}{1 + (s - 1)\, t}
+$$
+
+With $s = 1$ the schedule is unchanged; larger $s$ spends more of the step budget at high noise, where global composition is decided. SD3 uses $s = 3.0$ by default (ComfyUI's `ModelSamplingSD3` node). FLUX uses the same idea with a shift computed automatically from image size.
+
+### Consequences for Guidance
+
+A near-straight, well-conditioned flow does not need heavy classifier-free guidance. SD3.5 Large works best around CFG 3.5-4.5, and pushing toward SDXL-style values (7-9) oversaturates and "fries" images.
+
+| Aspect | Noise prediction (SDXL) | Rectified flow (SD3) |
+|--------|-------------------------|----------------------|
+| Network predicts | Added noise $\epsilon$ | Velocity $\epsilon - x_0$ |
+| Trajectory | Curved | Near-straight |
+| Typical steps | 25-50 | 28 (Large), 40 (Medium), 4 (Turbo) |
+| Typical CFG | 5-9 | 3.5-4.5 |
+| Schedule knob | Karras / exponential sigmas | `shift` (default 3.0) |
+
+## Text Encoders and Text Rendering
+
+### Three Encoders
+
+| Encoder | Parameters | Context | Contribution |
+|---------|-----------:|---------|--------------|
+| CLIP ViT-L/14 | ~0.12B (text) | 77 tokens | Visual-concept vocabulary (the SD 1.5 encoder) |
+| OpenCLIP ViT-bigG/14 | ~0.7B (text) | 77 tokens | Richer concept vocabulary (the SDXL encoder) |
+| T5-v1.1-XXL (encoder) | ~4.7B | 77/256 tokens in training | Syntax, word order, spelling, long prompts |
+
+The per-token outputs of the two CLIP encoders are concatenated and padded to T5's width, then joined with the T5 tokens to form the text stream; the two CLIP pooled vectors feed the adaLN conditioning. T5 was trained with 77- and later 256-token contexts, so prompts longer than about 256 T5 tokens can produce artifacts even though the pipeline accepts up to 512.
+
+### Why Text Rendering Works
+
+CLIP encodes text as a bag of visual concepts and is notoriously weak at spelling. T5 is a general language model whose SentencePiece tokens carry sub-word and character-level information into the transformer, and joint attention lets that information shape specific image regions. Together with the 16-channel VAE, which can actually reconstruct small glyphs, this is why SD3 renders short strings legibly where SDXL produces glyph soup.
+
+### Dropping or Quantizing T5
+
+T5 can be omitted at inference (pass empty or zero T5 embeddings). The model still runs on the CLIP signal and keeps most concept fidelity, but loses much of its long-prompt comprehension and nearly all of its text rendering. fp8 or GGUF-quantized T5 is almost always the better trade-off on limited VRAM.
+
+### Prompting
+
+Write prompts as natural-language descriptions, closer to FLUX than to SD 1.5. Quality-tag stacks (`masterpiece, best quality`) contribute little. Put literal text in quotes and keep it short:
+
+```text
+A vintage shop window at night with a neon sign reading "OPEN",
+rain-streaked glass, warm interior light, 35mm photograph
+```
+
+Negative prompts matter less than on U-Net models, and Turbo ignores them entirely because it runs without CFG.
+
+## Recommended Settings
+
+| Setting | SD3.5 Large | SD3.5 Large Turbo | SD3.5 Medium |
+|---------|-------------|-------------------|--------------|
+| Resolution | ~1 MP (e.g. 1024×1024, 1152×896) | ~1 MP | 0.25-2 MP; 1024-1440 px sides |
+| Steps | 28 | 4 | 40 |
+| CFG | 3.5-4.5 | 0 (disabled) | 4.5 |
+| Sampler (ComfyUI) | `euler` or `dpmpp_2m` | `euler` | `euler` or `dpmpp_2m` |
+| Scheduler | `sgm_uniform` / `simple` | `sgm_uniform` | `sgm_uniform` |
+| Shift | 3.0 | 3.0 | 3.0 |
+| Extras | ControlNets available | — | Skip Layer Guidance recommended |
+
+Practical notes:
+
+- **Keep CFG low.** Above about 5 on Large, colors oversaturate and contrast blows out before prompt adherence improves.
+- **Raise shift for large images.** If you generate well above 1 MP (Medium at 1440 px, or upscaling passes), a higher shift helps preserve global structure.
+- **Keep T5 loaded** for anything involving text or long prompts; drop it only when VRAM forces the choice.
+
+### Inference Pipeline
+
+```mermaid
+flowchart LR
+    P["Prompt"] --> C1["CLIP-L/14"]
+    P --> C2["OpenCLIP bigG/14"]
+    P --> T5["T5-XXL"]
+    C1 --> SEQ["Text token<br/>sequence"]
+    C2 --> SEQ
+    T5 --> SEQ
+    C1 -.->|pooled| VEC["Pooled vector<br/>+ timestep"]
+    C2 -.->|pooled| VEC
+    N["Noise latent<br/>(16 channels)"] --> MM["MM-DiT<br/>flow sampler, shift 3.0"]
+    SEQ --> MM
+    VEC --> MM
+    MM --> V["VAE decode"] --> IMG["Image"]
+```
+
+### diffusers Example
+
+```python
+import torch
+from diffusers import StableDiffusion3Pipeline
+
+pipe = StableDiffusion3Pipeline.from_pretrained(
+    "stabilityai/stable-diffusion-3.5-large",
+    torch_dtype=torch.bfloat16,
+)
+pipe.enable_model_cpu_offload()  # helps on 16-24 GB cards
+
+image = pipe(
+    'a vintage shop window with a neon sign reading "OPEN", rainy night',
+    num_inference_steps=28,
+    guidance_scale=3.5,
+    max_sequence_length=256,
+).images[0]
+image.save("sd35_large.png")
+```
+
+The repositories are gated on Hugging Face: accept the license on the model page and authenticate (`hf auth login`) before downloading.
+
+## Ecosystem and Tooling
+
+- **ControlNets:** Stability released Blur (tile-style upscaling), Canny, and Depth ControlNets for SD3.5 Large in November 2024. Coverage for Medium and for other control types is thinner than for SDXL.
+- **LoRA training:** supported by diffusers training scripts, kohya-ss `sd-scripts`, and SimpleTuner. Transformer LoRAs typically target the attention and MLP projections of the MM-DiT blocks; see [LoRA Training](lora-training.html).
+- **Runtimes:** native support in ComfyUI and diffusers; Stability has also published TensorRT-optimized builds and an NVIDIA NIM package for deployment.
+- **Adoption:** community fine-tuning of SD3.5 remained modest. Most hobbyist effort went to FLUX and, for anime, to SDXL fine-tunes such as Illustrious and NoobAI (see [Pony & Community Fine-Tunes](pony-and-finetunes.html)). Expect fewer ready-made LoRAs and checkpoints than for SDXL or FLUX.1.
+
+## Licensing
+
+SD3 and SD3.5 are released under the **Stability AI Community License**, not the CreativeML Open RAIL-M/++-M licenses that cover SD 1.5 and SDXL.
+
+| Use | Terms (SD3.5 Community License) |
+|-----|---------------------------------|
+| Research and non-commercial | Free |
+| Commercial, total annual revenue under US$1M | Free, including derivative fine-tunes |
+| Commercial, revenue US$1M or more | Requires a Stability Enterprise license |
+
+The original SD3 Medium launch terms were narrower and caused some hosts to pause SD3 uploads until the license was revised. Terms have changed more than once, so read the current license on the Hugging Face model card before commercial deployment; this page is not legal advice.
+
+## SD3.5 vs SDXL vs FLUX
+
+| | SDXL | SD3.5 | FLUX.1 [dev] | FLUX.2 [dev] |
+|--|------|-------|--------------|--------------|
+| Released | Jul 2023 | Oct 2024 | Aug 2024 | Nov 2025 |
+| Backbone | U-Net (~2.6B) | MM-DiT (2.5B / 8.1B) | Hybrid MM-DiT (12B) | Rectified-flow transformer (32B) |
+| Objective | Noise prediction | Rectified flow | Rectified flow | Rectified flow |
+| Text encoders | CLIP-L + bigG | CLIP-L + bigG + T5-XXL | CLIP-L + T5-XXL | Mistral Small 3.2 (24B VLM) |
+| Text rendering | Poor | Good | Very good | Very good |
+| Guidance | CFG 5-9 | CFG 3.5-4.5 | Distilled guidance ~3.5, CFG 1 | Distilled guidance |
+| Practical VRAM | 8 GB | ~10 GB (Medium), 16 GB+ (Large) | 12 GB+ (quantized) | 24 GB+ (quantized) |
+| Ecosystem | Deepest | Small | Large | Growing |
+| License | Open RAIL++-M | Community (<$1M revenue free) | Non-commercial | Non-commercial |
+
+When SD3.5 is still the right choice:
+
+- You need **commercial use without a paid license** at small scale and want better prompt adherence and text than SDXL.
+- You want a **small transformer model**: 3.5 Medium runs on mid-range GPUs and handles a broad range of aspect ratios.
+- You need the official **Blur/Canny/Depth ControlNets** on a flow-matching model.
+
+For raw quality and ecosystem depth, FLUX-family and newer open models (for example Qwen-Image, a 20B MM-DiT released under Apache 2.0 in August 2025) generally outperform it. See the [FLUX Guide](flux-guide.html) and [Base Models Comparison](base-models-comparison.html).
 
 ## See Also
 
 - [Base Models Comparison](base-models-comparison.html) - SD3 in context with SD 1.5, SDXL, Pony, and FLUX
+- [FLUX Guide](flux-guide.html) - The other major MM-DiT, flow-matching family
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Latent diffusion, the forward/reverse process, and flow matching
 - [Model Types](model-types.html) - Checkpoints, LoRAs, VAEs, and how the pieces fit together
 - [ComfyUI Guide](comfyui-guide.html) - Building the SD3 inference graph visually
-- [LoRA Training](lora-training.html) - Training custom models on transformer backbones
-- [ControlNet](controlnet.html) - Precise control over generation
-- [Advanced Techniques](advanced-techniques.html) - Cutting-edge workflows
+- [LoRA Training](lora-training.html) - Training adapters on transformer backbones
+- [ControlNet](controlnet.html) - Structural control over generation
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index

@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: AWS Security & Identity
+description: "Reference for securing AWS: account structure and organization policies, IAM and workload identity, KMS encryption, threat detection with GuardDuty and Security Hub, and edge protection with WAF and Shield."
 permalink: /docs/technology/aws/security.html
 hide_title: true
 toc: true
@@ -9,595 +10,492 @@ toc_label: "On This Page"
 toc_icon: "shield-alt"
 ---
 
-Security in AWS isn't a feature you add later — it's woven into every decision from day one. This page covers identity (IAM), data protection (KMS), threat detection (Security Hub, GuardDuty), and edge protection (WAF), building from foundational principles up to automated, continuous compliance.
+AWS security is mostly about controlling *who can call which API on which resource*, then proving that control holds over time. This page covers the layers in the order a request meets them: account boundaries and organization policies, IAM identities and policy evaluation, credentials for workloads, encryption with KMS, threat detection and posture management, and edge protection. A reference Terraform baseline closes the page.
 
-## The Problem Security Solves
+## Shared responsibility
 
-In an on-premises data center, a locked door and a firewall went a long way: an attacker had to physically reach the building or breach the network perimeter. In the cloud, every resource has a public API endpoint, and a single leaked access key or an over-permissive policy can expose your entire account from anywhere on the internet. Security in AWS is therefore less about a perimeter and more about *who can do what to which resource* — and proving it.
+AWS secures the infrastructure that runs the cloud: data centers, hardware, hypervisors and the global network. The customer secures everything configured *in* the cloud: identities, permissions, network rules, data classification, encryption settings, and application code. For managed services the line moves (AWS patches the RDS engine; you still own the database users and security groups), but identity and data are always on the customer side. Nearly every public AWS breach traces back to that side: a public bucket, a leaked access key, an `0.0.0.0/0` rule on an admin port, or an over-broad role.
 
-The good news: AWS gives you fine-grained controls for exactly this, and most of them cost nothing to turn on. The hard part is knowing which control addresses which risk. This guide is organized around four questions:
+The controls on this page map onto four questions:
 
-| Question | Risk it addresses | Primary services |
-|----------|-------------------|------------------|
-| **Who can act, and on what?** | Stolen credentials, privilege escalation | IAM, IAM Identity Center, Organizations |
-| **Is the data readable if stolen?** | Data exfiltration, lost disks | KMS, encryption defaults |
-| **Are we being attacked right now?** | Active intrusion, misconfiguration | GuardDuty, Security Hub, Config |
-| **Can attacker traffic even reach us?** | DDoS, injection, scraping | WAF, Shield, Security Groups |
+| Question | Main risk | Primary services |
+|----------|-----------|------------------|
+| Who can act, and on what? | Stolen credentials, privilege escalation | Organizations, IAM Identity Center, IAM, Access Analyzer |
+| Is the data unreadable if it leaks? | Exfiltration, lost snapshots | KMS, service default encryption, Secrets Manager |
+| Is something bad happening now? | Intrusion, drift, vulnerable software | CloudTrail, GuardDuty, Inspector, Macie, Config, Security Hub |
+| Can hostile traffic reach the workload? | DDoS, injection, scraping | WAF, Shield, security groups, Network Firewall |
 
-### Where the Line Is Drawn: Shared Responsibility
+## Account structure and organization guardrails
 
-AWS secures the cloud (physical data centers, hypervisors, the network backbone). You secure what is *in* the cloud (identities, configuration, data, application code). Almost every breach you read about lives on the customer side of that line — a public S3 bucket, a hardcoded key, an `0.0.0.0/0` rule. Internalizing this division tells you where to spend your effort.
+The AWS account is the strongest isolation boundary AWS offers: IAM permissions, quotas and most resources do not cross accounts unless explicitly shared. Mature environments therefore use many accounts (per workload and per environment) grouped under **AWS Organizations**, usually set up through **AWS Control Tower** or an equivalent landing-zone tool.
 
-### The Security Maturity Path
+```mermaid
+flowchart TB
+    Mgmt["Management account<br/>billing, Organizations only"]
+    Mgmt --> Root((Org root))
+    Root --> SecOU["Security OU"]
+    Root --> InfraOU["Infrastructure OU"]
+    Root --> WlOU["Workloads OU"]
+    SecOU --> LogArch["Log archive<br/>org CloudTrail, Config"]
+    SecOU --> Audit["Security tooling<br/>delegated admin for GuardDuty,<br/>Security Hub, Inspector"]
+    InfraOU --> Net["Network<br/>Transit Gateway, egress"]
+    WlOU --> Prod["Prod OU"]
+    WlOU --> NonProd["Non-prod OU"]
+    Prod --> AppP["app-prod"]
+    NonProd --> AppD["app-dev"]
+```
 
-Most teams progress through these stages. You do not need to reach the end on day one, but you should know what each stage protects against:
+Keep the management account empty of workloads: service control policies do not apply to it, so anything running there is outside your guardrails. Delegate security services to a dedicated security-tooling account and send org-wide CloudTrail and Config data to a separate log-archive account that application teams cannot modify.
 
-1. **Basic protection**: MFA on the root account, individual IAM users/roles, no long-lived keys in code.
-2. **Defense in depth**: Private subnets, encryption at rest and in transit, CloudTrail logging on.
-3. **Automated compliance**: Config rules and Security Hub flag drift; GuardDuty watches for active threats.
-4. **Zero trust**: Assume breach. Verify every request, scope every credential, segment every network.
+### Organization policy types
 
----
+Organization policies never grant permissions; they set the maximum that identity and resource policies can grant.
 
-## IAM: Who Can Do What
+| Policy | Restricts | Typical use |
+|--------|-----------|-------------|
+| **Service control policy (SCP)** | What principals *in* member accounts can do | Deny leaving the org, disabling CloudTrail/GuardDuty, using unapproved Regions |
+| **Resource control policy (RCP)** | What *any* principal, including external ones, can do to resources in member accounts | Enforce a data perimeter: S3, KMS, SQS, Secrets Manager and STS resources reachable only by org identities |
+| **Declarative policies** | Service configuration baselines (e.g. EC2 settings) | Block public AMI sharing, require IMDSv2 across the org |
 
-IAM (Identity and Access Management) is the foundation everything else rests on. Get IAM wrong and no amount of encryption or threat detection will save you. Get it right and most attacks have nowhere to go.
+RCPs (introduced November 2024) close a gap SCPs could not: an SCP cannot stop a principal from *another* organization using a permissive bucket policy, but an RCP attached to your OU can. Neither SCPs nor RCPs affect the management account or service-linked roles.
 
-### The Four IAM Building Blocks
+### Root user
 
-| Concept | What it is | When to use it |
-|---------|-----------|----------------|
-| **User** | A long-lived identity for a human or legacy app | Rare today — prefer Identity Center for humans |
-| **Group** | A collection of users sharing permissions | Apply policies to many users at once (e.g. `Developers`) |
-| **Role** | A temporary identity that anything can assume | The default for applications, EC2, Lambda, cross-account access |
-| **Policy** | A JSON document granting or denying actions | Attached to users, groups, or roles to define permissions |
+Every account has a root user that bypasses IAM. Use it only for the handful of tasks that require it (closing a standalone account, restoring a locked-out administrator, a few billing tasks). AWS now enforces MFA for root sign-in, and in an organization you can enable **centralized root access management**: the management account (or a delegated IAM administrator) can delete root passwords, access keys and MFA devices from member accounts, and perform the few root-only actions, such as unlocking an S3 bucket whose policy denies everyone, as short-lived privileged sessions. New accounts created in the organization then have no root credentials at all.
 
-**The single most important rule:** prefer **roles** over **users with access keys**. A role hands out short-lived, automatically-rotated credentials; a user's access key sits in a config file or environment variable indefinitely, waiting to leak. EC2 instances, Lambda functions, and CI/CD pipelines should all assume roles, never carry static keys.
+## IAM: identities and permissions
 
-### Anatomy of an IAM Policy
+### Identity types
 
-Every permission decision comes down to a policy document. Read this one as "allow reading objects from a specific bucket, but only over TLS":
+| Identity | Credential | Use for |
+|----------|-----------|---------|
+| **IAM Identity Center user** | SSO sign-in, short-lived role sessions per account | All human access, federated from Okta, Entra ID, Google, or the built-in directory |
+| **IAM role** | Temporary STS credentials (15 min to 12 h) | Workloads, cross-account access, CI/CD, humans via Identity Center permission sets |
+| **IAM user** | Long-lived password and/or access keys | Only where nothing else works (some third-party tools); avoid for people |
+| **Root user** | Account owner credentials | Root-only tasks; otherwise removed or locked away |
+
+The rule that prevents most incidents: **no long-lived access keys**. A role hands out credentials that expire and rotate automatically; an access key sits in a file, environment variable, or git history until someone finds it.
+
+### Policy types
+
+| Type | Attached to | Grants? | Notes |
+|------|-------------|---------|-------|
+| Identity-based policy | User, group, role | Yes | AWS-managed, customer-managed, or inline |
+| Resource-based policy | Bucket, key, queue, role trust policy, etc. | Yes | Names a `Principal`; the only way to grant cross-account access without assuming a role |
+| Permissions boundary | User or role | No (caps) | Lets teams create roles without escalating beyond the boundary |
+| Session policy | An `AssumeRole` session | No (caps) | Narrows a single session |
+| SCP / RCP | Org root, OU, account | No (caps) | See above |
+
+### Policy evaluation
+
+Every request starts denied. It is allowed only if some applicable policy allows it and nothing denies it; any explicit `Deny` anywhere wins. For a request within one account, the logic is:
+
+```mermaid
+flowchart TD
+    Start([Request]) --> D{Explicit Deny in any<br/>applicable policy?}
+    D -->|Yes| Deny[Denied]
+    D -->|No| O{SCPs and RCPs<br/>allow it?}
+    O -->|No| Deny
+    O -->|Yes| R{Resource policy<br/>allows it?}
+    R -->|Yes| Allow[Allowed]
+    R -->|No| I{Identity policy<br/>allows it?}
+    I -->|No| Deny
+    I -->|Yes| B{Permissions boundary and<br/>session policy allow it?}
+    B -->|No| Deny
+    B -->|Yes| Allow
+```
+
+Cross-account requests are stricter: both the caller's identity policy **and** the target's resource policy must allow the action. (Within one account, a resource policy that names an IAM role or user as principal can grant access on its own; KMS key policies and role trust policies are exceptions that must always allow the principal explicitly.)
+
+### Anatomy of a policy
+
+A bucket policy that lets one role read objects, and refuses any request not sent over TLS:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AppRoleRead",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::111122223333:role/app-reader" },
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::my-app-bucket/*"
+    },
+    {
+      "Sid": "DenyInsecureTransport",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": ["arn:aws:s3:::my-app-bucket", "arn:aws:s3:::my-app-bucket/*"],
+      "Condition": { "Bool": { "aws:SecureTransport": "false" } }
+    }
+  ]
+}
+```
+
+- **Effect**: `Allow` or `Deny`; explicit `Deny` always wins.
+- **Principal**: who the statement applies to (resource policies only).
+- **Action**: API operations as `service:Operation`. Avoid `s3:*` in allows.
+- **Resource**: exact ARNs. Note the bucket ARN and object ARN (`/*`) are different resources.
+- **Condition**: context checks such as `aws:SecureTransport`, `aws:PrincipalOrgID`, `aws:SourceVpce`, `aws:MultiFactorAuthPresent`, or tag keys for attribute-based access control (ABAC).
+
+### Least privilege with IAM Access Analyzer
+
+Guessing permissions produces either broken deploys or `AdministratorAccess`. IAM Access Analyzer turns it into a data-driven loop:
+
+| Capability | What it does |
+|------------|--------------|
+| External access findings | Flags resources (buckets, keys, roles, queues, etc.) shared outside your account or organization |
+| Internal access findings | Shows which principals inside the organization can reach critical resources |
+| Unused access findings | Reports unused roles, access keys, passwords, and unused services/actions in attached policies |
+| Policy generation | Builds a policy from a role's actual CloudTrail activity |
+| Policy validation and custom checks | Lints policies and, in CI, fails a change that grants new access or public access |
+
+A practical sequence: grant a broad but bounded policy in development, generate a policy from observed activity, review it, deploy that to production, then watch unused-access findings to trim further.
+
+### Common IAM mistakes
+
+- **Daily use of root or long-lived admin users.** Use Identity Center with short sessions; keep break-glass access audited.
+- **Access keys in code, AMIs, or CI variables.** Use roles and OIDC federation; scan repositories with a secret scanner and enable GitHub or GitLab push protection.
+- **Wildcards on both action and resource.** `"Action": "*"` on `"Resource": "*"` is administrator access regardless of the policy's name.
+- **`iam:PassRole` on `*`.** Lets a principal hand any role, including admin roles, to a service it controls. Scope it to specific role ARNs and use the `iam:PassedToService` condition.
+- **Trust policies that trust a whole account** (`arn:aws:iam::<id>:root`) when a single role was intended, or third-party trust without an `sts:ExternalId` condition (the confused-deputy problem).
+
+## Credentials for workloads
+
+Workloads should obtain temporary credentials from the platform, never from a stored key.
+
+| Workload | Mechanism |
+|----------|-----------|
+| EC2 | Instance profile, delivered through the instance metadata service. Require **IMDSv2** (session-token based), which blocks the SSRF-to-metadata attacks that affected IMDSv1 |
+| Lambda, ECS/Fargate | Execution role / task role |
+| EKS pods | **EKS Pod Identity** (simpler, no OIDC provider per cluster) or IAM Roles for Service Accounts (IRSA) |
+| CI/CD (GitHub Actions, GitLab) | OIDC federation: the pipeline's signed token is exchanged for a role session via `sts:AssumeRoleWithWebIdentity` |
+| On-premises servers | IAM Roles Anywhere, using X.509 certificates from your CA |
+
+The trust policy is where OIDC federation is secured. This one allows only the `main` branch of one GitHub repository to assume the role:
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [{
-    "Sid": "ReadAppBucketOverTLS",
     "Effect": "Allow",
-    "Action": ["s3:GetObject"],
-    "Resource": "arn:aws:s3:::my-app-bucket/*",
+    "Principal": {
+      "Federated": "arn:aws:iam::111122223333:oidc-provider/token.actions.githubusercontent.com"
+    },
+    "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {
-      "Bool": { "aws:SecureTransport": "true" }
+      "StringEquals": {
+        "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+        "token.actions.githubusercontent.com:sub": "repo:example-org/example-repo:ref:refs/heads/main"
+      }
     }
   }]
 }
 ```
 
-- **Effect**: `Allow` or `Deny`. An explicit `Deny` always wins over any `Allow`.
-- **Action**: The API calls being permitted (`service:Operation`). Resist `s3:*`.
-- **Resource**: The exact ARNs the actions apply to. Resist `"Resource": "*"`.
-- **Condition**: Extra constraints — source IP, MFA present, encryption in transit, etc.
+Omitting or wildcarding the `sub` condition lets *any* repository on GitHub assume the role.
 
-### Least Privilege in Practice
+Application secrets that cannot be replaced by roles (database passwords, third-party API keys) belong in **Secrets Manager**, which supports automatic rotation, or in SSM Parameter Store `SecureString` parameters for simpler cases.
 
-Least privilege means granting only the permissions actually needed, then widening only when something breaks. The progression below shows the journey teams typically take:
+## Data protection and KMS
 
-| Stage | What it looks like | Why it is risky / better |
-|-------|--------------------|--------------------------|
-| **Bad** | Every developer has `AdministratorAccess` | One leaked key compromises everything |
-| **Better** | A shared `PowerUserAccess` role (no IAM rights) | Limits self-escalation, but still broad |
-| **Best** | Per-team policies scoped to specific services and resources | Blast radius of any one credential stays small |
+### Encryption defaults
 
-<div class="tip-card">
-  <h4>Tighten policies with real usage data</h4>
-  <p>Do not guess at permissions. IAM Access Analyzer can generate a least-privilege policy from the actual CloudTrail history of what a role used. Start broad in dev, then let the data tell you what to remove before production.</p>
-</div>
+| Layer | Current state | What to do |
+|-------|---------------|------------|
+| S3 at rest | All new objects encrypted with SSE-S3 by default since January 2023 | Use SSE-KMS where you need key-policy control or per-request audit; enable S3 Bucket Keys to cut KMS request costs |
+| EBS at rest | Opt-in per account and Region | Turn on EBS encryption by default in every Region you use |
+| RDS, DynamoDB, EFS | Encryption chosen at creation (DynamoDB always encrypts) | Enable at creation; an unencrypted RDS instance must be re-created from an encrypted snapshot copy |
+| In transit | TLS on all AWS API endpoints | Deny non-TLS access in resource policies; use ACM certificates on load balancers and CloudFront |
 
-### Common IAM Pitfalls
+### KMS keys
 
-<div class="notice--warning">
-  <h4>Common Pitfalls</h4>
-  <ul>
-    <li><strong>Using the root account for daily work:</strong> The root user can do anything, including closing the account. Lock it behind MFA, create an admin role, and never use root again except for the handful of tasks that require it.</li>
-    <li><strong>Long-lived access keys in code:</strong> Keys committed to git or baked into AMIs are the #1 source of breaches. Use roles; if you must use keys, rotate them and scan repos with tools like git-secrets.</li>
-    <li><strong>Wildcards everywhere:</strong> <code>"Action": "*"</code> on <code>"Resource": "*"</code> is administrator access by another name. Scope both.</li>
-    <li><strong>Forgetting MFA:</strong> A password alone is one phished email away from compromise. Enforce MFA on all human identities via an IAM policy condition.</li>
-  </ul>
-</div>
+KMS stores keys in FIPS 140-validated HSMs; plaintext key material never leaves the service. There are three ownership models:
 
----
+| Key type | Who controls the key policy | Rotation | Visible in CloudTrail |
+|----------|----------------------------|----------|------------------------|
+| AWS owned | The AWS service | Service-defined | No |
+| AWS managed (`aws/s3`, `aws/ebs`, ...) | AWS; you can view it | Yearly, automatic | Yes |
+| Customer managed | You | Optional automatic (default 365 days, custom period configurable) and on-demand rotation | Yes |
 
-## Encryption: Unreadable If Stolen
+Use customer managed keys when you need to control who can decrypt independently of who can read the storage, share encrypted data across accounts, or revoke access by disabling the key. Rotation replaces only the current key material; KMS keeps old material to decrypt existing ciphertext, so rotation needs no re-encryption and no code change.
 
-Encryption is your fallback for when a control fails — if a disk, snapshot, or bucket leaks, encrypted data is just noise without the key. AWS makes this nearly free to enable, so the only wrong choice is leaving it off.
+Services use **envelope encryption**: KMS generates a data key, the service encrypts data locally with the plaintext data key and stores only the KMS-encrypted copy beside the data.
 
-| Layer | What to enable | How |
-|-------|----------------|-----|
-| **At rest** | Default encryption on S3, EBS, RDS, DynamoDB | Toggle in console/IaC; transparent to your app |
-| **In transit** | TLS for every connection | Enforce with the `aws:SecureTransport` condition shown above |
-| **Key management** | KMS keys with automatic rotation | Use AWS-managed keys to start; customer-managed keys when you need control over policy and rotation |
+```mermaid
+sequenceDiagram
+    participant S as Service (e.g. S3, EBS)
+    participant K as AWS KMS
+    S->>K: GenerateDataKey(KeyId)
+    K-->>S: plaintext data key + encrypted data key
+    Note over S: Encrypt data with plaintext key,<br/>discard plaintext key,<br/>store encrypted key with data
+    S->>K: Decrypt(encrypted data key)
+    Note over K: Key policy + IAM checked,<br/>call logged to CloudTrail
+    K-->>S: plaintext data key
+```
 
-**Why KMS instead of managing keys yourself?** KMS handles generation, storage, rotation, and access logging of keys, and integrates directly with S3/EBS/RDS so encryption is transparent. Every use of a key is recorded in CloudTrail, giving you an audit trail of who decrypted what.
+Because every decrypt is an authorized, logged KMS call, the key policy becomes a second, independent access control on the data: a principal with `s3:GetObject` but without `kms:Decrypt` on the key gets `AccessDenied`.
 
-**Real-world scenario**: A healthcare startup turns on default encryption and KMS rotation from day one. When the HIPAA audit arrives, encryption-at-rest is already in place across every store — turning what is often months of remediation into a checkbox.
+## Detection and posture management
 
----
+Prevention eventually fails, so the second half of AWS security is visibility. The services divide the work as follows:
 
-## Detection: Are We Being Attacked?
+| Service | Answers | Inputs |
+|---------|---------|--------|
+| **CloudTrail** | Who called which API, when, from where | Management events (always), data events (opt-in, e.g. S3 object reads, Lambda invokes) |
+| **Config** | What did this resource look like, and does it comply? | Resource configuration history evaluated against rules |
+| **GuardDuty** | Is something malicious happening? | CloudTrail, VPC flow logs, DNS logs, plus optional protection plans |
+| **Inspector** | Which workloads have known vulnerabilities? | Continuous CVE and network-reachability scanning of EC2, ECR images, Lambda |
+| **Macie** | Where is sensitive data stored? | Automated discovery and classification of S3 objects (PII, credentials) |
+| **Security Hub CSPM** | Do we meet a benchmark? | Config-based controls for AWS FSBP, CIS AWS Foundations (v5.0.0 is current), NIST SP 800-53/800-171, PCI DSS |
+| **Security Hub** | What should we fix first? | Correlates GuardDuty, Inspector, Macie and CSPM findings into exposure findings and attack paths (OCSF format) |
+| **Detective** | What is the scope of this incident? | Graph of CloudTrail, flow logs and findings for investigation |
 
-Prevention is never perfect, so you also need to *see* what is happening. Three services cover the spectrum, and they complement rather than replace each other:
+In 2025 AWS relaunched **Security Hub** as a unified security operations service that correlates signals across GuardDuty, Inspector, Macie and posture checks, surfacing *exposure findings* (a vulnerable, internet-reachable instance with an over-privileged role is one prioritized issue rather than three unrelated alerts) and visual attack paths. The original compliance-checking service continues as **Security Hub CSPM**, which still produces ASFF control findings and a per-standard security score.
 
-| Service | What it answers | What it watches |
-|---------|-----------------|-----------------|
-| **GuardDuty** | "Is something malicious happening?" | CloudTrail, VPC flow, DNS logs analyzed by ML for threats |
-| **Config** | "Did a resource drift from policy?" | Resource configuration changes against rules (e.g. "no public buckets") |
-| **Security Hub** | "What is my overall posture?" | Aggregates GuardDuty + Config + standards (CIS, PCI-DSS) into one score |
+GuardDuty's foundational analysis of CloudTrail, VPC flow logs and DNS logs needs no agents. Additional **protection plans** extend it: S3 Protection (data events), EKS audit-log monitoring, Runtime Monitoring (agent-based, for EKS, ECS/Fargate and EC2), Malware Protection for EC2 and for S3 uploads, RDS login-activity monitoring, and Lambda network activity. **Extended Threat Detection** correlates individual signals into multi-stage attack sequence findings.
 
-Think of it as layers: **Config** catches misconfiguration, **GuardDuty** catches active intrusion, and **Security Hub** is the dashboard that rolls both up against a compliance benchmark so you get a single prioritized findings list instead of scattered alarms.
+```mermaid
+flowchart LR
+    subgraph Sources
+      CT[CloudTrail]
+      Flow[VPC flow + DNS logs]
+      Res[Resource configs]
+      Wl[EC2 / ECR / Lambda]
+      S3d[S3 data]
+    end
+    CT --> GD[GuardDuty]
+    Flow --> GD
+    Res --> CFG[Config] --> CSPM[Security Hub CSPM]
+    Wl --> INS[Inspector]
+    S3d --> MAC[Macie]
+    GD --> SH[Security Hub<br/>correlation, exposure findings]
+    INS --> SH
+    MAC --> SH
+    CSPM --> SH
+    SH --> EB[EventBridge] --> Resp[Ticketing, chat,<br/>automated remediation]
+```
 
-### Security Hub: Your Compliance Command Center
+Operational practices that matter more than any individual service:
 
-Security Hub continuously evaluates your environment against industry standards (CIS, PCI-DSS, AWS Foundational Security Best Practices) and produces a real-time compliance score, so manual quarterly security reviews become continuous automated ones. The Terraform below shows the core wiring — enabling Security Hub, subscribing to standards, and routing high-severity findings to an automated remediation Lambda. The full configuration (GuardDuty, Macie, Inspector, Config rules, WAF) follows; treat it as a reference you adapt, not a block to copy wholesale.
+- Enable an **organization trail** covering all Regions, delivered to the log-archive account with S3 Object Lock or restrictive bucket policies so an attacker cannot erase their tracks.
+- Enable GuardDuty, Security Hub and Inspector **organization-wide in every Region**, including Regions you do not use; attackers favor them. An SCP that denies unused Regions complements this.
+- Use delegated administration so findings aggregate in the security account, and enable cross-Region aggregation.
+- Route high-severity findings through EventBridge to a human queue first; automate remediation only for well-understood, low-blast-radius fixes (revoking a public ACL, isolating an instance's security group).
+
+## Edge and network protection
+
+| Control | Protects against | Where it sits |
+|---------|------------------|---------------|
+| **AWS WAF** | Injection, XSS, bots, credential stuffing, request floods | CloudFront, ALB, API Gateway, AppSync, Cognito, App Runner, Verified Access |
+| **Shield Standard** | Common layer 3/4 DDoS | All AWS edge and Regional endpoints, free and automatic |
+| **Shield Advanced** | Large or targeted DDoS; includes a response team and cost protection for scaling during attacks | Paid subscription per organization |
+| **Security groups** | Unwanted connections to an ENI | Stateful, allow-only, per network interface |
+| **Network ACLs** | Coarse subnet-level blocks | Stateless, ordered allow/deny rules |
+| **Network Firewall** | Egress filtering, IDS/IPS, domain allow-lists | Dedicated firewall endpoints in the VPC |
+| **Firewall Manager** | Drift in WAF, Shield, SG and firewall policy across accounts | Organization-wide policy enforcement |
+
+Start WAF with AWS managed rule groups (Core rule set, Known bad inputs, IP reputation, and the language-specific sets such as SQL database) plus a rate-based rule, and run new rules in **Count** mode before switching them to **Block**. Rate-based rules count requests per aggregation key (IP, forwarded IP, header, or custom keys) over a 1, 2, 5 or 10 minute evaluation window, with a minimum limit of 10 requests. Bot Control and Fraud Control (account-takeover and account-creation prevention) are paid managed rule groups for automated-traffic problems.
+
+## Defense in depth
+
+A request must clear every layer, and a failure in one is contained by the next:
+
+```mermaid
+flowchart TB
+    Req([Incoming request]) --> Edge["WAF + Shield<br/>filter malicious traffic"]
+    Edge --> SG["Security group<br/>only expected ports and sources"]
+    SG --> App["Application on EC2 / Lambda / containers"]
+    App --> IAM["IAM role<br/>scoped, temporary credentials"]
+    IAM --> Data["Data store<br/>KMS key policy, TLS in transit"]
+    Det["CloudTrail, GuardDuty,<br/>Security Hub"] -. observes .-> Edge
+    Det -. observes .-> App
+    Det -. observes .-> IAM
+    Det -. observes .-> Data
+```
+
+If WAF misses an exploit, the security group still limits what the compromised process can reach. If a credential leaks, IAM scoping limits the blast radius and organization policies cap it further. If data is copied out, it is encrypted under a key the attacker cannot use. Detection services watch every layer throughout.
+
+## Reference Terraform baseline
+
+The following Terraform (AWS provider v5 or later) enables the core detection services in a single account with current APIs. In an organization, run the equivalent from the delegated administrator account and use the organization-configuration resources (`aws_guardduty_organization_configuration`, `aws_securityhub_organization_configuration`) instead of per-account enablement.
 
 ```hcl
-# security-hub.tf - Security Hub configuration and custom checks
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
 
-# Enable Security Hub
-resource "aws_securityhub_account" "main" {
-  depends_on = [
-    aws_organizations_organization.main
-  ]
+locals {
+  region = data.aws_region.current.name
 }
 
-# Enable security standards
+# --- Security Hub CSPM: subscribe to chosen standards explicitly ---
+resource "aws_securityhub_account" "this" {
+  enable_default_standards  = false
+  control_finding_generator = "SECURITY_CONTROL" # consolidated control findings
+}
+
+resource "aws_securityhub_standards_subscription" "fsbp" {
+  standards_arn = "arn:aws:securityhub:${local.region}::standards/aws-foundational-security-best-practices/v/1.0.0"
+  depends_on    = [aws_securityhub_account.this]
+}
+
 resource "aws_securityhub_standards_subscription" "cis" {
-  standards_arn = "arn:aws:securityhub:${var.aws_region}::standards/cis-aws-foundations-benchmark/v/1.4.0"
-  
-  depends_on = [aws_securityhub_account.main]
+  standards_arn = "arn:aws:securityhub:${local.region}::standards/cis-aws-foundations-benchmark/v/5.0.0"
+  depends_on    = [aws_securityhub_account.this]
 }
 
-resource "aws_securityhub_standards_subscription" "pci_dss" {
-  standards_arn = "arn:aws:securityhub:${var.aws_region}::standards/pci-dss/v/3.2.1"
-  
-  depends_on = [aws_securityhub_account.main]
-}
-
-resource "aws_securityhub_standards_subscription" "aws_foundational" {
-  standards_arn = "arn:aws:securityhub:${var.aws_region}::standards/aws-foundational-security-best-practices/v/1.0.0"
-  
-  depends_on = [aws_securityhub_account.main]
-}
-
-# Custom Security Hub action
-resource "aws_securityhub_action_target" "remediate" {
-  name        = "Remediate"
-  identifier  = "Remediate"
-  description = "Trigger automated remediation"
-  
-  depends_on = [aws_securityhub_account.main]
-}
-
-# Lambda for custom security checks
-resource "aws_lambda_function" "security_checker" {
-  filename         = "security_checker.zip"
-  function_name    = "${var.environment}-custom-security-checks"
-  role            = aws_iam_role.security_checker.arn
-  handler         = "index.handler"
-  runtime         = "python3.12"
-  timeout         = 900
-  memory_size     = 3008
-  
-  environment {
-    variables = {
-      SECURITY_HUB_PRODUCT_ARN = "arn:aws:securityhub:${var.aws_region}:${data.aws_caller_identity.current.account_id}:product/${data.aws_caller_identity.current.account_id}/default"
-      ENVIRONMENT              = var.environment
-    }
-  }
-  
-  vpc_config {
-    subnet_ids         = var.private_subnet_ids
-    security_group_ids = [aws_security_group.lambda.id]
-  }
-}
-
-# EventBridge rule to trigger security checks
-resource "aws_cloudwatch_event_rule" "security_checks" {
-  name                = "${var.environment}-security-checks"
-  description         = "Trigger custom security checks"
-  schedule_expression = "rate(6 hours)"
-}
-
-resource "aws_cloudwatch_event_target" "security_checker" {
-  rule      = aws_cloudwatch_event_rule.security_checks.name
-  target_id = "SecurityChecker"
-  arn       = aws_lambda_function.security_checker.arn
-}
-
-# Config Rules for compliance
-resource "aws_config_config_rule" "encrypted_volumes" {
-  name = "${var.environment}-encrypted-volumes"
-  
-  source {
-    owner             = "AWS"
-    source_identifier = "ENCRYPTED_VOLUMES"
-  }
-  
-  depends_on = [aws_config_configuration_recorder.main]
-}
-
-resource "aws_config_config_rule" "restricted_ssh" {
-  name = "${var.environment}-restricted-ssh"
-  
-  source {
-    owner             = "AWS"
-    source_identifier = "INCOMING_SSH_DISABLED"
-  }
-  
-  depends_on = [aws_config_configuration_recorder.main]
-}
-
-resource "aws_config_config_rule" "s3_bucket_encryption" {
-  name = "${var.environment}-s3-bucket-encryption"
-  
-  source {
-    owner             = "AWS"
-    source_identifier = "S3_BUCKET_SERVER_SIDE_ENCRYPTION_ENABLED"
-  }
-  
-  depends_on = [aws_config_configuration_recorder.main]
-}
-
-# Custom Config rule with Lambda
-resource "aws_config_config_rule" "custom_security_check" {
-  name = "${var.environment}-custom-security-check"
-  
-  source {
-    owner             = "LAMBDA"
-    source_identifier = aws_lambda_function.config_rule_evaluator.arn
-    
-    source_detail {
-      message_type = "ConfigurationItemChangeNotification"
-    }
-    
-    source_detail {
-      message_type = "OversizedConfigurationItemChangeNotification"
-    }
-  }
-  
-  depends_on = [aws_config_configuration_recorder.main]
-}
-
-# GuardDuty configuration
-resource "aws_guardduty_detector" "main" {
+# --- GuardDuty: detector plus protection plans as "features" ---
+# (the older `datasources` block is deprecated; newer plans exist only as features)
+resource "aws_guardduty_detector" "this" {
   enable                       = true
   finding_publishing_frequency = "FIFTEEN_MINUTES"
-  
-  datasources {
-    s3_logs {
-      enable = true
-    }
-    kubernetes {
-      audit_logs {
-        enable = true
-      }
-    }
-    malware_protection {
-      scan_ec2_instance_with_findings {
-        ebs_volumes {
-          enable = true
-        }
-      }
-    }
+}
+
+resource "aws_guardduty_detector_feature" "plans" {
+  for_each    = toset(["S3_DATA_EVENTS", "EKS_AUDIT_LOGS", "EBS_MALWARE_PROTECTION", "RDS_LOGIN_EVENTS", "LAMBDA_NETWORK_LOGS"])
+  detector_id = aws_guardduty_detector.this.id
+  name        = each.value
+  status      = "ENABLED"
+}
+
+resource "aws_guardduty_detector_feature" "runtime" {
+  detector_id = aws_guardduty_detector.this.id
+  name        = "RUNTIME_MONITORING"
+  status      = "ENABLED"
+
+  additional_configuration {
+    name   = "EKS_ADDON_MANAGEMENT"
+    status = "ENABLED"
+  }
+  additional_configuration {
+    name   = "ECS_FARGATE_AGENT_MANAGEMENT"
+    status = "ENABLED"
   }
 }
 
-# GuardDuty threat intelligence sets
-resource "aws_s3_bucket" "threat_intel" {
-  bucket = "${var.environment}-threat-intel-${data.aws_caller_identity.current.account_id}"
-}
-
-resource "aws_s3_bucket_versioning" "threat_intel" {
-  bucket = aws_s3_bucket.threat_intel.id
-  
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_object" "threat_list" {
-  bucket  = aws_s3_bucket.threat_intel.id
-  key     = "threat-lists/malicious-ips.txt"
-  content = file("${path.module}/threat-lists/malicious-ips.txt")
-  etag    = filemd5("${path.module}/threat-lists/malicious-ips.txt")
-}
-
-resource "aws_guardduty_threatintelset" "malicious_ips" {
-  activate    = true
-  detector_id = aws_guardduty_detector.main.id
-  format      = "TXT"
-  location    = "s3://${aws_s3_bucket.threat_intel.id}/${aws_s3_object.threat_list.key}"
-  name        = "malicious-ips"
-  
-  depends_on = [aws_s3_object.threat_list]
-}
-
-# GuardDuty member accounts
-resource "aws_guardduty_member" "member_accounts" {
-  for_each = var.member_accounts
-  
-  account_id                 = each.value.account_id
-  detector_id                = aws_guardduty_detector.main.id
-  email                      = each.value.email
-  invite                     = true
-  invitation_message         = "You are invited to join GuardDuty"
-  disable_email_notification = false
-}
-
-# Inspector v2
-resource "aws_inspector2_enabler" "main" {
+# --- Inspector and Access Analyzer ---
+resource "aws_inspector2_enabler" "this" {
   account_ids    = [data.aws_caller_identity.current.account_id]
-  resource_types = ["EC2", "ECR", "LAMBDA"]
+  resource_types = ["EC2", "ECR", "LAMBDA", "LAMBDA_CODE"]
 }
 
-# Macie for S3 data protection
-resource "aws_macie2_account" "main" {
-  finding_publishing_frequency = "FIFTEEN_MINUTES"
-  status                       = "ENABLED"
+resource "aws_accessanalyzer_analyzer" "external" {
+  analyzer_name = "external-access"
+  type          = "ACCOUNT" # ORGANIZATION from the delegated admin account
 }
 
-resource "aws_macie2_classification_job" "s3_scan" {
-  job_type = "ONE_TIME"
-  name     = "${var.environment}-s3-sensitive-data-scan"
-  
-  s3_job_definition {
-    bucket_definitions {
-      account_id = data.aws_caller_identity.current.account_id
-      buckets    = [aws_s3_bucket.data.id]
-    }
-  }
-  
-  depends_on = [aws_macie2_account.main]
-}
+resource "aws_accessanalyzer_analyzer" "unused" {
+  analyzer_name = "unused-access"
+  type          = "ACCOUNT_UNUSED_ACCESS"
 
-# Access Analyzer
-resource "aws_accessanalyzer_analyzer" "main" {
-  analyzer_name = "${var.environment}-access-analyzer"
-  type          = "ACCOUNT"  # or "ORGANIZATION"
-  
-  tags = {
-    Environment = var.environment
-  }
-}
-
-# Systems Manager compliance
-resource "aws_ssm_association" "patch_baseline" {
-  name = "AWS-RunPatchBaseline"
-  
-  targets {
-    key    = "tag:Environment"
-    values = [var.environment]
-  }
-  
-  schedule_expression = "cron(0 2 ? * SUN *)"
-  
-  parameters = {
-    Operation    = "Install"
-    RebootOption = "RebootIfNeeded"
-  }
-}
-
-# KMS key policies for security
-data "aws_iam_policy_document" "kms_key_policy" {
-  statement {
-    sid    = "Enable IAM User Permissions"
-    effect = "Allow"
-    
-    principals {
-      type        = "AWS"
-      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
-    }
-    
-    actions   = ["kms:*"]
-    resources = ["*"]
-  }
-  
-  statement {
-    sid    = "Allow use of the key for encryption"
-    effect = "Allow"
-    
-    principals {
-      type        = "Service"
-      identifiers = [
-        "logs.${var.aws_region}.amazonaws.com",
-        "s3.amazonaws.com",
-        "rds.amazonaws.com"
-      ]
-    }
-    
-    actions = [
-      "kms:Decrypt",
-      "kms:GenerateDataKey",
-      "kms:CreateGrant",
-      "kms:DescribeKey"
-    ]
-    
-    resources = ["*"]
-    
-    condition {
-      test     = "StringEquals"
-      variable = "kms:ViaService"
-      values = [
-        "s3.${var.aws_region}.amazonaws.com",
-        "rds.${var.aws_region}.amazonaws.com"
-      ]
+  configuration {
+    unused_access {
+      unused_access_age = 90
     }
   }
 }
 
-resource "aws_kms_key" "main" {
-  description             = "${var.environment} master key"
-  deletion_window_in_days = 30
+# --- Encryption defaults and a customer managed key ---
+resource "aws_ebs_encryption_by_default" "this" {
+  enabled = true
+}
+
+resource "aws_kms_key" "data" {
+  description             = "Application data key"
   enable_key_rotation     = true
-  policy                  = data.aws_iam_policy_document.kms_key_policy.json
-  
-  tags = {
-    Environment = var.environment
-  }
+  rotation_period_in_days = 180
+  deletion_window_in_days = 30
+  # Supply an explicit key policy in production; the default grants the
+  # account's IAM administrators control of the key.
 }
 
-# Security automation with EventBridge and Lambda
-resource "aws_cloudwatch_event_rule" "security_findings" {
-  name        = "${var.environment}-security-findings"
-  description = "Capture Security Hub findings for automated remediation"
-  
+# --- Route high-severity findings to a responder ---
+resource "aws_cloudwatch_event_rule" "high_findings" {
+  name = "securityhub-high-findings"
   event_pattern = jsonencode({
-    source      = ["aws.securityhub"]
-    detail-type = ["Security Hub Findings - Imported"]
+    source        = ["aws.securityhub"]
+    "detail-type" = ["Security Hub Findings - Imported"]
     detail = {
       findings = {
-        Severity = {
-          Label = ["CRITICAL", "HIGH"]
-        }
-        Workflow = {
-          Status = ["NEW"]
-        }
+        Severity = { Label = ["CRITICAL", "HIGH"] }
+        Workflow = { Status = ["NEW"] }
       }
     }
   })
 }
 
-resource "aws_cloudwatch_event_target" "remediation" {
-  rule      = aws_cloudwatch_event_rule.security_findings.name
-  target_id = "RemediationFunction"
-  arn       = aws_lambda_function.auto_remediation.arn
+resource "aws_cloudwatch_event_target" "notify" {
+  rule = aws_cloudwatch_event_rule.high_findings.name
+  arn  = var.security_alerts_sns_topic_arn
 }
 
-resource "aws_lambda_function" "auto_remediation" {
-  filename         = "auto_remediation.zip"
-  function_name    = "${var.environment}-security-auto-remediation"
-  role            = aws_iam_role.remediation.arn
-  handler         = "index.handler"
-  runtime         = "python3.12"
-  timeout         = 300
-  
-  environment {
-    variables = {
-      ENVIRONMENT = var.environment
-    }
-  }
-}
+# --- WAF web ACL with managed rules and a rate limit ---
+resource "aws_wafv2_web_acl" "app" {
+  name  = "app-web-acl"
+  scope = "REGIONAL" # "CLOUDFRONT" must be created in us-east-1
 
-# WAF rules for application protection
-resource "aws_wafv2_web_acl" "main" {
-  name  = "${var.environment}-waf-acl"
-  scope = "REGIONAL"  # or "CLOUDFRONT"
-  
   default_action {
     allow {}
   }
-  
+
   rule {
-    name     = "RateLimitRule"
+    name     = "aws-common"
     priority = 1
-    
-    statement {
-      rate_based_statement {
-        limit              = 2000
-        aggregate_key_type = "IP"
-      }
-    }
-    
-    action {
-      block {}
-    }
-    
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "RateLimitRule"
-      sampled_requests_enabled   = true
-    }
-  }
-  
-  rule {
-    name     = "ManagedRuleGroup"
-    priority = 2
-    
     override_action {
       none {}
     }
-    
     statement {
       managed_rule_group_statement {
-        name        = "AWSManagedRulesKnownBadInputsRuleSet"
         vendor_name = "AWS"
+        name        = "AWSManagedRulesCommonRuleSet"
       }
     }
-    
     visibility_config {
       cloudwatch_metrics_enabled = true
-      metric_name                = "ManagedRuleGroup"
+      metric_name                = "aws-common"
       sampled_requests_enabled   = true
     }
   }
-  
+
+  rule {
+    name     = "rate-limit-per-ip"
+    priority = 2
+    action {
+      block {}
+    }
+    statement {
+      rate_based_statement {
+        limit                 = 1000
+        evaluation_window_sec = 300
+        aggregate_key_type    = "IP"
+      }
+    }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "rate-limit-per-ip"
+      sampled_requests_enabled   = true
+    }
+  }
+
   visibility_config {
     cloudwatch_metrics_enabled = true
-    metric_name                = "${var.environment}-waf-acl"
+    metric_name                = "app-web-acl"
     sampled_requests_enabled   = true
-  }
-  
-  tags = {
-    Environment = var.environment
   }
 }
 ```
 
----
+Protection plans and Inspector scan types vary by Region, and each carries its own charges after the free trial. Check which ones your workloads need rather than enabling every feature by default.
 
-## Edge Protection: Can Attacker Traffic Reach Us?
+## See also
 
-The final layer filters traffic before it touches your application. The `aws_wafv2_web_acl` above sits in front of CloudFront or an ALB and drops bad requests at the edge:
-
-| Control | Protects against | Where it sits |
-|---------|------------------|---------------|
-| **WAF** | SQL injection, XSS, bot scraping, request floods | CloudFront / ALB / API Gateway |
-| **Shield Standard** | Common network/transport DDoS (free, always on) | Edge, automatic |
-| **Shield Advanced** | Large/sophisticated DDoS, with cost protection | Edge, paid |
-| **Security Groups** | Unwanted inbound/outbound to a resource | Per ENI (stateful firewall) |
-
-The WAF rules above combine a **rate-based rule** (block any IP exceeding 2,000 requests in the evaluation window — a cheap defense against scraping and brute force) with an **AWS-managed rule group** (`KnownBadInputs`) that catches common exploit payloads without you maintaining signatures. Start with managed rule groups; write custom rules only for application-specific patterns.
-
-## How the Layers Fit Together
-
-Security is not one control but a stack — a request must clear every layer, and a breach of one is contained by the next:
-
-```mermaid
-flowchart TB
-    Req([Incoming request]) --> WAF["WAF + Shield<br/>filter malicious traffic"]
-    WAF --> SG["Security Group<br/>allow only expected ports"]
-    SG --> App["Application / EC2 / Lambda"]
-    App --> IAM["IAM role<br/>scoped, temporary credentials"]
-    IAM --> Data["Encrypted data<br/>KMS keys, TLS in transit"]
-    GD["GuardDuty + Config + Security Hub"] -. "watch every layer" .-> WAF
-    GD -. .-> App
-    GD -. .-> Data
-```
-
-If WAF misses something, the security group still limits exposure. If a credential leaks, IAM scoping limits the blast radius. If data is exfiltrated, encryption renders it useless. And throughout, the detection services watch every layer for anomalies.
-
-## Key Takeaways
-
-- **Least privilege always.** Grant the minimum permissions each user or service needs. Prefer scoped custom policies and IAM roles over broad managed policies like AdministratorAccess.
-- **Encrypt everywhere.** Enable encryption at rest (S3, EBS, RDS) and in transit (TLS). Let KMS handle key management and rotation.
-- **Shared responsibility.** AWS secures the cloud; you secure what's in it — access control, configuration, and data. Know which side of the line each control sits on.
-- **Detect and automate.** Turn on GuardDuty and Security Hub for continuous threat detection, and automate remediation so misconfigurations are caught fast.
-
----
-
-## See Also
-
-- [AWS Hub](./) - Overview of all AWS documentation
-- [Compute Services](compute.html) - EC2 and Lambda security configurations
-- [Networking](../networking/) - VPC security and WAF integration
-- [Infrastructure as Code](iac.html) - Security automation and compliance monitoring
-- [Cybersecurity Guide](../cybersecurity/) - General security concepts
+- [AWS Hub](./) - overview of all AWS documentation
+- [Networking & Content Delivery](networking.html) - VPC design, security groups, CloudFront
+- [Compute Services](compute.html) - instance profiles, Lambda execution roles
+- [Monitoring & Messaging](monitoring.html) - CloudWatch and CloudTrail operations
+- [Troubleshooting](troubleshooting.html) - diagnosing `AccessDenied` and connectivity failures
+- [Infrastructure as Code](iac.html) - managing security configuration as code
+- [Cloud and Container Security](../cybersecurity/cloud-and-container-security.html) - provider-neutral cloud security concepts
+- [Cybersecurity](../cybersecurity/) - general security fundamentals

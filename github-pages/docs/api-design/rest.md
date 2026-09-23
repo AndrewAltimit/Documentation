@@ -9,14 +9,9 @@ hide_title: true
 
 [API Design](./) &raquo; REST
 
-REST is not a protocol or a framework — it is an *architectural style*: a set of constraints that, when honored, give an API the scaling, evolvability, and cache-friendliness of the web itself. In practice "REST" has come to mean "JSON over HTTP", but the value comes from taking the underlying ideas seriously: model your domain as **resources** with stable identifiers, manipulate them with the **uniform interface** of HTTP methods and status codes, keep every request **stateless**, and let responses describe their own cacheability and next actions. Four ideas anchor everything below:
+**REST** (Representational State Transfer) is an *architectural style*, not a protocol or framework. It is a set of constraints that, when an API follows them, give it the same scalability, evolvability, and cacheability as the web. In everyday use "REST API" usually just means "JSON over HTTP". The benefits, though, come from applying the underlying ideas: model the domain as **resources** with stable identifiers, operate on them through the **uniform interface** of HTTP methods, status codes, and headers, keep each request **stateless**, and have responses declare their own cacheability.
 
-- **Resources, not actions.** An API exposes nouns (`/orders/42`) acted on by a fixed verb set, not an open-ended catalog of RPC procedures.
-- **The uniform interface is the point.** Methods, status codes, headers, and media types are a shared contract every client and proxy already understands.
-- **Stateless scales.** Each request carries everything needed to serve it, so any server can handle any request and you scale by adding boxes.
-- **Safety and idempotency are guarantees.** GET must not change state; PUT/DELETE can be retried safely — clients and proxies rely on it.
-
-This page covers the constraints that define REST, resource and URI modeling, the precise semantics of HTTP methods and status codes, versioning, pagination, filtering, idempotency, rate limiting, the RFC 7807 problem-details error format, and the OpenAPI contracts that turn all of this into tooling.
+This page covers the REST constraints, resource and URI design, HTTP method and status-code semantics (per RFC 9110), error bodies (RFC 9457), versioning and deprecation, pagination and filtering, idempotency keys, concurrency control and caching, rate limiting, authentication, hypermedia, and OpenAPI contracts.
 
 ## Table of contents
 {: .no_toc .text-delta }
@@ -26,185 +21,460 @@ This page covers the constraints that define REST, resource and URI modeling, th
 
 ---
 
-## REST Principles & Constraints
+## Constraints
 
-REST — **Re**presentational **S**tate **T**ransfer — was defined by Roy Fielding's 2000 dissertation as the architectural style of the web. It is characterized by six constraints. The first five are required for an API to be "RESTful"; the sixth is optional.
+Roy Fielding defined REST in his 2000 doctoral dissertation as the architectural style behind HTTP and the web. It consists of six constraints. The first five are required, and the sixth is optional.
 
-1. **Client–Server.** Separate the user interface (client) from data storage (server) so each evolves independently. The client knows resource URIs; the server knows how state is stored.
-2. **Stateless.** Each request from client to server must contain all information needed to understand it; the server keeps no client *session* state between requests. Authentication, for instance, travels on every request (a token), not in a server-held session. Statelessness is what lets you put any server behind a load balancer and scale horizontally.
-3. **Cacheable.** Responses must declare themselves cacheable or not (via `Cache-Control`, `ETag`, etc.). Caches — in the client, in proxies, in CDNs — can then satisfy later requests without touching the origin, cutting latency and load.
-4. **Uniform Interface.** This is the central constraint and what most distinguishes REST. It has four facets:
-   - **Identification of resources** — each resource has a stable URI.
-   - **Manipulation through representations** — clients act on resources by exchanging representations (a JSON document), not by calling stored procedures.
-   - **Self-descriptive messages** — each message carries enough metadata (method, status, `Content-Type`, caching headers) to be understood in isolation.
-   - **Hypermedia as the engine of application state (HATEOAS)** — responses include links to the next valid actions, so clients navigate the API rather than hard-coding URLs.
-5. **Layered System.** A client cannot tell whether it is connected to the origin server or an intermediary (gateway, proxy, cache). This lets you insert load balancers, caches, and security layers transparently.
-6. **Code on Demand (optional).** Servers may extend client functionality by sending executable code (e.g. JavaScript). Rarely treated as part of API design.
+| Constraint | Requirement | What it gives you |
+|---|---|---|
+| **Client–server** | UI concerns are separated from data storage | Each side can evolve independently |
+| **Stateless** | Every request carries everything the server needs to process it, and the server keeps no per-client session | Any instance can serve any request, so you scale horizontally behind a load balancer |
+| **Cacheable** | Responses state whether and for how long they can be cached | Browsers, proxies, and CDNs can answer repeat requests without contacting the origin |
+| **Uniform interface** | A fixed, shared set of methods and conventions (see below) | Generic clients, proxies, and tools work with any API |
+| **Layered system** | A client cannot tell whether it is talking to the origin or an intermediary | Gateways, caches, and WAFs can be inserted transparently |
+| **Code on demand** *(optional)* | The server may send executable code to the client | Rarely relevant to API design |
 
-> **The Richardson Maturity Model** is a useful ladder for grading how "RESTful" an API is. **Level 0**: a single URI, single method (effectively RPC tunneled through HTTP). **Level 1**: multiple resources with distinct URIs, but still one method. **Level 2**: proper use of HTTP verbs and status codes — where most production "REST" APIs live. **Level 3**: hypermedia controls (HATEOAS) drive the interaction. Each rung adds discoverability and decoupling; few APIs reach Level 3, and that is a defensible engineering choice.
+The **uniform interface** is the central constraint and has four parts:
 
-A design that violates statelessness (server-side sessions), ignores the uniform interface (`POST /getUser`, `POST /deleteUser`), or returns `200 OK` with an error body inside is not wrong because it breaks a rule for its own sake — it is wrong because it forfeits the caching, scaling, and tooling that the constraints buy you.
+- **Resource identification**: every resource has a stable URI.
+- **Manipulation through representations**: a client changes a resource by exchanging representations of it (such as a JSON document), not by invoking server procedures.
+- **Self-descriptive messages**: the method, status, `Content-Type`, and caching headers make each message understandable on its own.
+- **Hypermedia as the engine of application state (HATEOAS)**: responses contain links to the valid next actions (see [Hypermedia](#hypermedia-hateoas)).
 
-## Resource Modeling
+Breaking a constraint has concrete costs. Server-side sessions break horizontal scaling. `POST /getUser` hides a safe read from every cache. Returning `200 OK` with an error body hides failures from monitoring. In each case you give up something the constraint was providing.
 
-The first design task is to identify the **resources** — the nouns your API exposes — and give each a stable identifier. A resource is anything worth naming: an order, a user, a collection of users, a search result. The transition from a procedural mindset (`createOrder`, `cancelOrder`) to a resource mindset (`POST /orders`, then `DELETE /orders/42` or `PATCH /orders/42 {status: cancelled}`) is the core skill.
+### Richardson Maturity Model
 
-### URI Design
+Leonard Richardson's maturity model is a common way to describe how fully an API adopts REST:
 
-URIs name resources. A few durable conventions:
+| Level | Name | What it looks like |
+|---|---|---|
+| 0 | The swamp of POX | One URI, one method; RPC tunneled through HTTP (`POST /api` with an action in the body) |
+| 1 | Resources | Separate URIs per resource, but every call is still one method (usually POST) |
+| 2 | HTTP verbs | Correct methods and status codes; this is where most production "REST" APIs sit |
+| 3 | Hypermedia controls | Responses include links that drive state transitions |
 
-- **Use nouns, not verbs.** The HTTP method *is* the verb. `GET /orders`, not `GET /getOrders`.
-- **Use plural collection names.** `/orders`, `/orders/42`, `/users`, `/users/7`. A collection is a resource; an item is a member of it.
-- **Model hierarchy with nesting — sparingly.** `/users/7/orders` reads as "user 7's orders". Nest to express ownership, but stop at one or two levels; deep nesting (`/a/1/b/2/c/3/d/4`) is brittle. Once you have an order's ID you can usually address it directly at `/orders/42` rather than `/users/7/orders/42`.
-- **Lowercase, hyphenated paths.** `/shipping-addresses`, not `/shippingAddresses` or `/Shipping_Addresses`.
-- **Keep verbs out, even for actions.** A "ship this order" action that does not fit CRUD can be modeled as a sub-resource state change (`PATCH /orders/42 {status: "shipped"}`) or, pragmatically, as a controller sub-resource (`POST /orders/42/shipments`). Reserve RPC-style action URIs (`POST /orders/42/cancel`) for genuinely non-CRUD operations where forcing a resource shape would be contrived.
+Few public APIs reach level 3. Stopping at level 2 is a reasonable, deliberate choice for most APIs.
+
+## Resource modeling
+
+The first design task is to identify the **resources**, meaning the nouns the API exposes, and give each one a stable identifier. Anything worth naming can be a resource: an order, a user, the collection of all users, a saved search, even a long-running job. The central skill is moving from a procedural view (`createOrder`, `cancelOrder`) to a resource view (`POST /orders`, then `PATCH /orders/42` or `POST /orders/42/cancellation`).
+
+### URI design
+
+- **Use nouns.** The HTTP method is the verb: `GET /orders`, not `GET /getOrders`.
+- **Name collections in the plural.** `/orders` is the collection and `/orders/42` is a member of it.
+- **Nest only to show ownership, and keep it shallow.** `/users/7/orders` means "user 7's orders". Stop at one or two levels. Once a child has a globally unique ID, give it a top-level address (`/orders/42`) as well.
+- **Use lowercase, hyphenated path segments**, for example `/shipping-addresses`. Choose one casing for JSON fields (`camelCase` or `snake_case`) and apply it everywhere.
+- **Use opaque, stable identifiers.** Prefer UUIDs or similar IDs over auto-increment integers in public URIs. Sequential IDs leak volume and invite enumeration attacks (see [Security](#authentication-and-security)).
+- **Model awkward actions as resources where you can.** A "cancel" operation can be a state change (`PATCH /orders/42 {"status":"cancelled"}`) or a new resource (`POST /orders/42/cancellation`). Keep RPC-style action URIs (`POST /orders/42:cancel` in Google's AIP style, or `POST /orders/42/cancel`) for operations that really are not CRUD.
 
 | Goal | Good | Avoid |
 |------|------|-------|
 | List a collection | `GET /orders` | `GET /getAllOrders` |
 | Fetch one item | `GET /orders/42` | `GET /order?id=42` |
-| A user's orders | `GET /users/7/orders` | `GET /orders?owner=7` *(acceptable, but loses ownership semantics)* |
+| A user's orders | `GET /users/7/orders` or `GET /orders?customer_id=7` | `GET /users/7/orders/42/items/3/notes` |
 | Create | `POST /orders` | `POST /orders/create` |
 | Replace | `PUT /orders/42` | `POST /orders/42/update` |
-| A non-CRUD action | `POST /orders/42/cancel` | `GET /cancelOrder?id=42` |
+| Non-CRUD action | `POST /orders/42/cancellation` | `GET /cancelOrder?id=42` |
 
-### Representations
+### Representations and content negotiation
 
-A resource is distinct from its **representation**. `/orders/42` is the order; the JSON document you `GET` is one representation of it. **Content negotiation** lets the same resource be served as JSON, XML, or CSV depending on the client's `Accept` header:
+A resource is distinct from its **representation**. `/orders/42` is the order, and the JSON document returned by `GET` is one representation of it. With **content negotiation**, the same resource can be served in different formats depending on the `Accept` request header:
 
 ```http
 GET /orders/42 HTTP/1.1
 Accept: application/json
 ```
 
-The server replies with `Content-Type: application/json`. The same URI with `Accept: text/csv` could return a CSV export. In practice most APIs serve one format (JSON), but the principle — one resource, many representations — is why the URI names the resource rather than the file.
+The server answers with the matching `Content-Type`. If it cannot produce any acceptable format it returns `406 Not Acceptable`, and if the request *body* is in an unsupported format it returns `415 Unsupported Media Type`. Most APIs only serve JSON, but the principle (one resource, many representations) is the reason a URI names the resource and not a file.
 
-### Sub-resources and Relationships
+### Relationships
 
-Express relationships as links between resources, not as opaque embedded blobs. An order references its customer; rather than baking the full customer object into every order, link to it (`/customers/7`) and let the client follow the link when it needs the detail. This keeps representations small, avoids stale duplicated data, and is the on-ramp to HATEOAS. (Embedding is still a valid optimization for tightly-coupled, always-needed data — see *Pagination, Filtering & Field Selection* below for `?expand=customer`.)
+Represent relationships as links between resources, not as copied blobs. An order refers to its customer (`"customer": "/customers/7"`), and the client follows that link when it needs the details. This keeps payloads small and avoids stale duplicated data. When a client almost always needs the related data, allow opt-in embedding with `?expand=customer` (see [Filtering](#filtering-sorting-and-field-selection)).
 
-## HTTP Semantics & Status Codes
+## HTTP methods
 
-The uniform interface lives in the precise meaning of HTTP methods and status codes. Honoring these is what lets caches, proxies, and generic client libraries do the right thing without knowing your domain.
+RFC 9110 (*HTTP Semantics*, 2022) is the current definition of methods and status codes. It consolidates and replaces RFC 7230–7235. Following these semantics lets caches, proxies, retry middleware, and client libraries handle your API correctly without knowing anything about your domain.
 
-### Methods
+| Method | Purpose | Safe | Idempotent | Body | Cacheable | Typical success |
+|--------|---------|:----:|:----------:|:----:|:---------:|-----------------|
+| `GET` | Retrieve a representation | Yes | Yes | No | Yes | `200 OK` |
+| `HEAD` | GET without the body | Yes | Yes | No | Yes | `200 OK` |
+| `QUERY` | Safe query with a request body (RFC 10008) | Yes | Yes | Yes | Yes | `200 OK` |
+| `POST` | Create a subordinate resource, or perform an action | No | No | Yes | Rarely | `201 Created` / `200 OK` / `202 Accepted` |
+| `PUT` | Create or replace at a known URI | No | Yes | Yes | No | `200 OK` / `201 Created` / `204 No Content` |
+| `PATCH` | Partial update (RFC 5789) | No | Not guaranteed | Yes | No | `200 OK` / `204 No Content` |
+| `DELETE` | Remove the resource | No | Yes | No | No | `204 No Content` / `202 Accepted` |
+| `OPTIONS` | Describe communication options (and CORS preflight) | Yes | Yes | No | No | `204 No Content` |
 
-| Method | Purpose | Safe? | Idempotent? | Request body | Typical success |
-|--------|---------|:-----:|:-----------:|:------------:|-----------------|
-| `GET` | Retrieve a representation | Yes | Yes | No | `200 OK` |
-| `HEAD` | Like GET, headers only | Yes | Yes | No | `200 OK` |
-| `POST` | Create a subordinate / non-idempotent action | No | No | Yes | `201 Created` / `200 OK` |
-| `PUT` | Create-or-replace at a known URI | No | Yes | Yes | `200 OK` / `201 Created` |
-| `PATCH` | Partial update | No | No* | Yes | `200 OK` / `204 No Content` |
-| `DELETE` | Remove the resource | No | Yes | No | `204 No Content` |
-| `OPTIONS` | Describe communication options | Yes | Yes | No | `200 OK` |
+- **Safe** methods must not change server state from the client's point of view. Crawlers, link prefetchers, and caches call `GET` freely, so a `GET` that deletes something is a serious bug.
+- **Idempotent** methods leave the server in the same state whether they run once or many times. Calling `DELETE /orders/42` twice still leaves the order deleted, although the second call may return `404`. Idempotency is what makes **automatic retries** safe: HTTP clients and proxies may retry idempotent requests after a connection failure.
+- **`PATCH` is not inherently idempotent.** A JSON Patch operation `{"op":"add","path":"/tags/-","value":"x"}` appends every time it runs. A merge patch that sets fields to absolute values usually is idempotent. Design patches to be idempotent where possible, and make them safe to retry with preconditions (`If-Match`) or idempotency keys.
 
-- **Safe** methods (`GET`, `HEAD`, `OPTIONS`) must not change server state. A crawler that follows every `GET` link must never delete anything — this is why "destructive GET" links are a serious bug.
-- **Idempotent** methods produce the same server state whether called once or N times. `DELETE /orders/42` called twice still leaves the order deleted. This property is what makes **retries safe**: a client whose request times out can resend a `PUT` or `DELETE` without fear of double-applying it.
-- `PATCH` is *not inherently* idempotent (a JSON-Patch `{"op":"add", "path":"/tags/-", ...}` appends each time), but a `PATCH` that *sets* fields to absolute values usually is. Design patches to be idempotent where you can.
+### POST, PUT, and PATCH
 
-### PUT vs. POST vs. PATCH
+- **POST** creates a resource at a URI the *server* chooses. `POST /orders` returns `201 Created` and a `Location: /orders/42` header. Two identical POSTs create two orders, which is why POST needs [idempotency keys](#idempotency-keys) to be retried safely.
+- **PUT** creates or completely replaces the resource at a URI the *client* already knows. Sending the same `PUT /users/7` twice results in the same state. Fields left out of a PUT body are removed or reset, not left unchanged.
+- **PATCH** applies a partial modification. The two standard patch formats are:
+  - **JSON Merge Patch** (RFC 7396, `application/merge-patch+json`): send an object shaped like the resource. Fields present are set, and `null` deletes a field. It is simple, but it cannot set a field to `null` or edit individual array elements.
+  - **JSON Patch** (RFC 6902, `application/json-patch+json`): an ordered list of `add`/`remove`/`replace`/`move`/`copy`/`test` operations addressed by JSON Pointer. It is more expressive, and `test` operations can act as preconditions.
 
-- **POST** creates a resource whose URI the *server* assigns. `POST /orders` returns `201 Created` with a `Location: /orders/42` header. Because the client cannot predict the URI, POST is not idempotent — two POSTs make two orders.
-- **PUT** creates or replaces a resource at a URI the *client* already knows. `PUT /users/7` with a full user representation either creates user 7 or replaces it wholesale. Idempotent: repeating it yields the same state.
-- **PATCH** applies a *partial* modification — send only the fields that change, or a patch document (JSON Merge Patch, RFC 7386; or JSON Patch, RFC 6902). Use it to avoid the read-modify-write race and bandwidth of sending a whole representation to change one field.
+### QUERY: safe requests with a body
 
-### Status Codes
+Complex searches have long been awkward in REST. A `GET` query string has practical length limits and cannot carry structured filters, and `POST /orders/search` works but gives up safety, idempotency, and caching. **RFC 10008** (June 2026) standardizes the `QUERY` method for this case. It sends its query in the request body, like POST, but is defined as safe, idempotent, and cacheable, with the request body included in the cache key. Resources advertise support and accepted formats with the `Accept-Query` response header:
 
-Return the most specific accurate status code. Categories:
+```http
+QUERY /orders HTTP/1.1
+Content-Type: application/json
+Accept: application/json
 
-- **2xx — Success.**
-  - `200 OK` — generic success with a body.
-  - `201 Created` — a resource was created; include a `Location` header pointing to it.
-  - `202 Accepted` — the request was accepted for *asynchronous* processing (the work is not done yet); useful for long-running jobs, often with a status URL to poll.
-  - `204 No Content` — success with no body (typical for `DELETE` and some `PUT`/`PATCH`).
-- **3xx — Redirection.**
-  - `301 Moved Permanently` / `308 Permanent Redirect` — the resource moved; clients should update.
-  - `304 Not Modified` — conditional-GET cache hit (see *Caching*).
-- **4xx — Client error.** The request is wrong; retrying unchanged will not help.
-  - `400 Bad Request` — malformed syntax or invalid payload.
-  - `401 Unauthorized` — missing or invalid authentication (really "unauthenticated").
-  - `403 Forbidden` — authenticated but not permitted.
-  - `404 Not Found` — no such resource (also used to avoid leaking existence to unauthorized callers).
-  - `405 Method Not Allowed` — the URI exists but not for this method; include an `Allow` header.
-  - `409 Conflict` — the request conflicts with current state (e.g. an edit against a stale version).
-  - `422 Unprocessable Entity` — syntactically valid but semantically invalid (failed business validation).
-  - `429 Too Many Requests` — rate limit exceeded (see *Rate Limiting*).
-- **5xx — Server error.** The request was fine; the server failed.
-  - `500 Internal Server Error` — an unexpected fault.
-  - `502 Bad Gateway` / `503 Service Unavailable` / `504 Gateway Timeout` — upstream/availability problems; `503` and `504` are often transient and retryable, ideally with a `Retry-After` header.
+{ "status": ["pending", "paid"], "total": { "gte": 100 }, "sort": "-created_at" }
+```
 
-> **The cardinal sin** is returning `200 OK` with `{"error": "..."}` in the body. It defeats every generic client, monitoring tool, and proxy that keys on the status line, and it forces every caller to parse the body to learn whether the call succeeded. Let the status code carry the outcome; let the body carry the detail.
+Support in frameworks, proxies, and CDNs is still being rolled out, and OpenAPI 3.2 already describes it. Until your whole request path supports QUERY, `POST .../search` remains the pragmatic fallback.
 
-## Versioning
+## Status codes
 
-An API is a contract. Once clients depend on it, you cannot make breaking changes silently. **Additive** changes (new optional fields, new endpoints) are backward-compatible and need no version bump; **breaking** changes (removing a field, renaming one, tightening validation, changing a type) require a new version so existing clients keep working.
+Return the most specific accurate code. The status line tells generic infrastructure what happened, and the body gives the details.
 
-There are three common strategies, each with trade-offs:
+| Code | Meaning | Use it when |
+|---|---|---|
+| `200 OK` | Success with a body | Normal reads and updates |
+| `201 Created` | A resource was created | After POST/PUT creates something; include `Location` |
+| `202 Accepted` | Accepted for asynchronous processing | Long-running work; return a status-monitor URL (see [below](#long-running-operations)) |
+| `204 No Content` | Success, no body | DELETE, or updates that return nothing |
+| `301` / `308` | Moved permanently | The resource has a new URI. `308` keeps the method and body, `301` may turn POST into GET |
+| `304 Not Modified` | Conditional GET hit | The client's cached copy is still valid |
+| `400 Bad Request` | Malformed request | Unparseable JSON, wrong types, missing required fields |
+| `401 Unauthorized` | Not authenticated | Missing or invalid credentials; **must** include `WWW-Authenticate` |
+| `403 Forbidden` | Authenticated but not allowed | The caller lacks permission |
+| `404 Not Found` | No such resource | Also used in place of 403 to avoid revealing that a resource exists |
+| `405 Method Not Allowed` | Wrong method for this URI | Include an `Allow` header |
+| `409 Conflict` | Conflicts with current state | Duplicate unique key, invalid state transition, concurrent idempotent request |
+| `410 Gone` | Deliberately removed | A retired endpoint or resource that will not return |
+| `412 Precondition Failed` | `If-Match` / `If-Unmodified-Since` failed | Optimistic-concurrency conflict |
+| `415 Unsupported Media Type` | Wrong request `Content-Type` | The body format is not accepted |
+| `422 Unprocessable Content` | Well-formed but semantically invalid | Business-rule validation failures (renamed from "Unprocessable Entity" in RFC 9110) |
+| `428 Precondition Required` | The server requires a conditional request | Enforce `If-Match` on updates |
+| `429 Too Many Requests` | Rate-limited | Include `Retry-After` |
+| `500 Internal Server Error` | Unexpected fault | A bug; never intentionally |
+| `502` / `504` | Bad upstream response / upstream timeout | Gateway-level failures, often transient |
+| `503 Service Unavailable` | Overloaded or in maintenance | Transient; include `Retry-After` |
+
+The split between `4xx` and `5xx` tells the client what to do next. A `4xx` means the request is at fault and sending it again unchanged will not help (except `408`, `425`, and `429`, which invite a later retry). A `5xx` means the server is at fault, and retrying later, ideally with exponential backoff and jitter, may succeed.
+
+> **The most common mistake** is returning `200 OK` with `{"error": "..."}` in the body. Every client, monitoring dashboard, proxy, and retry policy that looks at the status line will treat the failure as a success, and every caller has to parse the body to find out what actually happened.
+
+### Error bodies: problem details (RFC 9457)
+
+Ad-hoc error bodies (`{"error":"bad"}` in one place and `{"message":"...","code":7}` in another) force clients to special-case every endpoint. **RFC 9457, *Problem Details for HTTP APIs*** (2023, which replaces RFC 7807) defines a standard JSON shape served as `application/problem+json`:
+
+```http
+HTTP/1.1 422 Unprocessable Content
+Content-Type: application/problem+json
+
+{
+  "type": "https://api.example.com/problems/validation-error",
+  "title": "Request failed validation",
+  "status": 422,
+  "detail": "2 fields are invalid.",
+  "instance": "/orders",
+  "errors": [
+    { "pointer": "#/items/0/quantity", "detail": "must be greater than 0" },
+    { "pointer": "#/shipping/postcode", "detail": "is required" }
+  ]
+}
+```
+
+| Member | Purpose |
+|---|---|
+| `type` | URI identifying the problem type, ideally resolving to documentation. This is the stable field clients should branch on. Defaults to `about:blank`. |
+| `title` | Short human-readable summary of the *type*; does not change between occurrences |
+| `status` | The HTTP status code, repeated for convenience |
+| `detail` | Human-readable explanation of *this* occurrence; clients should not parse it |
+| `instance` | URI identifying this specific occurrence (useful for support and log correlation) |
+
+**Extension members** (such as `errors` above, or `balance` for an insufficient-funds problem) carry machine-readable details. RFC 9457 also adds guidance on reporting multiple problems and a shared IANA registry of common problem types. Use one error format across the whole API. Consistency matters more than any particular choice of fields.
+
+### Long-running operations
+
+Work that takes longer than a normal request timeout (exports, video transcoding, provisioning) should not keep a connection open. The standard pattern is **202 Accepted plus a status monitor resource**:
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as API
+    participant W as Worker
+    C->>A: POST /exports {query}
+    A->>W: enqueue job 91
+    A-->>C: 202 Accepted<br/>Location: /exports/jobs/91
+    loop Poll (honour Retry-After)
+        C->>A: GET /exports/jobs/91
+        A-->>C: 200 {"status":"running","progress":0.4}<br/>Retry-After: 5
+    end
+    W->>A: job 91 done → /exports/91.csv
+    C->>A: GET /exports/jobs/91
+    A-->>C: 303 See Other<br/>Location: /exports/91.csv
+    C->>A: GET /exports/91.csv
+    A-->>C: 200 OK (the result)
+```
+
+Polling is simple and works through any firewall. If you want to avoid it, let the client register a **webhook** callback, or stream progress with **Server-Sent Events**. Model failures as a terminal job state that contains a problem-details object.
+
+## Versioning and deprecation
+
+Once clients depend on an API, you cannot make breaking changes without warning them. **Additive** changes such as new optional fields, new endpoints, and new enum values that clients are told to tolerate are backward-compatible. **Breaking** changes need a new version or a migration window. These include removing or renaming a field, changing a type, making an optional field required, and tightening validation.
+
+Clients share responsibility for compatibility. They should ignore unknown fields (the *tolerant reader* pattern) and not assume enums are closed. Without that, even additive changes break them.
 
 | Strategy | Example | Pros | Cons |
 |----------|---------|------|------|
-| **URI path** | `GET /v1/orders` | Obvious, easy to route, cache-friendly, trivially browsable | URI no longer identifies a single resource across versions; couples version to the path |
-| **Query parameter** | `GET /orders?version=1` | Easy to default | Easy to forget; muddies caching |
-| **Header / media type** | `Accept: application/vnd.acme.v2+json` | URIs stay clean and version-agnostic; "purest" REST | Invisible in a browser, harder to test, more complex routing |
+| **URI path** | `GET /v1/orders` | Visible, simple to route and cache, easy to test in a browser | The same resource has several URIs; tends to encourage "big bang" versions |
+| **Header / media type** | `Accept: application/vnd.acme.v2+json` | URIs stay stable; versions each representation | Invisible in logs and browsers; routing and caching need `Vary` |
+| **Date-based header** | `Stripe-Version: 2024-06-20` | Fine-grained, per-client pinning; many small changes instead of a v2 | The server must maintain transformation layers for every supported version |
+| **Query parameter** | `GET /orders?api-version=2024-10-21` | Easy to set a default | Easy to forget; muddies cache keys |
 
-**URI versioning** is the most widely used in practice because it is the most operationally simple — it is visible, cache-key-friendly, and trivial to route. Header-based **media-type versioning** is theoretically cleaner (the resource URI is stable; only its representation version changes) but pays in discoverability and tooling friction.
+URI versioning is the most common because it is the simplest to operate. Date-based versioning, where each account is pinned to the version current when it integrated and upgrades explicitly, is used by Stripe and Azure's `api-version` parameter and scales well for large public APIs.
 
-Whatever you choose, adopt a **deprecation policy**: announce removals ahead of time, serve a `Deprecation` and `Sunset` header (RFC 8594) on outgoing versions, and support old and new in parallel for a defined window. The goal is that no client is ever broken without warning.
+Retire old versions through a published lifecycle, and announce it in the protocol as well as in documentation:
 
-## Pagination, Filtering & Field Selection
+```http
+HTTP/1.1 200 OK
+Deprecation: @1767225600
+Sunset: Sun, 01 Nov 2026 00:00:00 GMT
+Link: <https://developer.example.com/migrate-v2>; rel="deprecation"; type="text/html"
+```
 
-Collection endpoints (`GET /orders`) must never return an unbounded list — that risks enormous responses and database scans. Always paginate.
+- **`Deprecation`** (RFC 9745, March 2025) says the resource is or will be deprecated. Its value is a structured-field date (`@` followed by Unix seconds). The resource keeps working unchanged.
+- **`Sunset`** (RFC 8594) gives the date after which the resource may stop responding.
+- A `Link` with `rel="deprecation"` points to migration documentation.
 
-### Pagination
+```mermaid
+timeline
+    title Lifecycle of an API version
+    Active : v2 released alongside v1
+    Deprecated : Deprecation header on v1 : migration guide published : usage monitored per client
+    Sunset date announced : Sunset header on v1 : direct outreach to remaining callers
+    Retired : v1 returns 410 Gone
+```
 
-Two dominant styles:
+## Pagination
 
-- **Offset / limit (page-based).** `GET /orders?limit=20&offset=40` (or `?page=3&per_page=20`). Simple and supports jumping to an arbitrary page. **Weaknesses:** deep offsets are slow (the database must skip N rows), and the result set *shifts* if items are inserted or deleted between page fetches, causing duplicates or skips.
-- **Cursor / keyset (token-based).** `GET /orders?limit=20&after=eyJpZCI6NDJ9`. The server returns an opaque `next` cursor encoding "where the last page ended" (e.g. the last item's sort key). **Strengths:** stable under concurrent inserts and efficient at any depth (it is a `WHERE id > ?` seek, not a skip). **Cost:** no random page access. Cursor pagination is the right default for large, mutating, or infinite-scroll collections.
+A collection endpoint must never return an unbounded list. Always paginate, apply a default page size, and enforce a maximum.
 
-A paginated response should carry the items plus pagination metadata — total count where feasible, and a link or cursor to the next page (this is also a small dose of HATEOAS):
+| Style | Request | Strengths | Weaknesses |
+|---|---|---|---|
+| **Offset / limit** | `?limit=20&offset=40` | Jump to any page; easy to show total pages | Slow at depth; rows shift under concurrent inserts and deletes, causing skipped or duplicated items |
+| **Cursor / keyset** | `?limit=20&after=eyJpZCI6NDJ9` | Stable under writes; constant cost at any depth | No random access; the sort key must be unique (use a tiebreaker such as `id`) |
+
+Cursor pagination is the right default for large, frequently changing, or infinite-scroll collections. The cursor should be **opaque** to clients (for example, base64-encoded `(created_at, id)` of the last row), so the server can change its encoding later.
 
 ```json
 {
   "data": [ { "id": 41, "...": "..." }, { "id": 42, "...": "..." } ],
-  "pagination": {
-    "limit": 20,
-    "next_cursor": "eyJpZCI6NDJ9",
-    "has_more": true
-  },
-  "links": {
-    "self": "/orders?limit=20",
-    "next": "/orders?limit=20&after=eyJpZCI6NDJ9"
-  }
+  "next_cursor": "eyJpZCI6NDJ9",
+  "has_more": true
 }
 ```
 
-The cost of pagination is small but real. For an `offset/limit` scheme, the work the database does to return page $k$ grows with the offset: returning $n$ rows after skipping $\text{offset}$ rows costs on the order of
+Alternatively, put navigation links in the RFC 8288 `Link` header (`Link: </orders?after=eyJpZCI6NDJ9>; rel="next"`), which is how GitHub's API paginates. Avoid returning an exact `total_count` on very large tables unless clients need it, because `COUNT(*)` can cost more than the page itself.
+
+The performance difference comes from what the database does. Returning $n$ rows after skipping $\text{offset}$ rows costs on the order of
 
 $$
 O(\text{offset} + n)
 $$
 
-because the engine still walks and discards the skipped rows. A keyset seek on an indexed sort key reduces this to roughly
+because the engine still reads and discards the skipped rows. A keyset seek (`WHERE (created_at, id) < (?, ?) ORDER BY created_at DESC, id DESC LIMIT n`) on an indexed key costs roughly
 
 $$
 O(\log N + n)
 $$
 
-for a B-tree of $N$ rows — independent of how deep into the collection the page is. This asymptotic gap is exactly why cursor pagination wins at scale.
+for a B-tree of $N$ rows, however deep into the collection the page is.
 
-### Filtering, Sorting & Field Selection
+### Filtering, sorting, and field selection
 
-- **Filtering** narrows the collection via query parameters: `GET /orders?status=shipped&min_total=100`. For complex predicates, define an explicit, documented filter grammar rather than letting clients inject arbitrary expressions (an injection and performance hazard).
-- **Sorting** via a `sort` parameter with a sign convention: `GET /orders?sort=-created_at,total` (descending created date, then ascending total).
-- **Field selection (sparse fieldsets)** lets clients request only the fields they need to cut payload size: `GET /orders/42?fields=id,total,status`. Conversely, `?expand=customer` can inline a related resource that would otherwise be a link, saving a round trip. These give clients GraphQL-like control over response shape while staying within REST.
+- **Filtering** uses query parameters: `GET /orders?status=shipped&total[gte]=100`. For anything more complex, define and document an explicit filter grammar (Google's AIP-160 filter syntax is a good model), or accept a structured body via `QUERY`. Never pass client input straight into SQL or query-language strings.
+- **Sorting** uses a `sort` parameter with a sign convention: `?sort=-created_at,total` sorts by newest first, then by ascending total. Allow sorting only on indexed fields.
+- **Sparse fieldsets** (`?fields=id,total,status`) shrink payloads, and **expansion** (`?expand=customer`) inlines a related resource to save a round trip. Together they give clients some of GraphQL's control over response shape while staying within REST.
 
-## HATEOAS
+## Idempotency keys
 
-**Hypermedia as the Engine of Application State** is the constraint that separates Level-3 REST from "JSON over HTTP". The idea: a response includes not just data but **links** describing the valid next actions from the current state, so the client *discovers* what it can do rather than hard-coding URLs and state-transition rules.
+Networks lose responses. A client sends `POST /payments`, the server charges the card, and the `201` is lost on the way back. The client sees a timeout and retries. Without protection, the card is charged twice.
 
-Consider an order. Its representation links to the actions available *given its current state*:
+GET, PUT, and DELETE are idempotent by definition, but POST (and many PATCHes) are not. The standard fix, popularized by Stripe and being standardized as the IETF `Idempotency-Key` header (draft-ietf-httpapi-idempotency-key-header, not yet an RFC), works like this. The client generates a unique key (a UUID) for each *logical* operation and sends it with every attempt. The server records the key together with the first result and replays that result for any retry.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    participant DB as Idempotency store
+    C->>S: POST /payments<br/>Idempotency-Key: "8e03…"
+    S->>DB: INSERT key (status=in_progress, body hash)
+    S->>S: charge card
+    S->>DB: UPDATE key → done, response=201
+    S--xC: 201 Created (lost in transit)
+    C->>S: retry: same key, same body
+    S->>DB: lookup key → done
+    S-->>C: 201 Created (replayed, no second charge)
+```
+
+```python
+import hashlib
+
+def create_payment(request):
+    key = request.headers.get("Idempotency-Key")
+    if key is None:
+        return problem(400, "Idempotency-Key header is required")
+
+    fingerprint = hashlib.sha256(request.body).hexdigest()
+
+    # Atomic claim: INSERT ... ON CONFLICT DO NOTHING (or SET NX in Redis).
+    claimed = store.insert_if_absent(key, status="in_progress",
+                                     fingerprint=fingerprint, ttl_hours=24)
+    if not claimed:
+        prior = store.get(key)
+        if prior.fingerprint != fingerprint:
+            return problem(422, "Idempotency-Key reused with a different request body")
+        if prior.status == "in_progress":
+            return problem(409, "A request with this key is still being processed")
+        return prior.response                       # replay the original outcome
+
+    try:
+        payment = charge_card(request.body, idempotency_key=key)   # propagate downstream
+        response = created(payment, location=f"/payments/{payment.id}")
+        store.complete(key, response=response)
+        return response
+    except TransientError:
+        store.delete(key)                           # nothing happened; allow a clean retry
+        raise
+```
+
+Design points:
+
+- **Claim the key atomically.** Use a unique constraint or `SET NX` so two concurrent retries cannot both run the side effect.
+- **Fingerprint the request.** Reusing a key with a different payload is a client bug. The draft recommends `422` for it, `409` for a concurrent duplicate, and `400` for a missing key.
+- **Store the key in the same transaction as the side effect** where possible. Otherwise, a crash between the charge and the `complete` call leaves an `in_progress` record that needs reconciliation.
+- **Propagate the key downstream.** Pass it (or a key derived from it) to payment processors and other services so the whole chain is idempotent, not just your edge.
+- **Expire keys** after a documented window. Stripe keeps them for 24 hours.
+
+## Concurrency control and caching
+
+HTTP's validators, `ETag` and `Last-Modified`, solve two problems: avoiding repeat downloads of unchanged data, and preventing lost updates. Caching behavior is defined in RFC 9111 (*HTTP Caching*).
+
+### Freshness
+
+The server tells caches how long a response stays fresh:
+
+```http
+Cache-Control: public, max-age=300, stale-while-revalidate=60
+```
+
+For 300 seconds, any cache (browser, proxy, or CDN) may serve the stored copy without contacting the origin. `stale-while-revalidate` (RFC 5861) lets a cache serve a slightly stale copy while it refreshes in the background. Use `private` for per-user responses (only the end client may store them) and `no-store` for sensitive data. If a response varies by request header (such as `Accept` or `Authorization`), declare it with `Vary`.
+
+### Validation and conditional requests
+
+```http
+# First response carries a validator
+HTTP/1.1 200 OK
+ETag: "a1b2c3"
+Cache-Control: max-age=60
+
+# After expiry, the client revalidates
+GET /orders/42 HTTP/1.1
+If-None-Match: "a1b2c3"
+
+# Unchanged: no body is re-sent
+HTTP/1.1 304 Not Modified
+ETag: "a1b2c3"
+```
+
+### Optimistic concurrency with If-Match
+
+The same ETag protects writes. A client that read `ETag: "a1b2c3"` sends `If-Match: "a1b2c3"` with its `PUT` or `PATCH`. If someone else has changed the resource since then, the ETag no longer matches and the server returns `412 Precondition Failed` instead of overwriting the newer data:
+
+```mermaid
+sequenceDiagram
+    participant A as Client A
+    participant S as Server
+    participant B as Client B
+    A->>S: GET /orders/42
+    S-->>A: 200, ETag "v1"
+    B->>S: GET /orders/42
+    S-->>B: 200, ETag "v1"
+    A->>S: PATCH /orders/42, If-Match "v1"
+    S-->>A: 200, ETag "v2"
+    B->>S: PATCH /orders/42, If-Match "v1"
+    S-->>B: 412 Precondition Failed
+    Note over B: re-GET, merge, retry with "v2"
+```
+
+To make conditional writes mandatory, reject unconditional updates with `428 Precondition Required`. ETags make updates safe to retry, and idempotency keys do the same for creates.
+
+## Rate limiting
+
+Public APIs need to protect themselves from runaway or abusive clients and share capacity fairly. A rate limiter caps requests per client over a time window and returns **`429 Too Many Requests`** when a client exceeds it. Limits are usually keyed by API key, user, or tenant (and by IP address for unauthenticated traffic), and often vary by plan.
+
+| Algorithm | How it works | Trade-off |
+|---|---|---|
+| **Fixed window** | Count requests per calendar window (1000/min) | Cheap, but allows up to 2x bursts at window boundaries |
+| **Sliding window** | Weight the previous window's count to approximate a rolling limit | Smooth and cheap; approximate |
+| **Token bucket** | A bucket holds up to $B$ tokens and refills at $r$ per second; each request spends one | Allows bursts up to $B$ while enforcing an average of $r$; the most common production choice |
+| **Leaky bucket** | Requests queue and drain at a constant rate | Smooths output completely; adds queueing latency |
+
+For a token bucket, the long-run sustainable rate is $r$ requests per second and the largest instantaneous burst is $B$. An empty bucket refills in
+
+$$
+t_{\text{refill}} = \frac{B}{r}
+$$
+
+so a 100-token bucket refilling at 10 tokens per second is full again after 10 seconds. A larger $B$ tolerates bursts better but lets a client hit the backend harder.
+
+### Communicating limits
+
+Tell clients their quota so they can throttle themselves. Many APIs still send the informal `X-RateLimit-Limit` / `-Remaining` / `-Reset` headers. The IETF **RateLimit header fields** draft (draft-ietf-httpapi-ratelimit-headers-11, May 2026, still an Internet-Draft) replaces them with two structured fields: `RateLimit-Policy` describes the quota, and `RateLimit` reports what is left:
+
+```http
+HTTP/1.1 429 Too Many Requests
+RateLimit-Policy: "default";q=1000;w=60
+RateLimit: "default";r=0;t=30
+Retry-After: 30
+Content-Type: application/problem+json
+
+{ "type": "https://api.example.com/problems/rate-limited",
+  "title": "Rate limit exceeded", "status": 429,
+  "detail": "Quota of 1000 requests per 60 s exhausted; retry in 30 s." }
+```
+
+Here `q` is the quota, `w` the window in seconds, `r` the remaining quota, and `t` the seconds until the quota resets. Because the draft syntax may still change, `Retry-After` (RFC 9110) remains the one header every client should honor. Clients should wait at least that long and add jitter so throttled clients do not all retry at the same moment.
+
+## Authentication and security
+
+Because REST is stateless, credentials travel with **every request**, almost always in the `Authorization` header over TLS.
+
+| Mechanism | Typical use | Notes |
+|---|---|---|
+| **API keys** | Server-to-server, simple partner access | Identifies an application, not a user. Treat keys as secrets, support rotation, and scope them narrowly |
+| **OAuth 2 bearer tokens** (RFC 6750) | Delegated user access, third-party apps | Short-lived access tokens (often JWTs) with scopes. Clients get them through the authorization-code flow with PKCE |
+| **Client credentials grant** | Machine-to-machine | The service authenticates as itself to get a token |
+| **mTLS / sender-constrained tokens** (RFC 8705, DPoP RFC 9449) | High-assurance APIs (finance, internal zero-trust) | Binds a token to a key, so a stolen token cannot be replayed |
+
+Current OAuth guidance is summarized in the **OAuth 2.0 Security Best Current Practice (RFC 9700, January 2025)**: use PKCE for every authorization-code flow, do not use the implicit or password grants, and prefer sender-constrained tokens. The **OAuth 2.1** draft folds these rules into a single specification but was still an Internet-Draft as of 2026.
+
+The [OWASP API Security Top 10 (2023)](https://owasp.org/API-Security/editions/2023/en/0x11-t10/) lists the most common API vulnerabilities. Most of them come from authorization logic, not cryptography:
+
+- **Broken object-level authorization (BOLA, #1).** Check on *every* request that the caller may access the specific object: `GET /orders/42` must verify that order 42 belongs to the caller. Unguessable IDs make attacks harder but do not replace this check.
+- **Broken object-property-level authorization.** Do not return fields the caller should not see, and do not let callers write fields they should not control (mass assignment, such as `{"role":"admin"}` in a profile PATCH). Map requests onto explicit allow-listed DTOs.
+- **Unrestricted resource consumption.** Enforce page-size limits, payload size limits, rate limits, and timeouts.
+- **Broken function-level authorization.** Admin endpoints need their own checks, not just an unlinked URL.
+
+For APIs called from browsers, configure **CORS** explicitly. Allow specific origins, never reflect arbitrary `Origin` values, and never combine `*` with credentials.
+
+## Hypermedia (HATEOAS)
+
+**Hypermedia as the Engine of Application State** is what separates level-3 REST from "JSON over HTTP". A response contains the data plus **links to the actions that are valid in the resource's current state**, so the client discovers what it can do instead of hard-coding URLs and business rules.
 
 ```json
 {
@@ -213,52 +483,39 @@ Consider an order. Its representation links to the actions available *given its 
   "total": 149.90,
   "_links": {
     "self":   { "href": "/orders/42" },
-    "cancel": { "href": "/orders/42/cancel", "method": "POST" },
+    "cancel": { "href": "/orders/42/cancellation", "method": "POST" },
     "pay":    { "href": "/orders/42/payment", "method": "POST" }
   }
 }
 ```
 
-Once the order is `shipped`, the server simply *stops* returning the `cancel` and `pay` links and starts returning a `track` link. The client does not need to encode the rule "you can only cancel a pending order" — it follows whatever links the server offers. This decouples client and server: the server can change URLs and add transitions, and a hypermedia-driven client adapts without a code change.
+The links follow a state machine that the server controls:
 
-Standard hypermedia formats include **HAL** (`_links`, `_embedded`), **JSON:API** (`links`, `relationships`), and **Siren**. In honest practice, full HATEOAS is rare: most clients are written against documented, stable URLs and ignore embedded links, so the cost of building and consuming hypermedia controls often outweighs the decoupling benefit. It remains valuable for long-lived, widely-consumed, or evolving APIs (and is genuinely the "correct" REST), but treat it as a deliberate choice, not an obligation.
-
-## Idempotency
-
-**Idempotency** — that repeating a request has the same effect as making it once — is the property that makes a distributed API safe to retry. Networks drop responses: a client sends `POST /payments`, the server charges the card, and the `201` is lost in transit. The client, seeing a timeout, retries — and without protection, charges the card twice.
-
-`GET`, `PUT`, and `DELETE` are idempotent by their HTTP semantics, so retrying them is inherently safe. `POST` is the problem child because it creates a new resource each time. The standard remedy is the **idempotency key**: the client generates a unique key (a UUID) per logical operation and sends it in a header; the server records the key with the result of first processing it, and on any retry with the same key returns the stored result instead of re-executing.
-
-```python
-# Server-side idempotency for a non-idempotent POST
-def create_payment(request):
-    key = request.headers.get("Idempotency-Key")
-    if key is None:
-        return problem(400, "Missing Idempotency-Key header")
-
-    # Atomically claim the key; if it already exists, return the prior result.
-    existing = idempotency_store.get(key)
-    if existing is not None:
-        if existing.status == "in_progress":
-            return problem(409, "Request with this key is still processing")
-        return existing.response  # replay the original 201, no double charge
-
-    idempotency_store.put(key, status="in_progress")
-    try:
-        payment = charge_card(request.body)          # the side-effecting work
-        response = created(payment, location=f"/payments/{payment.id}")
-        idempotency_store.put(key, status="done", response=response)
-        return response
-    except Exception:
-        idempotency_store.delete(key)                # allow a genuine retry
-        raise
+```mermaid
+stateDiagram-v2
+    [*] --> pending: POST /orders
+    pending --> paid: pay
+    pending --> cancelled: cancel
+    paid --> shipped: ship (internal)
+    paid --> cancelled: cancel (refund)
+    shipped --> delivered
+    delivered --> [*]
+    cancelled --> [*]
 ```
 
-Key design points: the key must be stored *durably* and claimed *atomically* (so two concurrent retries do not both execute), the stored result must be returned verbatim on replay, and keys should expire after a window (24–72 h is common). Stripe's payments API popularized this pattern; it is the canonical way to give POST the retry-safety that PUT and DELETE get for free.
+Once the order is `shipped`, the server stops sending the `cancel` and `pay` links and starts sending `track`. The client does not need to know the rule "only pending or paid orders can be cancelled". It just shows whatever actions it receives.
 
-## OpenAPI / Swagger
+Common hypermedia formats are **HAL** (`_links`, `_embedded`), **JSON:API** (`links`, `relationships`, a full convention for includes and sparse fieldsets), and **Siren** (which adds `actions` with fields). In practice full HATEOAS is uncommon. Most clients are generated from an OpenAPI document and call documented URLs, so hypermedia controls often cost more than they return. They pay off for long-lived APIs with many independent clients, and for workflows whose rules change frequently.
 
-An API contract that lives only in prose drifts from the implementation. **OpenAPI** (formerly Swagger) is a machine-readable specification — a YAML/JSON document describing every endpoint, parameter, request/response schema, and status code. From one spec you can generate interactive documentation (Swagger UI), typed client SDKs, server stubs, mock servers, and request/response validation middleware.
+## OpenAPI
+
+A contract that exists only as prose drifts away from the implementation. The **OpenAPI Specification** (formerly Swagger) is a machine-readable YAML or JSON description of every operation, parameter, schema, status code, and security scheme. From one document you can generate reference documentation, typed client SDKs, server stubs, mock servers, request/response validation middleware, and contract tests.
+
+| Version | Released | Notable changes |
+|---|---|---|
+| 3.0 | 2017 | Components, `requestBody`, links, callbacks |
+| 3.1 | 2021 | Full JSON Schema 2020-12 alignment (`type: [string, "null"]` replaces `nullable`), webhooks, `pathItems` in components |
+| 3.2 | September 2025 | Hierarchical tags (`parent`, `kind`), streaming media types (SSE, JSON Lines), the `QUERY` method and arbitrary HTTP methods, OAuth 2 device flow, `$self` base URI |
 
 ```yaml
 openapi: 3.1.0
@@ -274,10 +531,12 @@ paths:
         - name: orderId
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string, format: uuid }
       responses:
         '200':
           description: The order
+          headers:
+            ETag: { schema: { type: string } }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Order' }
@@ -292,126 +551,56 @@ components:
       type: object
       required: [id, status, total]
       properties:
-        id:     { type: integer, format: int64 }
-        status: { type: string, enum: [pending, shipped, cancelled] }
-        total:  { type: number, format: double }
+        id:     { type: string, format: uuid }
+        status: { type: string, enum: [pending, paid, shipped, delivered, cancelled] }
+        total:  { type: string, pattern: '^\d+\.\d{2}$', description: Decimal amount as a string }
+        note:   { type: [string, 'null'] }
     Problem:
       type: object
       properties:
-        type:   { type: string, format: uri }
-        title:  { type: string }
-        status: { type: integer }
-        detail: { type: string }
+        type:     { type: string, format: uri-reference }
+        title:    { type: string }
+        status:   { type: integer }
+        detail:   { type: string }
+        instance: { type: string, format: uri-reference }
 ```
 
-Treat the OpenAPI document as the **source of truth**, ideally written before or alongside the implementation ("design-first") rather than generated as an afterthought. Validate it in CI, generate client SDKs from it so clients cannot drift, and use it to drive contract tests — the spec then guarantees that documentation, server, and clients all agree.
+The example sends money as a decimal string rather than a JSON number. JSON numbers are usually parsed as binary floating point, so `0.1 + 0.2` problems can show up in client code. Integer minor units (`"total_cents": 14990`) are the other common choice.
 
-## Error Formats (RFC 7807)
+Treat the OpenAPI document as the **source of truth**. Ideally write it before or alongside the implementation (*design-first*) instead of generating it afterwards. In CI, lint it with a style guide (Spectral, Redocly CLI, or Vacuum), diff it against the previous release to catch breaking changes (oasdiff), and check the running server against it with contract tests. Generating client SDKs from the same document keeps documentation, server, and clients in agreement. [AsyncAPI](https://www.asyncapi.com/) does the same job for event-driven interfaces (see [Async & Event-Driven](async-and-events.html)).
 
-Ad-hoc error bodies (`{"error": "bad"}` in one place, `{"message": "...", "code": 7}` in another) force every client to special-case every endpoint. **RFC 7807 / RFC 9457 — Problem Details for HTTP APIs** standardizes the shape. The response uses `Content-Type: application/problem+json` and a defined member set:
+## Design checklist
 
-```http
-HTTP/1.1 422 Unprocessable Entity
-Content-Type: application/problem+json
+| Area | Check |
+|---|---|
+| Resources | Plural nouns, shallow nesting, opaque IDs, no verbs in paths except deliberate actions |
+| Methods | GET is safe; PUT/DELETE are idempotent; POST accepts `Idempotency-Key` |
+| Status codes | Specific codes; never `200` with an error body; `401` includes `WWW-Authenticate` |
+| Errors | `application/problem+json` everywhere, with a stable `type` URI |
+| Collections | Paginated by default with a maximum page size; cursor-based for large sets |
+| Concurrency | ETags on reads, `If-Match` on writes |
+| Evolution | Additive changes by default; tolerant readers; `Deprecation`/`Sunset` headers before removal |
+| Limits | 429 with `Retry-After`; payload and page-size caps |
+| Security | Object-level authorization on every request; allow-listed writable fields; TLS only |
+| Contract | OpenAPI 3.1+/3.2, linted and diffed in CI |
 
-{
-  "type": "https://api.acme.com/problems/insufficient-funds",
-  "title": "Insufficient funds",
-  "status": 422,
-  "detail": "Your balance is 30.00 but the order total is 149.90.",
-  "instance": "/orders/42/payment",
-  "balance": 30.00,
-  "required": 149.90
-}
-```
+## See also
 
-The standard members:
+- [API Design hub](./): overview and comparison of all API styles.
+- [GraphQL](graphql.html) and [gRPC & Protocol Buffers](grpc-and-protobuf.html): the alternatives when REST's fixed resource shapes or text encoding become the bottleneck.
+- [Async & Event-Driven](async-and-events.html): webhooks, queues, and the outbox pattern for work that should not block a request.
+- [Microservices & Event-Driven Architecture](../distributed-systems/microservices-and-event-driven.html): API gateways and where REST fits between services.
+- [Resilience Patterns](../distributed-systems/resilience-patterns.html): retries, backoff, timeouts, and circuit breakers on the client side of a REST call.
+- [Networking](../technology/networking/): HTTP, TLS, and the transport underneath every call.
+- [Database Design](../technology/database-design/): the data stores behind your resources, and how keyset pagination maps to indexes.
+- [Application Security](../technology/cybersecurity/application-and-cloud-security.html): injection, XSS, CSRF, and the wider OWASP picture.
 
-- **`type`** — a URI identifying the *problem type* (and ideally a page documenting it). This is the stable, machine-readable discriminator clients should branch on.
-- **`title`** — a short, human-readable summary of the type; should not vary per occurrence.
-- **`status`** — the HTTP status code, duplicated in the body for convenience.
-- **`detail`** — a human-readable explanation specific to *this* occurrence.
-- **`instance`** — a URI identifying the specific occurrence (e.g. the request that failed).
+### Specifications
 
-You may add **extension members** (`balance`, `required` above) for machine-actionable detail. Because the format is standardized, generic client libraries, logging, and error-reporting tools can parse every error the same way — and validation errors can attach a list of per-field problems as an extension. Adopt one error format across the whole API; consistency here is worth more than cleverness.
-
-## Rate Limiting
-
-Public APIs must protect themselves from abusive or runaway clients and ensure fair sharing of capacity. **Rate limiting** caps how many requests a client may make in a window, returning **`429 Too Many Requests`** when the limit is exceeded.
-
-Common algorithms:
-
-- **Fixed window** — count requests per calendar window (e.g. 1000/minute). Simple but suffers *boundary bursts*: a client can fire 1000 at 11:59:59 and 1000 at 12:00:00, doubling the intended rate across the boundary.
-- **Sliding window** — smooths the boundary by weighting the previous window's count, approximating a true rolling limit cheaply.
-- **Token bucket** — a bucket holds up to *B* tokens and refills at rate *r* tokens/second; each request spends a token, and requests with no token available are rejected (or queued). This naturally allows short bursts up to *B* while enforcing an average rate *r* — the most common production choice.
-- **Leaky bucket** — requests enter a fixed-capacity queue drained at a constant rate, smoothing bursts into a steady outflow.
-
-For the token bucket, capacity $B$ and refill rate $r$ together bound throughput: after the bucket is drained, the long-run sustainable rate is $r$ requests per second, while the largest instantaneous burst is at most $B$ requests. The time to refill an empty bucket to capacity is
-
-$$
-t_{\text{refill}} = \frac{B}{r}
-$$
-
-so a 100-token bucket refilling at 10 tokens/second is fully replenished in 10 seconds. Tuning $B$ trades burst tolerance against how hard a client can spike the backend.
-
-Communicate limits via response headers so well-behaved clients can self-throttle:
-
-```http
-HTTP/1.1 429 Too Many Requests
-RateLimit-Limit: 1000
-RateLimit-Remaining: 0
-RateLimit-Reset: 30
-Retry-After: 30
-Content-Type: application/problem+json
-
-{ "type": "https://api.acme.com/problems/rate-limited",
-  "title": "Rate limit exceeded", "status": 429,
-  "detail": "Try again in 30 seconds." }
-```
-
-`Retry-After` tells the client exactly how long to wait; a client that honors it (with jitter) avoids hammering a limited endpoint. Limits are usually keyed per API key or per authenticated user, sometimes tiered by plan.
-
-## Caching
-
-HTTP has a rich, built-in caching model — one of the biggest payoffs of honoring REST's *cacheable* constraint. There are two complementary mechanisms.
-
-### Expiration (freshness)
-
-The server tells caches how long a response stays fresh with `Cache-Control`:
-
-```http
-Cache-Control: public, max-age=300
-```
-
-For `max-age=300` seconds, any cache (browser, proxy, CDN) may serve the stored response without contacting the origin at all. `public` allows shared caches; `private` restricts to the end-client; `no-store` forbids caching entirely (use for sensitive data). Expiration is the cheapest cache: a hit avoids the network round trip completely.
-
-### Validation (conditional requests)
-
-When a cached copy expires, the cache need not re-download an unchanged resource — it **revalidates**. The server stamps responses with a validator:
-
-- **`ETag`** — an opaque version tag (often a content hash). The client later sends `If-None-Match: "<etag>"`; if the resource is unchanged the server returns a tiny **`304 Not Modified`** with no body, and the cache reuses its copy.
-- **`Last-Modified`** — a timestamp; the client revalidates with `If-Modified-Since`.
-
-```http
-# First response
-HTTP/1.1 200 OK
-ETag: "a1b2c3"
-Cache-Control: max-age=60
-
-# Client revalidates after expiry
-GET /orders/42 HTTP/1.1
-If-None-Match: "a1b2c3"
-
-# Unchanged → no body re-sent
-HTTP/1.1 304 Not Modified
-```
-
-ETags pull double duty: they also power **optimistic concurrency** for writes. A client that read `ETag: "a1b2c3"` can send `If-Match: "a1b2c3"` on its `PUT`/`PATCH`; if another writer changed the resource in the meantime its ETag differs, the precondition fails, and the server returns **`412 Precondition Failed`** instead of clobbering the newer state — the lost-update problem solved with a single header. This is the read-side counterpart to idempotency keys on the write side.
-
-## See Also
-
-- **[API Design Hub](./)** — section overview and the other API styles and cross-cutting concerns
-- **[Microservices & Event-Driven Architecture](../distributed-systems/microservices-and-event-driven.html)** — API gateways, synchronous vs. asynchronous communication, and where REST fits between services
-- **[Networking](../technology/networking/)** — the HTTP, TLS, and transport layer beneath every REST call
-- **[Database Design](../technology/database-design/)** — the data stores behind your resources, and how pagination maps to indexed queries
-- **[Cybersecurity Basics](../technology/cybersecurity/)** — authentication, authorization, and securing the API surface
+- [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110) HTTP Semantics, [RFC 9111](https://www.rfc-editor.org/rfc/rfc9111) HTTP Caching
+- [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) Problem Details for HTTP APIs
+- [RFC 10008](https://www.rfc-editor.org/rfc/rfc10008) The HTTP QUERY Method
+- [RFC 9745](https://www.rfc-editor.org/rfc/rfc9745) Deprecation header, [RFC 8594](https://www.rfc-editor.org/rfc/rfc8594) Sunset header
+- [RFC 7396](https://www.rfc-editor.org/rfc/rfc7396) JSON Merge Patch, [RFC 6902](https://www.rfc-editor.org/rfc/rfc6902) JSON Patch
+- [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700) OAuth 2.0 Security Best Current Practice
+- [OpenAPI Specification](https://spec.openapis.org/oas/latest.html)

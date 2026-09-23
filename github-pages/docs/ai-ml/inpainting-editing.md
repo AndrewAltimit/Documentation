@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "AI/ML: Inpainting & Image Editing"
+description: "How diffusion models edit existing images: denoise strength, masks, inpainting and outpainting, differential diffusion, instruction-based editors (FLUX Kontext, Qwen-Image-Edit, FLUX.2), compositing, and ControlNet-guided edits."
 permalink: /docs/ai-ml/inpainting-editing.html
 toc: true
 toc_sticky: true
@@ -10,382 +11,375 @@ toc_icon: "cog"
 
 [AI/ML Documentation](./) &raquo; Inpainting &amp; Image Editing
 
-Generation makes a picture from nothing; editing changes a picture you already have. Inpainting, outpainting, and img2img all share one mechanism — re-noise part of an existing image and let the model re-denoise it under a new prompt — and most editing skill is learning *how much* to re-noise *where*.
+Image editing with diffusion models changes an image you already have instead of generating one from noise. This page covers the two families of editing in use as of 2026: **mask-based editing** (img2img, inpainting, outpainting, differential diffusion), which works by partially re-noising an image and denoising it again, and **instruction-based editing** (FLUX.1 Kontext, Qwen-Image-Edit, FLUX.2), where a model trained on before/after pairs applies a plain-language instruction such as "make the jacket red". It also covers mask preparation, compositing, and pairing edits with ControlNet.
 
-## Why Editing Is Different From Generation
+## Overview
 
-A text-to-image run starts from pure noise and has no commitment to any pixel. Editing starts from a real image you want to *mostly keep*. The whole game is preserving what works while regenerating what doesn't — change a person's jacket without redrawing their face, extend a background past the original frame, or repair a malformed hand without rerolling a hard-won composition.
+A text-to-image run starts from pure noise and is not committed to any pixel. An edit starts from a real image, and most of it should survive. Every mask-based technique reduces to the same three operations:
 
-Every technique on this page is a variation on the same idea: convert the image to latents, add a controlled amount of noise, and denoise back down under guidance. The knobs that matter are **where** you allow change (the mask) and **how much** change you allow (denoise strength). Get those two right and the rest is workflow.
+1. Encode the image to latents with the VAE.
+2. Add a controlled amount of noise, optionally only inside a mask.
+3. Denoise back to a clean latent under a (possibly new) prompt, then decode.
 
-- **The Mask Picks Where.** A mask marks the region to regenerate. Soft, feathered edges blend; hard edges leave visible seams.
-- **Denoise Picks How Much.** Denoise strength sets how far from the original the result can drift — low for subtle fixes, high for full replacement.
-- **Blend, Don't Paste.** Feathering, latent compositing, and differential diffusion hide the seam so edits look native, not stitched.
+Two parameters decide the result: **where** change is allowed (the mask) and **how much** change is allowed (denoise strength). Instruction editors hide both. The model decides which regions to touch and how strongly, based on the instruction.
 
-## The Editing Family at a Glance
+```mermaid
+flowchart TD
+    Q{"What do you need to change?"}
+    Q -->|"Whole image, lightly<br/>(restyle, polish)"| I2I["img2img"]
+    Q -->|"One region<br/>(replace, remove, repair)"| Inp["Inpainting"]
+    Q -->|"Canvas beyond the edges"| Out["Outpainting"]
+    Q -->|"Graded change, no seam"| DD["Differential diffusion"]
+    Q -->|"Semantic change described<br/>in words, no mask"| IE["Instruction editing<br/>(Kontext, Qwen-Image-Edit, FLUX.2)"]
+    I2I & Inp & Out & DD & IE --> CN["Optional: ControlNet<br/>to lock structure"]
+```
 
-The techniques differ mainly in *which pixels they touch* and *where new canvas comes from*:
+| Technique | What changes | Source of new content | Typical use |
+|-----------|--------------|-----------------------|-------------|
+| img2img | Whole image, by a set amount | The re-noised original | Restyle, refine, sketch-to-render |
+| Inpainting | Masked region only | Model, conditioned on the surroundings | Replace, remove, or repair an object |
+| Outpainting | New canvas past the borders | Model, conditioned on the existing edge | Extend a scene, change aspect ratio |
+| Differential diffusion | Every pixel, by a per-pixel amount | Per-pixel re-noise level | Feathered, seamless partial edits |
+| Instruction editing | Whatever the instruction implies | Edit model reading the image as context | Attribute, object, text, style, and pose edits without masks |
+| Regional prompting | New generation, prompt split by region | Per-region conditioning | Several subjects in one frame without concept bleed |
 
-| Technique | What it changes | Where new content comes from | Typical use |
-|-----------|-----------------|------------------------------|-------------|
-| **img2img** | The whole image, lightly | The original image re-noised | Restyle, refine, polish a base |
-| **Inpainting** | A masked region only | The model, conditioned on surroundings | Replace/remove/repair an object |
-| **Outpainting** | New canvas beyond the edges | The model, conditioned on the existing edge | Extend a scene, change aspect ratio |
-| **Regional prompting** | Different prompts per region | The model, per-region conditioning | Compose multiple subjects in one pass |
-| **Differential diffusion** | A *continuous* strength map | Per-pixel re-noise amount | Feathered, seamless partial edits |
+Regional prompting (attention masking, GLIGEN boxes, composable `AND` prompts) shapes a *new* generation rather than editing an existing one. It is covered in [Advanced Techniques](advanced-techniques.html#regional-and-layout-control).
 
-All of these can be combined with [ControlNet](controlnet.html) to constrain *structure* while you edit *content* — the last section covers that pairing.
+## Denoise Strength
 
-## Denoise Strength: The Master Dial
+Denoise strength $d \in [0, 1]$ (also *denoising strength*) sets the noise level the edit starts from. That level caps how far the result can move from the original. At $d = 0$ nothing changes. At $d = 1$ the input is fully replaced by noise, so the run is plain generation, though some tools still use the image's size and seed.
 
-Denoise strength (also called *denoising strength* or, in latent terms, the **starting noise level**) is the single most important parameter in editing. It controls how much noise is added to the input before re-denoising, which sets a ceiling on how far the result can move from the original.
+### What denoise does to the latent
 
-Conceptually, a full diffusion run starts at maximum noise level $\sigma_{\max}$ and walks down to $0$. Editing at denoise strength $d \in [0, 1]$ skips the top of that schedule: it starts the image partway down at noise level $\sigma_{\text{start}}$ and only runs the remaining steps. At $d = 1.0$ the original is completely destroyed (pure generation); at $d = 0$ nothing changes.
+Every diffusion sampler walks a noise schedule from high noise to none. An edit skips the top of the schedule and injects the encoded image $\mathbf{z}_0$ partway down, at the level that corresponds to $d$. The general form is:
 
-$$\sigma_{\text{start}} = \sigma(d), \qquad n_{\text{steps run}} = \lceil d \cdot N_{\text{total}} \rceil$$
+$$\mathbf{z}_{\text{start}} = a(t_d)\,\mathbf{z}_0 + b(t_d)\,\boldsymbol{\epsilon}, \qquad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$$
 
-The starting latent is the encoded image plus noise scaled to that level:
+The coefficients depend on the model family:
 
-$$\mathbf{z}_{\text{start}} = \mathbf{z}_0 + \sigma_{\text{start}}\,\boldsymbol{\epsilon}, \qquad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$$
+| Formulation | Models | $a(t)$ | $b(t)$ |
+|-------------|--------|--------|--------|
+| Variance-preserving (DDPM) | SD 1.5, SDXL | $\sqrt{\bar{\alpha}_t}$ | $\sqrt{1 - \bar{\alpha}_t}$ |
+| Variance-exploding (k-diffusion / EDM samplers) | SD 1.5, SDXL as run by A1111 and ComfyUI | $1$ | $\sigma_t$ |
+| Rectified flow | SD3, FLUX, Qwen-Image | $1 - t$ | $t$ |
 
-where $\mathbf{z}_0$ is the VAE-encoded input image. Because only $\lceil d \cdot N \rceil$ steps actually run, a low denoise both limits drift *and* runs faster.
+For rectified-flow models the mapping is especially direct. Denoise $d$ starts sampling at $t = d$ (before any schedule shift), so the starting latent is a straight interpolation between image and noise:
 
-### Choosing a Denoise Value
+$$\mathbf{z}_{\text{start}} = (1 - d)\,\mathbf{z}_0 + d\,\boldsymbol{\epsilon}$$
 
-The right value depends entirely on how much you want to change:
+**Step count depends on the tool.** By default A1111 and Forge run about $d \cdot N$ of the requested $N$ steps, so a low denoise is also faster. ComfyUI's KSampler builds a schedule for roughly $N / d$ steps and runs the last $N$, so it always runs the number of steps you asked for, spread over the shorter noise range.
+
+### Choosing a value
 
 | Denoise | Effect | Use for |
 |---------|--------|---------|
-| 0.1 - 0.25 | Subtle: texture, grain, light polish | Detail passes, upscale refinement, gentle restyle |
-| 0.3 - 0.45 | Moderate: refine shapes, fix small flaws | Cleaning up an img2img base, coherence fixes |
-| 0.5 - 0.65 | Significant: clear restyle, keep layout | Style transfer, material/color swaps |
-| 0.7 - 0.85 | Heavy: composition mostly survives, content reimagined | Strong reinterpretation, inpainting replacements |
-| 0.9 - 1.0 | Near-total / total replacement | Full inpaint of a region, generation from a layout sketch |
+| 0.10 – 0.25 | Texture, grain, micro-detail | Detail passes, upscale refinement, seam harmonizing |
+| 0.30 – 0.45 | Shapes refined; composition and identity kept | Repairs, cleanup of a rough base |
+| 0.50 – 0.65 | Clear restyle; layout kept | Style transfer, material and color swaps |
+| 0.70 – 0.85 | Content reimagined; broad layout kept | Inpainted replacements, sketch-to-image |
+| 0.90 – 1.00 | Near-total replacement | Full inpaint of a region, especially with dedicated inpaint models |
 
-A common mistake is using too *high* a denoise for a subtle edit ("why did the whole face change when I only wanted to fix the eye?") or too *low* for a replacement ("the old object is still ghosting through"). When in doubt, sweep denoise in steps of 0.1 with a fixed seed and pick the lowest value that achieves the change.
+The two common mistakes are opposites. Too high a value changes things that should have stayed, such as a whole face redrawn when only an eye needed fixing. Too low a value lets the old content survive, and a removed object ghosts back. With a fixed seed, sweep denoise in steps of 0.1 and keep the lowest value that achieves the change. Rectified-flow models such as FLUX tend to preserve more structure than SDXL at the same nominal value, so tables tuned for one family transfer only approximately to the other.
 
-## Mask Preparation
+## Masks
 
-For inpainting and outpainting, the **mask** decides which pixels the model is free to repaint. A mask is just a grayscale image: white = "regenerate this," black = "leave this alone," and gray = partial (with differential diffusion). The quality of an inpaint is often decided here, before any sampling happens.
+A mask is a single-channel image. White means regenerate, black means keep, and gray means partial change, which only differential diffusion honors. The mask often decides the quality of an inpaint before sampling starts.
 
-### What Makes a Good Mask
+### Mask guidelines
 
-- **Cover the whole thing you want gone.** A mask that clips an object leaves a sliver of the original, which the model will try to "explain" — often by regrowing the object. Mask generously, including shadows and reflections.
-- **Feather the edges.** A hard binary edge produces a visible seam where regenerated pixels meet originals. A few pixels of Gaussian blur on the mask boundary lets the two blend. Most tools expose this as **mask blur** or **mask feather**.
-- **Give the model room to work.** If you mask a tiny region, the model has little context and few pixels to express the new content. Inpaint at higher effective resolution (see *Inpaint Only Masked*, below) when the region is small.
-- **Match the mask to the edit.** Removing an object wants a tight mask plus generous feather; replacing a large area wants a loose mask so the new content can reshape the boundary.
+- **Cover all of it.** A mask that clips an object leaves a sliver the model tries to explain, often by regrowing the object. Include shadows, reflections, and contact points.
+- **Feather the edge.** A hard binary boundary leaves a visible seam. A few pixels of blur, exposed as *mask blur* or *feather*, lets the two regions blend.
+- **Grow before feathering.** Dilate the mask a few pixels first (ComfyUI `GrowMask`, or `grow_mask_by` on the inpaint-encode node) so the blur ramp lands outside the object, not inside it.
+- **Give the model context and pixels.** A tiny mask gives the model little to work with. Crop around it and inpaint at native resolution (see [Crop-and-stitch](#crop-and-stitch)).
+- **Size the mask to the edit.** Removal wants a snug mask with generous feather. Replacement wants a looser mask so the new object can have a different silhouette.
 
-### Mask Edges and Feathering
+### Feathering
 
-Feathering blends the regenerated region into its surroundings by making the mask a smooth ramp instead of a step. If $m(x, y) \in [0, 1]$ is the (blurred) mask, the composite of regenerated pixels $I_{\text{new}}$ over originals $I_{\text{orig}}$ is a per-pixel linear blend:
+If $m(x, y) \in [0, 1]$ is the blurred mask, compositing regenerated pixels over the original is a per-pixel linear blend:
 
-$$I_{\text{out}} = m \cdot I_{\text{new}} + (1 - m) \cdot I_{\text{orig}}$$
+$$I_{\text{out}} = m\,I_{\text{new}} + (1 - m)\,I_{\text{orig}}$$
 
-A Gaussian-blurred mask gives $m$ a soft falloff at the boundary, so the seam fades over several pixels instead of appearing as a sharp line. Blur radius is a trade-off: too little leaves a seam, too much lets the edit bleed into pixels you wanted to keep.
+A Gaussian-blurred mask gives $m$ a soft ramp, so the seam fades over several pixels. Too small a radius leaves a line. Too large a radius lets the edit bleed into pixels you meant to keep.
 
 ```python
 import numpy as np
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import binary_dilation, gaussian_filter
 
-def feather_mask(mask, blur_radius=8):
-    """Soften a binary mask so inpaint edges blend instead of seaming.
-    mask: float array in [0, 1], 1 = regenerate, 0 = keep."""
-    soft = gaussian_filter(mask.astype(np.float32), sigma=blur_radius)
+def prepare_mask(mask: np.ndarray, grow_px: int = 6, blur_sigma: float = 4.0) -> np.ndarray:
+    """Grow then feather a binary mask (1 = regenerate, 0 = keep)."""
+    grown = binary_dilation(mask > 0.5, iterations=grow_px)
+    soft = gaussian_filter(grown.astype(np.float32), sigma=blur_sigma)
     return np.clip(soft, 0.0, 1.0)
 
-def composite(orig, generated, soft_mask):
-    """Linear blend per the feathered mask."""
-    m = soft_mask[..., None]  # broadcast over color channels
+def composite(orig: np.ndarray, generated: np.ndarray, soft_mask: np.ndarray) -> np.ndarray:
+    """Per-pixel linear blend of float images in [0, 1], shape (H, W, C)."""
+    m = soft_mask[..., None]
     return m * generated + (1.0 - m) * orig
 ```
 
-### Mask Sources
-
-Masks rarely need to be hand-painted pixel by pixel:
+### Mask sources
 
 | Source | How it works | Best for |
 |--------|--------------|----------|
-| Brush (manual) | Paint the region in the tool's canvas | Quick, arbitrary edits |
-| Segmentation (SAM) | "Segment Anything" turns a click/box into a precise object mask | Clean object selection without tracing |
-| Detection (YOLO/Impact Pack) | Auto-detect faces, hands, persons | Batch face/hand repair (ADetailer-style) |
-| Threshold / luminance | Mask by brightness or color range | Sky replacement, isolating bright/dark areas |
-| Alpha channel | Use an image's existing transparency | Compositing layered assets |
+| Brush | Paint in the tool's canvas | Quick one-off edits |
+| SAM 2 (2024) | Click or box prompt gives a precise mask; tracks through video | Selecting one object cleanly |
+| SAM 3 (Nov 2025) | Text or exemplar prompt ("red car") gives masks for *every* matching instance | Batch masking by concept, no clicking |
+| Detectors (YOLO, face/hand models) | Auto-detect faces, hands, people | ADetailer-style automatic face and hand repair |
+| Text-grounded detection | Grounding DINO, Florence-2: text to box, then SAM refines the mask | Pipelines that describe the target in words |
+| Luminance / color key | Threshold on brightness or hue | Sky replacement, background keys |
+| Alpha channel | Reuse existing transparency | Layered asset compositing |
 
-The **Segment Anything Model (SAM)** is the workhorse for precise masks — click an object and get a pixel-accurate selection, then feather it. The Impact Pack in ComfyUI wires SAM and detectors directly into the editing graph.
+In ComfyUI the Impact Pack and similar node packs chain detectors and SAM into the editing graph, so a "fix every face" pass needs no manual masking.
 
 ## Inpainting
 
-Inpainting regenerates only the masked region while conditioning on the *unmasked* surroundings, so the new content matches the scene's lighting, perspective, and style. It is the tool for object removal, object replacement, and localized repair.
+Inpainting regenerates the masked region while conditioning on the unmasked surroundings, so new content matches the scene's lighting, perspective, and style.
 
-### How Inpainting Works
+### How it works
 
-During sampling, the unmasked pixels are repeatedly "pinned" back to the (noised) original at each step, while the masked pixels are free to denoise toward the prompt. The model therefore always *sees* the surrounding context as it fills the hole:
+The simplest method works with any checkpoint and is sometimes called *latent blending*. At every sampling step, the latent outside the mask is overwritten with the original latent, re-noised to that step's level. Inside the mask the model denoises freely. Because the context is re-imposed at every step, the model always "sees" the surroundings it has to match.
 
 ```mermaid
 flowchart LR
     Img["Input image"] --> Enc["VAE encode"]
-    Mask["Mask (white = edit)"] --> Blend
-    Enc --> Noise["Add noise<br/>(denoise strength)"]
-    Noise --> Blend["Blend: noised-original<br/>outside mask"]
-    Prompt["Prompt"] --> KS["KSampler<br/>(re-denoise)"]
-    Blend --> KS
-    KS --> Dec["VAE decode"] --> Comp["Composite over original"]
+    Enc --> Noise["Add noise at<br/>start level (denoise)"]
+    Noise --> Step["Sampler step k"]
+    Prompt["Prompt"] --> Step
+    Step --> Pin["Outside mask: replace with<br/>original re-noised to level k+1"]
+    Mask["Mask"] --> Pin
+    Pin -->|"next step"| Step
+    Pin -->|"after last step"| Dec["VAE decode"]
+    Dec --> Comp["Paste over original<br/>through feathered mask"]
     Mask --> Comp
     Comp --> Out["Edited image"]
 ```
 
-There are two flavors:
+The final pixel-space paste matters. VAE decoding slightly changes even untouched regions, so good pipelines composite the decoded result back over the original image instead of keeping the decode everywhere.
 
-- **Base-model inpainting.** Any checkpoint can inpaint by masking the latent and pinning the unmasked region. Simple, works everywhere, but the model wasn't trained for it, so large/high-denoise inpaints can be incoherent.
-- **Dedicated inpainting models.** Models with extra input channels for the mask and masked image (e.g. SD 1.5 `*-inpainting`, SDXL inpainting checkpoints, and FLUX **Fill**) are trained specifically to fill masked regions. They produce far cleaner results, especially for object removal and large edits. There is also **ControlNet Inpaint**, which adds inpaint conditioning to a normal checkpoint without swapping models.
+### Inpainting model types
 
-Prefer a dedicated inpainting model or ControlNet Inpaint whenever the edit is large or removal-style; base-model inpainting is fine for small touch-ups.
+| Approach | How it conditions | Strengths | Notes |
+|----------|-------------------|-----------|-------|
+| Base checkpoint + latent mask | Latent blending only | Works with any model or LoRA | Seams and incoherence at high denoise; the model never learned to fill holes |
+| Dedicated inpaint checkpoint | Extra UNet input channels for mask and masked image (SD 1.5 inpainting, SDXL inpainting 0.1) | Clean fills at denoise 1.0 | One variant per base model; custom fine-tunes often lack one |
+| FLUX.1 Fill [dev] | Mask and masked image concatenated to the transformer's input | Strong inpaint and outpaint for FLUX | Non-commercial dev license |
+| ControlNet Inpaint / Fooocus inpaint patch | Side network or patch adds inpaint conditioning to a normal checkpoint | Keeps your favorite checkpoint | Quality depends on the model family |
+| BrushNet / PowerPaint | Dual-branch: a separate branch encodes the masked image | Better boundary coherence on SD 1.5 and SDXL | Research-grade node packs |
+| LaMa (non-diffusion) | Fast Fourier-convolution inpainter | Very fast, clean object *removal* | Cannot add new content; often used as a pre-fill before a diffusion pass |
 
-### Inpaint Only Masked (Higher Effective Resolution)
+For large replacements or removals, use a dedicated inpaint model, FLUX Fill, or an instruction editor. Base-model inpainting is fine for small touch-ups at moderate denoise.
 
-For a small region in a large image, inpainting the whole canvas wastes resolution — the masked area might be only 200px wide in a 2048px image, so the model has almost no pixels to work with. **Inpaint Only Masked** (A1111) / crop-and-stitch nodes (ComfyUI) fix this:
+In ComfyUI, **VAE Encode (for Inpainting)** blanks the masked pixels and expects denoise 1.0, which suits dedicated inpaint models. **InpaintModelConditioning** passes the original pixels and so works at any denoise. **Set Latent Noise Mask** is the plain latent-blending route for base checkpoints.
 
-1. **Crop** a padded box around the mask.
-2. **Upscale** that crop to the model's native resolution (512/1024).
-3. **Inpaint** at full effective resolution, so the region gets the model's full detail budget.
-4. **Downscale and composite** the result back into the original.
+### Crop-and-stitch
 
-This is why a face fixed with "only masked" looks dramatically sharper than one fixed in full-image mode — it was effectively regenerated at 1024px instead of at its tiny native size.
+A 200 px face in a 2048 px image gets very few latent pixels if you inpaint the full canvas. *Inpaint only masked* (A1111 and Forge) and crop-and-stitch nodes (ComfyUI) fix this:
 
-### Inpainting Parameters
+```mermaid
+flowchart LR
+    Full["Full image + mask"] --> Crop["Crop padded box<br/>around mask"]
+    Crop --> Up["Upscale crop to model's<br/>native res (1024 px)"]
+    Up --> Inp["Inpaint at full<br/>detail budget"]
+    Inp --> Down["Downscale to crop size"]
+    Down --> Stitch["Stitch back through<br/>feathered mask"]
+    Full --> Stitch
+    Stitch --> Out["Result"]
+```
 
-| Parameter | What it does | Typical |
-|-----------|--------------|---------|
-| Denoise strength | How far the masked region can change | 0.6 - 0.85 replace, 0.3 - 0.5 repair |
-| Mask blur / feather | Softens the seam | 4 - 16 px |
-| Masked content | What the region starts from: `original`, `fill`, `latent noise`, `latent nothing` | `original` for repair, `fill`/`latent noise` for replacement |
-| Inpaint area | `whole picture` vs `only masked` | `only masked` for small regions |
-| Mask padding | Context pixels included around the mask | 32 - 64 px |
+This is why a face fixed with "only masked" looks much sharper than one fixed in whole-picture mode: it was regenerated at the model's native resolution. The padding around the crop controls how much context the model sees. Too little padding and the fill ignores the scene.
 
-The **masked-content** mode is subtle but important: starting from `original` biases toward the existing pixels (good for repairs), while `latent noise` / `fill` discards them (good when you want something genuinely different and the old object keeps ghosting through).
+### Parameters
 
-**Common inpainting pitfalls:**
+| Parameter | Effect | Typical value |
+|-----------|--------|---------------|
+| Denoise | How far the masked region may change | 0.3–0.5 repair; 0.75–1.0 replace (1.0 with inpaint models) |
+| Mask blur / feather | Softens the seam | 4–16 px |
+| Grow mask | Pushes the seam outside the object | 4–16 px |
+| Masked content (A1111) | Starting point: `original`, `fill`, `latent noise`, `latent nothing` | `original` to repair; `fill` or `latent noise` to replace |
+| Inpaint area | `whole picture` or `only masked` | `only masked` for small regions |
+| Context padding | Surrounding pixels included in the crop | 32–128 px |
 
-- **The old object ghosts back.** Denoise too low, or masked-content set to `original`. Raise denoise toward 0.85 and switch to `latent noise`/`fill`.
-- **Visible seam around the edit.** Mask not feathered. Add mask blur (8-16 px).
-- **New content ignores the scene.** Mask padding too small — the model can't see enough surrounding context. Increase padding or inpaint `whole picture`.
-- **Blurry, low-detail fill in a small region.** Inpainting full-image at the region's tiny native size. Switch to `only masked` / crop-and-stitch.
-- **Incoherent large fills.** Using a base checkpoint for a big edit. Switch to a dedicated inpainting model or ControlNet Inpaint.
+### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| Old object ghosts back | Denoise too low, or starting from `original` | Raise denoise, switch to `fill` or `latent noise`, or use an inpaint model at 1.0 |
+| Visible seam or halo | Hard mask edge, or no pixel-space composite | Grow and feather the mask; composite over the original |
+| Fill ignores lighting or perspective | Too little context | Increase padding, or inpaint whole picture |
+| Blurry fill in a small region | Region inpainted at its tiny native size | Use only-masked or crop-and-stitch |
+| Incoherent large fill | Base checkpoint at high denoise | Use an inpaint model, FLUX Fill, or an instruction editor |
+| Color shift in untouched areas | VAE round trip on the whole image | Paste only the masked region back over the original |
 
 ## Outpainting
 
-Outpainting extends an image *beyond its original borders* — adding sky above, scenery to the sides, or converting a portrait crop to a wide landscape. Mechanically it is inpainting where the mask is the *new, empty canvas* and the "context" is the existing image edge.
-
-### The Outpainting Loop
+Outpainting extends an image past its borders. Mechanically it is inpainting where the mask is new, empty canvas and the context is the existing edge.
 
 ```mermaid
 flowchart LR
-    Orig["Original image"] --> Pad["Pad canvas<br/>(add empty border)"]
-    Pad --> Mask["Mask = new border region"]
-    Mask --> Inp["Inpaint new region<br/>(conditioned on existing edge)"]
+    Orig["Image"] --> Pad["Pad canvas<br/>(25–50% per pass)"]
+    Pad --> Fill["Pre-fill border<br/>(edge-stretch, blur, or LaMa)"]
+    Fill --> Mask["Mask = new border<br/>+ overlap strip"]
+    Mask --> Inp["Inpaint with fill model"]
     Inp --> Merged["Extended image"]
-    Merged -->|repeat for more| Pad
+    Merged -->|"repeat"| Pad
 ```
 
-Key practices that make outpainting work:
+- **Extend in steps.** A huge border in one pass anchors on too little context and drifts or repeats. Extend by 25–50% of a dimension per pass.
+- **Overlap the seam.** Include a strip of the original inside the mask so the model continues gradients instead of meeting a hard wall.
+- **Pre-fill the padding.** Stretched edge pixels, a blurred fill, or a LaMa pre-fill give the sampler plausible colors to start from. A flat gray or black border biases the result toward flat regions.
+- **Describe the new area.** The prompt should fit the scene and name what should appear there.
+- **Use a fill-trained model.** SDXL inpaint checkpoints, FLUX.1 Fill, and instruction editors ("extend the scene to the left") produce far more coherent borders than base checkpoints.
 
-- **Extend in modest steps.** Adding a huge border at once gives the model too little anchoring context and it drifts or repeats. Extend by ~25-50% of the dimension per pass and loop.
-- **Overlap the seam.** Include a strip of the *original* image inside the masked/blended region so the model has gradient context to continue, not a hard wall.
-- **Keep the prompt consistent with the scene**, and describe what should appear in the new area. A prompt that contradicts the existing image (e.g. "indoor" while extending an outdoor photo) produces a jarring transition.
-- **Use a dedicated fill model.** SDXL inpainting checkpoints and FLUX Fill are markedly better at outpainting than base checkpoints because they're trained to invent coherent content from a one-sided context.
-
-Because outpainting is iterative, it pairs naturally with the multi-stage and tiling workflows in [Advanced Techniques](advanced-techniques.html).
-
-## Regional Prompting
-
-Regional prompting routes *different prompts to different regions* of the same image so you can compose multiple subjects in a single pass — "a robot on the left, a forest on the right" without the two bleeding together. Unlike inpainting (which edits an existing image), regional prompting shapes a *generation* by partitioning the conditioning spatially.
-
-### How It Works
-
-The most common approach masks the **cross-attention** so each prompt only influences its region. You define a region as a `(prompt, mask, weight)` triple, and the sampler keeps each prompt's influence inside its mask. In effect, the conditioning for a pixel at $(x, y)$ is a mask-weighted combination of the regional prompts:
-
-$$c(x, y) = \sum_{r} w_r \, m_r(x, y) \, c_r, \qquad \sum_{r} m_r(x, y) = 1$$
-
-where $c_r$ is region $r$'s text embedding, $m_r$ its mask, and $w_r$ its weight. ComfyUI exposes this through *Conditioning (Set Area)* / *Set Mask* nodes; A1111/Forge through the **Regional Prompter** extension.
-
-### Approaches to Regional Control
-
-| Method | Granularity | Notes |
-|--------|-------------|-------|
-| Attention/area masking | Arbitrary painted regions | Most flexible; the default in ComfyUI |
-| GLIGEN | Bounding boxes | "Put `a red car` in this box" — object-level layout without hand-painted masks |
-| Composable diffusion | Whole-image concepts | `a cat AND a dog` denoises each concept and merges; per-term weights bias the balance |
-| Prompt scheduling | Over *time*, not space | `[cat:dog:0.4]` switches prompt at 40% of steps — for hybrids/morphs |
-
-Use **area masks** when you know the silhouette, **GLIGEN** when you know the box but not the shape, and **composable diffusion** when you just need two concepts to coexist anywhere in the frame. These overlap with the regional-prompting material in [Advanced Techniques](advanced-techniques.html), which covers the latent-composition cousin of this technique.
+Outpainting is iterative and pairs with the tiling and multi-stage workflows in [Advanced Techniques](advanced-techniques.html).
 
 ## Differential Diffusion
 
-Differential diffusion generalizes inpainting from a **binary** mask to a **continuous** strength map. Instead of "regenerate here, freeze there," you specify *how much* to change each pixel — strong changes in the center of a region fading to none at its edges — without the hard seams a binary mask leaves.
+Differential diffusion (Levin and Fried, 2023) replaces the binary mask with a continuous **change map** $s(x, y) \in [0, 1]$ that sets how much each pixel may change. It needs no retraining and works with any diffusion model. ComfyUI ships it as a core node that wraps the model, used together with a grayscale mask.
 
-### From Binary Mask to Strength Map
+### Mechanism
 
-Standard inpainting pins unmasked pixels and fully regenerates masked ones — a step function. Differential diffusion replaces that with a per-pixel **change map** $s(x, y) \in [0, 1]$ that sets each pixel's *starting noise level* individually. A pixel with $s = 0$ is frozen; a pixel with $s = 1$ is fully regenerated; and anything between is partially re-noised:
+At each step $k$ of an $N$-step schedule, the change map is thresholded against the step's progress. Pixels whose strength exceeds the threshold are "free" and denoise normally. The rest are overwritten with the original re-noised to that step's level, just as in inpainting. The threshold falls as sampling proceeds, so high-strength pixels are released early at high noise and can change a lot. Low-strength pixels are released late and can only change fine detail. Pixels with $s = 0$ are never released.
 
-$$\sigma_{\text{start}}(x, y) = s(x, y) \cdot \sigma_{\max}$$
+$$\text{free}_k(x, y) = \mathbb{1}\!\left[\, s(x, y) > 1 - \frac{k}{N} \,\right], \qquad k = 0, 1, \ldots, N - 1$$
 
-At each denoising step, a pixel is only allowed to change once the schedule reaches its assigned noise level — so high-strength pixels participate in more steps and low-strength pixels "thaw" later (or never). The result is a smooth gradient of edit intensity rather than a masked patch.
+In effect each pixel gets its own denoise strength $d(x, y) = s(x, y)$, and the result is a smooth gradient of edit intensity with no seam to hide.
+
+### Uses
+
+- **Feathered edits.** A strong change in the subject fades into an untouched background.
+- **Graduated restyling.** Restyle the foreground heavily and the background lightly in one pass.
+- **Soft insertion and removal.** Blend a change continuously instead of pasting a hard patch.
+
+The simplest change map is the blurred binary mask you would have used anyway. That alone removes most inpainting seams. Depth maps and segmentation maps make useful change maps too, for example "change the background more the farther away it is".
+
+## Instruction-Based Editing
+
+Since 2025 the most capable editors take **an image plus a text instruction** and no mask. They are trained on large sets of (source, instruction, target) triples, so they learn which regions to change and which to leave pixel-identical. The source image is fed in as context tokens alongside the noisy target latent (in-context conditioning), so the model can copy unchanged regions directly instead of reconstructing them.
 
 ```mermaid
 flowchart LR
-    Img["Input image"] --> Enc["VAE encode"]
-    SMap["Strength map<br/>(grayscale, per-pixel)"] --> Sched["Per-pixel<br/>start noise level"]
-    Enc --> Sched
-    Sched --> KS["KSampler<br/>(pixels thaw at their level)"]
-    Prompt["Prompt"] --> KS
-    KS --> Dec["VAE decode"] --> Out["Seamlessly edited image"]
+    Src["Source image"] --> VAE["VAE encode"]
+    VAE --> Ctx["Context tokens"]
+    Ins["Instruction:<br/>'replace the mug with a<br/>glass of orange juice'"] --> TE["Text / VLM encoder"]
+    Noise["Noisy target latent"] --> DiT["Diffusion transformer<br/>(joint attention over<br/>target + context + text)"]
+    Ctx --> DiT
+    TE --> DiT
+    DiT --> Out["Edited image"]
 ```
 
-### When to Use It
+### Open-weight editors
 
-Differential diffusion shines where a binary mask would leave a seam or where you want a *gradient* of change:
+| Model | Released | Size | Notable for | License |
+|-------|----------|------|-------------|---------|
+| FLUX.1 Kontext [dev] | Jun 2025 | 12B | Character consistency, local edits, style transfer; low drift across successive edits | FLUX.1 non-commercial (commercial license sold separately) |
+| Qwen-Image-Edit (2509, 2511) | Aug 2025 onward | 20B | Precise text editing inside images, multi-image input (up to three references in 2511), less drift in 2511 | Apache 2.0 |
+| FLUX.2 [dev] | Nov 2025 | 32B | Generation and editing in one model, multiple reference images | FLUX non-commercial |
+| FLUX.2 [klein] 4B / 9B | Jan 2026 | 4B, 9B | Fast unified generation and editing on consumer GPUs (4B in about 13 GB of VRAM) | 4B Apache 2.0; 9B non-commercial |
 
-- **Feathered edits** — a strong change in the subject fading smoothly into an untouched background, with no seam to hide.
-- **Graduated style transfer** — restyle the foreground heavily and the background lightly in one pass.
-- **Soft object insertion/removal** — blend a change into surroundings continuously instead of compositing a hard-edged patch.
+Hosted proprietary editors, such as Google's Gemini image models and OpenAI's GPT-Image models, work the same way from the user's side: image in, instruction in, edited image out.
 
-You author the strength map the same way you'd author a mask — paint it, or derive it from a depth/segmentation map — but in grayscale rather than black-and-white. A blurred binary mask fed as a strength map is the simplest version, and already removes most seams.
+### Instruction editing compared with mask-based editing
 
-## img2img Editing Workflows
+| | Instruction editing | Mask-based inpainting |
+|---|---|---|
+| Specifying the region | Implicit, from the instruction | Explicit mask |
+| Global edits (relight, restyle, season change) | Natural | Awkward; needs img2img |
+| Pixel-exact preservation | Good but not guaranteed; can drift in color or detail | Exact outside the mask after pasting |
+| Text in images | Strong (Qwen-Image-Edit in particular) | Weak |
+| Control over shape | Limited to wording and references | Mask plus ControlNet |
+| Compute | Large models (12–32B) | Works with small SD 1.5 and SDXL models |
 
-img2img re-noises the *whole* image (no mask) and re-denoises under a new prompt. It is the foundation for restyling, refining, and chaining edits — and the denoise dial is everything.
+The two combine well. Run the instruction edit, then paste back only the region you meant to change through a feathered mask. That keeps the editor's semantic understanding and inpainting's pixel-exact preservation. Repeated instruction edits accumulate drift, so edit from the original where possible instead of chaining many generations.
 
-### Core img2img Loop
+Instruction editors can also be fine-tuned with paired before/after LoRAs, for example "turn a photo into a line drawing". See [LoRA Training](lora-training.html#edit-model-loras).
 
-```mermaid
-flowchart LR
-    In["Input image"] --> Enc["VAE encode"]
-    Enc --> Noise["Add noise<br/>(denoise strength)"]
-    Prompt["New prompt"] --> KS["KSampler"]
-    Noise --> KS
-    KS --> Dec["VAE decode"] --> Out["Restyled / refined image"]
-```
+## img2img
 
-Because there is no mask, the denoise strength alone governs how much survives. Three common patterns:
+img2img re-noises the whole image with no mask and denoises under a new or refined prompt. Denoise strength alone decides what survives.
 
-| Pattern | Denoise | What you do |
-|---------|---------|-------------|
-| **Polish / refine** | 0.2 - 0.4 | Same prompt, clean up an img2img or rough base |
-| **Restyle** | 0.45 - 0.65 | New style prompt, keep composition and subject |
-| **Reinterpret** | 0.7 - 0.85 | Heavily new prompt; only broad layout survives |
+| Pattern | Denoise | Approach |
+|---------|---------|----------|
+| Polish | 0.2–0.4 | Same prompt; clean up a rough base or upscaled image |
+| Restyle | 0.45–0.65 | New style prompt; composition and subject survive |
+| Reinterpret | 0.7–0.85 | Substantially new prompt; only broad layout survives |
+| Sketch to render | 0.75–0.9 | Rough sketch or color block-in as input; the prompt describes the finished subject |
 
-### Iterative Refinement
+**Iterative refinement** runs img2img several times at low denoise and nudges the prompt each pass. This steers toward a target without one high-denoise jump that loses the composition. It is the manual version of the multi-stage upscaling pipeline in [Advanced Techniques](advanced-techniques.html).
 
-A powerful workflow is to run img2img *repeatedly* at low denoise, nudging the prompt each pass. Each iteration locks in the previous result and refines it, letting you steer toward a target gradually instead of in one risky high-denoise jump. This is the manual cousin of the multi-stage upscaling pipeline in [Advanced Techniques](advanced-techniques.html): each pass at a lower denoise refines rather than redraws.
+For sketches, a high denoise alone keeps color placement but not linework. Add a Scribble or Lineart ControlNet (see [ControlNet-Guided Edits](#controlnet-guided-edits)) when the lines themselves must hold.
 
-### Sketch-to-Image (Low-Effort Input)
+## Compositing and Blending
 
-img2img also turns a rough sketch or color block-in into a finished render: feed the sketch as input, prompt for the finished subject, and use a *high* denoise (0.7-0.9) so the model reinterprets your shapes into real content while honoring the broad layout and color placement. For tighter adherence to the sketch's lines, pair it with a **Scribble ControlNet** (next section).
+Whatever produced the new content, the last step is to make the seam invisible. Three methods, from crudest to most thorough:
 
-## Compositing & Blending
-
-Whether content is inpainted, outpainted, or pasted in, the final step is making the seam disappear. Three levels of blending, from crudest to cleanest:
-
-### 1. Pixel-Space Compositing (Feathered Paste)
-
-The simplest composite is a feathered alpha blend (the `composite()` function above): paste the new region over the original through a soft-edged mask. Fast and predictable, but pixel-space blending can't fix lighting or color mismatches between the two sources — it only hides the *edge*.
-
-### 2. Latent Compositing
-
-Compositing in **latent space** before the VAE decode blends more cleanly than pasting pixels, because the decode harmonizes the seam: keep latent A where mask A is white, latent B where mask B is white, then decode the combined latent once. The VAE's receptive field smooths the boundary, so colors and textures meet more naturally. This is the latent-space cousin of regional prompting.
-
-### 3. Re-Diffusion Over the Seam
-
-The most thorough fix is to run a **low-denoise img2img pass over the seam** after compositing. Paste the new content (pixel or latent), then re-noise at ~0.2-0.35 and re-denoise the whole image so the model harmonizes lighting, grain, and color across the boundary. This is what makes a composited element look *photographed together* rather than cut and pasted, and it is the standard finishing pass for serious composites.
+1. **Pixel-space feathered paste.** The `composite()` blend above. It is fast and predictable, but it only hides the *edge* and cannot fix mismatched lighting or color.
+2. **Latent compositing.** Combine latents through a mask, then decode once. The VAE decoder's receptive field smooths the boundary, so textures meet more naturally.
+3. **Re-diffusing the seam.** After pasting, run img2img at about 0.2–0.35 over the whole image, or with differential diffusion over a band around the seam. The model harmonizes grain, lighting, and color across the boundary. This is the standard finishing pass for serious composites.
 
 ```mermaid
 flowchart LR
-    A["Element / region"] --> Paste["Composite over base<br/>(feathered)"]
+    El["New element"] --> Match["Match color, white balance,<br/>light direction, grain"]
+    Match --> Paste["Feathered paste<br/>over base"]
     Base["Base image"] --> Paste
-    Paste --> Low["Low-denoise img2img<br/>(~0.25, harmonize seam)"]
-    Low --> Out["Seamless composite"]
+    Paste --> Harm["Low-denoise pass<br/>(0.2–0.35) or differential<br/>diffusion on seam band"]
+    Harm --> Out["Seamless composite"]
 ```
 
-### Matching Before Blending
+Match the sources before blending. A blend can hide an edge, but it cannot reconcile a daylight subject with a night scene. Instruction editors can take over the harmonizing step outright: "blend the pasted person into the scene's lighting".
 
-Before any blend, reduce the gap the blend has to hide: match **color/white balance**, **lighting direction**, and **grain/noise** between the sources. A blend hides an *edge*; it cannot reconcile a daylight subject pasted onto a nighttime scene. Match first, then blend, then optionally re-diffuse the seam.
+## ControlNet-Guided Edits
 
-## ControlNet-Assisted Edits
+[ControlNet](controlnet.html) constrains **structure** (pose, edges, depth) while the prompt and denoise control **content**. That makes it the natural partner for mask-based edits.
 
-[ControlNet](controlnet.html) and editing combine naturally because they constrain *different things*: ControlNet fixes **structure** (pose, edges, depth) while the editing prompt and denoise control **content**. Several recurring patterns:
-
-| Edit goal | ControlNet | Editing method | Why it works |
-|-----------|-----------|----------------|--------------|
-| Restyle a photo, keep composition | Depth (+ SoftEdge) | img2img, denoise ~0.6 | Depth/edges pin geometry while the prompt changes the look |
-| Replace an object, keep its shape | Canny / Lineart on the region | Inpaint | Edges hold the silhouette; inpaint fills new content inside it |
-| Finish a sketch faithfully | Scribble | img2img, high denoise | Scribble locks the lines; high denoise renders them |
-| Repaint clothing on a posed figure | OpenPose | Inpaint (clothing mask) | Pose keeps the body; inpaint changes only the garment |
-| Coherent high-res detail pass | Tile | img2img upscale, low denoise | Tile keeps tiles consistent while detail is added |
-
-The **Inpaint ControlNet** deserves special mention: it adds inpaint conditioning to a *normal* checkpoint, so you can do clean masked edits without swapping to a dedicated inpainting model — useful when your favorite checkpoint has no inpainting variant.
-
-A typical structured edit chains the two: preprocess the reference for structure, apply the ControlNet to the conditioning, then route that conditioning into an inpaint or img2img sampler.
+| Goal | ControlNet | Edit method | Why it works |
+|------|-----------|-------------|--------------|
+| Restyle a photo, keep composition | Depth, optionally with SoftEdge | img2img, denoise about 0.6 | Geometry is pinned while the look changes |
+| Replace an object, keep its silhouette | Canny or Lineart on the region | Inpaint | Edges hold the shape; the fill supplies new material |
+| Render a sketch faithfully | Scribble or Lineart | img2img, high denoise | Lines are locked; denoise renders them |
+| Repaint clothing on a posed figure | OpenPose, optionally with Depth | Inpaint the garment mask | The body stays; only the garment changes |
+| Add detail while upscaling | Tile | Tiled img2img, low denoise | Tiles stay consistent with the source |
+| Fill with a normal checkpoint | Inpaint ControlNet | Inpaint | Adds inpaint conditioning without switching models |
 
 ```mermaid
 flowchart LR
     Ref["Image to edit"] --> Pre["Preprocessor<br/>(depth / canny / pose)"]
-    Pre --> Apply["Apply ControlNet"]
+    Pre --> Apply["Apply ControlNet<br/>strength 0.6–0.8,<br/>end_percent 0.7–0.9"]
     Prompt["Edit prompt"] --> Apply
-    Apply -->|conditioning| Edit["Inpaint / img2img sampler"]
-    Mask["Mask (if inpainting)"] --> Edit
-    Ref --> Edit
-    Edit --> Out["Structurally-faithful edit"]
+    Apply -->|"conditioning"| Samp["Inpaint / img2img sampler"]
+    Ref --> Samp
+    Mask["Mask (if inpainting)"] --> Samp
+    Samp --> Out["Edit with preserved structure"]
 ```
 
-Keep ControlNet strength moderate (~0.6-0.8) on edits so structure guides without overriding the new content — the same `end_percent` windowing from the [ControlNet guide](controlnet.html) applies: release control before the final steps so the edit gets detail the control map never specified.
+Keep ControlNet strength moderate on edits and end control before the last steps (`end_percent`), so the sampler can add detail the control map never specified. Union ControlNets and FLUX ControlNets work the same way.
 
-## Putting It Together: A Practical Editing Recipe
+## Example: Replacing an Object
 
-Most real edits are a short pipeline, not a single node. A representative "replace an object cleanly" recipe:
+A typical "replace this object cleanly" pipeline:
 
-1. **Select** the object with SAM (click → precise mask), then **feather** the mask (~8 px blur) and **pad** generously to include shadow.
-2. **Choose denoise** by intent — ~0.85 with `latent noise` masked-content to fully replace; ~0.4 with `original` to repair.
-3. **Inpaint only masked** so the region regenerates at full resolution, with a dedicated inpainting model (or ControlNet Inpaint).
-4. **Optionally constrain structure** with a Canny/Depth ControlNet if the replacement must match the original silhouette.
-5. **Composite back** and run a **low-denoise (~0.25) img2img pass** over the whole image to harmonize lighting and grain across the seam.
+1. **Select.** Use SAM 2 (click) or SAM 3 (text prompt, e.g. "coffee mug") to mask the object. Grow the mask about 8 px, feather it about 8 px, and include the shadow.
+2. **Choose the engine.** Use an instruction editor if the change is easy to describe and the model fits in memory. Otherwise use an inpaint model or FLUX Fill at denoise 1.0, or a base checkpoint at 0.75–0.9 starting from `fill` or latent noise.
+3. **Work at resolution.** Crop and stitch so the region is regenerated at native resolution.
+4. **Constrain shape if needed.** Add Canny or Depth ControlNet when the replacement must match the old silhouette.
+5. **Composite and harmonize.** Paste only the masked region back over the original, then run a 0.2–0.3 denoise pass or differential diffusion across the seam band.
 
-Each step maps to a section above: mask prep, denoise choice, inpainting, ControlNet-assisted edits, and compositing & blending.
+## Practical Guidelines
 
-## Best Practices
-
-### Do
-
-- Feather every inpaint/outpaint mask to avoid seams
-- Sweep denoise strength with a fixed seed to find the minimum that works
-- Use "only masked" / crop-and-stitch for small regions
-- Match color, lighting, and grain *before* blending
-- Finish composites with a low-denoise harmonizing pass
-- Use a dedicated inpainting model (or ControlNet Inpaint) for large edits
-
-### Avoid
-
-- Pinning denoise at 1.0 for a subtle edit
-- Hard binary masks where a seam will show
-- Tiny masks with no padding (the model loses context)
-- Outpainting a huge border in one pass
-- Pasting elements without matching their lighting to the scene
-- Expecting a binary mask to give the soft falloff that differential diffusion provides
-
-## Key Takeaways
-
-- **Editing is re-noising.** img2img, inpainting, and outpainting all add controlled noise to an existing image and re-denoise it — the skill is choosing *where* (mask) and *how much* (denoise strength).
-- **Denoise strength is the master dial.** It sets a ceiling on drift, $\mathbf{z}_{\text{start}} = \mathbf{z}_0 + \sigma(d)\,\boldsymbol{\epsilon}$ — low for repairs and polish, high for replacements and sketch-to-image.
-- **Feather masks and inpaint small regions at full resolution.** Soft mask edges blend the seam; "only masked" / crop-and-stitch gives a small region the model's full detail budget.
-- **Differential diffusion replaces the binary mask with a continuous strength map**, $\sigma_{\text{start}}(x,y) = s(x,y)\,\sigma_{\max}$, for feathered, seamless gradient edits.
-- **Blend, then re-diffuse the seam.** Latent compositing and a low-denoise harmonizing pass make pasted or inpainted content look photographed together, not stitched.
-- **Pair with ControlNet to fix structure while you edit content** — Depth/Canny/Pose hold geometry while the prompt and denoise change the look.
+- Sweep denoise with a fixed seed and keep the lowest value that works.
+- Grow and feather every mask. Always paste the result back over the original pixels.
+- Inpaint small regions with crop-and-stitch, never at their native size in a large canvas.
+- Use a fill-trained model (inpaint checkpoint, FLUX Fill) or an instruction editor for large edits and removals.
+- Outpaint in 25–50% increments with an overlap strip.
+- Use differential diffusion when a seam would show, and instruction editing when the change is semantic ("make it winter") rather than local.
+- Match color and lighting before blending, and finish composites with a low-denoise harmonizing pass.
 
 ## See Also
 
-- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - The diffusion process editing builds on
-- [ControlNet](controlnet.html) - Constrain structure while you edit content
-- [Advanced Techniques](advanced-techniques.html) - Regional prompting, latent composition, multi-stage workflows
-- [ComfyUI Guide](comfyui-guide.html) - Build inpaint, outpaint, and img2img graphs
-- [Base Models Comparison](base-models-comparison.html) - Inpainting and Fill model support across SD 1.5, SDXL, FLUX
-- [Output Formats](output-formats.html) - Exporting and using edited results
-- [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
+- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) – the diffusion process that editing builds on
+- [FLUX Guide](flux-guide.html) – FLUX Fill, Kontext, and the rectified-flow family
+- [ControlNet](controlnet.html) – constraining structure while editing content
+- [Advanced Techniques](advanced-techniques.html) – regional prompting, latent composition, multi-stage upscaling
+- [ComfyUI Guide](comfyui-guide.html) – building inpaint, outpaint, and img2img graphs
+- [LoRA Training](lora-training.html) – including paired LoRAs for edit models
+- [Base Models Comparison](base-models-comparison.html) – inpainting and editing support across model families
+- [AI/ML Documentation Hub](./) – full AI/ML index

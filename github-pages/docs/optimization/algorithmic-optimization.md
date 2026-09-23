@@ -11,72 +11,66 @@ hide_title: true
 
 [Performance Optimization](./) &raquo; Algorithmic Optimization
 
-The single most valuable optimization is rarely a faster line of code — it is a *better algorithm*. A change from $O(n^2)$ to $O(n \log n)$ shrinks a one-second operation on a million elements to a few milliseconds, a speedup no amount of constant-factor tuning can match. This page covers how complexity analysis plays out in real systems: reading the asymptotics that actually matter, choosing data structures by their operation profile, partitioning space to avoid all-pairs work, and trading memory for time through caching, memoization, and amortization. For the constant-factor and hardware-level work that comes *after* the algorithm is right, see [CPU Optimization](./cpu-optimization.html) and [Memory Optimization](./memory-optimization.html).
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
-
----
+The most valuable optimization is usually a better algorithm, not a faster line of code. Replacing an $O(n^2)$ pass with an $O(n \log n)$ one turns a million-element job from roughly $10^{12}$ operations into about $2 \times 10^7$, a gap no amount of constant-factor tuning can close. This page covers complexity analysis as it plays out on real hardware, choosing data structures by their operation profile, spatial partitioning, caching and memoization, probabilistic data structures, and amortized analysis. Constant-factor and hardware-level work that comes after the algorithm is right is covered in [CPU Optimization](./cpu-optimization.html) and [Memory Optimization](./memory-optimization.html); the theory behind complexity classes is in [Complexity Theory](../advanced/complexity-theory/).
 
 ## Complexity Analysis in Practice
 
-### Why Big O Dominates
+### Why Growth Rate Dominates
 
-Asymptotic complexity describes how an algorithm's cost grows with input size $n$. Because it ignores constant factors and lower-order terms, it tells you which algorithm *wins as the problem scales* — and in practice problems always scale. The table below shows operation counts for common growth rates; note how the gap between classes explodes:
+Asymptotic complexity describes how cost grows with input size $n$, ignoring constant factors and lower-order terms. It predicts which algorithm wins as the problem scales, and production inputs nearly always grow.
 
-| $n$ | $\log n$ | $n$ | $n \log n$ | $n^2$ | $2^n$ |
+| $n$ | $\log_2 n$ | $n$ | $n \log_2 n$ | $n^2$ | $2^n$ |
 |------|----------|------|------------|--------|--------|
 | 16 | 4 | 16 | 64 | 256 | 65,536 |
-| 1,024 | 10 | 1,024 | ~10,240 | ~1.05M | ~$10^{308}$ |
-| 1,000,000 | ~20 | $10^6$ | ~$2 \times 10^7$ | $10^{12}$ | overflow |
+| 1,024 | 10 | 1,024 | ~10,240 | ~$1.05 \times 10^6$ | ~$1.8 \times 10^{308}$ |
+| $10^6$ | ~20 | $10^6$ | ~$2 \times 10^7$ | $10^{12}$ | astronomically large |
 
-A constant-factor optimization that makes your code 2x faster moves the $n^2$ row's $10^{12}$ down to $5 \times 10^{11}$ — still astronomically worse than the $n \log n$ alternative at $2 \times 10^7$. This is the core lesson: **fix the complexity class before tuning constants.**
+At roughly $10^9$ simple operations per second per core, the $n \log n$ column for a million items is about 20 ms; the $n^2$ column is about 17 minutes. A 2x constant-factor improvement to the quadratic version still leaves it more than four orders of magnitude behind. **Fix the complexity class before tuning constants.**
 
-The standard algorithmic upgrades, drawn from the same operations a profiler will flag as hot:
+Common upgrades, usually spotted as hot spots in a profile:
 
-| Operation | Naive | Optimized |
-|-----------|-------|-----------|
-| Find in list | O(n) linear scan | O(1) hash table |
-| Sort | O(n²) bubble/insertion | O(n log n) merge/quick/heap |
-| Nearest neighbor | O(n) brute force | O(log n) spatial tree |
-| Path finding | O(n²) Dijkstra (dense) | O(n log n) A* with heap |
-| Collision detection | O(n²) all-pairs | O(n log n) broad phase |
-| Membership test (repeated) | O(n) per query | O(1) hash set |
-| Range/min query | O(n) per query | O(log n) segment/Fenwick tree |
+| Operation | Naive | Better | Notes |
+|-----------|-------|--------|-------|
+| Lookup by key | $O(n)$ linear scan | $O(1)$ average hash table | Or $O(\log n)$ binary search on a sorted array |
+| Sort | $O(n^2)$ insertion/bubble | $O(n \log n)$ comparison sort | Radix sort is $O(n \cdot w)$ for $w$-digit fixed-width keys |
+| Repeated membership test | $O(n)$ per query | $O(1)$ hash set, or a Bloom filter when approximate is acceptable | |
+| Nearest neighbor (low dimensions) | $O(n)$ per query | ~$O(\log n)$ k-d tree, BVH, or grid | Tree methods degrade toward $O(n)$ as dimensions grow |
+| Nearest neighbor (high dimensions) | $O(n d)$ brute force | Approximate search (HNSW, IVF) | Trades exact recall for sub-linear queries |
+| Shortest path (non-negative weights) | Repeated relaxation, $O(VE)$ (Bellman-Ford) | $O((V + E) \log V)$ Dijkstra with a binary heap | A* adds a heuristic that usually explores far fewer nodes |
+| Collision detection | $O(n^2)$ all pairs | ~$O(n \log n)$ broad phase | See [Spatial Data Structures](#spatial-data-structures) |
+| Range sum/min over a changing array | $O(n)$ per query | $O(\log n)$ Fenwick or segment tree | Prefix sums give $O(1)$ if the array is static |
+| Top-$k$ of $n$ | $O(n \log n)$ full sort | $O(n \log k)$ bounded heap, or $O(n)$ average selection | `std::partial_sort`, `std::nth_element`, `heapq.nlargest` |
 
-### When Big O Lies: Constants and Cache
+### When Big O Misleads
 
-Asymptotics are necessary but not sufficient. Three caveats decide whether the theoretically faster algorithm wins on real hardware:
+Asymptotics are necessary but not sufficient. Three effects decide whether the theoretically faster algorithm wins on real hardware.
 
-1. **Small $n$ favors simple algorithms.** Insertion sort beats quicksort for arrays of ~16 elements because its constant factor and cache behavior are excellent. Production sorts (`std::sort`, Timsort) switch to insertion sort below a threshold for exactly this reason.
+1. **Small $n$ favors simple algorithms.** Insertion sort beats quicksort on arrays of a few dozen elements because its inner loop is tiny and branch- and cache-friendly. Production sorts are hybrids for exactly this reason: `std::sort` implementations use introsort or pattern-defeating quicksort (pdqsort) with an insertion-sort cutoff; Python's list sort is a merge-based adaptive sort (Timsort, with the Powersort merge policy since Python 3.11); Rust's standard library switched to the driftsort and ipnsort hybrids in Rust 1.81.
+2. **Memory access is a hidden constant.** Big O counts operations, not cache misses. A miss to main memory costs on the order of 100 ns, hundreds of cycles, so a linear scan of a contiguous array can outrun a pointer-chasing tree or linked list for surprisingly large $n$. See [Memory Optimization](./memory-optimization.html).
+3. **Average, amortized, and worst case are different guarantees.** A hash insert that is $O(1)$ amortized can stall for $O(n)$ during a resize, and a hash lookup that is $O(1)$ on average can be $O(n)$ under adversarial keys. Which bound matters depends on whether you care about throughput or tail latency (see [Amortized Analysis](#amortized-analysis)).
 
-2. **Memory locality is a hidden constant.** A linear scan over a contiguous array can outrun a "faster" pointer-chasing structure (linked list, tree) because every cache miss costs ~200 cycles. Big O counts operations, not cache misses. See [Memory Optimization](./memory-optimization.html) for how data layout interacts with the cache hierarchy.
+The practical rule: use complexity analysis to pick the candidates, then benchmark them on realistic data sizes and distributions.
 
-3. **Amortized vs worst-case matters for latency.** An $O(1)$ amortized hash insert can stall for $O(n)$ on a resize — fine for throughput, fatal for a real-time frame budget. Knowing *which* bound you need is part of the analysis (covered under [Amortized Analysis](#amortized-analysis) below).
+### Worked Example: Removing a Nested Search
 
-### A Worked Example: De-quadratifying a Hot Loop
-
-A common $O(n^2)$ pattern is "for each item, search a list for a match":
+A frequent accidental $O(n \cdot m)$ pattern is "for each item, search a list for its match":
 
 ```cpp
-// O(n*m): for each event, linearly find its handler by id.
-for (const Event& e : events) {              // n events
-    for (Handler& h : handlers) {            // m handlers
+// O(n * m): for each event, linearly search for its handler
+for (const Event& e : events) {            // n events
+    for (Handler& h : handlers) {          // m handlers
         if (h.id == e.target_id) { h.process(e); break; }
     }
 }
 ```
 
-If `events` and `handlers` are both large, this is quadratic. Building a hash index once turns the inner scan into an $O(1)$ lookup, making the whole loop $O(n + m)$:
+Building an index once makes each lookup $O(1)$ on average and the whole pass $O(n + m)$:
 
 ```cpp
-// O(n + m): index handlers by id once, then look up directly.
+// O(n + m): index handlers by id once, then look up directly
 std::unordered_map<Id, Handler*> by_id;
-by_id.reserve(handlers.size());
-for (Handler& h : handlers) by_id[h.id] = &h;
+by_id.reserve(handlers.size());            // avoid rehashing while building
+for (Handler& h : handlers) by_id.emplace(h.id, &h);
 
 for (const Event& e : events) {
     if (auto it = by_id.find(e.target_id); it != by_id.end())
@@ -84,227 +78,284 @@ for (const Event& e : events) {
 }
 ```
 
-The pattern generalizes: **whenever you see a search nested inside a loop, ask whether the searched collection can be pre-indexed** into a hash map, sorted array (for binary search), or spatial structure.
+The same pattern hides in SQL (a query per row, the "N+1 queries" problem), in nested list comprehensions, and in `list.index()` or `x in list` inside a loop. **When a search sits inside a loop, ask whether the searched collection can be indexed first**: a hash map, a sorted array for binary search, or a spatial structure.
 
 ## Choosing Data Structures
 
-A data structure is a contract over the *operations* you perform and their costs. Picking the right one is often the entire optimization, because it changes the complexity of every operation that touches it. Profile your access pattern first: are you mostly inserting, searching, iterating in order, querying ranges, or removing from the middle?
+A data structure is a contract over operations and their costs, so choosing one is often the entire optimization. Start from the access pattern: mostly lookups by key, in-order iteration, range queries, repeated extraction of the minimum, or inserts and removals in the middle?
 
-| Structure | Lookup | Insert | Delete | Ordered iteration | Notes |
-|-----------|--------|--------|--------|-------------------|-------|
-| Dynamic array (`vector`) | O(n) search / O(1) index | O(1) amortized (back) | O(n) (middle) | Yes (sorted) | Best cache locality; ideal default |
-| Hash map (`unordered_map`) | O(1) avg | O(1) avg | O(1) avg | No | Random-access lookups; resize stalls |
-| Balanced BST (`map`) | O(log n) | O(log n) | O(log n) | Yes | Ordered + range queries |
-| Linked list | O(n) | O(1) at node | O(1) at node | Yes | Poor locality; rarely worth it |
-| Binary heap (priority queue) | O(1) peek | O(log n) | O(log n) pop-min | No | Scheduling, Dijkstra/A* frontier |
-| Bitset | O(1) | O(1) | O(1) | Yes | Dense small-integer sets, very fast |
-| B-tree / B+tree | O(log n) | O(log n) | O(log n) | Yes | Disk/page-friendly; database indexes |
+| Structure | Lookup | Insert | Delete | Ordered | Typical use |
+|-----------|--------|--------|--------|---------|-------------|
+| Dynamic array (`std::vector`, `Vec`, `list`) | $O(1)$ by index, $O(n)$ by value | $O(1)$ amortized at end | $O(n)$ in middle | If kept sorted | Default choice; best locality |
+| Sorted array + binary search | $O(\log n)$ | $O(n)$ | $O(n)$ | Yes | Build once, query many times |
+| Open-addressing hash map (Swiss table) | $O(1)$ avg | $O(1)$ amortized | $O(1)$ avg | No | General key lookup |
+| Node-based hash map (`std::unordered_map`) | $O(1)$ avg | $O(1)$ amortized | $O(1)$ avg | No | When stable element addresses are required |
+| Balanced BST (`std::map`, `TreeMap`) | $O(\log n)$ | $O(\log n)$ | $O(\log n)$ | Yes | Ordered data with frequent updates |
+| B-tree / B+ tree (`BTreeMap`, database indexes) | $O(\log n)$ | $O(\log n)$ | $O(\log n)$ | Yes | Ordered data; cache- and page-friendly |
+| Binary heap | $O(1)$ peek min | $O(\log n)$ | $O(\log n)$ pop min | No | Priority queues, schedulers, Dijkstra/A* frontier |
+| Linked list | $O(n)$ | $O(1)$ at a known node | $O(1)$ at a known node | Insertion order | Intrusive lists, splicing; rarely otherwise |
+| Bitset | $O(1)$ | $O(1)$ | $O(1)$ | Yes | Dense sets of small integers |
 
-### Practical Heuristics
+```mermaid
+flowchart TD
+    A["What dominates the workload?"] --> B{"Lookup by key?"}
+    B -->|"yes, order irrelevant"| H["Hash map / hash set<br/>(open addressing)"]
+    B -->|"yes, need order or ranges"| C{"Mostly static?"}
+    C -->|"yes"| S["Sorted array +<br/>binary search"]
+    C -->|"no"| T["B-tree or balanced BST"]
+    A --> D{"Repeatedly take<br/>the smallest or largest?"}
+    D -->|"yes"| P["Binary heap"]
+    A --> E{"Iterate everything,<br/>append at end?"}
+    E -->|"yes"| V["Dynamic array"]
+    A --> F{"Small integer keys?"}
+    F -->|"yes"| BS["Bitset or<br/>direct-indexed array"]
+```
 
-- **Default to a contiguous array.** Its cache behavior beats node-based structures so often that you should justify *not* using one. Linear search over a packed array can outperform a tree up to surprisingly large $n$.
-- **Use a hash map for repeated membership/lookup by key**, but reserve capacity up front (`reserve(n)`) to avoid incremental rehashing, and remember it gives no ordering and has worst-case $O(n)$ buckets under collisions.
-- **Use a balanced tree (or sorted array + binary search) when you need order**: range queries, nearest-key, or in-order traversal. A sorted `vector` with `lower_bound` beats `std::map` when the data is built once and queried many times, because it stays contiguous.
-- **Use a heap for "repeatedly extract the best"**: priority scheduling, event queues, and the open set in A*.
-- **Match the structure to the storage tier.** In-memory work favors flat arrays and hash maps; on-disk or paged data favors B-trees, which is why [databases](../technology/database-design/) build B+tree indexes — they minimize page reads, the dominant cost when data lives on disk.
+### Heuristics
+
+- **Default to a contiguous array.** Its locality wins so often that a node-based structure needs a reason. Linear search over a small packed array frequently beats a tree or even a hash map.
+- **Prefer open-addressing hash tables for lookups.** "Swiss table" designs (Abseil `flat_hash_map`, `boost::unordered_flat_map`, Rust's standard `HashMap`, which is built on hashbrown) store entries inline and probe groups of control bytes with SIMD, and are typically several times faster than node-based `std::unordered_map`. The standard container's API requires stable element addresses, which forces a node per element.
+- **Reserve capacity when the size is known** (`reserve(n)`, `with_capacity(n)`) to avoid repeated rehashing or reallocation.
+- **Use ordered structures only when you need order.** For build-once, query-many data, a sorted vector with `std::lower_bound` beats `std::map` because it stays contiguous. For ordered data under frequent updates, B-trees generally beat red-black trees in memory because each node holds many keys and fills whole cache lines.
+- **Mind adversarial input.** Hash tables keyed by untrusted data need a keyed or randomized hash (SipHash in Rust and Python) to resist collision-flooding denial of service.
+- **Match the structure to the storage tier.** On disk or SSD, cost is counted in page reads, which is why [databases](../technology/database-design/) index with B+ trees and LSM trees rather than hash maps or binary trees.
 
 ### The Cost of Indirection
 
-Two structures with the same Big O can differ by an order of magnitude in wall-clock time because of pointer chasing. A `std::map` and a sorted `std::vector` are both $O(\log n)$ for lookup, but the vector touches contiguous memory while the map jumps across heap-scattered nodes, missing cache on nearly every step. When you have a choice between equal asymptotics, **prefer the structure with better locality** — this is the bridge from algorithmic optimization into [data-oriented design](./cpu-optimization.html).
+Two structures with identical Big O can differ by an order of magnitude in wall-clock time. `std::map` and a sorted `std::vector` are both $O(\log n)$ for lookup, but the map follows a pointer to a separately allocated node at every level, often missing cache each time, while binary search over the vector touches one contiguous block. When asymptotics tie, **prefer the structure with better locality**. This is the bridge from algorithmic work into data-oriented design ([CPU Optimization](./cpu-optimization.html#data-oriented-design-aos-vs-soa)).
 
 ## Spatial Data Structures
 
-Many performance problems are "find all objects near a point or region" — collision detection, rendering culling, nearest-neighbor queries, AI perception. Done naively this is $O(n^2)$ (test every pair) or $O(n)$ per query. Spatial data structures partition space so that each query only examines nearby candidates, cutting this to roughly $O(\log n)$ per query or $O(n \log n)$ for the all-pairs broad phase.
+Many performance problems reduce to "find the objects near a point or region": collision detection, view-frustum culling, ray casting, nearest-neighbor queries, AI perception. Done naively this is $O(n)$ per query, or $O(n^2)$ to test every pair. Spatial structures partition space so that a query examines only nearby candidates.
 
-### Choosing by Use Case
+| Structure | Build | Handles | Strengths | Typical use |
+|-----------|-------|---------|-----------|-------------|
+| Uniform grid / spatial hash | $O(n)$, cheap to rebuild every frame | Similar-sized, evenly spread objects | Simplest; constant-time cell lookup | Particles, crowds, tile games |
+| Quadtree / octree | $O(n \log n)$ | Uneven density | Adapts depth to detail | Static or slowly changing worlds |
+| Loose octree | $O(n \log n)$ | Moving objects that straddle cells | Objects need not be split across cells | Dynamic scenes |
+| BVH (bounding volume hierarchy) | $O(n \log n)$; can be refit in $O(n)$ | Arbitrary objects | Excellent ray and query pruning | Ray tracing, physics broad phase |
+| k-d tree | $O(n \log n)$ | Points | Exact nearest neighbor in low dimensions | Point clouds, low-dimensional search |
+| R-tree | $O(n \log n)$ | Rectangles, polygons | Disk-friendly, balanced | Spatial databases (PostGIS), GIS |
+| BSP tree | Expensive, offline | Static polygons | Exact visibility ordering | Classic level geometry |
 
+### Broad Phase and Narrow Phase
+
+Collision detection uses spatial structures in two stages instead of testing all $\binom{n}{2}$ pairs:
+
+```mermaid
+flowchart LR
+    A["n objects"] --> B["Broad phase<br/>grid, BVH, or sweep-and-prune<br/>compares bounding boxes"]
+    B --> C["Candidate pairs<br/>(overlapping bounds)"]
+    C --> D["Narrow phase<br/>exact shape tests<br/>(GJK, SAT)"]
+    D --> E["Contacts"]
 ```
-Static geometry (built once, queried often):
-- BVH (Bounding Volume Hierarchy)  — ray tracing, static collision
-- BSP trees                        — visibility, classic level geometry
-- Octrees                          — uniform 3D subdivision
 
-Dynamic objects (rebuilt/updated every frame):
-- Spatial hashing                  — uniform-size objects, cheap rebuild
-- Uniform grid partitioning        — bounded worlds, fast neighbor lookup
-- Loose octrees                    — moving objects spanning cell boundaries
-
-2D / GIS:
-- Quadtrees                        — adaptive 2D subdivision
-- R-trees                          — bounding-box indexing, spatial databases
-- Spatial hashing                  — particles, tile-based games
-```
-
-### The Broad-Phase / Narrow-Phase Pattern
-
-The canonical use of spatial structures is collision detection. Instead of testing all $\binom{n}{2}$ pairs:
-
-1. **Broad phase** — a spatial structure (grid, BVH, or sweep-and-prune) cheaply finds *candidate* pairs whose bounding volumes overlap. This is the step that turns $O(n^2)$ into roughly $O(n \log n)$.
-2. **Narrow phase** — exact, expensive intersection tests run only on the few candidate pairs the broad phase produced.
+The broad phase cheaply discards pairs whose bounding volumes cannot touch, cutting the work to roughly $O(n \log n)$ (or near $O(n)$ with a well-tuned grid); the expensive exact tests run only on the few candidate pairs that remain.
 
 ### Uniform Spatial Hashing
 
-For evenly distributed, similarly sized objects, a spatial hash is the simplest fast structure: map each object's position to a grid cell and store cell occupants in a hash map. Neighbor queries inspect only the object's cell and its eight (2D) or 26 (3D) neighbors:
+For evenly distributed, similarly sized objects, a spatial hash is the simplest fast option. Each position maps to an integer cell; cells live in a hash map; a neighbor query inspects the object's cell and its 8 (2D) or 26 (3D) neighbors.
 
 ```cpp
-// Hash a world position into an integer grid cell.
-struct CellKey { int x, y, z; bool operator==(const CellKey&) const = default; };
+#include <cmath>
+#include <cstdint>
+#include <unordered_map>
+#include <vector>
+
+struct CellKey {
+    int32_t x, y, z;
+    bool operator==(const CellKey&) const = default;   // C++20
+};
 
 struct CellHash {
-    size_t operator()(const CellKey& k) const {
-        // Mix the three coordinates; large primes reduce collisions.
-        return (k.x * 73856093) ^ (k.y * 19349663) ^ (k.z * 83492791);
+    size_t operator()(const CellKey& k) const noexcept {
+        // Multiply in unsigned arithmetic: signed overflow would be undefined behavior.
+        uint64_t h = uint64_t(uint32_t(k.x)) * 73856093u
+                   ^ uint64_t(uint32_t(k.y)) * 19349663u
+                   ^ uint64_t(uint32_t(k.z)) * 83492791u;
+        return size_t(h);
     }
 };
 
 class SpatialHash {
-    float cell_size;
-    std::unordered_map<CellKey, std::vector<Object*>, CellHash> cells;
+    float cell_size_;
+    std::unordered_map<CellKey, std::vector<Object*>, CellHash> cells_;
 
     CellKey key_of(const Vector3& p) const {
-        return { int(std::floor(p.x / cell_size)),
-                 int(std::floor(p.y / cell_size)),
-                 int(std::floor(p.z / cell_size)) };
+        return { int32_t(std::floor(p.x / cell_size_)),
+                 int32_t(std::floor(p.y / cell_size_)),
+                 int32_t(std::floor(p.z / cell_size_)) };
     }
-public:
-    void insert(Object* o) { cells[key_of(o->position)].push_back(o); }
 
-    // Gather candidates in the object's cell and its 26 neighbors.
-    std::vector<Object*> query_neighbors(const Vector3& p) const {
-        std::vector<Object*> out;
-        CellKey c = key_of(p);
+public:
+    explicit SpatialHash(float cell_size) : cell_size_(cell_size) {}
+
+    void clear() { cells_.clear(); }                    // rebuild each frame
+    void insert(Object* o) { cells_[key_of(o->position)].push_back(o); }
+
+    // Append candidates from the object's cell and its 26 neighbors to `out`.
+    void query_neighbors(const Vector3& p, std::vector<Object*>& out) const {
+        const CellKey c = key_of(p);
         for (int dz = -1; dz <= 1; ++dz)
         for (int dy = -1; dy <= 1; ++dy)
         for (int dx = -1; dx <= 1; ++dx)
-            if (auto it = cells.find({c.x+dx, c.y+dy, c.z+dz}); it != cells.end())
+            if (auto it = cells_.find({c.x + dx, c.y + dy, c.z + dz}); it != cells_.end())
                 out.insert(out.end(), it->second.begin(), it->second.end());
-        return out;
     }
 };
 ```
 
-The `cell_size` is the key tuning parameter: too large and each cell holds too many objects (degenerating toward $O(n^2)$); too small and objects span many cells, wasting memory and broadening queries. A good default is roughly the diameter of a typical object.
+`cell_size` is the tuning knob. Too large and each cell holds many objects, sliding back toward $O(n^2)$; too small and objects span many cells and queries touch many empty ones. Start near the diameter of a typical object. Passing the output vector in by reference lets callers reuse its allocation across queries.
 
-### Hierarchical Trees: Octrees and BVHs
+### Hierarchical Structures
 
-When object density is *non-uniform* — clusters of detail amid empty space — a flat grid wastes memory on empty cells. Hierarchical structures adapt:
+When density is uneven, with clusters of detail in mostly empty space, a flat grid wastes memory on empty cells or overloads dense ones. Hierarchies adapt:
 
-- **Octree (3D) / Quadtree (2D)** recursively subdivides a cube/square into eight/four children only where objects are present, giving $O(\log n)$ depth in well-balanced scenes. Ideal for static or slowly changing worlds.
-- **BVH (Bounding Volume Hierarchy)** wraps objects in nested bounding boxes (or spheres) forming a binary tree. A ray or query descends only into boxes it intersects, pruning whole subtrees. BVHs are the backbone of modern ray tracing and are cheap to refit (update bounds without rebuilding) when objects move slightly. See how this feeds into rendering in [3D Graphics & Rendering](../graphics/3d-rendering.html).
+- **Quadtrees and octrees** subdivide a square or cube into four or eight children only where objects exist, giving roughly $O(\log n)$ depth in reasonably balanced scenes.
+- **BVHs** wrap objects in nested bounding boxes forming a tree. A ray or query descends only into boxes it intersects, pruning whole subtrees. BVHs are the acceleration structure behind hardware ray tracing (the DXR and Vulkan ray-tracing APIs build them for you), and they can be **refit** cheaply (recompute bounds bottom-up without restructuring) when objects move a little. See [3D Graphics and Rendering](../graphics/3d-rendering.html).
 
-The shared idea across all of these: **convert a global "test everything" into a local "test only what's nearby" by exploiting spatial coherence.**
+The common idea: turn a global "test everything" into a local "test only what is nearby" by exploiting spatial coherence.
+
+### High-Dimensional Search
+
+Space-partitioning trees stop helping as dimensionality grows: beyond a few dozen dimensions nearly every partition must be visited (the curse of dimensionality). Similarity search over embeddings, which have hundreds or thousands of dimensions, therefore uses **approximate nearest neighbor** (ANN) indexes. **HNSW** (hierarchical navigable small-world graphs) and **IVF** (inverted file with clustering, often combined with product quantization) answer queries in sub-linear time at a recall below 100%, tunable against speed and memory. Libraries such as FAISS and the vector indexes built into PostgreSQL (pgvector) and search engines implement these.
 
 ## Caching and Memoization
 
-When the same expensive computation recurs with the same inputs, store the result and return it on subsequent calls. This trades memory for time — the central trade-off of algorithmic optimization — and is most effective when the function is *pure* (output depends only on inputs) and recomputation is costly relative to a lookup.
+When the same expensive computation recurs with the same inputs, store the result and return it next time. This trades memory for time, and it is most effective when the function is **pure** (its output depends only on its inputs) and recomputation is expensive relative to a lookup.
 
 ### Memoizing a Pure Function
 
-The pattern, preserved and expanded from the optimization hub, wraps an expensive calculation in a cache keyed by its inputs:
-
 ```cpp
-// Expensive computation caching (memoization)
 class ExpensiveComputation {
-    mutable std::unordered_map<Key, Result> cache;
+    mutable std::unordered_map<Key, Result, KeyHash> cache_;
 
 public:
-    Result compute(const Key& key) const {
-        auto it = cache.find(key);
-        if (it != cache.end()) {
-            return it->second;   // cache hit: O(1)
-        }
-
-        Result result = expensive_calculation(key);  // cache miss: full cost
-        cache[key] = result;
-        return result;
+    const Result& compute(const Key& key) const {
+        if (auto it = cache_.find(key); it != cache_.end())
+            return it->second;                       // hit: O(1) average
+        auto [it, _] = cache_.emplace(key, expensive_calculation(key));
+        return it->second;                           // miss: full cost, once
     }
 
-    void invalidate() { cache.clear(); }
+    void invalidate() { cache_.clear(); }
 };
 ```
 
+This version is not thread-safe; a cache shared between threads needs a lock, sharding, or a concurrent map. Most languages ship a memoization helper: `functools.cache` and `functools.lru_cache` in Python, `computeIfAbsent` on a Java `ConcurrentHashMap`, `useMemo` in React.
+
 ### Memoization and Dynamic Programming
 
-Memoization is the top-down face of dynamic programming: a naive recursive solution that recomputes overlapping subproblems becomes linear once each subproblem is cached. The textbook example is Fibonacci, where naive recursion is $O(2^n)$ but memoized recursion is $O(n)$:
+Memoization is the top-down form of dynamic programming. A recursive solution that recomputes overlapping subproblems becomes polynomial once each subproblem is cached. Fibonacci shows the effect: naive recursion makes $O(\varphi^n)$ calls (with $\varphi \approx 1.618$), memoized recursion makes $O(n)$.
+
+$$
+F(n) = F(n-1) + F(n-2), \qquad F(0) = 0, \quad F(1) = 1
+$$
 
 ```cpp
-long long fib(int n, std::vector<long long>& memo) {
+#include <cstdint>
+#include <vector>
+
+// memo must have size n + 1, initialized to -1
+int64_t fib(int n, std::vector<int64_t>& memo) {
     if (n < 2) return n;
-    if (memo[n] != -1) return memo[n];        // already computed
-    return memo[n] = fib(n-1, memo) + fib(n-2, memo);
+    if (memo[n] != -1) return memo[n];
+    return memo[n] = fib(n - 1, memo) + fib(n - 2, memo);
 }
 ```
 
-Each value `fib(k)` is computed once and reused, collapsing the exponential call tree into $n$ distinct evaluations. The recurrence it encodes is:
+The bottom-up form fills a table in dependency order and avoids recursion depth limits; when each state depends only on the previous few, the table shrinks to a few variables (Fibonacci needs two). The same move, identifying overlapping subproblems and caching them, turns exponential search into polynomial time for edit distance, sequence alignment, knapsack with integer weights, and shortest paths in DAGs.
 
-$$
-F(n) = F(n-1) + F(n-2), \quad F(0) = 0, \; F(1) = 1
-$$
+### Invalidation and Eviction
 
-The same transformation — identify overlapping subproblems, cache them — turns exponential brute force into polynomial time across an enormous class of problems (shortest paths, edit distance, knapsack, sequence alignment).
+The two hard parts of caching are deciding when a stored result stops being valid and what to discard when the cache is full.
 
-### Cache Invalidation and Eviction
+- **Invalidation.** A cached result is correct only while its inputs are unchanged. Pure functions of immutable inputs never need invalidation; caches over mutable state must be cleared, versioned, or given a time-to-live. Stale-cache bugs are notorious because the wrong answer arrives quickly and silently.
+- **Eviction.** An unbounded cache is a memory leak. Bounded caches evict under a policy:
 
-The two hard parts of caching are *when results stop being valid* and *what to throw away when the cache is full*.
+| Policy | Evicts | Good for | Weakness |
+|--------|--------|----------|----------|
+| LRU | Least recently used | Temporal locality | A single large scan flushes the whole cache |
+| LFU | Least frequently used | Persistently hot keys | Slow to adapt; needs frequency aging |
+| FIFO / random | Oldest or random entry | Very cheap bookkeeping | Ignores access pattern |
+| W-TinyLFU (Caffeine) | Admits new entries only if estimated to be hotter than the victim | Mixed workloads | More complex |
+| S3-FIFO, SIEVE | FIFO queues with a small probationary queue or a "visited" bit | Web and CDN caches with many one-hit keys | Newer; less tooling |
 
-- **Invalidation.** A memoized result is only correct while its inputs are unchanged. Pure functions of immutable inputs never need invalidation; caches over mutable state must be cleared or selectively evicted when that state changes. Stale-cache bugs are notorious precisely because the wrong answer is fast and silent.
-- **Eviction (bounded caches).** An unbounded cache is a memory leak. Real caches cap their size and evict under a policy: **LRU** (least-recently-used) for temporal locality, **LFU** (least-frequently-used) when some keys are persistently hot, or simple FIFO/random when cheap is good enough. The hit rate of the policy, not its theoretical elegance, is what to measure.
+Measure hit rate on real traces; the best policy is workload-specific.
 
 ### Caching Across the Stack
 
-The same store-and-reuse principle recurs at every scale: the [CPU's L1/L2/L3 hierarchy](./cpu-optimization.html) caches memory, web layers cache HTTP responses, [databases](../technology/database-design/) cache query plans and pages, and applications memoize functions. Each level trades cheaper, larger, slower storage for a fast copy of recent results.
+The same principle recurs at every scale: CPU caches hold recently used memory lines, operating systems keep a page cache, [databases](../technology/database-design/) cache pages and query plans, CDNs and HTTP caches hold responses, and applications memoize functions. Each level keeps a small, fast copy of data whose authoritative home is larger and slower.
+
+## Probabilistic Data Structures
+
+When an exact answer is unnecessary, a probabilistic structure can answer in constant time and a small, fixed amount of memory, with a bounded error.
+
+| Structure | Answers | Error | Memory |
+|-----------|---------|-------|--------|
+| **Bloom filter** | "Is $x$ in the set?" | False positives possible, no false negatives | ~9.6 bits per element at 1% false-positive rate |
+| **Cuckoo / xor filter** | Membership, like Bloom | Same one-sided error; cuckoo filters support deletion | Often smaller than Bloom at low error rates |
+| **HyperLogLog** | "How many distinct items?" | Relative standard error $\approx 1.04/\sqrt{m}$ for $m$ registers | ~12 KB estimates billions of distinct items to within ~1% |
+| **Count-Min sketch** | "How often has $x$ appeared?" | Overestimates only, by a bounded amount | Fixed, independent of stream length |
+
+A Bloom filter with $m$ bits, $k$ hash functions, and $n$ inserted elements has false-positive probability
+
+$$
+p \approx \left(1 - e^{-kn/m}\right)^{k},
+$$
+
+minimized at $k = (m/n) \ln 2$, which gives $m/n = -\ln p / (\ln 2)^2$ bits per element. The typical use is a cheap pre-check in front of an expensive lookup: LSM-tree databases (RocksDB, Cassandra) keep a Bloom filter per file so most reads for absent keys never touch disk.
 
 ## Amortized Analysis
 
-Some operations are usually cheap but occasionally expensive. **Amortized analysis** measures the *average* cost per operation over a long sequence, proving that the rare expensive case is paid for by the many cheap ones. This is the right lens for any structure that does bulk work intermittently.
+Some operations are usually cheap and occasionally expensive. **Amortized analysis** bounds the average cost per operation over any sequence of operations, showing that the rare expensive step is paid for by the many cheap ones. Unlike average-case analysis it makes no assumption about input distribution.
 
-### The Dynamic Array Doubling Argument
+### Dynamic Array Growth
 
-The canonical example is appending to a dynamic array (`std::vector`). Most `push_back` calls are $O(1)$: write to the next slot. But when the array fills, it must allocate a larger buffer and copy every element — an $O(n)$ operation. Is `push_back` therefore $O(n)$?
-
-No. The trick is the **growth factor**: when full, the array doubles its capacity. Starting from capacity 1 and inserting $n$ elements, the total copying work across all resizes is:
+Appending to a dynamic array usually writes to the next free slot in $O(1)$. When the array is full, it allocates a larger buffer and copies every element, an $O(n)$ step. Growing the capacity by a constant **factor** keeps the total cost linear. With doubling, starting at capacity 1 and appending $n = 2^j$ elements, the copies across all resizes total
 
 $$
-1 + 2 + 4 + 8 + \cdots + n = \sum_{k=0}^{\log_2 n} 2^k = 2n - 1 = O(n)
+1 + 2 + 4 + \cdots + 2^{j-1} = 2^{j} - 1 = n - 1 = O(n),
 $$
 
-Spread over $n$ insertions, that is $O(1)$ **amortized** per `push_back`. The geometric (not linear) growth is essential: growing by a constant amount instead of a factor would make total work $O(n^2)$ and the amortized cost $O(n)$. This is exactly why you `reserve()` capacity when the final size is known — it eliminates *all* intermediate copies, turning amortized $O(1)$ into guaranteed $O(1)$.
+so each append costs $O(1)$ amortized. Growing by a constant *amount* $c$ instead makes the total $c + 2c + 3c + \cdots = O(n^2/c)$, or $O(n)$ per append. Real implementations use factors between 1.5 (MSVC, folly) and 2 (libstdc++, libc++); smaller factors waste less memory and can reuse freed blocks. Calling `reserve()` when the final size is known removes all intermediate copies.
 
-### Why the Distinction Matters
+```mermaid
+flowchart LR
+    A["cap 4, full"] -->|"append: allocate 8,<br/>copy 4"| B["cap 8"]
+    B -->|"4 cheap appends"| C["cap 8, full"]
+    C -->|"append: allocate 16,<br/>copy 8"| D["cap 16"]
+    D -->|"8 cheap appends"| E["cap 16, full"]
+```
 
-Amortized $O(1)$ is excellent for **throughput** but says nothing about any single operation's **latency**. The one `push_back` that triggers a resize stalls for $O(n)$ — invisible in a server's average request time, but a frame-rate killer in a game that hits it inside the 16 ms budget. The same caveat applies to hash-map rehashing and incremental garbage collection.
+Each resize copies as many elements as there were cheap appends since the previous resize, which is why the copying cost averages out to a constant per append.
 
-The defenses are the same in every case:
+### Throughput Versus Latency
 
-- **Pre-size structures** (`reserve`) when the eventual size is known, so the expensive grow never happens on the hot path.
-- **Amortize deliberately** by spreading the expensive work across frames, or do it during a load screen or idle period rather than mid-action.
-- **Choose worst-case-bounded structures** for hard-real-time paths — a fixed-capacity pool or ring buffer never resizes, trading flexibility for predictable latency. This connects directly to the pooling and frame-allocator techniques in [CPU Optimization](./cpu-optimization.html) and [Memory Optimization](./memory-optimization.html).
+Amortized $O(1)$ is a statement about throughput. It says nothing about a single operation's latency: the append that triggers a resize still takes $O(n)$. That is invisible in a server's mean request time but can blow a 16.7 ms frame budget in a game or a deadline in a real-time controller. Hash-table rehashing and garbage-collection pauses have the same shape.
 
-### The Three Analysis Methods
+The defenses:
 
-Formally, amortized bounds are proven by one of three equivalent techniques:
+- **Pre-size** structures when the final size is known, so growth never happens on the hot path.
+- **Do the expensive work deliberately**: during a loading screen, at idle, or spread incrementally across frames. Some hash tables and garbage collectors resize or collect incrementally for this reason.
+- **Use worst-case-bounded structures** on hard real-time paths: fixed-capacity pools, ring buffers, and arena allocators never resize. See [Memory Optimization](./memory-optimization.html#allocation-strategies).
 
-1. **Aggregate method** — bound the total cost of $n$ operations, then divide by $n$ (the doubling-array sum above).
-2. **Accounting (banker's) method** — charge each cheap operation a small surplus "credit" that prepays for future expensive ones; if credit never goes negative, the charged rate is a valid amortized bound.
-3. **Potential method** — define a potential function $\Phi$ over the data structure's state; the amortized cost of an operation is its actual cost plus the change in potential, $\hat{c}_i = c_i + \Phi_i - \Phi_{i-1}$.
+### Proof Techniques
 
-In practice you rarely write these proofs, but recognizing *which* bound a structure provides — worst-case, average, or amortized — is what lets you choose correctly for throughput-bound versus latency-bound code.
+Amortized bounds are proved in one of three equivalent ways:
 
-## Key Takeaways
+1. **Aggregate method.** Bound the total cost of $n$ operations, then divide by $n$ (the doubling sum above).
+2. **Accounting (banker's) method.** Charge each cheap operation a small surplus that prepays future expensive ones. If the stored credit never goes negative, the charge is a valid amortized bound. For doubling arrays, charging 3 per append suffices: 1 for the write, 2 banked toward future copies.
+3. **Potential method.** Define a potential $\Phi \ge 0$ on the data structure's state, with $\Phi_0 = 0$. The amortized cost of operation $i$ is $\hat{c}_i = c_i + \Phi_i - \Phi_{i-1}$, and summing gives $\sum_i \hat{c}_i \ge \sum_i c_i$. For doubling arrays, $\Phi = 2 \cdot \text{size} - \text{capacity}$ (floored at 0) works.
 
-- **Complexity class first.** An O(n²)→O(n log n) change dwarfs any constant-factor tuning at scale. Fix the asymptotics before touching the hot path.
-- **But measure the constants.** Small n, cache locality, and amortized-vs-worst-case can make the "slower" Big O win on real hardware.
-- **The structure is the algorithm.** Match the data structure to your operation profile; a contiguous array's locality often beats a node-based structure of equal Big O.
-- **Partition space for locality.** Grids, octrees, and BVHs turn O(n²) all-pairs queries into O(n log n) by only testing nearby candidates.
-- **Trade memory for time.** Memoization and caching collapse repeated work — but bound the cache and get invalidation right, or you leak memory and serve stale answers.
-- **Know which bound you need.** Amortized O(1) is great for throughput and lethal for latency; pre-size or use fixed-capacity structures on real-time paths.
+You rarely write these proofs in practice, but knowing whether a structure's guarantee is worst-case, average, or amortized is what lets you choose correctly between throughput-bound and latency-bound code.
 
 ## See Also
 
-- **[Performance Optimization Hub](./)** — the full optimization section index, philosophy, and learning paths
-- **[CPU Optimization](./cpu-optimization.html)** — cache-aware data-oriented design, multithreading, and pooling that turn good algorithms into fast code
-- **[Memory Optimization](./memory-optimization.html)** — the memory hierarchy and data layout that determine the hidden constants behind Big O
-- **[Profiling Best Practices](./cpu-optimization.html#profiling-tools)** — measuring before optimizing, so you target the algorithm that actually dominates
-- **[Database Design](../technology/database-design/)** — B-tree indexes, query-plan caching, and page-oriented structures in action
-- **[3D Graphics & Rendering](../graphics/3d-rendering.html)** — BVHs and spatial structures driving culling and ray tracing
-- **[Distributed Systems Theory](../advanced/distributed-systems-theory/)** — complexity and coordination costs at scale
+- [Performance Optimization Hub](./): the optimization section index and process
+- [CPU Optimization](./cpu-optimization.html): profiling, cache-aware layout, SIMD, and threading that make a good algorithm fast
+- [Memory Optimization](./memory-optimization.html): the memory hierarchy and allocators behind the hidden constants
+- [Profiling tools](./cpu-optimization.html#profiling-tools): measure before optimizing so you target the algorithm that actually dominates
+- [Complexity Theory](../advanced/complexity-theory/) and [Approximation Algorithms](../advanced/approximation-algorithms/): the theory of what can be computed efficiently, and what to do when it cannot
+- [Database Design](../technology/database-design/): B-tree and LSM indexes, query planning, and page caching
+- [3D Graphics and Rendering](../graphics/3d-rendering.html): BVHs and spatial structures in culling and ray tracing

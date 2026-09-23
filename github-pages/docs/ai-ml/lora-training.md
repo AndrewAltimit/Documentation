@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: LoRA Training Guide
+description: "Training LoRA adapters for diffusion image and video models: how LoRA works, dataset curation and captioning, rank/alpha/learning-rate choices, current trainers and hardware needs, evaluation, and troubleshooting."
 permalink: /docs/ai-ml/lora-training.html
 parent: AI/ML Documentation
 nav_order: 3
@@ -10,388 +11,263 @@ toc_label: "On This Page"
 toc_icon: "cog"
 ---
 
-Create custom AI models that generate your specific styles, characters, or concepts - all without needing massive computing resources.
+[AI/ML Documentation](./) &raquo; LoRA Training
 
-- **Data Over Everything.** A small, clean, well-captioned dataset beats a large noisy one. Curation and captioning decide most of your result.
-- **Tune the Essentials.** Rank, learning rate, and step count are the levers that matter most. Start conservative and adjust from samples.
-- **Avoid Overfitting.** Watch for baked-in backgrounds and rigidity. Validate with varied prompts and stop before the model memorizes.
+A **LoRA** (Low-Rank Adaptation) is a small add-on file that teaches a frozen base model something new: a style, a character, a person's likeness, an object, or, for edit models, a transformation. This page covers how LoRA works, when training one is worth it, how to build and caption a dataset, which settings matter, current trainers and hardware needs as of 2026, and how to evaluate and troubleshoot a run. It focuses on diffusion models (SD 1.5, SDXL, FLUX, Qwen-Image, Z-Image, Wan). For LoRA and QLoRA on language models, see [Fine-Tuning & Transfer Learning](../technology/ai/fine-tuning.html#parameter-efficient-fine-tuning-peft).
 
-## Why Train Your Own LoRA?
+## How LoRA Works
 
-Pre-made models cannot generate everything. When you need consistent characters, specific art styles, or custom objects, training a LoRA lets you teach the model exactly what you want.
+LoRA was introduced for large language models (Hu et al., 2021) and adopted for diffusion models in 2023. Instead of updating a large weight matrix $W \in \mathbb{R}^{d \times k}$, it freezes $W$ and learns a low-rank correction:
 
-**Consider the following before starting:**
+$$W' = W + \Delta W = W + \frac{\alpha}{r}\,BA, \qquad B \in \mathbb{R}^{d \times r},\; A \in \mathbb{R}^{r \times k},\; r \ll \min(d, k)$$
 
-- **What cannot existing models do?** If SDXL plus available LoRAs can produce what you need, training may not be necessary
-- **Do you have good reference images?** Training requires 10-50+ quality images of your subject
-- **Do you have the hardware?** Training needs 8GB+ VRAM (more for SDXL/FLUX)
-
-### When Training Makes Sense
-
-| Goal | Training Worth It? | Alternative |
-|------|-------------------|-------------|
-| Consistent character across many images | Yes | Use IP-Adapter (less consistent) |
-| Specific art style not in existing LoRAs | Yes | Find similar LoRA, adjust prompts |
-| Personal likeness (yourself, pet) | Yes | No good alternative |
-| Generic style (anime, photorealistic) | Usually no | Use existing checkpoints/LoRAs |
-| One-time generation | Usually no | Prompt engineering + img2img |
-
-### What LoRA Training Actually Does
-
-LoRA (Low-Rank Adaptation) adds small adjustment layers to an existing model. Instead of changing the entire model (which would require days of training and 100GB+ of data), LoRA learns focused modifications using your small dataset.
-
-Mathematically, rather than updating a large weight matrix $W$ directly, LoRA freezes $W$ and learns a low-rank correction $\Delta W = BA$, where $B$ and $A$ are far smaller matrices:
-
-$$W' = W + \Delta W = W + BA, \qquad A \in \mathbb{R}^{r \times k},\; B \in \mathbb{R}^{d \times r}$$
-
-The **rank** $r$ (typically 4-128) is tiny compared to the full matrix dimensions, so you train only a few million parameters instead of billions. The result: a 20-200MB file that transforms how the base model handles your specific subject while preserving everything else it knows.
-
-## Requirements
-
-### Hardware Needs
-
-| Base Model | Minimum VRAM | Comfortable VRAM | Training Time (1k steps) |
-|------------|--------------|------------------|-------------------------|
-| SD 1.5 | 6 GB | 8 GB | 15-30 minutes |
-| SDXL | 12 GB | 16 GB | 30-60 minutes |
-| FLUX Dev | 16 GB | 24 GB | 60-120 minutes |
-
-Training also needs significant system RAM (16-32GB) and storage for datasets and outputs.
-
-### Choosing a Training Tool
-
-Several tools can train LoRAs:
-
-| Tool | Best For | Difficulty |
-|------|----------|------------|
-| Kohya SS | Most users, local training | Medium |
-| AI Toolkit | Docker-based workflows | Medium |
-| Cloud services | No local GPU | Easy (but costs money) |
-
-This guide uses concepts that apply to any tool. Specific settings may vary.
-
-## Preparing Your Dataset
-
-The quality of your training data determines the quality of your LoRA. This is where most training success or failure happens.
-
-### How Many Images Do You Need?
-
-| LoRA Type | Minimum Images | Recommended | Notes |
-|-----------|---------------|-------------|-------|
-| Style | 10 | 20-50 | Quality matters more than quantity |
-| Character | 15 | 30-100 | Need variety in poses, angles, expressions |
-| Object | 10 | 20-40 | Multiple angles, lighting conditions |
-| Person likeness | 20 | 40-100 | Diverse photos, different contexts |
-
-### Image Quality Checklist
-
-Good training images are:
-- Clear and well-lit (not blurry or dark)
-- High resolution (at least 512x512, 1024x1024 preferred)
-- Focused on the subject you want to teach
-- Varied in pose, angle, and context
-- Consistent in what they show (all the same character, all the same style)
-
-### Writing Captions
-
-Each image needs a text file with the same name describing what is in the image:
-
-```
-my_dataset/
-  image01.jpg
-  image01.txt
-  image02.jpg
-  image02.txt
-```
-
-### Caption Format
-
-Include a unique trigger word plus a description:
-
-```
-xyz_character woman with red hair, smiling, casual clothes, outdoor setting
-```
-
-Key principles:
-- **Use a unique trigger word** - Something distinctive like "xyz_style" or "sks_person"
-- **Describe what varies** - If pose changes, describe the pose
-- **Keep trigger word consistent** - Same trigger in every caption
-- **Match model style** - Natural language for FLUX/SD3, tag-style for SD 1.5
-
-### Quick Caption Guide by Model
-
-| Model | Caption Style | Example |
-|-------|---------------|---------|
-| SD 1.5 | Tag-based | `xyz_style, digital art, landscape, mountains, sunset, vibrant colors` |
-| SDXL | Mixed | `xyz_style digital painting of mountains at sunset, vibrant colors, detailed` |
-| FLUX | Natural | `A beautiful mountain landscape at sunset in the xyz_style, with vibrant orange and purple colors` |
-
-### Repeats and Epochs
-
-Trainers usually express dataset exposure as **repeats x images x epochs = total steps**. "Repeats" is how many times each image is seen per epoch; "epochs" is how many full passes over the dataset. They are interchangeable for reaching a step count, but epochs are the convenient unit for saving checkpoints (save every epoch, then pick the best one). For a 20-image set, `10 repeats x 20 images x 10 epochs = 2000 steps`.
-
-### Regularization Images (Optional)
-
-For likeness and character LoRAs, some workflows add **regularization images** - generic images of the same broad class (e.g. "a photo of a person") generated by the base model itself. They act as a prior that discourages the LoRA from overwriting the model's general knowledge of that class, reducing "everything now looks like my subject" bleed. They are optional and add training time; skip them for style LoRAs, where class bleed is usually the goal.
-
-## Training Settings
-
-### The Essential Settings
-
-These are the settings that matter most:
-
-| Setting | What It Does | Start With |
-|---------|--------------|------------|
-| Learning rate | How fast the model learns | 0.0001 - 0.0002 |
-| Steps | Total training iterations | 100 per image (e.g., 20 images = 2000 steps) |
-| Rank | Complexity of the LoRA | 16-32 for most uses |
-| Resolution | Training image size | Match your base model (512 or 1024) |
-
-### Choosing the Right Rank
-
-Rank determines how much the LoRA can learn. Higher is not always better.
-
-| Rank | File Size | Best For |
-|------|-----------|----------|
-| 8-16 | 10-30 MB | Simple styles, small adjustments |
-| 32 | 50-80 MB | Most character and style LoRAs |
-| 64-128 | 150-300 MB | Complex subjects, maximum fidelity |
-
-**Start with rank 32.** Increase only if results lack detail; decrease if overfitting occurs.
-
-#### Rank vs. Alpha
-
-Most trainers expose a second number alongside rank: **alpha** (sometimes `network_alpha`). Alpha scales the LoRA's contribution. The effective update is scaled by $\alpha / r$:
-
-$$W' = W + \frac{\alpha}{r}\, BA$$
-
-So alpha and rank interact:
-
-- **alpha = rank** (e.g. 32/32) gives a scale of 1.0 - a common, safe default.
-- **alpha = rank/2** (e.g. 16/32) halves the effective strength, which can stabilize training and reduce overfitting.
-- Changing rank without changing alpha changes the *effective learning rate*, which is why blindly raising rank sometimes makes results worse, not better.
-
-If unsure, set **alpha equal to rank** and tune the learning rate instead.
-
-### LoRA Variants
-
-Plain LoRA is the baseline, but trainers offer richer adapter types that decompose the update differently. They are all "a LoRA" at inference time:
-
-| Variant | What it adds | When it helps |
-|---------|--------------|---------------|
-| LoRA | Standard low-rank $BA$ on attention layers | Default; works for almost everything |
-| LoCon / LyCORIS | Also adapts convolutional layers | Styles where fine texture/brushwork matters |
-| LoHa / LoKr | Hadamard / Kronecker factorization | More capacity at the same file size |
-| DoRA | Splits weight into magnitude + direction | Often better fidelity at low rank |
-
-Start with standard LoRA. Reach for LoCon when a style LoRA misses fine texture, and DoRA when you want more fidelity without raising rank.
-
-### Learning Rate Guidelines
-
-| Situation | Learning Rate | Why |
-|-----------|---------------|-----|
-| First attempt | 0.0001 | Safe starting point |
-| Not learning fast enough | 0.0002-0.0003 | Speed up learning |
-| Overfitting quickly | 0.00005-0.0001 | Slow down learning |
-| Using Prodigy optimizer | 1.0 | Self-adjusting rate |
-
-### How Many Steps?
-
-A rough formula: **100 steps per training image**
-
-| Dataset Size | Steps | Notes |
-|--------------|-------|-------|
-| 10 images | 1000-1500 | Watch for overfitting |
-| 20 images | 2000-2500 | Good baseline |
-| 50 images | 4000-5000 | Solid training |
-| 100+ images | 5000-8000 | Diminishing returns above ~8000 |
-
-### Starter Recipes
-
-These are conservative, known-good starting points. Treat them as a baseline to adjust, not gospel - the right values depend on your dataset and tool.
-
-| Base Model | Rank / Alpha | Learning Rate | Optimizer | Resolution | Notes |
-|------------|--------------|---------------|-----------|------------|-------|
-| SD 1.5 | 32 / 16 | 1e-4 | AdamW8bit | 512 | Fast iteration, large legacy ecosystem |
-| SDXL | 16-32 / 16 | 1e-4 | AdamW8bit / Prodigy | 1024 | Use bucketing for mixed aspect ratios |
-| FLUX Dev | 16 / 16 | 1e-4 (or Prodigy) | AdamW8bit / Prodigy | 1024 | Lower rank often suffices; very VRAM-hungry |
-
-A few cross-cutting defaults that rarely need changing on a first run:
-
-- **Optimizer:** `AdamW8bit` saves VRAM with negligible quality cost. **Prodigy** auto-tunes the learning rate (set LR to 1.0) and is forgiving for beginners.
-- **Scheduler:** `cosine` or `cosine_with_restarts` - smooth decay avoids late-training instability.
-- **Warmup:** ~5-10% of total steps lets the adapter settle before the full learning rate kicks in.
-- **Batch size:** 1-2 is normal for consumer GPUs; raise only if VRAM allows, and scale learning rate up modestly if you do.
-- **Mixed precision:** `fp16` (or `bf16` on newer GPUs) is standard and halves memory.
-
-## The Training Process
-
-### What Happens During Training
-
-1. **Loading** - The base model and your dataset load into GPU memory
-2. **Training loop** - For each step, the model sees images and adjusts weights
-3. **Checkpoints** - Periodic saves let you test progress
-4. **Completion** - Final LoRA file is saved
-
-The training loop itself is the same denoising objective the base model was trained on, except only the small LoRA matrices are updated:
+$A$ starts with small random values and $B$ starts at zero. At step 0, therefore, $\Delta W = 0$, and the model behaves exactly like the base model. Training updates only $A$ and $B$, which have $r(d + k)$ parameters instead of $dk$. For a $3072 \times 3072$ projection in a FLUX transformer block at rank 16, that is about 98 K trainable parameters instead of 9.4 M, or roughly 1%.
 
 ```mermaid
 flowchart LR
-    Img["Training image + caption"] --> Noise["Add random noise"]
-    Noise --> Pred["Model predicts the noise<br/>(base weights frozen)"]
-    Pred --> Loss["Loss = how wrong was the prediction?"]
-    Loss --> Update["Update only LoRA matrices A, B"]
-    Update --> Img
-    Loss --> Ckpt((Checkpoint?))
-    Ckpt -->|every N steps| Save["Save & sample"]
+    X["input x"] --> W["Frozen W<br/>(d x k)"]
+    X --> A["A (r x k)<br/>trainable"]
+    A --> B["B (d x r)<br/>trainable, init 0"]
+    B --> S["scale alpha / r"]
+    W --> Sum(("+"))
+    S --> Sum
+    Sum --> Y["output W'x"]
 ```
 
-### Monitoring Training
+Some consequences follow directly from the formula:
 
-Watch these indicators:
+- **The adapter is always active once loaded.** It modifies weights, not the prompt. A trigger word concentrates the learned concept so that you can call it up on demand. Leaving the trigger word out weakens the effect but does not turn the LoRA off.
+- **Strength is a multiplier.** A strength of 0.7 at inference scales $\Delta W$ by 0.7. Stacking LoRAs adds their deltas, which is why stacked LoRAs interfere.
+- **File size grows linearly with rank** and with the number of layers adapted. The same rank produces very different file sizes on SD 1.5 (UNet about 0.9 B parameters), SDXL (about 2.6 B), and FLUX.1 (12 B).
+- **A LoRA is tied to its base family.** An SDXL LoRA works on SDXL fine-tunes such as Pony or Illustrious, with varying fidelity. It does not work on FLUX, and a FLUX.1 LoRA does not work on FLUX.2.
 
-| Metric | Good Sign | Bad Sign |
-|--------|-----------|----------|
-| Loss | Decreasing steadily | Stuck high, or dropping then rising |
-| Sample images | Improving each checkpoint | Same as base model, or identical to training images |
-| Training speed | Consistent steps/second | Slowing significantly |
+### Rank and alpha
 
-### When to Stop
+The update is scaled by $\alpha / r$, so rank and alpha interact:
 
-Training should stop when:
-- Sample images match your intent well
-- Loss has stabilized (not dropping anymore)
-- You have reached your target steps
+| Setting | Scale | Effect |
+|---------|-------|--------|
+| alpha = rank (e.g. 16/16) | 1.0 | Neutral default |
+| alpha = rank / 2 | 0.5 | Halves the effective step size; steadier, needs a higher learning rate |
+| alpha = 1 (common in older kohya configs) | $1/r$ | Very small updates; needs a much higher learning rate |
 
-Save checkpoints periodically so you can choose the best one, not just the last one.
+Changing rank without changing alpha changes the effective learning rate. That is one reason "just raise the rank" often makes results worse. Pick an alpha convention, keep it fixed, and tune the learning rate. **rsLoRA** (rank-stabilized LoRA) scales by $\alpha / \sqrt{r}$ instead, which keeps the update magnitude stable as rank grows. Some trainers expose it as an option.
 
-## Common Training Scenarios
+### Adapter variants
 
-### Training a Style LoRA
+At inference time all of these load as "a LoRA" in ComfyUI and diffusers, provided the loader supports the format.
 
-**Goal:** Capture an artistic style from example images.
+| Variant | What changes | When it helps |
+|---------|--------------|---------------|
+| LoRA | Low-rank $BA$ on attention and linear layers | Default for nearly everything |
+| LoCon (LyCORIS) | Also adapts convolution layers (UNet models) | SD 1.5 and SDXL styles where brushwork and texture matter |
+| LoHa / LoKr | Hadamard or Kronecker-product factorization | More capacity per parameter; LoKr is popular for FLUX, Qwen-Image, and Z-Image |
+| DoRA | Splits the weight into magnitude and direction and adapts the direction | Sometimes better fidelity at low rank; slower to train |
 
-**Dataset:** 15-30 images in the style you want, diverse subjects
+Start with plain LoRA. Try LoKr or DoRA only after a plain LoRA has shown where it falls short.
 
-**Settings:**
-- Rank: 16-32
-- Steps: 1500-3000
-- Learning rate: 0.0001
+## When to Train a LoRA
 
-**Tip:** Include variety in subjects (people, landscapes, objects) so the LoRA learns the style, not specific content.
+| Goal | Train a LoRA? | Alternative |
+|------|---------------|-------------|
+| Consistent original character across many images | Yes | Instruction editors (FLUX Kontext, Qwen-Image-Edit, FLUX.2) with a reference image get close for a few shots |
+| Specific style not covered by existing LoRAs | Yes | Style reference (IP-Adapter, FLUX Redux, multi-reference editors) |
+| Likeness of a real person or pet | Yes, with consent | Reference-image editors give weaker identity over many shots |
+| Product or object with exact details (logo, shape) | Yes | Reference editing plus inpainting for one-off images |
+| Repeatable image *transformation* | Yes: an edit-model LoRA | Careful prompting of an instruction editor |
+| Generic look (anime, photoreal) | Usually no | A suitable checkpoint or existing LoRA |
+| One-off image | No | Prompting, img2img, or [inpainting](inpainting-editing.html) |
 
-### Training a Character LoRA
+Multi-reference editors such as FLUX.2 and Qwen-Image-Edit-2511 now handle many "same character, new scene" requests without any training. A LoRA still wins when you need hundreds of consistent images, fine detail the reference cannot convey, or a small, fast base model.
 
-**Goal:** Generate a consistent character in different poses and situations.
+## Training Tools and Hardware
 
-**Dataset:** 20-50 images of the character, varied angles and expressions
+### Trainers
 
-**Settings:**
-- Rank: 32-64
-- Steps: 2000-4000
-- Learning rate: 0.0001
+| Tool | Interface | Model coverage (2026) | Notes |
+|------|-----------|-----------------------|-------|
+| [kohya-ss sd-scripts](https://github.com/kohya-ss/sd-scripts) (+ bmaltais GUI) | CLI and Gradio GUI | SD 1.5, SDXL, SD3.x, FLUX.1 | The long-standing reference implementation for UNet-era models |
+| [musubi-tuner](https://github.com/kohya-ss/musubi-tuner) | CLI | Wan 2.1/2.2, HunyuanVideo, FramePack, FLUX.1 Kontext, FLUX.2, Qwen-Image and Qwen-Image-Edit, Z-Image | kohya's trainer for DiT image and video models |
+| [ai-toolkit](https://github.com/ostris/ai-toolkit) (Ostris) | YAML configs + web UI | FLUX.1, FLUX.2 and klein, Qwen-Image, Z-Image, SDXL, SD 1.5, Wan 2.1/2.2, LTX | Aggressive memory optimizations (quantized base, layer offload); MIT license |
+| [OneTrainer](https://github.com/Nerogar/OneTrainer) | Desktop GUI | SD-family, SDXL, FLUX, and more | All-in-one GUI with built-in captioning and masking tools |
+| [SimpleTuner](https://github.com/bghira/SimpleTuner) | CLI | Broad DiT and UNet coverage | Research-oriented, many options |
+| [diffusers training scripts](https://github.com/huggingface/diffusers/tree/main/examples) | Python | Reference scripts per model | Easiest to read and modify |
+| Hosted trainers (Replicate, fal, Civitai, and others) | Web | Popular bases | No local GPU needed; you pay per run |
 
-**Tip:** Include the character in different outfits and settings so the LoRA learns the character, not just one specific image.
+### VRAM
 
-### Training a Likeness LoRA
+Memory depends on the base model's size, on whether the frozen base is quantized (fp8, NF4), on block-swapping or offloading to CPU RAM, on resolution, and on batch size. The figures below are typical single-GPU starting points for rank 16–32 at batch size 1, not hard limits.
 
-**Goal:** Generate images of a real person or pet.
+| Base model | Parameters | Practical minimum | Comfortable |
+|------------|-----------|-------------------|-------------|
+| SD 1.5 | ~0.9 B UNet | 6–8 GB | 12 GB |
+| SDXL / Pony / Illustrious | ~2.6 B UNet | 10–12 GB | 16–24 GB |
+| FLUX.1 [dev] | 12 B | 12–16 GB with fp8 base and offload | 24 GB |
+| Z-Image (Turbo) | ~6 B | 16 GB | 24 GB |
+| Qwen-Image / Qwen-Image-Edit | 20 B | 24 GB with a quantized base and offload | 48 GB+ |
+| FLUX.2 [dev] | 32 B | 24–32 GB with heavy quantization and offload | 80 GB class |
+| Wan 2.1/2.2 (video, 14B) | 14 B | 24 GB with offload, short clips | 48 GB+ |
 
-**Dataset:** 30-100 photos, diverse lighting and contexts
+Budget 32–64 GB of system RAM when offloading, plus fast storage for cached latents.
 
-**Settings:**
-- Rank: 32-64
-- Steps: 3000-5000
-- Learning rate: 0.00005-0.0001
+## Building the Dataset
 
-**Tip:** Include photos from different angles, with different expressions, and in different settings. Avoid training on just one or two photos.
+The dataset decides most of the result. A small, clean, varied, well-captioned set beats a large, repetitive one.
 
-## Troubleshooting Training
+```mermaid
+flowchart LR
+    Col["Collect<br/>candidates"] --> Cull["Cull: blur, dupes,<br/>watermarks, off-model"]
+    Cull --> Crop["Crop / resize;<br/>enable aspect buckets"]
+    Crop --> Cap["Caption<br/>(VLM or tagger + review)"]
+    Cap --> Val["Hold out prompts<br/>for evaluation"]
+    Val --> Train["Train"]
+```
 
-### Common Problems and Solutions
+### Size and variety
 
-| Problem | Symptom | Fix |
-|---------|---------|-----|
-| Overfitting | Generates training images exactly | Reduce steps, lower learning rate, add more training data variety |
-| Underfitting | LoRA has no visible effect | Increase steps, raise learning rate, verify trigger word in prompts |
-| Style bleeding | Changes things you did not intend | Improve caption specificity, use lower LoRA strength when generating |
-| Memory errors | Training crashes | Enable gradient checkpointing, use fp16, reduce batch size |
-| Poor quality | Results worse than base model | Check dataset quality, ensure proper resolution, verify model compatibility |
+| LoRA type | Minimum | Typical | What must vary |
+|-----------|---------|---------|----------------|
+| Style | 10–15 | 20–50 | Subjects and compositions, so the model learns the style instead of the content |
+| Character | 15 | 20–60 | Poses, angles, expressions, outfits, backgrounds |
+| Object / product | 10 | 15–40 | Angles, lighting, scale, context |
+| Likeness | 15–20 | 20–50 | Lighting, expressions, distances, settings; no near-duplicates |
+| Edit-model pair set | 20 pairs | 50–200 pairs | Input content, with the transformation kept consistent |
 
-### Diagnosing from Loss Curves
+Image quality rules:
 
-| Loss Behavior | What It Means | Action |
-|---------------|---------------|--------|
-| Steadily decreasing | Training is working | Continue as planned |
-| Flat from start | Learning too slow | Increase learning rate |
-| Drops then rises | Overfitting | Stop earlier, use that checkpoint |
-| Erratic/oscillating | Learning rate too high | Reduce learning rate |
-| Spikes suddenly | Corrupt data or bug | Check dataset, review settings |
+- Use at least the base model's native resolution: 512 px for SD 1.5, and 1024 px for SDXL, FLUX, Qwen-Image, and Z-Image.
+- Enable aspect-ratio bucketing instead of square-cropping everything.
+- Remove blur, JPEG artifacts, watermarks, text overlays, and near-duplicates. Ten copies of one photo teach that photo.
+- Keep the concept consistent: every image should show the same character or the same style.
 
-## Using Your Trained LoRA
+### Captioning
 
-### Finding the Right Strength
+Each image gets a same-named `.txt` caption file:
 
-Start at 0.7 strength and adjust based on results:
+```text
+dataset/
+  001.jpg   001.txt
+  002.png   002.txt
+```
 
-| Effect | Adjustment |
-|--------|------------|
-| Too subtle | Increase strength (0.8-1.0) |
-| Too strong/artifacts | Decrease strength (0.4-0.6) |
-| Good but want more | Try 0.8-0.9 |
-| Overpowering other content | Try 0.5-0.6 |
+The rule that matters: **caption what should stay promptable. Leave uncaptioned what should be absorbed into the concept.** If every image of your character has a red scarf and you never caption it, the scarf becomes part of the character. If you caption "red scarf", the scarf becomes optional and promptable. For a style LoRA, describe the content ("a lighthouse on a cliff at dusk") and leave the style itself undescribed, so it binds to the trigger.
 
-### Combining with Other LoRAs
+Match the caption style to the text encoder the base model uses:
 
-When stacking multiple LoRAs, reduce each strength:
-- First LoRA: 0.6-0.8
-- Second LoRA: 0.4-0.6
-- Third LoRA: 0.3-0.4
+| Base family | Text encoder | Caption style | Example |
+|-------------|--------------|---------------|---------|
+| SD 1.5 | CLIP-L | Tags | `ohwx_style, landscape, mountains, sunset, vivid colors` |
+| SDXL general | CLIP-L + OpenCLIP-G | Short sentence plus tags | `ohwx_style painting of mountains at sunset, vivid colors` |
+| Pony / Illustrious (SDXL anime) | CLIP | Booru tags, in the model's tag conventions | `ohwx_char, 1girl, red hair, smile, outdoors` |
+| FLUX, SD3.5, Qwen-Image, Z-Image, FLUX.2 | T5 or an LLM encoder | Natural-language sentences | `A mountain valley at sunset in the ohwx style, with orange and violet light` |
 
-If LoRAs conflict (similar subjects or styles), one may override the other. Test combinations to find what works.
+Automatic captioners: vision-language models such as JoyCaption, Florence-2, and Qwen2.5-VL / Qwen3-VL for natural language, and WD-series taggers for booru tags. Always review and edit their output. Captioners hallucinate details and often describe the very style you want absorbed.
 
-### Remember Your Trigger Word
+**Trigger words** should be rare tokens that don't collide with real vocabulary (`ohwx_style`, not `style` or `vintage`). With LLM-based text encoders, a distinctive name ("Mira Voss") often works as well as a nonsense token.
 
-Your LoRA only activates when you include the trigger word in your prompt. If results look like the base model, check that your trigger word is present.
+### Edit-model LoRAs
 
-## Best Practices Summary
+Instruction editors (FLUX.1 Kontext, Qwen-Image-Edit, FLUX.2) can be fine-tuned on **paired** data: a control image, a target image, and an instruction caption such as "convert to a clean line drawing". The LoRA learns a transformation instead of a subject. musubi-tuner and ai-toolkit both support paired datasets for these models. Keep the transformation identical across pairs and vary the content, the same principle as ordinary LoRA datasets.
 
-### Things That Lead to Success
+### Regularization images
 
-- Use unique trigger words (xyz_style, not just "style")
-- Include varied training images
-- Start with conservative settings and adjust
-- Save checkpoints so you can pick the best one
-- Test with prompts different from your training captions
+For likeness and character LoRAs, **regularization (prior-preservation) images** are generic images of the same class ("a photo of a woman"), usually generated by the base model itself and trained at lower weight. They discourage the LoRA from pulling the whole class toward your subject, which otherwise makes every generated person look like the subject. They add training time and are optional. Skip them for style LoRAs, where shifting the whole output is the point.
 
-### Common Mistakes to Avoid
+## Training Settings
 
-- Training too long (leads to overfitting)
-- Using too few images (not enough variety)
-- Generic trigger words (conflict with normal vocabulary)
-- Skipping captions or using poor captions
-- Not checking checkpoint quality during training
+### Starting points
 
-## Conclusion
+These are conservative first-run values to adjust from samples, not optimal settings.
 
-LoRA training gives you the ability to add anything to AI image generation - your own art style, consistent characters, specific objects, or personal likenesses. The key is quality data and patient iteration.
+| Base | Rank / alpha | LR (AdamW) | Resolution | Typical steps | Notes |
+|------|--------------|------------|------------|---------------|-------|
+| SD 1.5 | 32 / 16 | 1e-4 (UNet), 5e-5 (text encoder) | 512 | 1500–3000 | Training the text encoder helps tag-captioned sets |
+| SDXL | 16–32 / 16 | 1e-4 | 1024, bucketed | 1500–3000 | Usually UNet only; min-SNR-gamma 5 is a common stabilizer |
+| FLUX.1 [dev] | 16 / 16 | 1e-4 | 512–1024 mixed | 1000–3000 | UNet-equivalent only; distilled guidance means you sample at CFG 1 with guidance around 3.5 |
+| Qwen-Image / Z-Image | 16–32 / 16–32 | 1e-4 | 1024, bucketed | 1500–3000 | Often trained with a quantized base; LoKr is a common alternative |
+| Wan 2.x video | 16–32 | 1e-4 | Low-res clips (e.g. 480p, 33–81 frames) plus stills | 1500–3000 | Images alone can teach appearance; clips teach motion |
 
-Start with a small dataset and simple settings. If results are not quite right, you now know how to diagnose the problem and adjust. Each training run teaches you something about what works for your specific use case.
+Settings that rarely need changing on a first run:
 
-## Key Takeaways
+- **Optimizer:** AdamW8bit, which cuts optimizer memory with negligible quality cost. Prodigy (learning rate 1.0) adapts the rate automatically and forgives a bad LR guess, at some cost in control. Adafactor is a low-memory fallback.
+- **Scheduler and warmup:** constant or cosine, with 0–10% warmup. With so few steps, the scheduler matters less than the peak learning rate.
+- **Precision:** bf16 on Ampere or newer GPUs, fp16 otherwise. fp8 or NF4 for the frozen base on large DiT models.
+- **Batch size:** 1–4. If you raise the batch size, raise the learning rate modestly, or keep it fixed and accept that each epoch has fewer steps.
+- **Cache latents and text embeddings** to disk. Encoding is then paid once and the VAE and text encoders can leave VRAM.
+- **Gradient checkpointing:** on whenever memory is tight. It costs roughly 20–30% speed.
 
-- **LoRA = a tiny low-rank correction** $\Delta W = BA$ added to frozen base weights — you train millions of parameters, not billions, producing a 20-200MB file.
-- **Data quality beats quantity.** 15-30 well-captioned, varied images often beat hundreds of repetitive ones; a unique trigger word avoids vocabulary conflicts.
-- **Rank trades capacity for size, and alpha scales its strength** ($W' = W + \frac{\alpha}{r}BA$). Low rank (4-16) for styles, higher (32-128) for complex subjects; set alpha equal to rank if unsure.
-- **Watch the loss and the samples, not just the step count.** Stop when samples match your intent and loss stabilizes; save checkpoints so you can pick the best, not the last.
-- **Overfitting is the #1 failure** — too many steps or too little data makes the LoRA reproduce training images instead of generalizing.
+### Steps, repeats, and epochs
+
+$$\text{total steps} = \frac{\text{images} \times \text{repeats} \times \text{epochs}}{\text{batch size}}$$
+
+Repeats and epochs trade off against each other. Epochs are the convenient unit for checkpointing, so you can save every epoch and choose among them. A useful rough target is 80–150 steps per image for small sets, with less per image as the set grows. Most LoRAs peak somewhere between 1,000 and 4,000 steps. Past that, extra steps usually overfit rather than add fidelity.
+
+### Rank
+
+| Rank | Use |
+|------|-----|
+| 4–8 | Simple styles, small adjustments, very large base models |
+| 16 | Default for FLUX, Qwen-Image, and Z-Image; most styles and characters |
+| 32 | SD 1.5 and SDXL characters; complex styles |
+| 64–128 | Many concepts in one LoRA, or detailed multi-outfit characters; higher overfitting risk |
+
+Large DiT models need less rank than SD 1.5 for the same concept, because each adapted matrix is wider.
+
+## Monitoring and Evaluation
+
+```mermaid
+flowchart LR
+    Img["Latent + caption"] --> Noise["Sample timestep t,<br/>add noise"]
+    Noise --> Pred["Predict noise / velocity<br/>(base frozen, LoRA active)"]
+    Pred --> Loss["MSE loss"]
+    Loss --> Upd["Update A, B only"]
+    Upd --> Img
+    Upd -. "every epoch / N steps" .-> Ck["Save checkpoint +<br/>render fixed-seed samples"]
+```
+
+### Loss is a weak signal
+
+Diffusion training loss is dominated by which random timestep was sampled. A high-noise step and a low-noise step differ in loss by more than your whole training run will reduce it. Raw loss therefore looks like noise, and even a smoothed curve falls only slightly and flattens early. Use loss to catch outright failures, such as NaN values, sudden spikes, or a steady climb that means the learning rate is too high. Do not use it to decide when the LoRA is done. Some trainers offer a **validation loss** at fixed timesteps and seeds on held-out images, which is much more stable and worth enabling if available.
+
+### Judge by samples
+
+Render a fixed prompt set with a fixed seed at every checkpoint:
+
+- **Training-like prompts.** Is the concept learned?
+- **Novel prompts.** New scene, pose, outfit, or medium. Does it generalize, or does it drag in training backgrounds?
+- **Prompts without the trigger.** How much does the LoRA leak into unrelated generations?
+- **Strength sweep** at 0.6, 0.8, and 1.0. A good LoRA works at 0.7–1.0. One that only works at 1.2 or higher is undertrained, and one that breaks above 0.6 is overtrained.
+
+Pick the **earliest** checkpoint that passes the novel-prompt tests, not the last one saved. An x/y grid of checkpoints against strengths makes the choice quick.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| Outputs reproduce training images, same backgrounds and poses | Overfitting | Use an earlier checkpoint, lower LR or steps, add variety, caption backgrounds |
+| No visible effect | Underfitting, or wrong base, or the loader skipped layers | Raise steps or LR; check base-family compatibility and loader warnings about unmatched keys |
+| Everything looks like the subject | Class bleed | Add regularization images, lower the strength, use a rarer trigger |
+| Concept only appears with one outfit or setting | That attribute was never captioned | Caption the attribute so it becomes promptable, or add variety |
+| Style LoRA changes content too | Content was absorbed | Describe content in captions; diversify subjects |
+| Oversaturated, fried, or noisy images | LR too high, alpha/rank scale too high, or too many steps | Lower LR, use an earlier checkpoint, check the alpha convention |
+| NaN loss or black images | fp16 overflow, or LR far too high | Use bf16, lower LR, check the VAE precision setting |
+| Out of memory | Resolution, batch size, or unquantized base too large | Gradient checkpointing, cache latents, fp8 or NF4 base, block swap, smaller buckets |
+
+## Using a Trained LoRA
+
+- **Start at strength 0.7–1.0** and adjust from there. In ComfyUI, *LoraLoader* has separate model and CLIP strengths. The CLIP strength matters only if the text encoder was trained.
+- **Include the trigger** and the vocabulary your captions used.
+- **When stacking LoRAs**, lower each strength so the combined effect stays sane. For example, use a character at 0.8 and a style at 0.5. Two LoRAs trained on overlapping layers for competing concepts will fight. Test the combination, or merge them deliberately.
+- **Match the family.** SDXL LoRAs transfer imperfectly between SDXL fine-tunes (base SDXL, Pony, Illustrious, NoobAI). Train on the base you plan to generate with.
+- **Check licenses.** A LoRA inherits the base model's license terms. For example, FLUX.1 [dev] and FLUX.2 [dev] derivatives fall under Black Forest Labs' non-commercial license unless you have a commercial license. Likeness LoRAs of real people need consent and are banned on many hosting sites.
 
 ## See Also
 
-- [Model Types](model-types.html) - How LoRAs, checkpoints, and embeddings relate
-- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - The base models you'll train on
-- [Base Models Comparison](base-models-comparison.html) - Choosing the right base for training
-- [ComfyUI Guide](comfyui-guide.html) - Use trained LoRAs in advanced workflows
-- [ControlNet](controlnet.html) - Combine LoRAs with ControlNet for precision control
-- [Advanced Techniques](advanced-techniques.html) - Expert LoRA usage patterns
-- [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
+- [Model Types](model-types.html) – how LoRAs, checkpoints, and embeddings relate
+- [Base Models Comparison](base-models-comparison.html) – choosing a base to train on
+- [FLUX Guide](flux-guide.html) – FLUX architecture and guidance settings
+- [Pony and Fine-tunes](pony-and-finetunes.html) – SDXL fine-tune families and LoRA compatibility
+- [Inpainting & Image Editing](inpainting-editing.html) – instruction editors that edit-model LoRAs extend
+- [Fine-Tuning & Transfer Learning](../technology/ai/fine-tuning.html) – LoRA, QLoRA, and PEFT for language models
+- [ComfyUI Guide](comfyui-guide.html) – loading and stacking LoRAs in workflows
+- [AI/ML Documentation Hub](./) – full AI/ML index

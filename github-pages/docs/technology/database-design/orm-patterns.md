@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Database Design: ORMs & Data-Access Patterns"
+description: "Object-relational mapping: the impedance mismatch, Active Record vs. Data Mapper, sessions and the unit of work, lazy vs. eager loading and the N+1 problem, transactions and optimistic locking, and when to drop to SQL."
 permalink: /docs/technology/database-design/orm-patterns.html
 toc: true
 toc_sticky: true
@@ -11,367 +12,411 @@ hide_title: true
 
 # ORMs & Data-Access Patterns
 
-## Why an ORM Exists
+An **object-relational mapper (ORM)** translates between an application's object model — a `Customer` holding a list of `Order`s — and a relational schema of flat tables joined by keys. It maps classes to tables and rows to objects, generates SQL from method calls or a query API, and tracks changes to loaded objects so it can write them back. This page covers the structural mismatch ORMs bridge, the two main ORM architectures, loading strategies and the N+1 problem, transactions and concurrency control through an ORM, and when to bypass the ORM for SQL. Python examples use SQLAlchemy 2.x-style APIs and Django; JavaScript/TypeScript examples use Prisma, Drizzle, and Sequelize.
 
-Applications model the world as **objects** — a `Customer` with a list of `Order`s, each holding `LineItem`s. Relational databases model the world as **flat tables** joined by keys. An **Object-Relational Mapper (ORM)** sits between these two worlds, translating rows into objects and method calls into SQL.
+## What an ORM Provides
 
 ```python
-# Without an ORM: you write SQL strings and hydrate objects by hand
-rows = db.execute(
-    "SELECT id, name, email FROM customers WHERE country = %s", ("USA",)
+# Without an ORM: SQL strings and hand-written hydration
+rows = conn.execute(
+    "SELECT id, name, email FROM customers WHERE country = %s", ("US",)
 ).fetchall()
 customers = [Customer(id=r[0], name=r[1], email=r[2]) for r in rows]
 
-# With an ORM: you describe the mapping once and query in your own language
-customers = session.query(Customer).filter_by(country="USA").all()
+# With an ORM (SQLAlchemy 2.x): describe the mapping once, query in the host language
+customers = session.scalars(
+    select(Customer).where(Customer.country == "US")
+).all()
 ```
 
-An ORM buys you three things:
+| Benefit | Cost |
+|---|---|
+| **Productivity** — CRUD, relationships, and pagination become method calls | The SQL actually executed is hidden, and can be far more than expected |
+| **Parameter binding by default**, which closes the common [SQL-injection](../cybersecurity/application-and-cloud-security.html#sql-injection) routes | Raw-SQL escape hatches reintroduce the risk if misused |
+| **Change tracking** — mutate objects, the ORM computes the writes | Tracked objects consume memory; long sessions go stale |
+| **Portability** across PostgreSQL, MySQL, SQLite, SQL Server | Lowest-common-denominator features unless you opt into dialect extensions |
+| **Typed models** that integrate with IDEs and type checkers | A second schema definition that must stay in sync with the database ([migrations](schema-evolution-and-migrations.html)) |
 
-- **Productivity** — CRUD, joins, and pagination become method calls instead of hand-written SQL and result parsing.
-- **Portability** — the same code can target PostgreSQL, MySQL, or SQLite because the ORM emits dialect-specific SQL.
-- **Safety** — parameters are bound automatically, which closes off most SQL-injection vectors (see [Transactions &amp; Concurrency](transactions-and-concurrency.html) for the security discussion).
-
-It also has a cost: the abstraction hides what SQL actually runs, and a careless query in object-space can explode into thousands of database round-trips. The rest of this page is about getting the productivity without paying that cost.
+The rest of this page is about getting the benefits without paying the hidden costs.
 
 ## The Object-Relational Impedance Mismatch
 
-The "impedance mismatch" is the structural friction between the object model and the relational model. The two were designed under different assumptions, and the ORM has to bridge each gap:
+The object and relational models were designed under different assumptions. Each gap requires an explicit mapping decision:
 
-| Object world | Relational world | The friction |
+| Object world | Relational world | Consequence |
 |---|---|---|
-| Object identity (`a is b`) | Primary-key equality | Two queries can return two distinct objects for the same row unless an identity map deduplicates them. |
-| References / pointers | Foreign keys + joins | Following `order.customer` may trigger a hidden query. |
-| Inheritance & polymorphism | Flat tables, no subtype | Must be faked: single-table, joined-table, or concrete-table mapping. |
-| Collections (`list`, `set`) | Rows in a child table | Loading a collection is a separate `SELECT`; mutating it is a diff. |
-| Encapsulation / private state | Public columns | The schema leaks structure the object tried to hide. |
-| Methods / behavior | Data only | Behavior lives in the app; the database sees only state. |
-| Nested / graph structure | Normalized, decomposed | Saving one aggregate may touch many tables in one transaction. |
+| Object identity (`a is b`) | Primary-key equality | Two queries could return two objects for one row; an **identity map** (one object per key per session) prevents it |
+| References | Foreign keys + joins | Following `order.customer` may silently execute a query |
+| Collections (`list`, `set`) | Rows in a child table | Loading is a separate `SELECT` or a join; mutation becomes inserts and deletes |
+| Inheritance, polymorphism | No subtyping | Must be emulated (below) |
+| Encapsulation | Public columns | The schema exposes structure the class hides |
+| Object graphs of any shape | Normalized tables | Saving one aggregate may touch many tables in one transaction |
+| Behavior | Data only | Rules enforced in methods are invisible to other clients; enforce invariants with constraints too |
 
 ### Mapping inheritance
 
-Inheritance is the sharpest corner of the mismatch. Suppose `Employee` has subtypes `Manager` and `Engineer`. Three classic strategies:
+Suppose `Employee` has subtypes `Manager` and `Engineer`. There are three standard mappings, supported in some form by SQLAlchemy, Hibernate/JPA, Entity Framework Core, and Django (via abstract base classes and multi-table inheritance):
 
-1. **Single-table inheritance (STI)** — one table with all columns plus a discriminator. Fast (no joins) but sparse: columns that belong only to `Manager` are `NULL` for every engineer.
-2. **Joined-table (class-table) inheritance** — a base `employees` table plus one table per subtype, joined on the shared key. Normalized but every read of a subtype needs a join.
-3. **Concrete-table inheritance** — one independent table per concrete class with all columns duplicated. No joins, but querying "all employees" requires a `UNION`.
+| Strategy | Tables | Reads | Trade-off |
+|---|---|---|---|
+| **Single-table** (STI) | One table, all columns, a discriminator | No joins | Subtype columns must be nullable, so `NOT NULL` cannot be enforced per subtype |
+| **Joined-table** (class-table) | Base table + one per subtype, sharing the key | Join per subtype read | Normalized and constrainable; polymorphic queries join several tables |
+| **Concrete-table** | One independent table per concrete class | "All employees" needs a `UNION` | No shared key space; foreign keys to "any employee" are impossible |
 
 ```python
-# SQLAlchemy single-table inheritance
+# SQLAlchemy 2.x single-table inheritance
+from sqlalchemy import ForeignKey, String
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+class Base(DeclarativeBase):
+    pass
+
 class Employee(Base):
     __tablename__ = "employees"
-    id   = Column(Integer, primary_key=True)
-    type = Column(String(20))          # discriminator column
-    name = Column(String(100))
-    __mapper_args__ = {"polymorphic_on": type, "polymorphic_identity": "employee"}
+    id:   Mapped[int] = mapped_column(primary_key=True)
+    type: Mapped[str] = mapped_column(String(20))          # discriminator
+    name: Mapped[str] = mapped_column(String(100))
+    __mapper_args__ = {"polymorphic_on": "type", "polymorphic_identity": "employee"}
 
 class Manager(Employee):
-    reports_to = Column(Integer)        # NULL for non-managers
+    # Nullable in the shared table, since engineers have no value here
+    reports_to: Mapped[int | None] = mapped_column(ForeignKey("employees.id"))
     __mapper_args__ = {"polymorphic_identity": "manager"}
 ```
 
-There is no universally correct choice — it is a normalization-vs-join-cost trade-off, exactly the tension covered in [Data Modeling &amp; Normalization](modeling.html).
+Single-table is usually the default when subtypes differ by a few columns; joined-table suits subtypes with many distinct, required attributes. The underlying trade-off is the normalization-versus-join-cost tension from [Data Modeling & Normalization](modeling.html).
 
-## The Major ORMs at a Glance
+## ORM Architectures
 
-ORMs cluster into two design philosophies, named by Martin Fowler:
+Martin Fowler's *Patterns of Enterprise Application Architecture* (2002) named the two dominant designs:
 
-- **Active Record** — a model object *is* a row and knows how to save itself (`user.save()`). Simple and discoverable; couples domain objects to persistence.
-- **Data Mapper** — a separate session/repository moves data between plain objects and the database. More ceremony, cleaner domain model.
-
-| ORM | Language | Pattern | Notable trait |
-|---|---|---|---|
-| **SQLAlchemy** | Python | Data Mapper (Core + ORM) | Powerful query builder; you can drop to SQL expressions without leaving the API. |
-| **Django ORM** | Python | Active Record | Tightly integrated with Django; lazy `QuerySet`s; migrations built in. |
-| **Sequelize** | JavaScript/Node | Active Record | Promise-based; broad SQL-dialect support. |
-| **Prisma** | TypeScript/Node | Query builder + client | Schema-first; generates a fully typed client; no lazy loading (explicit `include`). |
-| **Hibernate / JPA** | Java | Data Mapper | The JPA reference implementation; persistence context, dirty checking, HQL/JPQL. |
-
-The same query in four of them:
-
-```python
-# SQLAlchemy (2.0 style)
-session.execute(
-    select(Order).where(Order.total > 1000)
-).scalars().all()
+```mermaid
+flowchart LR
+    subgraph AR["Active Record"]
+        direction TB
+        U1["user = User.find(1)<br/>user.name = 'Ann'<br/>user.save()"] --> DB1[(Database)]
+    end
+    subgraph DM["Data Mapper + Unit of Work"]
+        direction TB
+        O["Plain objects<br/>(no persistence code)"] <--> S["Session / DbContext<br/>identity map, change tracking"]
+        S -->|"flush / commit"| DB2[(Database)]
+    end
 ```
 
+- **Active Record** — each model instance wraps a row and persists itself (`user.save()`). Simple and discoverable, but couples domain objects to the database, and each save is typically its own write.
+- **Data Mapper** — a separate session, entity manager, or context loads plain objects, tracks changes to them, and writes them back as a **unit of work**. More concepts, but a cleaner domain model and batched, correctly ordered writes.
+- **Query-builder-first** tools sit alongside these: they expose a typed, composable SQL API and return plain data, with little or no change tracking.
+
+| Tool | Language | Style | Notable traits |
+|---|---|---|---|
+| **SQLAlchemy** | Python | Data Mapper (ORM) over a SQL expression layer (Core) | Unified `select()` API in 2.x; full SQL expressiveness; asyncio support |
+| **Django ORM** | Python | Active Record | Integrated migrations and admin; lazy `QuerySet`s; composite primary keys since 5.2 |
+| **Hibernate / Jakarta Persistence (JPA)** | Java | Data Mapper | Persistence context, dirty checking, JPQL/HQL, second-level cache |
+| **Entity Framework Core** | C# / .NET | Data Mapper (`DbContext` unit of work) | LINQ queries; change tracker; compiled models |
+| **Prisma** | TypeScript | Schema-first generated client | Declarative schema file; fully typed client; relations loaded only on request. Prisma 7 (late 2025) replaced the Rust query engine with a TypeScript query compiler |
+| **Drizzle** | TypeScript | Query builder + relational query API | Schema in TypeScript; SQL-shaped API; no runtime engine |
+| **Sequelize** | JavaScript / TypeScript | Active Record | Long-established Node ORM; promise-based |
+
+The same filter in several of them:
+
 ```python
-# Django ORM
+# SQLAlchemy 2.x
+session.scalars(select(Order).where(Order.total > 1000)).all()
+
+# Django
 Order.objects.filter(total__gt=1000)
 ```
 
-```javascript
+```typescript
+// Prisma
+await prisma.order.findMany({ where: { total: { gt: 1000 } } });
+
+// Drizzle
+await db.select().from(orders).where(gt(orders.total, 1000));
+
 // Sequelize
 await Order.findAll({ where: { total: { [Op.gt]: 1000 } } });
 ```
 
-```javascript
-// Prisma
-await prisma.order.findMany({ where: { total: { gt: 1000 } } });
+All emit essentially `SELECT ... FROM orders WHERE total > $1`. They differ in what comes back (tracked entities, model instances, or plain objects) and in what happens when you touch a relationship on the result.
+
+## Sessions and the Unit of Work
+
+In a Data Mapper ORM the **session** (SQLAlchemy `Session`, JPA `EntityManager`, EF Core `DbContext`) is the unit of work. It holds an identity map of loaded objects, remembers their original state, and at **flush** time compares current to original state (**dirty checking**) and emits the minimal set of `INSERT`, `UPDATE`, and `DELETE` statements, ordered to satisfy foreign keys. **Commit** flushes and then commits the database transaction.
+
+SQLAlchemy's object lifecycle makes this concrete:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Transient: Order()
+    Transient --> Pending: session.add()
+    Pending --> Persistent: flush (INSERT)
+    Persistent --> Persistent: attribute change, flush (UPDATE)
+    Persistent --> Deleted: session.delete(), flush
+    Deleted --> Detached: commit
+    Persistent --> Detached: session.close() / expunge()
+    Detached --> Persistent: session.merge() / add()
 ```
 
-All four emit essentially the same SQL — `SELECT ... FROM orders WHERE total > 1000` — but Django and Sequelize objects can also save themselves, while SQLAlchemy and Prisma keep persistence in a separate session/client.
-
-## Query Builders vs Raw SQL
-
-Most ORMs expose a **query builder**: a fluent, composable API that produces SQL programmatically. It sits between full ORM object-mapping and raw strings.
-
 ```python
-# SQLAlchemy Core query builder — returns rows, not mapped objects
-stmt = (
-    select(Customer.name, func.sum(Order.total).label("ltv"))
-    .join(Order, Order.customer_id == Customer.id)
-    .where(Customer.country == "USA")
-    .group_by(Customer.id)
-    .having(func.sum(Order.total) > 1000)
-)
+with Session(engine) as session:
+    order = session.get(Order, 42)   # SELECT; object is now persistent
+    order.status = "shipped"         # no SQL yet, just a tracked change
+    session.commit()                 # flush: UPDATE orders SET status=... WHERE id=42; COMMIT
 ```
 
-A query builder is the right tool when you need **dynamic SQL** — filters, sorts, or joins assembled at runtime — because you compose Python/JS objects instead of concatenating strings (which is both unsafe and unreadable):
+Practical rules:
+
+- **Scope a session to one unit of work** — typically one web request or one job — and close it. Long-lived sessions accumulate objects, hold stale data, and keep transactions open.
+- **Understand expiry.** By default SQLAlchemy expires objects on commit, so the next attribute access reloads them; Hibernate and EF Core keep tracked state until the context is cleared.
+- **Detached objects cannot lazy-load.** Accessing an unloaded relationship after the session closes raises `DetachedInstanceError` (SQLAlchemy) or `LazyInitializationException` (Hibernate). Load what you need before closing.
+- **Use read-only paths for read-only work.** Change tracking costs memory and CPU. EF Core's `AsNoTracking()`, Hibernate's read-only queries or `StatelessSession`, and selecting plain columns instead of entities all avoid it.
+
+## Loading Strategies and the N+1 Problem
+
+### The N+1 problem
+
+The most common ORM performance bug appears when code loads N parent objects and then touches a lazily loaded relationship on each one inside a loop:
 
 ```python
-stmt = select(Product)
-if max_price is not None:
-    stmt = stmt.where(Product.price <= max_price)   # conditionally add clauses
-if category:
-    stmt = stmt.where(Product.category == category)
-stmt = stmt.order_by(Product.name)
+customers = session.scalars(select(Customer)).all()   # 1 query
+for c in customers:
+    print(c.name, len(c.orders))    # each c.orders triggers its own SELECT: N queries
 ```
 
-**Raw SQL** is still the right tool when:
+With 1,000 customers this issues 1,001 queries. Each is fast, but round trips dominate: at 1 ms each the loop spends a second waiting on the network. The code is correct and fast with ten rows of test data, which is why the problem usually surfaces only in production.
 
-- The query uses dialect-specific features the ORM cannot express (window functions with complex frames, recursive CTEs, `LATERAL` joins, vendor JSON operators).
-- You are tuning a hot path and need exact control over the plan.
-- The query is reporting/analytics-shaped and maps poorly onto objects.
+```mermaid
+sequenceDiagram
+    participant App
+    participant DB
+    Note over App,DB: Lazy loading (N+1)
+    App->>DB: SELECT * FROM customers
+    loop for each of N customers
+        App->>DB: SELECT * FROM orders WHERE customer_id = ?
+    end
+    Note over App,DB: selectinload / prefetch_related (2 queries)
+    App->>DB: SELECT * FROM customers
+    App->>DB: SELECT * FROM orders WHERE customer_id IN (...)
+```
 
-Every mature ORM provides a safe escape hatch that **still binds parameters** — never interpolate user input into the string:
+### Eager loading
+
+**Eager loading** fetches related rows up front, so the number of queries no longer depends on N. There are three mechanisms:
+
+| Strategy | SQL | Queries | Best for | Watch out for |
+|---|---|---|---|---|
+| **Join** (`joinedload`, `select_related`, EF `Include`) | `LEFT JOIN` in the parent query | 1 | Many-to-one and one-to-one | To-many joins repeat each parent once per child ("cartesian explosion"); two to-many joins multiply |
+| **Select-IN** (`selectinload`, `prefetch_related`) | Second query with `WHERE fk IN (...)` | 1 per relationship | One-to-many and many-to-many | Very large key lists are batched automatically |
+| **Subquery / lateral / JSON aggregation** | Correlated subquery or `LATERAL` join building nested JSON | 1 | Tree-shaped API responses | Engine-specific; used internally by Prisma and Drizzle on some databases |
 
 ```python
-# SQLAlchemy — bound parameters via :name placeholders
+from sqlalchemy.orm import selectinload, joinedload
+
+# Collections: select-IN loading, 2 queries total
+customers = session.scalars(
+    select(Customer).options(selectinload(Customer.orders))
+).all()
+
+# Many-to-one: join loading, 1 query
+orders = session.scalars(
+    select(Order).options(joinedload(Order.customer))
+).all()
+```
+
+```python
+# Django
+from django.db.models import Prefetch
+
+Customer.objects.prefetch_related("orders")        # to-many: 2 queries
+Order.objects.select_related("customer")           # to-one: 1 JOIN
+Customer.objects.prefetch_related(
+    Prefetch("orders", queryset=Order.objects.filter(status="open"))
+)                                                  # filtered prefetch
+```
+
+```typescript
+// Prisma: relations are never lazy-loaded; ask for them explicitly
+await prisma.customer.findMany({ include: { orders: true } });
+
+// Drizzle relational queries
+await db.query.customers.findMany({ with: { orders: true } });
+
+// Sequelize: `separate: true` switches a to-many include from JOIN to a second query
+await Customer.findAll({ include: [{ model: Order, separate: true }] });
+```
+
+Because Prisma and Drizzle only load relations you request, they cannot produce N+1 through attribute access — but a loop that issues its own query per item still can.
+
+### Preventing and detecting N+1
+
+The most reliable defense is to make accidental lazy loads fail loudly:
+
+```python
+# SQLAlchemy: raise instead of silently lazy-loading
+from sqlalchemy.orm import relationship, raiseload, selectinload
+class Customer(Base):
+    __tablename__ = "customers"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    orders: Mapped[list["Order"]] = relationship(lazy="raise")
+
+# ...or per query: forbid any relationship not explicitly loaded
+session.scalars(select(Customer).options(selectinload(Customer.orders), raiseload("*")))
+```
+
+Under SQLAlchemy's asyncio extension implicit lazy loading is not possible at all (it raises `MissingGreenlet`), which forces explicit eager loading in async code.
+
+Detection tools:
+
+- **Log the SQL** — `create_engine(url, echo=True)` in SQLAlchemy; Django's `connection.queries` with `DEBUG=True`, or django-debug-toolbar; Hibernate's statistics or `org.hibernate.SQL` logging; EF Core's `LogTo`.
+- **Assert query counts in tests** — Django's `assertNumQueries`, or an SQLAlchemy event listener counting `before_cursor_execute` calls — so an N+1 regression fails CI.
+- **Watch production** — APM tools and `pg_stat_statements` (see [Operations & Monitoring](operations-and-monitoring.html)) show one cheap query with an enormous call count, the N+1 signature.
+
+## Transactions and Concurrency
+
+A [transaction](transactions-and-concurrency.html) groups operations so they commit or roll back together. ORMs provide scoped transaction blocks that commit on success and roll back on an exception:
+
+```python
+# SQLAlchemy: session.begin() commits at block exit, rolls back on exception
+with Session(engine) as session, session.begin():
+    a = session.get(Account, 1)
+    b = session.get(Account, 2)
+    a.balance -= 100
+    b.balance += 100
+
+# Django
+from django.db import transaction
+from django.db.models import F
+
+with transaction.atomic():
+    Account.objects.filter(pk=1).update(balance=F("balance") - 100)
+    Account.objects.filter(pk=2).update(balance=F("balance") + 100)
+```
+
+```typescript
+// Prisma interactive transaction
+await prisma.$transaction(async (tx) => {
+  await tx.account.update({ where: { id: 1 }, data: { balance: { decrement: 100 } } });
+  await tx.account.update({ where: { id: 2 }, data: { balance: { increment: 100 } } });
+});
+```
+
+Note the Django version: `F("balance") - 100` is computed by the database (`SET balance = balance - 100`), so concurrent transfers cannot overwrite each other. Loading a value into Python, changing it, and saving it back is a **read-modify-write** race unless something prevents it — pessimistic or optimistic locking.
+
+### Pessimistic locking
+
+Lock rows when reading them, for short critical sections within one request:
+
+```python
+# SQLAlchemy: SELECT ... FOR UPDATE
+acct = session.scalars(
+    select(Account).where(Account.id == 1).with_for_update()
+).one()
+```
+
+Django's equivalent is `select_for_update()`; JPA uses `LockModeType.PESSIMISTIC_WRITE`. For job queues, `with_for_update(skip_locked=True)` lets several workers claim different rows without blocking each other.
+
+### Optimistic locking
+
+Holding locks across user think-time does not scale. **Optimistic locking** adds a version column; every `UPDATE` includes the version the application read and increments it:
+
+```sql
+UPDATE orders
+SET    status = 'shipped', version = version + 1
+WHERE  id = 42 AND version = 7;   -- 7 = the version read earlier
+```
+
+If another transaction updated the row first, the `WHERE` matches zero rows and the ORM raises an error — `StaleDataError` in SQLAlchemy (`version_id_col`), `OptimisticLockException` in JPA (`@Version`), `DbUpdateConcurrencyException` in EF Core — which the application handles by reloading and retrying or reporting a conflict. Django has no built-in version column; use a conditional `filter(pk=..., version=v).update(...)` and check the returned row count.
+
+Conflicts are rare when writes spread over many rows and frequent on hot rows. If $W$ writers each update one of $N$ equally likely rows at the same moment, the probability that a given writer collides with at least one other is
+
+$$
+P_{\text{conflict}} = 1 - \left(1 - \frac{1}{N}\right)^{W-1} \approx \frac{W-1}{N} \quad \text{for } W \ll N
+$$
+
+A high conflict rate is a signal to change the model (split the hot row, use a counter table, or apply database-side increments) rather than to add retries.
+
+## When to Drop to SQL
+
+ORMs handle routine work well and complex or bulk work poorly. Use SQL — through the ORM's expression language or parameterized raw queries — for:
+
+1. **Bulk writes.** Updating 100,000 rows as objects means loading them all and issuing statements in batches; one set-based statement does it in a single round trip.
+
+   ```python
+   from sqlalchemy import update, insert
+
+   # One UPDATE, no objects loaded
+   session.execute(
+       update(Product).where(Product.discontinued.is_(True)).values(active=False)
+   )
+   # Bulk INSERT from dictionaries (batched multi-row VALUES)
+   session.execute(insert(Product), [{"sku": "A1", "price": 10}, {"sku": "A2", "price": 12}])
+   ```
+
+   Django's `QuerySet.update()`, `bulk_create()`, and `bulk_update()` serve the same purpose; note that they bypass `save()` and model signals.
+
+2. **Analytical queries** — window functions, `GROUPING SETS`/`ROLLUP`, recursive CTEs — that map poorly onto objects.
+3. **Vendor features** — `INSERT ... ON CONFLICT` upserts, `jsonb` operators, full-text search, `pgvector` similarity, `LATERAL` joins. Many are reachable through dialect-specific constructs (SQLAlchemy's `postgresql.insert(...).on_conflict_do_update()`) before resorting to raw strings.
+4. **Hot paths** where profiling and `EXPLAIN ANALYZE` (see [Indexing & Query Execution](indexing-and-queries.html)) show the generated SQL is the problem.
+
+Raw SQL must still bind parameters — never interpolate input into the string:
+
+```python
+from sqlalchemy import text
+
 rows = session.execute(
-    text("SELECT * FROM orders WHERE total > :min ORDER BY total DESC"),
+    text("SELECT id, total FROM orders WHERE total > :min ORDER BY total DESC"),
     {"min": 1000},
 ).all()
 ```
 
-```javascript
-// Prisma — tagged template binds ${} as parameters, NOT string interpolation
-const orders = await prisma.$queryRaw`
-  SELECT * FROM "Order" WHERE total > ${minTotal}
-`;
+```typescript
+// Prisma: the tagged template binds ${} values as parameters.
+const orders = await prisma.$queryRaw`SELECT * FROM "Order" WHERE total > ${minTotal}`;
+// $queryRawUnsafe(string) does NOT - avoid it with any user input.
 ```
 
-> **The cardinal rule.** Use the ORM/query builder for the 95% of queries that are routine CRUD and simple joins; reach for parameterized raw SQL for the 5% that are performance-critical or use features the ORM can't express. Never build SQL by string concatenation of user input — that is the classic SQL-injection bug.
+A healthy codebase uses a spectrum of abstraction levels, choosing the highest level that serves each query well:
 
-## The N+1 Query Problem
+```mermaid
+flowchart LR
+    A["ORM entities<br/>routine CRUD"] --> B["Query builder / expression language<br/>dynamic filters, projections"]
+    B --> C["Parameterized raw SQL<br/>vendor features, tuned hot paths"]
+    C --> D["Database functions / views<br/>logic shared by many clients"]
+```
 
-The single most common ORM performance bug is the **N+1 problem**. It appears when you load a list of N parent objects and then touch a related attribute inside a loop, triggering one extra query per parent.
+Step down deliberately, with a profile or query plan justifying the move. For dynamic filtering, the query builder beats string concatenation on both safety and readability:
 
 ```python
-# 1 query to load the customers...
-customers = session.query(Customer).all()
-for c in customers:
-    # ...then N MORE queries, one per customer, hidden behind attribute access
-    print(c.name, len(c.orders))     # each c.orders fires its own SELECT
+stmt = select(Product)
+if max_price is not None:
+    stmt = stmt.where(Product.price <= max_price)
+if category:
+    stmt = stmt.where(Product.category == category)
+stmt = stmt.order_by(Product.name).limit(50)
 ```
 
-If `customers` returns 1,000 rows, this executes **1 + 1,000 = 1,001** queries. Each query is fast, but the round-trip latency dominates: at 1 ms per round-trip that loop spends a full second waiting on the network, almost all of it avoidable.
-
-### Why it hides so well
-
-The fix-free version *works correctly* and is fast in development with ten test rows. It only collapses in production with real data volume, which is what makes N+1 so insidious. The cause is **lazy loading**: by default many ORMs defer loading a relationship until the attribute is first accessed, and an access inside a loop becomes a query inside a loop.
-
-### Eager loading: the fix
-
-**Eager loading** tells the ORM to fetch the related rows up front, collapsing N+1 into a small constant number of queries. Two main mechanics:
-
-- **JOIN-based** — one query with a `JOIN` returns parents and children together. Best for to-one relationships; can multiply rows for to-many.
-- **Second-query (`IN` / `SELECT IN`)** — load parents, collect their keys, then `WHERE child.parent_id IN (...)` in one follow-up query. Best for to-many relationships; total queries = 2 regardless of N.
-
-```python
-# SQLAlchemy: selectinload issues 2 queries total (parents, then children IN keys)
-from sqlalchemy.orm import selectinload
-customers = (
-    session.query(Customer)
-    .options(selectinload(Customer.orders))
-    .all()
-)
-for c in customers:
-    print(c.name, len(c.orders))     # no extra queries — orders already loaded
-
-# joinedload instead emits a single LEFT JOIN
-from sqlalchemy.orm import joinedload
-session.query(Customer).options(joinedload(Customer.orders)).all()
-```
-
-```python
-# Django: select_related (JOIN, to-one) and prefetch_related (2nd query, to-many)
-customers = Customer.objects.prefetch_related("orders")        # to-many -> 2 queries
-orders   = Order.objects.select_related("customer")            # to-one  -> 1 JOIN
-```
-
-```javascript
-// Sequelize: include eager-loads the association
-await Customer.findAll({ include: [{ model: Order }] });
-
-// Prisma: include is explicit and required (Prisma has no lazy loading)
-await prisma.customer.findMany({ include: { orders: true } });
-```
-
-<div class="notice--info">
-  <p><strong>Prisma sidesteps lazy loading entirely.</strong> Because relations are only loaded when you explicitly <code>include</code> or <code>select</code> them, Prisma cannot accidentally trigger N+1 through attribute access — the trade-off is that you must remember to ask for related data up front.</p>
-</div>
-
-### Choosing JOIN vs second-query loading
-
-| | JOIN-based (`joinedload`, `select_related`) | Second-query (`selectinload`, `prefetch_related`) |
-|---|---|---|
-| Query count | 1 | 2 (parents + children) |
-| To-one relations | Ideal | Works, slightly wasteful |
-| To-many relations | Row explosion (parent repeated per child) | Ideal — no duplication |
-| Large parent payload | Duplicated across joined rows | Sent once |
-
-A common mistake is `joinedload` on a to-many relationship: a customer with 50 orders is returned 50 times in the result set, inflating bytes transferred and forcing the ORM to deduplicate. Prefer second-query loading for collections.
-
-### Detecting N+1
-
-You cannot fix what you cannot see. Make the SQL visible:
-
-```python
-# SQLAlchemy: echo every statement to logs
-engine = create_engine(url, echo=True)
-```
-
-```python
-# Django: read connection.queries (DEBUG=True), or use django-debug-toolbar
-from django.db import connection
-print(len(connection.queries))      # spikes reveal N+1
-```
-
-Many test suites add an assertion that a given endpoint runs **at most K queries**, turning a silent performance regression into a failing test.
-
-## Transactions in ORMs
-
-A [transaction](transactions-and-concurrency.html) groups operations so they commit or roll back together. ORMs wrap transactions in two related concepts:
-
-- The **session / persistence context / unit of work** — an in-memory staging area that tracks which objects are new, dirty, or deleted.
-- **Flush vs commit** — *flush* emits the pending SQL (`INSERT`/`UPDATE`/`DELETE`) within the transaction; *commit* makes it durable and ends the transaction.
-
-```python
-# SQLAlchemy: the context manager commits on success, rolls back on exception
-with Session(engine) as session:
-    with session.begin():                  # one transaction
-        account_a.balance -= 100
-        account_b.balance += 100
-        # dirty objects are flushed and the transaction commits at block exit
-# any exception inside the block triggers ROLLBACK automatically
-```
-
-```python
-# Django: atomic() is the transaction boundary
-from django.db import transaction
-with transaction.atomic():
-    account_a.balance -= 100; account_a.save()
-    account_b.balance += 100; account_b.save()
-    # exception -> the whole block rolls back
-```
-
-```javascript
-// Sequelize: managed transaction commits/rolls back automatically
-await sequelize.transaction(async (t) => {
-  await accountA.decrement("balance", { by: 100, transaction: t });
-  await accountB.increment("balance", { by: 100, transaction: t });
-});
-
-// Prisma: $transaction runs the array atomically
-await prisma.$transaction([
-  prisma.account.update({ where: { id: a }, data: { balance: { decrement: 100 } } }),
-  prisma.account.update({ where: { id: b }, data: { balance: { increment: 100 } } }),
-]);
-```
-
-### Dirty checking and the unit of work
-
-Data-Mapper ORMs (SQLAlchemy, Hibernate) track loaded objects and compare them against their original state at flush time — **dirty checking**. You mutate objects in memory; the ORM works out the minimal set of `UPDATE`s and orders them to respect foreign keys. This is the **Unit of Work** pattern: changes accumulate and are written in one coordinated batch at commit.
-
-```python
-order = session.get(Order, 42)
-order.status = "shipped"        # no SQL yet — just a tracked change
-session.commit()               # now: UPDATE orders SET status='shipped' WHERE id=42
-```
-
-### Optimistic concurrency
-
-Holding a database lock across a user's "think time" does not scale (see the locking discussion in [Transactions &amp; Concurrency](transactions-and-concurrency.html)). ORMs instead offer **optimistic locking**: add a `version` column, and the `UPDATE` carries the version the app last read.
-
-$$
-\text{UPDATE orders SET status = '?', version = version + 1}
-$$
-$$
-\text{WHERE id = ? AND version = ?}
-$$
-
-If another transaction already bumped the version, the `WHERE` matches zero rows, the ORM detects the lost update, and raises a `StaleDataError` (SQLAlchemy) / `OptimisticLockException` (Hibernate) for the app to retry. The probability that a given write conflicts is roughly
-
-$$
-P_{\text{conflict}} \approx 1 - \left(1 - \frac{1}{N}\right)^{W}
-$$
-
-for $W$ concurrent writers contending over $N$ equally-likely rows — low when writes are spread across many rows, high on a hot row, which is exactly when you should reconsider the data model.
-
-## When to Drop to SQL
-
-ORMs are excellent at the common case and frustrating at the edges. Drop to SQL (or a thin query builder) when:
-
-1. **Bulk operations.** Looping to update 100,000 rows one object at a time is 100,000 round-trips. A single `UPDATE ... WHERE` is one statement.
-
-   ```python
-   # Bad: load, mutate, save each row (N round-trips)
-   for p in session.query(Product).filter_by(discontinued=True):
-       p.active = False
-   # Good: one set-based statement
-   session.query(Product).filter_by(discontinued=True).update({"active": False})
-   ```
-
-2. **Analytical/reporting queries** with window functions, `ROLLUP`/`CUBE`, or recursive CTEs that map awkwardly onto objects.
-3. **Vendor-specific features** — PostgreSQL `JSONB` operators, full-text search, `pgvector` similarity, `INSERT ... ON CONFLICT` upserts.
-4. **Hot paths** where you have profiled the ORM-generated SQL and need exact control over the join order or index usage. Read the plan with `EXPLAIN ANALYZE` (see [Indexing &amp; Query Execution](indexing-and-queries.html)).
-5. **Complex multi-table joins** where the ORM's eager-loading strategy generates a worse plan than a hand-written query.
-
-The healthy posture is a **spectrum**, not a religion:
-
-```
-ORM objects  →  query builder  →  parameterized raw SQL  →  stored procedures
-(most code)     (dynamic SQL)     (hot/edge queries)        (rare, DB-owned logic)
-```
-
-Stay as high on the ladder as the workload allows, and step down deliberately — with a profiler or `EXPLAIN` output justifying the move — rather than rewriting everything in SQL out of habit.
-
-## ORM Anti-Patterns and Pitfalls
+## Pitfalls
 
 | Pitfall | Symptom | Fix |
 |---|---|---|
-| N+1 queries | Query count scales with row count | Eager-load (`selectinload`/`prefetch_related`/`include`) |
-| `joinedload` on collections | Result set has duplicated parents | Use second-query loading for to-many |
-| Loading whole objects to count | Slow `len(query.all())` | Use a `COUNT(*)` aggregate, not `len()` |
-| Row-by-row writes | Thousands of `UPDATE`s | One set-based statement / bulk insert |
-| Over-fetching columns | `SELECT *` everywhere | Project only needed columns |
-| Leaky lazy loads after session close | `DetachedInstanceError` / lazy load outside transaction | Eager-load before the session closes |
-| Fighting the ORM for a hard query | Convoluted method chains | Drop to raw SQL for that one query |
-
-## Key Takeaways
-
-- **The mapping is leaky on purpose.** An ORM bridges objects and tables but cannot erase the impedance mismatch — inheritance, identity, and collections all need explicit mapping decisions.
-- **Lazy loading causes N+1.** Touching a relationship inside a loop fires one query per row. Eager-load related data up front to collapse 1+N queries into a small constant.
-- **JOIN for to-one, second-query for to-many.** `joinedload`/`select_related` suit single related rows; `selectinload`/`prefetch_related` avoid row explosion for collections.
-- **The session is the unit of work.** Dirty checking batches in-memory mutations into a minimal, correctly-ordered set of writes committed in one transaction.
-- **Stay high on the ladder, drop down deliberately.** Use objects and the query builder for routine work; reach for parameterized raw SQL only for bulk, analytical, or vendor-specific queries — never concatenate user input.
+| N+1 queries | Query count grows with result size | Eager-load; make lazy loads raise |
+| Join-loading collections | Duplicated parent rows; huge result sets | Select-IN loading for to-many |
+| Counting by loading | `len(query.all())` is slow and memory-hungry | `select(func.count())...`, `.count()` |
+| Over-fetching | Every query reads every column, including large text/JSON | Project needed columns (`load_only`, `.only()`, `select: {...}`) |
+| Row-by-row writes | Thousands of single-row `UPDATE`s | Set-based `update()` / bulk insert |
+| Read-modify-write races | Lost updates under concurrency | Database-side expressions, `SELECT ... FOR UPDATE`, or version columns |
+| Lazy load after session close | `DetachedInstanceError`, `LazyInitializationException` | Load before closing; shorter, request-scoped sessions |
+| Long-lived sessions | Stale data, memory growth, open transactions blocking VACUUM | One session per unit of work |
+| Model and schema drift | Runtime errors after deploys | Generate migrations from models and review them ([Schema Evolution](schema-evolution-and-migrations.html)) |
+| Unbounded pagination with `OFFSET` | Deep pages get slower | Keyset (cursor) pagination on an indexed column |
+| Fighting the ORM | Convoluted chains to express one query | Write that query in SQL |
 
 ## See Also
 
-- [Data Modeling & Normalization](modeling.html) — the schema the ORM maps onto, and the inheritance/normalization trade-offs.
-- [Indexing & Query Execution](indexing-and-queries.html) — reading `EXPLAIN` output to tune the SQL your ORM generates, including the N+1 discussion.
-- [Transactions & Concurrency](transactions-and-concurrency.html) — locking, MVCC, and isolation behind the ORM's `commit()` and optimistic locking.
-- [Storage Engines & Recovery](storage-internals.html) — what flush and commit actually do to pages and the write-ahead log.
-- [Database Design hub](./) — the full deep-dive series.
+- [Data Modeling & Normalization](modeling.html) — the schema the ORM maps onto
+- [Indexing & Query Execution](indexing-and-queries.html) — reading `EXPLAIN` for ORM-generated SQL
+- [Transactions & Concurrency](transactions-and-concurrency.html) — isolation levels and locking behind `commit()`
+- [Schema Evolution & Migrations](schema-evolution-and-migrations.html) — Alembic and other migration tools
+- [Operations & Monitoring](operations-and-monitoring.html) — connection pooling and `pg_stat_statements`
+- [Database Design hub](./)

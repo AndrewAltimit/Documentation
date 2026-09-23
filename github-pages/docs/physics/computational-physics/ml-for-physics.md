@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Computational Physics: Machine Learning for Physics"
+description: "Physics-informed neural networks, neural operators, equivariant networks, and machine-learned interatomic potentials: how each builds physics into the model, when to use it, and where it fails."
 permalink: /docs/physics/computational-physics/ml-for-physics.html
 toc: true
 toc_sticky: true
@@ -9,27 +10,34 @@ hide_title: true
 
 <p><a href="./">Computational Physics</a> › Machine Learning for Physics</p>
 
-Learning the physics directly from data — solving PDEs, emulating simulators, and respecting symmetry by construction.
+Machine learning in computational physics works alongside the governing equations; it does not replace them. A conventional solver discretizes a known equation and solves it for one set of inputs. A learned model can do three other things. It can take a known PDE as a soft constraint (**physics-informed neural networks**). It can amortize a whole family of solutions into one forward pass (**neural operators**). Or it can stand in for an expensive quantum-chemistry calculation while respecting the right symmetries (**machine-learned interatomic potentials**). This page covers these families, the architectural ideas behind them, and their failure modes.
 
-Machine learning entered computational physics not to replace the differential equations but to *complement* them. A traditional solver discretizes a known equation and grinds through it for one set of boundary conditions; a learned model can absorb a known equation as a soft constraint (PINNs), amortize an entire family of solutions into a single forward pass (neural operators), or replace an intractable quantum-chemistry calculation with a cheap surrogate that still obeys the right invariances (neural-network potentials). The unifying theme is **inductive bias**: the more physics you bake into the architecture or loss, the less data you need and the better the model generalizes.
+The common thread is **inductive bias**. A generic network is a universal approximator, and in the small-data regime of physics that works against you: the network will happily fit a function that breaks energy conservation or rotational symmetry. If you build the symmetry group, the governing equation, or the conservation law into the model, the hypothesis space shrinks to physically admissible functions. That is why a symmetry-aware network can match a generic one with orders of magnitude less data.
 
-**Why physics priors matter.** A generic neural network is a universal approximator, but in the small-data, high-stakes regime of physics that universality is a liability — it will happily fit a function that violates energy conservation or rotational symmetry. Encoding the symmetry group, the governing PDE, or the conservation law *into* the model shrinks the hypothesis space to physically admissible functions, which is why a symmetry-aware network can match a generic one with orders of magnitude less data.
+## Where the Physics Goes
 
-## Recent Advances in Physics-ML Integration
+Every method on this page puts prior knowledge into one or more of three places:
 
-The intersection of machine learning and physics has seen explosive growth, with four broad threads driving most of the progress:
+| Where physics enters | Mechanism | Typical examples |
+|---|---|---|
+| **Loss function** | Penalize violations of a PDE, boundary condition, or conservation law | PINNs, physics-regularized surrogates |
+| **Architecture** | Build the symmetry or structure in so it holds exactly | Equivariant GNNs (NequIP, MACE), Hamiltonian/Lagrangian networks, hard-constrained ansätze |
+| **Data and training** | Train on simulator output, or backpropagate through the simulator itself | Neural operators, weather emulators, differentiable simulators |
 
-**Major themes:**
-- **Neural operators** — learning the *solution operator* of an entire family of PDEs, so one trained model solves new initial/boundary conditions in a single forward pass (Fourier Neural Operators, DeepONet, graph neural operators).
-- **Equivariant neural networks** — networks whose outputs transform correctly under physical symmetries (rotations, translations, permutations), giving exact conservation and dramatically better data efficiency.
-- **Differentiable physics engines** — simulators written in autodiff frameworks so gradients flow end-to-end through the solver, enabling inverse design, control, and learned closures.
-- **Foundation models for science** — large models pre-trained on diverse simulation/experimental data (notably for protein structure, materials, and weather) that are then fine-tuned for specific tasks.
+In general, **architectural constraints beat loss penalties**. A penalty is only approximately satisfied and competes with the other loss terms. An architectural constraint holds exactly for every parameter value, so no data or optimizer effort is spent learning it.
 
-A few concrete landmarks worth knowing: **DeepMind's GraphCast** (2023) showed a graph neural network beating the gold-standard numerical weather model on a 10-day forecast while running thousands of times faster; **AlphaFold 2/3** turned protein and biomolecular structure prediction into a largely solved problem using an equivariant attention architecture; and **neural-network interatomic potentials** (MACE, NequIP, Allegro) now reach near-DFT accuracy on molecular dynamics at a fraction of the cost, all built on equivariant message passing.
+## Choosing a Method
+
+| Method | Learns | Needs | Output | Use when |
+|---|---|---|---|---|
+| **PINN** | One solution $u(x,t)$ | The PDE, BCs/ICs, optionally sparse data | Mesh-free, differentiable field | Inverse problems, sparse-data assimilation, awkward geometries, one-off solves |
+| **Neural operator** (FNO, DeepONet) | The solution *operator* $a \mapsto u$ | Many solved input–output pairs | Fast surrogate for a PDE family | Many-query work: UQ, design optimization, real-time control |
+| **ML interatomic potential** | Potential-energy surface $E(\{\mathbf{r}_i\})$ | DFT energies and forces | Energies and forces for MD | Long or large MD at near-DFT accuracy |
+| **Learned emulator** (weather, climate) | Time-stepping map $x_t \mapsto x_{t+\Delta t}$ | Decades of reanalysis or simulation data | Autoregressive forecasts | High-volume, repeated forecasting where training data is plentiful |
 
 ## Physics-Informed Neural Networks (PINNs)
 
-A PINN represents the unknown field $u(x,t)$ directly as a neural network $u_\theta(x,t)$ and trains it by minimizing the *residual of the governing PDE* evaluated at sampled collocation points, plus penalties for the boundary and initial conditions. Crucially, the spatial and temporal derivatives in the PDE are computed by **automatic differentiation** of the network — there is no mesh and no finite-difference stencil. For a PDE written abstractly as
+A PINN represents the unknown field $u(x,t)$ as a neural network $u_\theta(x,t)$. It is trained to minimize the **residual of the governing PDE** at sampled *collocation points*, plus penalties for the boundary and initial conditions. The derivatives in the PDE come from **automatic differentiation** of the network, so there is no mesh and no finite-difference stencil. For a PDE
 
 $$ \mathcal{N}[u](x,t) = 0, \qquad x \in \Omega,\ t \in [0,T], $$
 
@@ -37,434 +45,398 @@ with boundary operator $\mathcal{B}$ and initial condition $u_0$, the composite 
 
 $$ L(\theta) = \lambda_r L_r + \lambda_b L_b + \lambda_i L_i, $$
 
-$$ L_r = \frac{1}{N_r}\sum_{k=1}^{N_r} \left| \mathcal{N}[u_\theta](x_k, t_k) \right|^2, $$
+$$ L_r = \frac{1}{N_r}\sum_{k=1}^{N_r} \left| \mathcal{N}[u_\theta](x_k, t_k) \right|^2, \qquad L_b = \frac{1}{N_b}\sum_{k=1}^{N_b} \left| \mathcal{B}[u_\theta](x_k, t_k) \right|^2, \qquad L_i = \frac{1}{N_i}\sum_{k=1}^{N_i} \left| u_\theta(x_k, 0) - u_0(x_k) \right|^2. $$
 
-$$ L_b = \frac{1}{N_b}\sum_{k=1}^{N_b} \left| \mathcal{B}[u_\theta](x_k, t_k) \right|^2, \qquad L_i = \frac{1}{N_i}\sum_{k=1}^{N_i} \left| u_\theta(x_k, 0) - u_0(x_k) \right|^2. $$
+The weights $\lambda$ set how strongly the optimizer enforces the equation relative to the boundary and initial data.
 
-Each term is just a mean-squared residual, and the $\lambda$ weights balance how aggressively the optimizer enforces the equation versus the data. For the 1D heat equation $u_t = \alpha\, u_{xx}$ the residual the code below minimizes is
+```mermaid
+flowchart LR
+    P["Collocation points (x, t)"] --> N["Network u_theta(x, t)"]
+    N --> AD["Autodiff: u_t, u_x, u_xx"]
+    AD --> R["PDE residual N[u_theta]"]
+    N --> BC["Boundary / initial mismatch"]
+    R --> L["Weighted loss L(theta)"]
+    BC --> L
+    L --> OPT["Optimizer: Adam, then L-BFGS"]
+    OPT -->|"update theta"| N
+```
 
-$$ \mathcal{N}[u] = \frac{\partial u}{\partial t} - \alpha\, \frac{\partial^2 u}{\partial x^2}. $$
+### Worked example: the 1D heat equation
+
+For $u_t = \alpha\, u_{xx}$ on $x \in [-1, 1]$, $t \in [0, 1]$, with $u(x,0) = \sin(\pi x)$ and $u(\pm 1, t) = 0$, the residual is
+
+$$ \mathcal{N}[u] = \frac{\partial u}{\partial t} - \alpha\, \frac{\partial^2 u}{\partial x^2}, $$
+
+and the exact solution $u = \sin(\pi x)\, e^{-\alpha \pi^2 t}$ gives a ground truth to check against. The code below uses a **hard-constrained ansatz**,
+
+$$ \hat{u}(x,t) = \sin(\pi x) + t\,(1 - x^2)\, N_\theta(x,t), $$
+
+which satisfies the initial and boundary conditions exactly for any network $N_\theta$. The loss $L_b$ and $L_i$ terms therefore disappear, and only the PDE residual is trained. Training follows the standard recipe: Adam on resampled collocation points, then L-BFGS refinement.
+
+```python
+import math
+import torch
+import torch.nn as nn
+
+ALPHA = 0.1  # diffusivity
+
+
+class MLP(nn.Module):
+    def __init__(self, widths=(2, 64, 64, 64, 1)):
+        super().__init__()
+        layers = []
+        for n_in, n_out in zip(widths[:-1], widths[1:]):
+            layers += [nn.Linear(n_in, n_out), nn.Tanh()]
+        self.net = nn.Sequential(*layers[:-1])  # linear output layer
+
+    def forward(self, x, t):
+        return self.net(torch.cat([x, t], dim=1))
+
+
+def u_hat(model, x, t):
+    """Satisfies u(x,0) = sin(pi x) and u(+-1,t) = 0 exactly (hard constraints)."""
+    return torch.sin(math.pi * x) + t * (1 - x**2) * model(x, t)
+
+
+def pde_residual(model, x, t):
+    x, t = x.requires_grad_(True), t.requires_grad_(True)
+    u = u_hat(model, x, t)
+    u_t, u_x = torch.autograd.grad(u, (t, x), torch.ones_like(u), create_graph=True)
+    u_xx = torch.autograd.grad(u_x, x, torch.ones_like(u_x), create_graph=True)[0]
+    return u_t - ALPHA * u_xx
+
+
+def sample(n):
+    return 2 * torch.rand(n, 1) - 1, torch.rand(n, 1)
+
+
+torch.manual_seed(0)
+model = MLP()
+
+# Stage 1: Adam on freshly resampled collocation points each step
+adam = torch.optim.Adam(model.parameters(), lr=1e-3)
+for step in range(3000):
+    x, t = sample(2048)
+    loss = pde_residual(model, x, t).pow(2).mean()
+    adam.zero_grad()
+    loss.backward()
+    adam.step()
+
+# Stage 2: L-BFGS refinement on a fixed point set
+x, t = sample(4096)
+lbfgs = torch.optim.LBFGS(model.parameters(), max_iter=500, line_search_fn="strong_wolfe")
+
+def closure():
+    lbfgs.zero_grad()
+    loss = pde_residual(model, x, t).pow(2).mean()
+    loss.backward()
+    return loss
+
+lbfgs.step(closure)
+
+# Validate against the exact solution
+xv, tv = sample(10_000)
+with torch.no_grad():
+    exact = torch.sin(math.pi * xv) * torch.exp(-ALPHA * math.pi**2 * tv)
+    err = (u_hat(model, xv, tv) - exact).norm() / exact.norm()
+print(f"relative L2 error: {err:.2e}")   # of order 1e-4
+```
+
+Always report a PINN's error against an independent reference: an exact solution, or a converged conventional solve. A small residual loss does not guarantee a small solution error.
+
+### Strengths and failure modes
+
+PINNs are most useful when a mesh is awkward or when data and equations have to be fused. Examples are **inverse problems**, where an unknown coefficient or source is learned jointly with the field, **data assimilation** from sparse or noisy measurements, and moderately high-dimensional PDEs where a grid would need $N^d$ points. The solution is a smooth, differentiable function that can be queried anywhere.
+
+Their known weaknesses are just as important:
+
+| Failure mode | Symptom | Common remedies |
+|---|---|---|
+| **Spectral bias** | Smooth networks miss sharp fronts, boundary layers, and high-frequency content | Fourier-feature embeddings, adaptive or residual-based collocation sampling, domain decomposition (XPINNs, FBPINNs) |
+| **Loss imbalance** | The PDE is satisfied in the interior while the boundary is ignored, or vice versa | Hard constraints, adaptive weights based on gradient norms or the neural tangent kernel |
+| **Causality violation** | Time-dependent problems converge to a wrong but self-consistent solution | Causal weighting that trains early times first, or time-marching windows |
+| **Ill-conditioned optimization** | Adam stalls with a loss plateau far above the discretization error | L-BFGS or other quasi-Newton refinement, natural-gradient and preconditioned second-order methods |
+
+Two points of perspective matter. First, for forward problems in low dimensions that standard solvers already handle, a well-tuned finite-element or spectral code is usually faster and more accurate than a PINN by a wide margin. PINNs earn their place on inverse and data-fusion problems. Second, a 2024 survey of the ML-for-PDE literature (McGreivy and Hakim, *Nature Machine Intelligence*) found that many reported speedups over numerical solvers came from weak baselines. When evaluating any claim that a learned model beats a solver, check that the baseline solver ran at comparable accuracy on comparable hardware.
+
+**Libraries:** [DeepXDE](https://github.com/lululxvi/deepxde) (multi-backend PINN toolkit) and [NVIDIA PhysicsNeMo](https://github.com/NVIDIA/physicsnemo) (formerly Modulus; PINNs, neural operators, and graph-based surrogates). Many research PINNs are written directly in JAX or PyTorch.
+
+## Neural Operators
+
+A PINN learns *one* solution. A **neural operator** learns the **solution operator** $\mathcal{G}: a \mapsto u$, a map between function spaces. For example, it can map an initial condition, a coefficient field, or a forcing function to the resulting solution. Training is expensive, since it needs a dataset of solved instances, but after that a new instance costs one forward pass. Well-designed operators are also approximately **discretization-invariant**: the learned parameters do not depend on the grid, so a model trained at one resolution can be evaluated at another.
+
+### Fourier Neural Operator (FNO)
+
+The FNO (Li et al., 2021) parameterizes the integral kernel of each layer in Fourier space:
+
+$$ v^{(l+1)}(x) = \sigma\!\Big( W v^{(l)}(x) + \big(\mathcal{K} v^{(l)}\big)(x) \Big), \qquad \big(\mathcal{K} v\big)(x) = \mathcal{F}^{-1}\!\big( R_\phi \cdot \mathcal{F} v \big)(x), $$
+
+where $W$ is a pointwise linear map and $R_\phi$ is a learned complex tensor applied to the lowest $k_{\max}$ Fourier modes. All higher modes are discarded. Truncating the spectrum works as a learnable low-pass filter: it keeps the smooth, long-range structure that dominates most PDE solutions, and it fixes the parameter count independently of resolution. Because the FFT is global, one layer mixes information across the whole domain. A convolution layer sees only its local stencil. The pointwise path $W$ restores the local, high-frequency content that the spectral path throws away.
+
+```mermaid
+flowchart LR
+    A["Input a(x)<br/>+ grid coordinates"] --> P["Lift P<br/>(pointwise)"]
+    P --> F1["Fourier layer 1"]
+    F1 --> F2["..."]
+    F2 --> F3["Fourier layer L"]
+    F3 --> Q["Project Q<br/>(pointwise MLP)"]
+    Q --> U["Output u(x)"]
+    subgraph FL["One Fourier layer"]
+        direction LR
+        V["v"] --> FFT["FFT"] --> TR["Keep modes up to k_max,<br/>multiply by R_phi"] --> IFFT["Inverse FFT"] --> S["+"]
+        V --> W1["W (1x1 conv)"] --> S
+        S --> ACT["activation"]
+    end
+```
 
 ```python
 import torch
 import torch.nn as nn
-import torch.optim as optim
 
-class PhysicsInformedNN(nn.Module):
-    """Neural network for solving PDEs"""
-    
-    def __init__(self, layers):
+
+class SpectralConv2d(nn.Module):
+    """Global convolution: FFT -> keep lowest modes -> learned complex weights -> inverse FFT."""
+
+    def __init__(self, in_ch, out_ch, modes1, modes2):
         super().__init__()
-        
-        # Build network
-        self.layers = nn.ModuleList()
-        for i in range(len(layers) - 1):
-            self.layers.append(nn.Linear(layers[i], layers[i+1]))
-        
-        # Activation
-        self.activation = nn.Tanh()
-    
-    def forward(self, x):
-        """Forward pass through network"""
-        for i, layer in enumerate(self.layers[:-1]):
-            x = self.activation(layer(x))
-        return self.layers[-1](x)
-    
-    def physics_loss(self, x, t):
-        """Physics-informed loss for heat equation"""
-        x.requires_grad = True
-        t.requires_grad = True
-        
-        # Network output
-        u = self(torch.cat([x, t], dim=1))
-        
-        # Compute derivatives
-        u_t = torch.autograd.grad(u, t, grad_outputs=torch.ones_like(u),
-                                 create_graph=True)[0]
-        u_x = torch.autograd.grad(u, x, grad_outputs=torch.ones_like(u),
-                                 create_graph=True)[0]
-        u_xx = torch.autograd.grad(u_x, x, grad_outputs=torch.ones_like(u_x),
-                                  create_graph=True)[0]
-        
-        # Heat equation: u_t - α*u_xx = 0
-        alpha = 0.1
-        f = u_t - alpha * u_xx
-        
-        return torch.mean(f**2)
+        self.modes1, self.modes2 = modes1, modes2
+        scale = 1.0 / (in_ch * out_ch)
+        shape = (in_ch, out_ch, modes1, modes2)
+        # rfft2 keeps only k_y >= 0, so low |k_x| lives at both ends of axis -2
+        self.w_pos = nn.Parameter(scale * torch.randn(shape, dtype=torch.cfloat))
+        self.w_neg = nn.Parameter(scale * torch.randn(shape, dtype=torch.cfloat))
 
-def train_pinn(model, n_epochs=5000):
-    """Train physics-informed neural network"""
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
-    
-    # Training points
-    n_points = 1000
-    x = torch.rand(n_points, 1) * 2 - 1  # x in [-1, 1]
-    t = torch.rand(n_points, 1)  # t in [0, 1]
-    
-    # Boundary conditions
-    n_bc = 100
-    x_bc = torch.ones(n_bc, 1) * -1
-    t_bc = torch.rand(n_bc, 1)
-    u_bc = torch.zeros(n_bc, 1)  # u(-1, t) = 0
-    
-    # Initial condition
-    x_ic = torch.rand(n_bc, 1) * 2 - 1
-    t_ic = torch.zeros(n_bc, 1)
-    u_ic = torch.sin(np.pi * x_ic)  # u(x, 0) = sin(πx)
-    
-    losses = []
-    
-    for epoch in range(n_epochs):
-        optimizer.zero_grad()
-        
-        # Physics loss
-        loss_physics = model.physics_loss(x, t)
-        
-        # Boundary condition loss
-        u_pred_bc = model(torch.cat([x_bc, t_bc], dim=1))
-        loss_bc = torch.mean((u_pred_bc - u_bc)**2)
-        
-        # Initial condition loss
-        u_pred_ic = model(torch.cat([x_ic, t_ic], dim=1))
-        loss_ic = torch.mean((u_pred_ic - u_ic)**2)
-        
-        # Total loss
-        loss = loss_physics + loss_bc + loss_ic
-        
-        loss.backward()
-        optimizer.step()
-        
-        if epoch % 100 == 0:
-            print(f"Epoch {epoch}: Loss = {loss.item():.6f}")
-            losses.append(loss.item())
-    
-    return losses
+    def forward(self, x):                                   # x: (B, C, H, W)
+        B, _, H, W = x.shape
+        x_ft = torch.fft.rfft2(x)                           # (B, C, H, W//2 + 1)
+        out_ft = torch.zeros(B, self.w_pos.shape[1], H, W // 2 + 1,
+                             dtype=torch.cfloat, device=x.device)
+        m1, m2 = self.modes1, self.modes2
+        mix = lambda a, w: torch.einsum("bixy,ioxy->boxy", a, w)
+        out_ft[:, :, :m1, :m2] = mix(x_ft[:, :, :m1, :m2], self.w_pos)
+        out_ft[:, :, -m1:, :m2] = mix(x_ft[:, :, -m1:, :m2], self.w_neg)
+        return torch.fft.irfft2(out_ft, s=(H, W))
 
-# Example usage
-model = PhysicsInformedNN([2, 50, 50, 50, 1])  # 2 inputs (x, t), 1 output (u)
-losses = train_pinn(model)
+
+class FNO2d(nn.Module):
+    def __init__(self, modes=12, width=32, in_ch=3, out_ch=1, n_layers=4):
+        super().__init__()
+        self.lift = nn.Conv2d(in_ch, width, 1)                       # P
+        self.spectral = nn.ModuleList(
+            SpectralConv2d(width, width, modes, modes) for _ in range(n_layers))
+        self.local = nn.ModuleList(nn.Conv2d(width, width, 1) for _ in range(n_layers))
+        self.project = nn.Sequential(nn.Conv2d(width, 128, 1), nn.GELU(),
+                                     nn.Conv2d(128, out_ch, 1))     # Q
+        self.act = nn.GELU()
+
+    def forward(self, a):                  # a: (B, in_ch, H, W), e.g. [a(x,y), x, y]
+        v = self.lift(a)
+        for i, (K, W) in enumerate(zip(self.spectral, self.local)):
+            v = K(v) + W(v)
+            if i < len(self.spectral) - 1:
+                v = self.act(v)
+        return self.project(v)
+
+
+model = FNO2d()
+print(model(torch.randn(2, 3, 64, 64)).shape)    # torch.Size([2, 1, 64, 64])
+print(model(torch.randn(2, 3, 128, 128)).shape)  # same weights, finer grid
 ```
 
-### When PINNs shine — and when they struggle
+In practice, use the maintained [`neuraloperator`](https://github.com/neuraloperator/neuraloperator) library (`from neuralop.models import FNO`) rather than hand-rolled layers. It provides FNO, tensorized FNO (TFNO, which factorizes $R_\phi$ to cut parameters), U-shaped and geometry-aware variants, and training utilities. A typical training set for the 2D Navier–Stokes benchmark pairs vorticity fields at time $t_0$ with fields at a later time $T$, all generated once by a pseudo-spectral solver.
 
-PINNs are most attractive when a mesh is awkward: high-dimensional PDEs (where grid points scale as $N^d$), inverse problems where an unknown coefficient is learned jointly with the field, and problems where sparse experimental data must be fused with a known equation. Because the solution is a smooth analytic function of its inputs, it can be queried at any point without interpolation.
+### Other operator architectures
 
-The failure modes are equally important to know:
+| Architecture | Idea | Handles irregular geometry? |
+|---|---|---|
+| **DeepONet** | A *branch* net encodes the input function at fixed sensors; a *trunk* net encodes the query point; the output is their inner product | Yes (trunk takes arbitrary points) |
+| **FNO / TFNO** | Spectral convolution on a regular grid | No, unless the domain is mapped to a grid (Geo-FNO) |
+| **Graph neural operators / MeshGraphNets** | Message passing on the simulation mesh | Yes |
+| **Transformer operators** | Attention over mesh points or latent tokens | Yes |
 
-- **Stiff / multiscale dynamics.** Sharp fronts and turbulent spectra are hard for a smooth tanh network to represent; the residual loss develops pathological gradients. Fourier-feature embeddings and curriculum/time-marching schemes help.
-- **Loss balancing.** The relative magnitude of $L_r$, $L_b$, $L_i$ controls everything, and a poorly weighted PINN happily satisfies the PDE in the interior while ignoring the boundary. Adaptive weighting (e.g., learning-rate annealing on the gradients of each term, or the neural-tangent-kernel-based schemes) is often essential.
-- **Optimization, not approximation, is the bottleneck.** A network *can* represent the solution, but Adam frequently stalls in a bad minimum; a second-order optimizer (L-BFGS) after Adam warm-up is the standard remedy.
+Neural operators are most reliable when interpolating within the training distribution. Rolling them out autoregressively over long times accumulates error, and in chaotic systems that error can drive the rollout onto unphysical states. Stabilization techniques include training on multi-step rollouts, adding noise during training, and using diffusion-model refinement.
 
-**Hard vs. soft constraints.** Penalizing boundary/initial conditions in the loss is a *soft* constraint — the network only approximately satisfies them. You can instead enforce them *exactly* by construction: write the output as `u(x,t) = u0(x) + t·g(x) + t·(x+1)(x-1)·N(x,t)` so the ansatz already obeys the IC and Dirichlet BCs for any network N. Hard constraints remove the corresponding loss terms entirely and usually train far more reliably.
+## Symmetry and Equivariant Networks
 
-## Equivariant and Symmetry-Aware Networks
+Physics has many exact symmetries. A molecule's energy does not change if you rotate, translate, or relabel its identical atoms, while a force vector *rotates with* the molecule. A generic network has to learn these facts from data. An **equivariant network** builds them into the architecture so they hold exactly.
 
-Physics is full of exact symmetries: the energy of a molecule does not change if you rotate, translate, or relabel its atoms; a force vector *rotates with* the molecule. A generic network has to *learn* these invariances from data, wasting capacity and data on facts that are known a priori. **Equivariant networks** build the symmetry into the architecture so it holds exactly, for free.
-
-Formally, a map $f$ is **invariant** under a group $G$ acting via representations $\rho$ if it ignores the transformation, and **equivariant** if it transforms in step with it:
+A map $f$ is **invariant** under a group $G$ if it ignores the transformation, and **equivariant** if its output transforms along with the input:
 
 $$ f(\rho_{\text{in}}(g)\, x) = f(x) \quad \text{(invariant)}, \qquad f(\rho_{\text{in}}(g)\, x) = \rho_{\text{out}}(g)\, f(x) \quad \text{(equivariant)}, \qquad \forall g \in G. $$
 
-Energy is a scalar and should be *invariant* under the Euclidean group $E(3)$ (rotations, translations, reflections); forces and dipoles are vectors and should be *equivariant*. The modern recipe for $E(3)$-equivariance represents features as **spherical tensors** labelled by angular-momentum order $\ell$ (scalars $\ell=0$, vectors $\ell=1$, ...) and combines them with the **Clebsch–Gordan tensor product**, exactly as angular momenta couple in quantum mechanics:
+Energy is a scalar and must be *invariant* under the Euclidean group $E(3)$ and under permutations of identical atoms. Forces, dipoles, and other vectors must be *equivariant*. The standard way to get $E(3)$-equivariance is to represent features as **spherical tensors** labelled by angular-momentum order $\ell$ (scalars $\ell=0$, vectors $\ell=1$, and so on). These are combined with the **Clebsch–Gordan tensor product**, in the same way angular momenta couple in quantum mechanics:
 
 $$ (u^{(\ell_1)} \otimes v^{(\ell_2)})^{(\ell)}_m = \sum_{m_1, m_2} C^{\ell\, m}_{\ell_1 m_1\, \ell_2 m_2}\, u^{(\ell_1)}_{m_1}\, v^{(\ell_2)}_{m_2}, \qquad |\ell_1 - \ell_2| \le \ell \le \ell_1 + \ell_2. $$
 
-Because the Clebsch–Gordan coefficients $C$ encode how irreducible representations of $SO(3)$ combine, any network built from these products is rotation-equivariant by construction. This is the engine inside NequIP, MACE, and Allegro.
+The coefficients $C$ encode how irreducible representations of $SO(3)$ combine, so any network built from these products is rotation-equivariant by construction. This is the core operation in NequIP, Allegro, and MACE. The [e3nn](https://e3nn.org/) library implements it, and NVIDIA's cuEquivariance provides fused GPU kernels for it.
 
-The code below shows the simpler but widely used special case: a **permutation- and translation-invariant** message-passing network in the style of SchNet, where invariance to rotation is obtained by using only interatomic *distances* (themselves rotation-invariant) as edge features.
+A simpler special case is widely used: **invariant** message passing in the style of SchNet. Rotation invariance comes from using only interatomic *distances* as edge features, and permutation invariance comes from summing over neighbours.
 
 ```python
 import torch
 import torch.nn as nn
 
-class InvariantMessagePassing(nn.Module):
-    """E(3)-invariant message-passing layer (SchNet-style).
 
-    Atoms carry scalar features; messages depend only on interatomic
-    distances, so the output is invariant to rotation/translation and
-    equivariant (here: invariant) to permutation of identical atoms.
-    """
+class InvariantMessagePassing(nn.Module):
+    """E(3)-invariant message-passing layer (SchNet-style continuous filters)."""
 
     def __init__(self, n_features=64, n_rbf=20, cutoff=6.0):
         super().__init__()
         self.cutoff = cutoff
-        # Radial basis: expand each distance into smooth Gaussians
         self.register_buffer("centers", torch.linspace(0.0, cutoff, n_rbf))
-        self.width = (cutoff / n_rbf)
+        self.width = cutoff / n_rbf
+        self.filter_net = nn.Sequential(nn.Linear(n_rbf, n_features), nn.SiLU(),
+                                        nn.Linear(n_features, n_features))
+        self.update = nn.Sequential(nn.Linear(n_features, n_features), nn.SiLU(),
+                                    nn.Linear(n_features, n_features))
 
-        # Filter-generating network: distance-expansion -> per-feature weights
-        self.filter_net = nn.Sequential(
-            nn.Linear(n_rbf, n_features), nn.SiLU(),
-            nn.Linear(n_features, n_features),
-        )
-        self.update = nn.Sequential(
-            nn.Linear(n_features, n_features), nn.SiLU(),
-            nn.Linear(n_features, n_features),
-        )
-
-    def rbf(self, distances):
-        """Smoothly expand distances onto a Gaussian radial basis."""
-        diff = distances[..., None] - self.centers
-        return torch.exp(-(diff ** 2) / (2 * self.width ** 2))
-
-    def cosine_cutoff(self, distances):
-        """Smoothly zero out interactions beyond the cutoff radius."""
-        fc = 0.5 * (torch.cos(torch.pi * distances / self.cutoff) + 1.0)
-        return fc * (distances < self.cutoff).float()
-
-    def forward(self, x, positions, edge_index):
-        """x: (n_atoms, n_features); edge_index: (2, n_edges)."""
+    def forward(self, h, positions, edge_index):
+        """h: (n_atoms, n_features); edge_index: (2, n_edges) without self-loops."""
         src, dst = edge_index
-        r_vec = positions[dst] - positions[src]
-        r = torch.norm(r_vec, dim=-1)                 # rotation-invariant
-        # Build continuous filters from distances only
-        W = self.filter_net(self.rbf(r)) * self.cosine_cutoff(r)[:, None]
-        messages = x[src] * W                         # element-wise filter
-        # Aggregate messages onto destination atoms (permutation-invariant sum)
-        agg = torch.zeros_like(x).index_add_(0, dst, messages)
-        return x + self.update(agg)                   # residual update
+        r = torch.linalg.norm(positions[dst] - positions[src], dim=-1)   # invariant
+        rbf = torch.exp(-((r[:, None] - self.centers) ** 2) / (2 * self.width**2))
+        fc = 0.5 * (torch.cos(torch.pi * r / self.cutoff) + 1.0) * (r < self.cutoff)
+        W = self.filter_net(rbf) * fc[:, None]           # smooth, distance-only filter
+        agg = torch.zeros_like(h).index_add_(0, dst, h[src] * W)   # permutation-invariant sum
+        return h + self.update(agg)                      # residual update
 ```
 
-The crucial design choices — using only distances, summing (not concatenating) neighbor messages, and applying a smooth cutoff — are precisely what make the layer respect the symmetries exactly rather than approximately. A full $E(3)$-equivariant model additionally carries $\ell \ge 1$ vector/tensor features and combines them with the tensor product above so that *directional* quantities like forces come out equivariant.
+Three design choices make the layer respect the symmetries exactly rather than approximately: messages depend only on distances, neighbour messages are summed, and a smooth cutoff keeps the energy differentiable. Invariant models can predict only scalars directly. Forces come from differentiating the energy. Fully equivariant models also carry $\ell \ge 1$ features, which capture angular information more efficiently and can output tensorial properties directly.
 
-## Neural-Network Interatomic Potentials
+<span id="neural-network-interatomic-potentials"></span>
 
-Ab-initio molecular dynamics is limited by the cost of evaluating the energy with density-functional theory at every timestep. A **neural-network potential (NNP)** learns a surrogate $E_\theta(\{\mathbf{r}_i\})$ trained to reproduce DFT energies and forces, then drives MD at a tiny fraction of the cost while retaining near-quantum accuracy. The foundational **Behler–Parrinello** architecture decomposes the total energy into a sum of atomic contributions,
+## Machine-Learned Interatomic Potentials
+
+*Ab initio* molecular dynamics is limited by the cost of a DFT calculation at every timestep. A **machine-learned interatomic potential (MLIP)** is trained on DFT energies and forces and learns a surrogate $E_\theta(\{\mathbf{r}_i\})$. It can then run MD at a small fraction of the cost while keeping near-DFT accuracy. MLIPs are now a standard tool in materials and molecular simulation.
+
+### The Behler–Parrinello decomposition
+
+Nearly every MLIP inherits the Behler–Parrinello (2007) decomposition of the total energy into atomic contributions:
 
 $$ E = \sum_{i=1}^{N_{\text{atoms}}} E_i\big(\mathbf{G}_i\big), $$
 
-where each atomic energy $E_i$ is produced by a shared network fed a fixed-length descriptor $\mathbf{G}_i$ of atom $i$'s local environment. This decomposition makes the model **size-extensive** (energy scales with system size) and **transferable** between systems. The descriptors are **symmetry functions**: rotation- and permutation-invariant functions of the neighbor geometry. A radial symmetry function aggregates pairwise distances,
+where a shared network maps a descriptor $\mathbf{G}_i$ of atom $i$'s local environment to its energy. This makes the model **size-extensive**, so energy scales with system size, and **local**, so cost is $O(N)$. The original descriptors are hand-designed **symmetry functions**. A radial one is
 
-$$ G_i^{\text{rad}} = \sum_{j \neq i} e^{-\eta (r_{ij} - R_s)^2}\, f_c(r_{ij}), $$
+$$ G_i^{\text{rad}} = \sum_{j \neq i} e^{-\eta (r_{ij} - R_s)^2}\, f_c(r_{ij}), \qquad f_c(r) = \begin{cases} \tfrac{1}{2}\left[\cos\!\left(\dfrac{\pi r}{R_c}\right) + 1\right], & r \le R_c, \\[4pt] 0, & r > R_c, \end{cases} $$
 
-and the smooth cutoff $f_c$ ensures the descriptor and its derivatives vanish continuously at the cutoff radius $R_c$:
-
-$$ f_c(r) = \begin{cases} \tfrac{1}{2}\left[\cos\!\left(\dfrac{\pi r}{R_c}\right) + 1\right], & r \le R_c, \\[4pt] 0, & r > R_c. \end{cases} $$
-
-Forces follow exactly from the analytic gradient of the (smooth, differentiable) energy network — automatic differentiation gives them for free,
+and angular functions add three-body terms. Forces are exact gradients of the energy, which gives a conservative force field by construction:
 
 $$ \mathbf{F}_i = -\nabla_{\mathbf{r}_i} E. $$
 
 ```python
-class NeuralPotential(nn.Module):
-    """Neural network for learning interatomic potentials"""
-    
-    def __init__(self, n_features=10, hidden_layers=[64, 64]):
+import math
+import torch
+import torch.nn as nn
+
+
+class BehlerParrinello(nn.Module):
+    """Single-element Behler-Parrinello potential with radial symmetry functions."""
+
+    def __init__(self, etas=(0.5, 1.0, 2.0, 4.0), shifts=(0.0, 1.0, 2.0, 3.0, 4.0),
+                 cutoff=6.0, hidden=64):
         super().__init__()
-        
-        layers = [n_features] + hidden_layers + [1]
-        self.network = self._build_network(layers)
-        
-        # Symmetry functions for atomic environments
-        self.symmetry_params = self._init_symmetry_functions()
-    
-    def _build_network(self, layers):
-        """Build the neural network"""
-        network = []
-        for i in range(len(layers) - 1):
-            network.append(nn.Linear(layers[i], layers[i+1]))
-            if i < len(layers) - 2:
-                network.append(nn.ReLU())
-        return nn.Sequential(*network)
-    
-    def _init_symmetry_functions(self):
-        """Initialize Behler-Parrinello symmetry functions"""
-        # Radial symmetry function parameters
-        eta_values = [0.05, 0.5, 1.0, 2.0]
-        Rs_values = [0.0, 1.0, 2.0, 3.0]
-        
-        # Angular symmetry function parameters
-        zeta_values = [1.0, 2.0, 4.0]
-        lambda_values = [-1.0, 1.0]
-        
-        return {
-            'eta': eta_values,
-            'Rs': Rs_values,
-            'zeta': zeta_values,
-            'lambda': lambda_values
-        }
-    
-    def compute_symmetry_functions(self, positions, types, cutoff=6.0):
-        """Compute symmetry functions for atomic environments"""
-        n_atoms = len(positions)
-        n_features = len(self.symmetry_params['eta']) * len(self.symmetry_params['Rs'])
-        features = torch.zeros(n_atoms, n_features)
-        
-        for i in range(n_atoms):
-            feature_idx = 0
-            
-            # Radial symmetry functions
-            for eta in self.symmetry_params['eta']:
-                for Rs in self.symmetry_params['Rs']:
-                    G_rad = 0
-                    
-                    for j in range(n_atoms):
-                        if i == j:
-                            continue
-                        
-                        r_ij = torch.norm(positions[j] - positions[i])
-                        
-                        if r_ij < cutoff:
-                            fc = 0.5 * (torch.cos(np.pi * r_ij / cutoff) + 1)
-                            G_rad += torch.exp(-eta * (r_ij - Rs)**2) * fc
-                    
-                    features[i, feature_idx] = G_rad
-                    feature_idx += 1
-        
-        return features
-    
-    def forward(self, features):
-        """Predict energy from symmetry functions"""
-        return self.network(features)
-    
-    def calculate_forces(self, positions, types):
-        """Calculate forces as negative gradient of energy"""
-        positions.requires_grad = True
-        
-        # Compute features
-        features = self.compute_symmetry_functions(positions, types)
-        
-        # Predict atomic energies
-        atomic_energies = self(features)
-        total_energy = torch.sum(atomic_energies)
-        
-        # Calculate forces
-        forces = -torch.autograd.grad(total_energy, positions,
-                                     create_graph=True)[0]
-        
-        return forces, total_energy
+        eta, rs = torch.meshgrid(torch.tensor(etas), torch.tensor(shifts), indexing="ij")
+        self.register_buffer("eta", eta.flatten())
+        self.register_buffer("rs", rs.flatten())
+        self.cutoff = cutoff
+        self.atomic_net = nn.Sequential(          # shared by every atom
+            nn.Linear(self.eta.numel(), hidden), nn.SiLU(),
+            nn.Linear(hidden, hidden), nn.SiLU(),
+            nn.Linear(hidden, 1),
+        )
+
+    def descriptors(self, pos):
+        r = torch.cdist(pos, pos)                                  # (N, N) distances
+        fc = 0.5 * (torch.cos(math.pi * r / self.cutoff) + 1.0)
+        fc = fc * (r < self.cutoff) * (1.0 - torch.eye(len(pos)))  # drop i == j
+        g = torch.exp(-self.eta * (r[..., None] - self.rs) ** 2)   # (N, N, n_G)
+        return (g * fc[..., None]).sum(dim=1)                      # sum over neighbours j
+
+    def forward(self, pos):
+        """Return total energy E and forces F = -dE/dr."""
+        pos = pos.requires_grad_(True)
+        energy = self.atomic_net(self.descriptors(pos)).sum()      # E = sum_i E_i(G_i)
+        forces = -torch.autograd.grad(energy, pos, create_graph=self.training)[0]
+        return energy, forces
 ```
 
-The state of the art has since moved from hand-crafted symmetry functions to **learned equivariant descriptors**. Message-passing potentials like **NequIP** and **MACE** carry $E(3)$-equivariant features (the spherical-tensor machinery from the previous section), which lets them reach the same accuracy with one to two orders of magnitude less training data and capture many-body angular information that two-body radial descriptors miss. The trade-off is cost per evaluation: descriptor-based potentials are cheaper per step, equivariant ones are far more data-efficient.
+The model is trained on a weighted loss over energies and forces, $L = w_E \lvert E - E^{\text{DFT}}\rvert^2 + w_F \sum_i \lVert \mathbf{F}_i - \mathbf{F}_i^{\text{DFT}} \rVert^2$. Forces supply $3N$ labels per configuration against one for the energy, so they dominate the information content. (`create_graph=True` during training lets the force loss backpropagate into the weights.) This toy has no periodic boundary conditions and handles only one element. Production codes add per-element networks, neighbour lists, and minimum-image distances.
 
-## Fourier Neural Operators (FNO)
+### Generations of MLIPs
 
-Where a PINN learns *one* solution, a **neural operator** learns the *solution operator* of a PDE — a map between infinite-dimensional function spaces, e.g. from an initial-condition function $a(x)$ to the solution $u(x)$. Once trained, it solves a new instance in a single forward pass, with **discretization invariance**: train on a coarse grid, evaluate on a fine one. The **Fourier Neural Operator** realizes this by parameterizing the integral kernel operator in the spectral domain. Each layer applies the update
+| Generation | Representative models | Descriptor | Trade-off |
+|---|---|---|---|
+| Descriptor + NN or kernel | Behler–Parrinello, ANI, GAP/SOAP, ACE | Fixed, hand-designed invariants | Cheap per step; needs large training sets; limited body order |
+| Invariant message passing | SchNet, PhysNet, DimeNet | Learned from distances (and angles) | Flexible but data-hungry |
+| Equivariant message passing | NequIP, Allegro, MACE | Learned $\ell \ge 1$ spherical-tensor features | 1–2 orders of magnitude more data-efficient; more cost per step |
+| Universal / foundation models | MACE-MP-0 and successors, CHGNet, SevenNet, Orb, Meta's UMA | Large equivariant or attention models trained on millions of DFT structures across most of the periodic table | Usable out of the box; fine-tune for production accuracy |
 
-$$ u^{(l+1)}(x) = \sigma\!\Big( W u^{(l)}(x) + \big(\mathcal{K} u^{(l)}\big)(x) \Big), $$
+**Foundation MLIPs** are the major development since 2023. Trained on datasets such as the Materials Project trajectories, Meta's OMat24 (inorganic materials) and OMol25 (molecules), and the Open Catalyst sets, one model covers about 89 elements and gives qualitatively correct dynamics for systems it never saw. The [Matbench Discovery](https://matbench-discovery.materialsproject.org/) leaderboard compares them on crystal-stability prediction. The recommended workflow is now to **start from a foundation model and fine-tune** on a few hundred system-specific DFT calculations, instead of training from scratch.
 
-where $W$ is a pointwise (local) linear map and $\mathcal{K}$ is a global convolution implemented as a multiplication in Fourier space. Concretely, with $\mathcal{F}$ the Fourier transform and $R_\phi$ a learned, complex-valued weight applied to the lowest $k_{\max}$ modes,
-
-$$ \big(\mathcal{K} u\big)(x) = \mathcal{F}^{-1}\!\big( R_\phi \cdot \mathcal{F} u \big)(x). $$
-
-Truncating to the lowest modes acts as a learnable low-pass filter: it captures the smooth, long-range structure that dominates most PDE solutions while keeping the parameter count fixed and *independent of resolution*. Because the FFT is global, a single layer mixes information across the whole domain — unlike a convolution, which only sees its local stencil.
+Both MACE and Meta's FAIRChem expose their models as [ASE](https://wiki.fysik.dtu.dk/ase/) calculators:
 
 ```python
-class SpectralConv2d(nn.Module):
-    """2D Fourier layer for Neural Operators"""
-    def __init__(self, in_channels, out_channels, modes1, modes2):
-        super().__init__()
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.modes1 = modes1  # Number of Fourier modes to keep
-        self.modes2 = modes2
-        
-        self.scale = 1 / (in_channels * out_channels)
-        self.weights1 = nn.Parameter(self.scale * torch.rand(
-            in_channels, out_channels, self.modes1, self.modes2, dtype=torch.cfloat))
-        self.weights2 = nn.Parameter(self.scale * torch.rand(
-            in_channels, out_channels, self.modes1, self.modes2, dtype=torch.cfloat))
-    
-    def forward(self, x):
-        batch_size = x.shape[0]
-        # Compute Fourier coefficients
-        x_ft = torch.fft.rfft2(x)
-        
-        # Multiply relevant Fourier modes
-        out_ft = torch.zeros(batch_size, self.out_channels, x.size(-2), 
-                           x.size(-1)//2 + 1, dtype=torch.cfloat, device=x.device)
-        
-        out_ft[:, :, :self.modes1, :self.modes2] = \
-            self.compl_mul2d(x_ft[:, :, :self.modes1, :self.modes2], self.weights1)
-        out_ft[:, :, -self.modes1:, :self.modes2] = \
-            self.compl_mul2d(x_ft[:, :, -self.modes1:, :self.modes2], self.weights2)
-        
-        # Return to physical space
-        x = torch.fft.irfft2(out_ft, s=(x.size(-2), x.size(-1)))
-        return x
-    
-    def compl_mul2d(self, input, weights):
-        # Complex multiplication
-        return torch.einsum("bixy,ioxy->boxy", input, weights)
+from ase.build import bulk
+from mace.calculators import mace_mp                      # pip install mace-torch
 
-class FourierNeuralOperator2d(nn.Module):
-    """Fourier Neural Operator for learning solution operators of PDEs"""
-    def __init__(self, modes1, modes2, width=64, in_channels=3, out_channels=1):
-        super().__init__()
-        self.modes1 = modes1
-        self.modes2 = modes2
-        self.width = width
-        
-        # Input lifting
-        self.fc0 = nn.Linear(in_channels, self.width)
-        
-        # Fourier layers
-        self.conv0 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
-        self.conv1 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
-        self.conv2 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
-        self.conv3 = SpectralConv2d(self.width, self.width, self.modes1, self.modes2)
-        
-        # Regular convolutions for local features
-        self.w0 = nn.Conv2d(self.width, self.width, 1)
-        self.w1 = nn.Conv2d(self.width, self.width, 1)
-        self.w2 = nn.Conv2d(self.width, self.width, 1)
-        self.w3 = nn.Conv2d(self.width, self.width, 1)
-        
-        # Output projection
-        self.fc1 = nn.Linear(self.width, 128)
-        self.fc2 = nn.Linear(128, out_channels)
-        
-        self.activation = nn.GELU()
-    
-    def forward(self, x):
-        # x: (batch, x, y, channels)
-        x = self.fc0(x)
-        x = x.permute(0, 3, 1, 2)  # (batch, channels, x, y)
-        
-        # Fourier layers with residual connections
-        x1 = self.conv0(x)
-        x2 = self.w0(x)
-        x = self.activation(x1 + x2)
-        
-        x1 = self.conv1(x)
-        x2 = self.w1(x)
-        x = self.activation(x1 + x2)
-        
-        x1 = self.conv2(x)
-        x2 = self.w2(x)
-        x = self.activation(x1 + x2)
-        
-        x1 = self.conv3(x)
-        x2 = self.w3(x)
-        x = x1 + x2
-        
-        x = x.permute(0, 2, 3, 1)  # (batch, x, y, channels)
-        x = self.fc1(x)
-        x = self.activation(x)
-        x = self.fc2(x)
-        return x
+atoms = bulk("Cu", "fcc", a=3.6, cubic=True)
+atoms.calc = mace_mp(model="medium", device="cuda", default_dtype="float64")
+print(atoms.get_potential_energy(), atoms.get_forces().shape)
 
-# Example: Learning the solution operator for 2D Navier-Stokes
-def train_fno_navier_stokes():
-    """Train FNO to learn the solution operator for 2D turbulence"""
-    model = FourierNeuralOperator2d(modes1=12, modes2=12, width=32)
-    
-    # Training would involve:
-    # 1. Generate training data: initial conditions → solutions at time T
-    # 2. Train model to map: u(x,y,0) → u(x,y,T)
-    # 3. Model learns the solution operator, can generalize to new initial conditions
-    
-    print("FNO architecture created for learning Navier-Stokes solution operator")
+# Meta's UMA models (pip install fairchem-core; weights are gated on Hugging Face)
+from fairchem.core import pretrained_mlip, FAIRChemCalculator
+predictor = pretrained_mlip.get_predict_unit("uma-s-1p2", device="cuda")
+atoms.calc = FAIRChemCalculator(predictor, task_name="omat")  # "omol", "oc20", ...
 ```
 
-The two-channel split in `SpectralConv2d` (low-frequency modes from both the positive and negative ends of the spectrum) reflects the conjugate symmetry of the real FFT. The complementary $1\times 1$ convolution `w` lets the operator represent the high-frequency, local residual that the truncated spectral path discards — the same low-pass-plus-local-correction structure that makes FNOs both expressive and resolution-robust. Beyond the FNO, **DeepONet** offers an alternative operator-learning paradigm (a "branch" network encodes the input function and a "trunk" network encodes the query location), and **graph neural operators** generalize the construction to irregular meshes where the FFT no longer applies.
+Check model names against the current release notes: new checkpoints come out frequently, and a checkpoint name in older code may no longer be the recommended one.
 
-**PINN vs. neural operator: which to reach for.** Use a **PINN** when you need *one* high-accuracy solution to a known PDE, possibly with an unknown parameter to infer, and have little or no labeled data. Use a **neural operator** when you must solve the *same* PDE family thousands of times (uncertainty quantification, design optimization, real-time control) and can afford to generate a training set of paired input-output functions once.
+### Active learning
+
+An MLIP can be trusted only inside the region of configuration space it was trained on. MD will eventually wander outside that region, into high temperatures, bond breaking, or new phases. Production training therefore uses an **active-learning loop**: run MD with the current model, detect configurations where it is uncertain (from committee disagreement or a per-structure error estimate), label those with DFT, and retrain.
+
+```mermaid
+flowchart LR
+    D["Training set<br/>(DFT energies + forces)"] --> T["Train or fine-tune MLIP<br/>(ensemble)"]
+    T --> MD["Run MD / sampling<br/>with the MLIP"]
+    MD --> U{"Model uncertain?"}
+    U -->|"no"| P["Production run"]
+    U -->|"yes"| S["Select configurations"]
+    S --> DFT["Label with DFT"]
+    DFT --> D
+```
+
+Validate an MLIP on *physical observables* such as radial distribution functions, phonon spectra, diffusion coefficients, and energy conservation in NVE runs, not only on test-set force errors. A model with low force RMSE can still be unstable in long simulations.
+
+## Learned Emulators at Scale
+
+The largest ML-for-physics systems are global **weather and climate emulators**. They are trained on decades of ECMWF's ERA5 reanalysis and learn the map from the atmospheric state at time $t$ to the state at $t + 6\,\text{h}$. Forecasts come from rolling that map out autoregressively.
+
+| System | Year | Approach | Notable result |
+|---|---|---|---|
+| GraphCast (Google DeepMind) | 2023 | Graph neural network on a multi-scale icosahedral mesh | Beat ECMWF's deterministic HRES on most verification targets at 10 days; about a minute per forecast on one TPU |
+| NeuralGCM (Google) | 2024 | Hybrid: differentiable dynamical core plus learned physics | Stable multi-decade climate runs with realistic statistics |
+| GenCast (Google DeepMind) | 2024 | Diffusion model producing ensemble members | Outperformed ECMWF's ENS ensemble on most targets |
+| Aurora (Microsoft) | 2025 | Foundation model pre-trained on diverse Earth-system data, fine-tuned per task | Weather, air quality, ocean waves, and cyclone tracks from one backbone |
+| AIFS (ECMWF) | 2025 | Graph/transformer model run by ECMWF itself | First ML forecast model run operationally alongside ECMWF's physics-based system |
+
+These models show both the promise and the limits of pure emulation. They are fast and skilful within the training climate, but they inherit reanalysis biases, they are not guaranteed to conserve mass or energy, and they cannot be trusted to extrapolate to climates unlike their training data. Hybrid designs like NeuralGCM, which keep the physics core and learn only the unresolved processes, are one response.
+
+Protein structure prediction is the other flagship result. **AlphaFold 2** (2021) used an SE(3)-invariant structure module. **AlphaFold 3** (2024) replaced it with a diffusion-based module that is not equivariant by construction and learns the symmetry from data augmentation instead. That this works suggests inductive bias is a data-efficiency tool rather than a requirement once data is abundant. The work was recognized with the 2024 Nobel Prize in Chemistry.
+
+## Other Directions
+
+- **Neural-network wavefunctions.** Variational Monte Carlo with neural ansätze reaches near-exact ground-state energies for small molecules and lattice models. Examples are FermiNet, PauliNet, and Psiformer for continuum electrons, and neural quantum states for spin systems. [NetKet](https://www.netket.org/) is the standard JAX library. See [Quantum Monte Carlo](monte-carlo-and-md.html#quantum-monte-carlo).
+- **Generative models for sampling.** Normalizing flows and diffusion models, as *Boltzmann generators* and in lattice field theory, propose independent samples from $e^{-\beta E}$. Exact reweighting or a Metropolis correction keeps the result unbiased while sidestepping the long autocorrelations of local MCMC.
+- **Differentiable simulation.** Simulators written in JAX or PyTorch, such as [JAX-MD](https://github.com/jax-md/jax-md) and differentiable CFD codes, let gradients flow through the solver. That enables inverse design, parameter fitting, and learned sub-grid closures trained against the full solver.
+- **Symbolic regression.** Tools such as [PySR](https://github.com/MilesCranmer/PySR) search for compact closed-form expressions that fit data. They recover interpretable laws, and they can distil a trained neural network into an equation.
+- **Simulation-based inference.** Neural density estimators fit posteriors over physical parameters directly from simulator output when the likelihood is intractable. This is now common in cosmology and particle physics.
 
 ## See Also
 
-- [Parallel Computing](hpc-and-ml.html) — the MPI and GPU infrastructure that trains these models and generates their data.
-- [Finite Elements &amp; Fluid Dynamics](fem-and-cfd.html) — the Navier-Stokes solvers that FNOs learn to emulate.
-- [Monte Carlo &amp; Molecular Dynamics](monte-carlo-and-md.html) — the MD trajectories that neural-network potentials accelerate.
-- [Quantum Computational Methods](quantum-methods.html) — the DFT calculations that supply training labels for NNPs.
-- [Visualization, Libraries &amp; Best Practices](tools-and-practices.html) — frameworks and tooling for the surrounding workflow.
+- [Parallel &amp; High-Performance Computing](hpc-and-ml.html): the MPI and GPU infrastructure that trains these models and generates their data.
+- [Finite Elements &amp; Fluid Dynamics](fem-and-cfd.html): the Navier–Stokes solvers that neural operators emulate, and the baselines they must beat.
+- [Monte Carlo &amp; Molecular Dynamics](monte-carlo-and-md.html): the MD engines that MLIPs plug into.
+- [Quantum Computational Methods](quantum-methods.html): the DFT calculations that supply MLIP training labels.
+- [Electronic Structure Beyond DFT](electronic-structure-beyond-dft.html): coupled-cluster references used for high-accuracy molecular training sets.
+- [Visualization, Libraries &amp; Best Practices](tools-and-practices.html): the surrounding software stack and validation habits.

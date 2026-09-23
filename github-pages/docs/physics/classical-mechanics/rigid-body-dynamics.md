@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Classical Mechanics: Rigid Body Dynamics"
+description: "The inertia tensor and principal axes, Euler's equations, Euler angles and quaternions, free and heavy symmetric tops, the tennis-racket theorem, energy dissipation, and rolling constraints."
 permalink: /docs/physics/classical-mechanics/rigid-body-dynamics.html
 toc: true
 toc_sticky: true
@@ -9,18 +10,14 @@ hide_title: true
 
 [Classical Mechanics](./) &raquo; Rigid Body Dynamics
 
-The inertia tensor and principal axes, Euler's equations and Euler angles, the symmetric and asymmetric top, gyroscopic precession and nutation, rolling constraints, and the tennis-racket theorem.
+A **rigid body** is a system of particles whose mutual distances are fixed. Its configuration is specified by six numbers: three for the position of a reference point (usually the center of mass) and three for the orientation. The center of mass obeys $\vec{F}_{\text{ext}} = M\ddot{\vec{R}}_{\text{cm}}$, as in [Newtonian mechanics](newtonian.html#linear-momentum-and-the-center-of-mass); this page is about the other three, the rotational degrees of freedom. It covers the inertia tensor and principal axes, Euler's equations, orientation coordinates (Euler angles and quaternions), the free and heavy symmetric tops, the stability of free rotation, and rolling constraints.
 
-## From Point Particles to Extended Bodies
-
-A point particle has three numbers — its position — and three momenta. A *rigid body* is a collection of particles whose mutual distances are frozen, so the whole object is pinned down by just **six** numbers: three to locate a reference point (the center of mass) and three to specify the body's orientation. The first three obey the familiar center-of-mass theorem, $\vec{F}_{\text{ext}} = M\ddot{\vec{R}}_{\text{cm}}$, and reduce to the projectile motion of the [Newtonian](newtonian.html) chapter. The interesting physics — and most of the surprises — lives in the *rotational* three.
-
-The central message of this chapter is a single subtle fact: for a spinning body the angular velocity $\vec{\omega}$ and the angular momentum $\vec{L}$ generally **point in different directions**. The object that converts one into the other is a matrix, the moment-of-inertia tensor. Once you accept that $\vec{L}$ and $\vec{\omega}$ are not parallel, every rigid-body phenomenon — the wobble of a thrown book, the steady drift of a gyroscope, the tumbling of a satellite — follows with mathematical inevitability.
+The key fact is that for a rotating body the angular velocity $\vec{\omega}$ and the angular momentum $\vec{L}$ are in general **not parallel**. They are related by a $3\times3$ matrix, the inertia tensor. The wobble of a thrown book, the precession of a gyroscope, and the tumbling of a satellite all follow from this.
 
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Rigid_body_dynamics"> Article: <b><i>Rigid Body Dynamics - Wikipedia</i></b></a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://www.youtube.com/watch?v=1VPfZ_XzisU"> Video: <b><i>The Bizarre Behavior of Rotating Bodies (Dzhanibekov Effect)</i></b></a></p>
 
-### Two Frames: Space and Body
+## Space and Body Frames
 
 Every rigid-body problem juggles two reference frames sharing the same origin (taken at the center of mass or a fixed pivot):
 
@@ -55,7 +52,7 @@ with the other components following by cyclic permutation. Compactly, with $\del
 
 $$I_{jk} = \int \rho\,\bigl(r^2\delta_{jk} - x_j x_k\bigr)\,dV.$$
 
-The tensor is **real and symmetric** ($I_{jk} = I_{kj}$), a fact with enormous consequences: any real symmetric matrix can be diagonalized by an orthogonal transformation, and its eigenvalues are real.
+The tensor is **real and symmetric** ($I_{jk} = I_{kj}$), so it can be diagonalized by a rotation and its eigenvalues are real. It is also positive semi-definite, and its eigenvalues satisfy the triangle inequalities $I_1 + I_2 \ge I_3$ (and permutations), with equality only for a flat lamina.
 
 ### Rotational Kinetic Energy
 
@@ -74,6 +71,16 @@ $$I^{(P)}_{jk} = I^{(\text{cm})}_{jk} + M\bigl(d^2\delta_{jk} - d_j d_k\bigr).$$
 This lets you tabulate inertia about the center of mass once, then shift to any pivot.
 
 **Perpendicular-axis theorem (for flat laminae in the $xy$-plane):** $I_{zz} = I_{xx} + I_{yy}$, because every mass element has $z = 0$.
+
+Principal moments of some uniform bodies of mass $M$ about their centers of mass:
+
+| Body | Principal moments | Classification |
+|------|-------------------|----------------|
+| Solid sphere, radius $R$ | $I_1 = I_2 = I_3 = \tfrac{2}{5}MR^2$ | Spherical top |
+| Solid cube, side $a$ | $I_1 = I_2 = I_3 = \tfrac{1}{6}Ma^2$ | Spherical top |
+| Solid cylinder, radius $R$, length $h$ | $I_3 = \tfrac{1}{2}MR^2$ (axis); $I_1 = I_2 = \tfrac{1}{4}MR^2 + \tfrac{1}{12}Mh^2$ | Symmetric top |
+| Thin disk, radius $R$ | $I_3 = \tfrac{1}{2}MR^2$; $I_1 = I_2 = \tfrac{1}{4}MR^2$ | Symmetric top (oblate) |
+| Rectangular box, sides $a, b, c$ | $\tfrac{1}{12}M(b^2 + c^2)$, $\tfrac{1}{12}M(a^2 + c^2)$, $\tfrac{1}{12}M(a^2 + b^2)$ | Asymmetric top if $a, b, c$ distinct |
 
 ## Principal Axes
 
@@ -121,23 +128,32 @@ For torque-free motion ($\vec{\tau}=0$) two scalars are conserved and tightly co
 
 $$L^2 = I_1^2\omega_1^2 + I_2^2\omega_2^2 + I_3^2\omega_3^2 = \text{const}, \qquad 2T = I_1\omega_1^2 + I_2\omega_2^2 + I_3\omega_3^2 = \text{const}.$$
 
-In angular-momentum space these are two surfaces: a sphere of radius $L$ and an ellipsoid of fixed energy. The motion of $\vec{L}$ (as seen in the body) is confined to their intersection curves — the **polhodes**. This geometric fact alone predicts which spins are stable, as we will see in the tennis-racket theorem.
+Viewed in body coordinates, the angular-momentum vector $\vec{L} = (I_1\omega_1, I_2\omega_2, I_3\omega_3)$ must therefore lie on both a sphere of radius $L$ and the energy ellipsoid $L_1^2/I_1 + L_2^2/I_2 + L_3^2/I_3 = 2T$. Its tip moves along their intersection curves. (The corresponding curves traced by $\vec{\omega}$ on the inertia ellipsoid are Poinsot's **polhodes**.) The shape of these curves near each principal axis decides which rotations are stable, as shown in the tennis-racket theorem below.
 
 ## Euler Angles: Parametrizing Orientation
 
 ### Three Angles, Three Rotations
 
-To connect the body frame to the space frame we need three independent numbers for orientation. The standard choice is the **Euler angles** $(\phi, \theta, \psi)$, built from three successive rotations:
+Orientation needs three independent numbers. The classical choice in physics is the **Euler angles** $(\phi, \theta, \psi)$ in the $z$-$x$-$z$ convention, built from three successive rotations:
+
+```mermaid
+flowchart LR
+    S["Space axes<br/>x, y, z"] -->|"rotate φ about z<br/>(precession)"| A["Intermediate axes<br/>x′ = line of nodes"]
+    A -->|"rotate θ about x′<br/>(nutation / tilt)"| B["Axes with z″ =<br/>body symmetry axis"]
+    B -->|"rotate ψ about z″<br/>(spin)"| C["Body axes<br/>e₁, e₂, e₃"]
+```
 
 1. Rotate by $\phi$ about the space $z$-axis (**precession**).
 2. Rotate by $\theta$ about the new $x$-axis, the *line of nodes* (**nutation**).
 3. Rotate by $\psi$ about the new $z$-axis, the body symmetry axis (**spin**).
 
+There are twelve possible axis sequences. Aerospace and robotics usually use the $z$-$y$-$x$ sequence of **yaw, pitch, and roll** (Tait-Bryan angles), so always check which convention a formula or library assumes.
+
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Euler_angles"> Article: <b><i>Euler Angles - Wikipedia</i></b></a></p>
 
 ### Angular Velocity in Euler Angles
 
-The three angular rates $\dot\phi, \dot\theta, \dot\psi$ are not orthogonal, so resolving $\vec{\omega}$ onto the body's principal axes for a symmetric top ($I_1=I_2$) takes some care. The result is
+The three angular rates $\dot\phi, \dot\theta, \dot\psi$ are about axes that are not mutually orthogonal. Resolving $\vec{\omega}$ onto the body axes gives, for any rigid body,
 
 $$\begin{aligned}
 \omega_1 &= \dot\phi\sin\theta\sin\psi + \dot\theta\cos\psi, \\
@@ -147,7 +163,17 @@ $$\begin{aligned}
 
 These plug into the Lagrangian $L = T_{\text{rot}} - V$ and make heavy-top problems tractable in the [Lagrangian formulation](lagrangian-hamiltonian.html), where the cyclic coordinates $\phi$ and $\psi$ immediately hand you two conserved momenta.
 
-**Gimbal lock.** When $\theta = 0$, the precession and spin axes coincide and $\phi$ and $\psi$ become indistinguishable — the parametrization is singular. This *gimbal lock* is why aerospace and graphics code prefers quaternions or rotation matrices, which have no such coordinate singularity. Euler angles remain unbeatable for analytic insight, though.
+**Gimbal lock.** When $\theta = 0$, the precession and spin axes coincide and only the sum $\phi + \psi$ is defined, so the parametrization is singular. Every three-parameter description of orientation has such a singularity somewhere, because the rotation group $SO(3)$ cannot be covered by a single chart of three coordinates. Euler angles remain the best choice for analytic work on tops.
+
+### Quaternions and Rotation Matrices
+
+Numerical code in aerospace, robotics, and graphics represents orientation without singularities, either as a $3\times3$ rotation matrix $\mathbf{R}$ (nine numbers with six orthonormality constraints) or as a **unit quaternion** $q = (\cos\tfrac{\alpha}{2},\ \hat{n}\sin\tfrac{\alpha}{2})$ for a rotation by angle $\alpha$ about axis $\hat{n}$. Quaternions use four numbers with one constraint, compose by quaternion multiplication, and interpolate smoothly (spherical linear interpolation, "slerp"). Both $q$ and $-q$ represent the same rotation. With $\vec{\omega}$ expressed in the body frame, the orientation evolves as
+
+$$
+\dot{\mathbf{R}} = \mathbf{R}\,[\vec{\omega}]_\times, \qquad \dot{q} = \tfrac{1}{2}\,q \otimes (0, \vec{\omega}),
+$$
+
+where $[\vec{\omega}]_\times$ is the antisymmetric matrix with $[\vec{\omega}]_\times\vec{v} = \vec{\omega}\times\vec{v}$. Numerical integrators renormalize $q$ (or re-orthogonalize $\mathbf{R}$) periodically to remove drift, or use Lie-group integrators that stay on the rotation group exactly. SciPy's `scipy.spatial.transform.Rotation` converts between all of these representations.
 
 ## The Symmetric Top
 
@@ -157,7 +183,9 @@ Take a torque-free symmetric body, $I_1 = I_2 \equiv I_\perp$ and $I_3$ the symm
 
 $$\dot\omega_1 = -\Omega\,\omega_2, \qquad \dot\omega_2 = +\Omega\,\omega_1, \qquad \Omega \equiv \frac{(I_3 - I_\perp)}{I_\perp}\,\omega_3.$$
 
-So $(\omega_1, \omega_2)$ rotates in a circle at angular rate $\Omega$: **in the body frame, $\vec\omega$ traces a cone about the symmetry axis** (the *body cone*). Meanwhile, viewed from space, the symmetry axis and $\vec\omega$ both precess around the fixed $\vec{L}$ (the *space cone*). This **free precession** is exactly what makes a wobbling thrown frisbee or a misshot American football "spiral wobble." For Earth, the analogous effect is the *Chandler wobble*, a ~433-day free precession of the rotation axis.
+So $(\omega_1, \omega_2)$ rotates in a circle at angular rate $\Omega$: **in the body frame, $\vec\omega$ traces a cone about the symmetry axis** (the *body cone*). Viewed from space, the symmetry axis and $\vec\omega$ both precess around the fixed $\vec{L}$ (the *space cone*) at rate $L/I_\perp$. This **free precession** is the wobble of a badly thrown frisbee or American football.
+
+For Earth, which is slightly oblate with $(I_3 - I_\perp)/I_\perp \approx 1/305$, the rigid-body formula predicts a free wobble of the rotation axis with a period of about 305 days (the Euler period). The observed wobble, discovered by S. C. Chandler in 1891, has a period of about 433 days; the difference comes from the elasticity of the Earth and the response of its oceans and fluid core. The **Chandler wobble** moves the pole by several meters at the surface and needs continual excitation by atmospheric and oceanic fluctuations to persist. Its amplitude has dropped sharply since about 2015, to the point that recent polar-motion analyses (Yamaguchi and Furuya, 2024; Jeon and colleagues, 2025) find it nearly absent, with the annual wobble now dominating. The cause is still being investigated.
 
 ### Heavy Symmetric Top: Precession and Nutation
 
@@ -193,7 +221,7 @@ When all three moments differ ($I_1 < I_2 < I_3$), the cross terms in Euler's eq
 
 ### The Tennis-Racket (Intermediate Axis) Theorem
 
-Rotation about the axis of **largest or smallest** moment of inertia is stable; rotation about the **intermediate** axis is unstable. Toss a tennis racket, a book, or a phone, trying to spin it about the intermediate axis, and it executes a half-flip — the **tennis-racket theorem**, also called the Dzhanibekov effect after the cosmonaut who noticed a wing-nut spontaneously flipping in orbit.
+Rotation about the axis of **largest or smallest** moment of inertia is stable; rotation about the **intermediate** axis is unstable. A tennis racket, book, or phone tossed with spin about its intermediate axis makes a half-turn flip about another axis on each cycle. The result was known to Poinsot (1834) and appears in standard textbooks. It is also called the **Dzhanibekov effect** after the cosmonaut who filmed a wing nut flipping periodically in orbit in 1985.
 
 The geometric explanation is the polhode picture from earlier: on the intersection of the energy ellipsoid and the angular-momentum sphere, the curves near the intermediate axis are *hyperbolic* (saddle-like), so the tip of $\vec\omega$ races away along the unstable manifold and back, producing the periodic flips. Near the extreme axes the curves are small closed loops, so the spin merely jitters.
 
@@ -207,6 +235,17 @@ $$\ddot\omega_2 = \frac{(I_3 - I_1)(I_1 - I_2)}{I_2 I_3}\,\omega_0^2\,\omega_2 \
 
 With $I_1$ the *smallest* moment, $(I_3 - I_1) > 0$ and $(I_1 - I_2) < 0$, so $\lambda > 0$: solutions are $\omega_2 \propto \cos(\sqrt{\lambda}\,t)$ — bounded oscillation, hence **stable**. The largest axis $I_3$ gives the same stable sign. But about the *intermediate* axis $I_2$, both factors $(I_2 - I_3)$ and $(I_1 - I_2)$ are negative, their product positive, and the coefficient flips sign to give $\ddot\omega \propto +\,\omega$ — exponential growth $\omega \propto e^{\sqrt{|\lambda|}\,t}$. The wobble blows up until the book flips. That sign flip, and nothing more, is the tennis-racket theorem.
 
+### Energy Dissipation and the Major-Axis Rule
+
+The stability of the minimum-moment axis holds only for a perfectly rigid body. Real bodies flex and contain fluids, which dissipate energy while conserving angular momentum. For fixed $L$, the kinetic energy $T = L^2/(2I)$ is lowest for rotation about the axis of **maximum** moment, so dissipation drives any spinning body toward rotation about its major axis. Rotation about the minor axis is only marginally stable, and slowly turns into a tumble.
+
+| Axis | Rigid body | With internal dissipation |
+|------|------------|---------------------------|
+| Largest moment $I_3$ | Stable | Stable (energy minimum for given $L$) |
+| Intermediate moment $I_2$ | Unstable | Unstable |
+| Smallest moment $I_1$ | Stable | Unstable (energy maximum for given $L$) |
+
+The first U.S. satellite, **Explorer 1** (1958), demonstrated this. It was designed to spin about its long axis, the axis of minimum moment, but energy dissipation in its flexible wire antennas turned the spin into a precession that grew until the satellite was rotating end over end about its axis of maximum moment. Spin-stabilized spacecraft have since been designed to spin about the major axis, or to use active nutation damping. Some asteroids are still observed tumbling (non-principal-axis rotation), because for small, slowly rotating bodies the damping time can be longer than the time since their spin was last disturbed.
 ## Rolling Constraints
 
 ### Rolling Without Slipping
@@ -230,9 +269,9 @@ $$Mgh = \tfrac{1}{2}Mv^2 + \tfrac{1}{2}I\omega^2 = \tfrac{1}{2}Mv^2\!\left(1 + \
 
 Solving for the bottom speed, $v = \sqrt{\dfrac{2gh}{1 + I/MR^2}}$. The factor $I/MR^2$ is $\tfrac{2}{5}$ for the sphere and $1$ for the hoop, so the sphere arrives at $v = \sqrt{10gh/7}$ and the hoop at the slower $v = \sqrt{gh}$. The sphere wins, and the answer is independent of mass and radius — only the *shape* (how mass is distributed relative to the axis) decides the race. The hoop loses because it must invest a larger fraction of its energy in spinning its rim.
 
-## Putting It Together: A Computational View
+## Numerical Example: The Free Asymmetric Top
 
-Euler's equations are a clean nonlinear ODE system, ideal for numerical integration with the methods of the [Chaos and Computation](chaos-and-computational.html) chapter. The free asymmetric top is a good test bed for watching the tennis-racket flips emerge from the equations themselves:
+Euler's equations are a clean nonlinear ODE system, well suited to numerical integration (see [Computational Methods](computational-classical-mechanics.html)). The free asymmetric top is a good test bed for watching the tennis-racket flips emerge from the equations themselves:
 
 ```python
 import numpy as np
@@ -262,20 +301,31 @@ print("spread in |L|^2:", L2.max() - L2.min())
 print("spread in 2T:   ", E.max() - E.min())
 ```
 
-Both $|\vec{L}|^2$ and $2T$ stay constant to integrator tolerance — a direct numerical confirmation of the two conservation laws — while $\omega_2$ periodically reverses sign, reproducing the tumbling flip that startled Dzhanibekov in orbit.
+Both $|\vec{L}|^2$ and $2T$ stay constant to integrator tolerance, confirming the two conservation laws, while $\omega_2$ periodically reverses sign: each reversal is one flip of the body. A general-purpose integrator conserves these quantities only approximately; over very long runs, a structure-preserving (Lie-Poisson) integrator keeps $|\vec{L}|^2$ exact up to roundoff and the energy error bounded.
 
-## Key Takeaways
+## Summary of Results
 
-- **Inertia is a tensor.** A single number $I$ suffices only for fixed-axis rotation. In general $\vec{L} = \mathbf{I}\vec\omega$, and $\vec L$ need not be parallel to $\vec\omega$.
-- **Principal axes simplify everything.** The symmetric tensor diagonalizes along principal axes, where $L_k = I_k\omega_k$ and $\vec L \parallel \vec\omega$ only when spinning about one of them.
-- **Euler's equations govern the spin.** The nonlinear cross terms $(I_j - I_k)\omega_j\omega_k$, present even at zero torque, drive precession, nutation, and tumbling.
-- **Gyroscopes precess, not topple.** Because torque changes the *direction* of $\vec L$, a fast spin precesses slowly — the principle behind gyrocompasses and the precession of the equinoxes.
-- **The intermediate axis is unstable.** Free rotation is stable about the largest and smallest moments but unstable about the middle one — the tennis-racket / Dzhanibekov theorem.
-- **Rolling can be nonholonomic.** A steering ball or coin obeys a velocity constraint that does not integrate to a coordinate relation, expanding its reachable configurations.
+| Topic | Central result |
+|-------|----------------|
+| Inertia | $\vec{L} = \mathbf{I}\vec{\omega}$; $\vec{L} \parallel \vec{\omega}$ only about a principal axis |
+| Dynamics | Euler's equations $I_1\dot\omega_1 + (I_3 - I_2)\omega_2\omega_3 = \tau_1$ (and cyclic) |
+| Free symmetric top | Body-frame precession of $\vec{\omega}$ at $\Omega = (I_3 - I_\perp)\omega_3/I_\perp$ |
+| Heavy fast top | Precession rate $\dot\phi \approx Mg\ell/(I_3\omega_3)$, plus nutation |
+| Free asymmetric top | Intermediate axis unstable; with dissipation only the major axis is stable |
+| Rolling | $\vec{v}_{\text{contact}} = 0$; often nonholonomic |
+
+---
+
+## Continue
+
+| Previous | Next |
+|----------|------|
+| [&larr; Computational Methods](computational-classical-mechanics.html) | [Thermodynamics &rarr;](../thermodynamics.html) |
 
 ## See Also
 
 - [Newtonian Mechanics &amp; Conservation Laws](newtonian.html) — the force-based foundation, fixed-axis $L = I\omega$, torque, and the conservation of angular momentum this chapter generalizes.
 - [Lagrangian &amp; Hamiltonian Mechanics](lagrangian-hamiltonian.html) — the energy method that tames the heavy top via Euler angles and cyclic coordinates, and handles rolling constraints with Lagrange multipliers.
-- [Chaos &amp; Nonlinear Dynamics](chaos-and-computational.html) — numerical integration of Euler's equations and the nonlinear dynamics of tumbling bodies.
+- [Chaos &amp; Nonlinear Dynamics](chaos-and-computational.html) — nonlinear dynamics and chaos, including the chaotic tumbling of irregular moons such as Hyperion.
+- [Geometric Formalism](geometric-mechanics.html) — symplectic geometry, symmetry and momentum maps, and geometric phases.
 - [Classical Mechanics Hub](./) — browse all classical mechanics topics.

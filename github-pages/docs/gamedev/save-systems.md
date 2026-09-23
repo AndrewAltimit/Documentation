@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Game Dev: Save Systems & Persistence"
+description: "Designing game save systems: what to persist, serialization formats, save/runtime model separation, versioning and migration, autosave, cloud sync and conflict resolution, and crash-safe atomic writes."
 permalink: /docs/gamedev/save-systems.html
 toc: true
 toc_sticky: true
@@ -11,406 +12,422 @@ hide_title: true
 
 [Game Development](./) &raquo; Save Systems & Persistence
 
-A save system is the boundary between the in-memory world your game simulates and the durable bytes a player will reload weeks later — possibly after they have patched the game, switched devices, or pulled the power cord the instant you were halfway through writing the file. Getting it right is less about "writing some JSON" and more about treating the save file as a small database with a schema, a migration path, a corruption-recovery story, and a transactional write protocol. This page covers serialization formats, the architecture that separates persistent from runtime state, versioning and migration of old saves, autosave and checkpoints, cloud-save synchronization and conflict resolution, and the atomic-write techniques that keep a save from being destroyed by an ill-timed crash. Four principles run throughout:
+A **save system** converts the in-memory state of a running game into durable bytes and back again. The difficulty is not the encoding — any serializer can write JSON — but everything around it: the file must be readable by builds that did not exist when it was written, must survive a crash or power loss in the middle of a write, and may be edited on two devices that later have to agree. In practice a save file behaves like a very small database, with a schema, migrations, a durability protocol, and a replication story.
 
-- **A save file is a tiny database.** It has a schema, needs migrations when that schema changes, and must survive concurrent or interrupted writes. Treat it with the same discipline.
-- **Version from day one.** Every save must carry a version number. Without it, the first content patch that adds a field can brick every existing save in the wild.
-- **Never write in place.** Write to a temp file, fsync, then atomically rename over the real save. A crash then leaves either the old file or the new one — never a half-written one.
-- **Cloud saves are a sync problem.** Two devices, last-writer-wins, and offline play create conflicts. You need timestamps, generation counters, and a conflict-resolution policy.
+This page covers, in order: deciding what state to persist; serialization formats; the architecture that separates the save model from the runtime model; versioning and migration; autosave; cloud synchronization and conflict resolution; crash-safe writes and integrity checks; engine and platform APIs; and how to test a save system.
 
 ## What Goes in a Save
 
-The first design decision is *what state to persist*, and it is more subtle than "everything." Game state divides into three categories:
+Not all game state belongs in the save. Classify every field into one of three categories before writing any serialization code:
 
-- **Persistent state** — the authoritative facts the player expects to keep: inventory, quest flags, position, unlocked abilities, world mutations (the chest you opened stays open), settings, statistics. This is what the save file holds.
-- **Derived state** — anything reconstructable from persistent state at load time: the navmesh, spatial partitions, rendered meshes, cached pathfinding, UI layout. Saving it wastes space and creates a second source of truth that can disagree with the authoritative data. Recompute it on load instead.
-- **Transient state** — per-frame and per-session data that should *not* survive a reload: particle systems mid-emission, in-flight projectiles (usually), input buffers, network sockets, audio voices. Capturing these makes saves brittle and large for no player-visible benefit.
+| Category | Definition | Examples | Treatment |
+|----------|-----------|----------|-----------|
+| **Persistent** | Authoritative facts the player expects to keep | Inventory, quest flags, player position, unlocks, world mutations (an opened chest stays open), statistics | Save it |
+| **Derived** | Reconstructable from persistent state | Navmesh, spatial partitions, pathfinding caches, LOD choices, UI layout | Recompute on load |
+| **Transient** | Meaningful only within the current session or frame | Particles mid-emission, in-flight projectiles, input buffers, network sockets, audio voices | Discard |
 
-The discipline of explicitly classifying each field is the single biggest determinant of how maintainable the save system becomes. A common failure mode is serializing the entire scene graph — every transform, every component — which couples the save format to engine internals and breaks the moment you reorganize a prefab.
+Saving derived state wastes space and creates a second source of truth that can disagree with the authoritative data after a patch. Saving transient state makes the file large and brittle for no visible benefit. The most common structural mistake is serializing the whole scene graph — every transform and component — which couples the save format to engine internals and breaks the first time a prefab is reorganized.
 
-```
-                  Game State
-                      │
-      ┌───────────────┼────────────────┐
-      ▼               ▼                ▼
- Persistent       Derived          Transient
- (save this)   (recompute on    (discard at
-                   load)         session end)
-
- inventory      navmesh           particle FX
- quest flags    pathfinding       projectiles
- world deltas   render caches     audio voices
- player pos     spatial grids     input buffers
- settings       LOD selection     network state
-```
+For open worlds, persistent world state is usually stored as **deltas against authored content**: the level ships with its default state, and the save records only what the player changed (chest `0x3A` opened, NPC `0x91` dead). This keeps saves small and lets designers edit levels after launch without invalidating every save, provided entity IDs remain stable.
 
 ## Serialization Formats
 
-A serializer turns an in-memory object graph into a byte stream (and back). The format choice trades human-readability, size, speed, schema-evolution friendliness, and security against each other.
+A serializer turns an object graph into a byte stream. The choice trades readability, size, speed, tolerance for schema change, and safety against one another.
 
-### Format comparison
-
-| Format | Readable | Size | Speed | Schema evolution | Notes |
-|--------|----------|------|-------|------------------|-------|
-| JSON | Yes | Large | Slow | Easy (named, optional fields) | Great for debugging; verbose; no binary blobs |
-| Binary (custom) | No | Smallest | Fastest | Manual / fragile | Total control; you own versioning |
-| Protocol Buffers | No | Small | Fast | Excellent (field numbers, defaults) | Tag-based, forward/backward compatible |
-| FlatBuffers / Cap'n Proto | No | Small | Fastest (zero-copy) | Good | Read without parsing; great for big saves |
-| MessagePack / CBOR | No | Small | Fast | Easy (like binary JSON) | Compact, schema-less, self-describing |
-| XML | Yes | Largest | Slowest | Easy | Mostly legacy; avoid for new saves |
-| Engine native (Unity `JsonUtility`, UE `FArchive`) | Varies | Varies | Fast | Engine-coupled | Convenient but ties save to engine version |
+| Format | Human-readable | Size | Speed | Schema evolution | Notes |
+|--------|:-:|------|-------|------------------|-------|
+| JSON | Yes | Large | Slow | Easy (named, optional fields) | Excellent for debugging and tooling; no native binary blobs |
+| Custom binary | No | Smallest | Fastest | Manual and fragile unless fields are tagged | Full control; you own every compatibility decision |
+| Protocol Buffers | No | Small | Fast | Excellent (numbered fields, unknown-field skipping) | Requires a schema compiler step |
+| FlatBuffers / Cap'n Proto | No | Small | Fastest reads (zero-copy) | Good | Readable without a parse step; suits very large saves |
+| MessagePack / CBOR | No | Small | Fast | Easy (binary JSON) | Schema-less and self-describing |
+| XML | Yes | Largest | Slowest | Easy | Legacy; not recommended for new work |
+| Engine-native (Unity `JsonUtility`, Unreal `FArchive`/`USaveGame`, Godot `store_var`) | Varies | Varies | Fast | Engine-coupled | Convenient; ties the format to engine behavior and version |
 
 ### Choosing a format
 
-The right answer depends on the *failure mode you most want to avoid*:
+- **Long post-launch support.** Use a tagged format (Protocol Buffers, MessagePack with explicit keys, or custom binary with field IDs). New code can read old data and old code can skip unknown fields, which is the basis of painless migration.
+- **Very large saves** (open worlds, simulation games). A zero-copy format lets the loader memory-map the file and touch only what it needs. Add compression: LZ4 for speed, Zstandard for a better ratio at similar decode speed.
+- **Development and tooling.** JSON is invaluable for diffing saves, hand-editing test cases, and attaching saves to bug reports. A common arrangement is JSON in debug builds and a binary encoding in release builds, generated from the same schema.
+- **Untrusted input.** Treat every save as hostile input, especially if saves are shared, cloud-synced, or feed leaderboards. Never use a serializer that can instantiate arbitrary types from the stream — .NET `BinaryFormatter` (obsolete; its implementation was removed in .NET 9), Python `pickle`, Java native serialization, Godot `get_var(allow_objects = true)`, or loading a player-supplied Godot `.tres`/`.res` resource (resources can embed scripts). Use a data-only format and validate ranges and references on load.
 
-- **You will be patching the game for years** → choose a tag-based format (Protocol Buffers, MessagePack, or a custom binary format with explicit field IDs). Tag-based formats let new code read old data and old code skip unknown fields, which is the foundation of painless migration.
-- **Saves are large (open-world, lots of entities)** → prefer a zero-copy format (FlatBuffers) so you can memory-map the save and read only what you touch, and consider compression (below).
-- **You are debugging or building tools** → JSON during development is invaluable; you can diff saves, hand-edit them, and read crash reports. Many studios ship a debug build with JSON and a release build with binary, gated behind the same schema.
-- **Security matters** (cloud saves, leaderboards) → never use a format with built-in arbitrary-type deserialization (Java/.NET `BinaryFormatter`, Python `pickle`, naive C# `BinaryFormatter`). These let a tampered save execute code. Use a data-only format and validate every field on load.
+### A self-describing header
 
-### A self-describing binary header
+Whatever the payload encoding, prefix the file with a small fixed-size header that can be read and validated before committing to a full parse:
 
-Whatever the payload format, prefix the file with a small fixed header you can read before committing to a full parse. This lets you reject foreign files, detect corruption early, and route to the right migration path:
-
+```c
+struct SaveHeader {             // little-endian, packed
+    char     magic[4];          // "ASAV" -- reject anything else immediately
+    uint16_t format;            // 0 = JSON, 1 = MessagePack, 2 = custom binary
+    uint16_t schema_version;    // drives the migration chain
+    uint32_t flags;             // e.g. bit 0 = zstd-compressed payload
+    uint32_t payload_len;       // bytes of payload that follow
+    uint32_t checksum;          // CRC32C or xxHash32 of the payload
+    uint64_t timestamp_ms;      // wall-clock time of the save (display, tie-breaks)
+    uint64_t generation;        // monotonic save counter (cloud sync, rollback detection)
+};
 ```
-struct SaveHeader {
-    char     magic[4];     // "ASAV" — reject anything else immediately
-    uint16_t format;       // 0 = JSON, 1 = msgpack, 2 = custom-binary
-    uint16_t version;      // schema version → drives migration
-    uint32_t payload_len;  // bytes of payload that follow
-    uint32_t checksum;     // CRC32 / xxHash of the payload
-    uint64_t timestamp;    // unix millis, for cloud conflict resolution
-    uint64_t generation;   // monotonically increasing save counter
-}
-```
 
-The `magic` bytes guard against reading the wrong file type; the `version` field is what makes migration possible; the `checksum` is the first line of corruption defense; and `timestamp`/`generation` feed cloud-save conflict resolution.
+`magic` rejects foreign files, `schema_version` routes to the migration chain, `checksum` detects corruption before any payload is decoded, and `generation` feeds cloud conflict detection. Store a small **summary block** (player level, location name, play time, thumbnail) right after the header so the load menu can list slots without decoding every full save.
 
 ## Save-Game Architecture
 
-A maintainable save system keeps a hard wall between the **runtime object model** (rich, behavior-laden objects the game logic uses) and the **save model** (plain data, no methods, designed for serialization). Mixing them is the original sin of save systems: it couples your on-disk format to internal refactors, makes versioning impossible, and tempts you to serialize pointers or engine handles that mean nothing after a reload.
+A maintainable save system keeps a hard boundary between the **runtime object model** (behavior-rich objects, engine handles, pointers) and the **save model** (plain data-transfer objects with no behavior). Mixing the two couples the on-disk format to every internal refactor and invites serializing pointers or handles that are meaningless after a reload.
 
-### The serialize / deserialize boundary
-
+```mermaid
+flowchart LR
+    subgraph RT["Runtime world"]
+        P["Player, NPCs, quests<br/>(behavior, pointers, engine handles)"]
+    end
+    subgraph SM["Save model"]
+        D["Plain DTOs<br/>PlayerData, WorldDeltas, QuestState"]
+    end
+    subgraph BY["Bytes on disk"]
+        F["Header + summary + payload"]
+    end
+    P -- "Capture()" --> D
+    D -- "encode, compress" --> F
+    F -- "verify, decode, migrate" --> D
+    D -- "Restore()" --> P
 ```
-Runtime World                Save Model (DTOs)            Bytes
-┌──────────────┐  capture   ┌───────────────────┐  encode ┌────────┐
-│ Player obj   │ ─────────► │ PlayerData {       │ ──────► │ header │
-│  + behavior  │            │   pos, hp, items   │         │ +      │
-│ Entity refs  │            │ }                  │         │ payload│
-│ Engine hdls  │            │ WorldDeltas {...}  │         │ +      │
-└──────────────┘            └───────────────────┘         │ crc    │
-        ▲          restore           ▲           decode    └────────┘
-        └─────────────────────────────┴────────────────────────┘
-```
 
-Each persistent system exposes two functions: one to *capture* its state into a plain data object, and one to *restore* itself from that object. The save manager orchestrates them but knows nothing about their internals.
+Each persistent system implements a two-method contract, and a save manager orchestrates them without knowing their internals:
 
 ```csharp
-// Each system implements a small, data-only contract.
 public interface ISaveable
 {
-    string  Key { get; }                 // stable id, e.g. "inventory"
-    object  Capture();                   // returns a plain DTO
-    void    Restore(object data);        // rebuilds runtime state
+    string Key { get; }            // stable section id, e.g. "inventory"
+    object Capture();              // returns a plain DTO; no I/O
+    void   Restore(object data);   // rebuilds runtime state from the DTO
 }
 
 public sealed class SaveManager
 {
-    private readonly List<ISaveable> _systems;
+    private readonly List<ISaveable> _systems = new();
 
-    public SaveDocument BuildSnapshot(int schemaVersion)
+    public SaveDocument BuildSnapshot()
     {
-        var doc = new SaveDocument { Version = schemaVersion };
+        var doc = new SaveDocument { Version = Migrations.CurrentVersion };
         foreach (var s in _systems)
-            doc.Sections[s.Key] = s.Capture();   // capture is pure: no I/O
+            doc.Sections[s.Key] = s.Capture();       // pure, synchronous
         return doc;
     }
 
-    public void ApplySnapshot(SaveDocument doc)
+    public void ApplySnapshot(JsonObject raw)
     {
-        var migrated = Migrations.UpgradeToCurrent(doc);  // see Versioning
+        raw = Migrations.UpgradeToCurrent(raw);      // see Versioning
+        SaveDocument doc = SaveDocument.FromJson(raw);
         foreach (var s in _systems)
-            if (migrated.Sections.TryGetValue(s.Key, out var data))
-                s.Restore(data);
+            if (doc.Sections.TryGetValue(s.Key, out var data))
+                s.Restore(data);                     // missing section => defaults
     }
 }
 ```
 
-Two properties make this scale:
+Two properties make this design scale:
 
-1. **`Capture()` does no I/O.** Building the snapshot is a fast, synchronous, allocation-bounded operation. The slow part (encoding + writing bytes) happens separately, which is what lets you do non-blocking autosaves (capture on the game thread, write on a worker thread).
-2. **Sections are keyed and independent.** A save is a dictionary of named sections, not one monolithic blob. New systems add a section without touching old ones; a missing section just means "use defaults," which is automatically forward/backward compatible.
+1. **Capture performs no I/O.** Building the snapshot is fast and bounded; encoding and writing happen separately. This split is what makes non-blocking autosave possible.
+2. **Sections are keyed and independent.** A save is a dictionary of named sections rather than one monolithic blob. A new system adds a section without touching others, and a missing section simply means "use defaults."
 
-### Handling object references
+### Object references and stable IDs
 
-The hardest part of restoring is reconnecting references. The player's "current quest" is a pointer to a quest object; you cannot serialize the pointer. The standard solution is **stable IDs**:
+References between objects (the player's active quest, a chest's owner) cannot be saved as pointers. The standard solution:
 
-- Give every persistent entity a stable identifier (a GUID baked into the level, or a runtime-assigned ID recorded in the save).
-- Serialize references *as IDs*, never as pointers or array indices (indices break the moment ordering changes).
-- Restore in two passes: first instantiate all entities and register their IDs in a lookup table, then re-resolve every ID reference into a live pointer.
+- Give every persistent entity a **stable ID** — a GUID baked into authored level content, or an ID assigned at spawn and recorded in the save.
+- Serialize references **as IDs**, never as pointers or array indices (indices shift when ordering changes).
+- Restore in **two passes**: instantiate all entities and register them in an ID table, then resolve every stored ID into a live reference.
 
 ```
-Pass 1 (instantiate):   id 0x4F → Player,  id 0x91 → Quest, id 0xA2 → Chest
-Pass 2 (relink):        Player.activeQuest = lookup[0x91]
-                        Chest.owner        = lookup[0x4F]
+Pass 1 (instantiate):  0x4F -> Player   0x91 -> Quest   0xA2 -> Chest
+Pass 2 (relink):       Player.activeQuest = table[0x91]
+                       Chest.owner        = table[0x4F]
 ```
 
-This two-pass approach also gracefully handles cycles (A references B references A) that would otherwise cause infinite recursion in a naive depth-first serializer.
+Two-pass restore also handles reference cycles (A refers to B refers to A) that would recurse forever in a naive depth-first serializer. Decide explicitly what happens when an ID no longer resolves — for example, content removed in a patch — and log it rather than crash.
 
 ## Versioning & Migration
 
-The day you ship, your save format is frozen for every existing player. The next patch that adds a feature almost always changes the schema, and those players must be able to load their old saves. Versioning is therefore not optional polish — it is a launch-day requirement.
+Once a game ships, its save format is fixed for every existing player, and the next content patch almost always changes the schema. Versioning is therefore a launch requirement, not a polish item: the first build that ships must already write a version number.
 
-### The version number is sacred
+On load, the file's `schema_version` is compared with the current code's version, and a chain of single-step migrations brings the data forward:
 
-Every save carries a `version` integer (the one in the header). It identifies the schema the file was written with. On load, you compare it to the *current* code version and apply a chain of migrations to bridge the gap.
-
+```mermaid
+flowchart LR
+    S["Save written<br/>at v3"] --> M1["v3 to v4"] --> M2["v4 to v5"] --> C["Current schema v5"] --> R["Restore()"]
+    N["Save written<br/>at v6 (newer build)"] -. "refuse cleanly" .-> X["SaveTooNewException"]
 ```
-saved with v3 ──► migrate v3→v4 ──► migrate v4→v5 ──► current (v5) ──► load
-```
 
-Migrations are written **once, additively, and never modified afterward**. A `v3→v4` migration is run by every player who ever had a v3 save; if you edit it later you risk corrupting saves that already passed through it. The rule is: append new migration steps, never rewrite old ones.
+Migrations are **append-only**: a `v3 -> v4` step is run by every player who ever had a v3 save, so editing it after release risks corrupting saves that already passed through the old version. Add new steps; never rewrite old ones. Migrating a generic document tree (JSON object, MessagePack map) rather than typed classes keeps old migrations compiling after the typed classes change.
 
 ```csharp
 public static class Migrations
 {
-    // An ordered list: index i upgrades version i → i+1.
-    private static readonly Func<SaveDocument, SaveDocument>[] Steps =
-    {
-        V1ToV2,   // [0]: v1 → v2
-        V2ToV3,   // [1]: v2 → v3
-        V3ToV4,   // [2]: v3 → v4
-    };
-
     public const int CurrentVersion = 4;
 
-    public static SaveDocument UpgradeToCurrent(SaveDocument doc)
+    // Steps[i] upgrades a document from version (i + 1) to (i + 2).
+    private static readonly Func<JsonObject, JsonObject>[] Steps =
     {
-        if (doc.Version > CurrentVersion)
-            throw new SaveTooNewException(doc.Version);   // downgrade is unsafe
+        V1ToV2,
+        V2ToV3,
+        V3ToV4,
+    };
 
-        while (doc.Version < CurrentVersion)
-        {
-            doc = Steps[doc.Version - 1](doc);
-            doc.Version++;
-        }
+    public static JsonObject UpgradeToCurrent(JsonObject doc)
+    {
+        int v = (int)doc["version"];
+        if (v > CurrentVersion)
+            throw new SaveTooNewException(v);   // never guess at a newer schema
+
+        for (; v < CurrentVersion; v++)
+            doc = Steps[v - 1](doc);
+
+        doc["version"] = CurrentVersion;
         return doc;
     }
 
-    // Example: v3 split a combined "name" field into "first"/"last".
-    private static SaveDocument V3ToV4(SaveDocument d)
+    // v4 split the single "name" field into "firstName" / "lastName".
+    private static JsonObject V3ToV4(JsonObject d)
     {
-        var p = (PlayerData)d.Sections["player"];
-        var parts = (p.LegacyName ?? "").Split(' ', 2);
-        p.FirstName = parts.Length > 0 ? parts[0] : "";
-        p.LastName  = parts.Length > 1 ? parts[1] : "";
-        p.LegacyName = null;
+        var player = d["sections"]["player"].AsObject();
+        var parts  = ((string)player["name"] ?? "").Split(' ', 2);
+        player["firstName"] = parts[0];
+        player["lastName"]  = parts.Length > 1 ? parts[1] : "";
+        player.Remove("name");
         return d;
     }
 }
 ```
 
-### Strategies for schema evolution
+### Schema-change rules
 
 | Change | Safe approach |
 |--------|---------------|
-| **Add a field** | Default it on load. Tag-based formats do this for free; for JSON, treat missing as the default. |
-| **Remove a field** | Stop reading it; tag-based formats let old data carry the dead field harmlessly. Never reuse its tag/ID. |
-| **Rename a field** | Add the new field, write a migration that copies old→new, keep reading the old name for one version. |
-| **Change a type** | Add a new field of the new type; migrate by conversion; deprecate the old field. |
-| **Restructure** | Write an explicit migration step (e.g. the name-split above). This is why you want the migration framework. |
+| Add a field | Give it a default and apply the default when absent. Tagged formats do this automatically. |
+| Remove a field | Stop reading it. Never reuse its tag or key for something else. |
+| Rename a field | Add the new field, migrate old to new, keep accepting the old name for at least one version. |
+| Change a type | Add a new field of the new type, convert in a migration, retire the old field. |
+| Restructure | Write an explicit migration step; this is what the framework is for. |
 
-The golden rule of tag-based formats: **field IDs are forever.** Once `field 7 = stamina`, you never reassign `7` to something else, even after removing stamina — old saves still have a value tagged `7`, and reusing it would misinterpret their data.
+The central rule of tagged formats is that **field IDs are permanent**. If field 7 once meant `stamina`, it can never mean anything else, because old saves still carry a value tagged 7. The same discipline appears in database schema management; see [Schema Evolution & Migrations](../technology/database-design/schema-evolution-and-migrations.html).
 
 ### Forward compatibility
 
-Backward compatibility (new code reads old saves) is mandatory. **Forward compatibility** (old code reads *newer* saves) is a bonus that tag-based formats provide: old code skips unknown fields. It matters when players have multiple installs (cloud sync across two devices on different patch levels), or when you want a save written on a beta build to still load on the release build. When forward compatibility is impossible, refuse the load cleanly (`SaveTooNewException` above) rather than crashing or silently dropping data.
+Backward compatibility (new code reads old saves) is mandatory. **Forward compatibility** (old code reads newer saves) matters whenever two installs can be on different patch levels — a cloud save written on an updated PC and then opened on a console still awaiting the patch, or a save made on a beta branch. Tagged formats give partial forward compatibility by skipping unknown fields, but if the old build then re-saves, those fields are lost. When forward compatibility cannot be guaranteed, refuse the load with a clear message ("This save was made with a newer version of the game") instead of crashing or silently discarding data.
 
 ## Autosave & Checkpoints
 
-Autosaving is the difference between a frustrated player who lost an hour and one who barely noticed a crash. The design space spans *when* to save, *how* to avoid stutter, and *how many* saves to keep.
+### When to save
 
-### When to autosave
+| Trigger | Advantages | Drawbacks |
+|---------|-----------|-----------|
+| Designer-placed checkpoints | Known-safe states; supports difficulty tuning | Progress between checkpoints is lost |
+| Timed interval | Bounds maximum loss | May fire in an unsafe state |
+| Events (zone change, boss defeated, item acquired) | Natural breakpoints | Each event needs a "safe" definition |
+| Suspend, quit, or focus loss | Captures the latest state | Unreliable on crashes; suspend time is short on consoles and mobile |
 
-| Trigger | Pros | Cons |
-|---------|------|------|
-| **Checkpoints** (designer-placed) | Predictable, safe states; tunable difficulty | Lost progress between checkpoints |
-| **Timed interval** (every N min) | Bounded data loss | May save in a bad/unsafe state |
-| **Event-driven** (zone change, boss defeated) | Saves at natural breakpoints | Needs care to define "safe" moments |
-| **On quit / focus loss** | Captures latest state on exit | Unreliable on hard crashes/power loss |
+Robust games combine event-driven saves, a timed safety net, and a save on suspend or quit, all gated by a single **"is it safe to save?"** predicate: not mid-cutscene, not during a level transition, not in combat (if the design requires), and not while a multi-step quest update is half-applied. A save that restores the player into an unwinnable situation — falling, surrounded, with 1 HP — is worse than a slightly older save.
 
-Robust systems combine these: event-driven autosaves at natural boundaries, a timed safety net, and a save-on-pause/quit. The key constraint is to autosave only in a **consistent, safe state** — not mid-cutscene, mid-transition, or while a quest is in a half-applied state — so that reloading always lands the player somewhere playable.
+On consoles and mobile, the OS gives an app only a short window after a suspend notification before it is frozen or killed, so the suspend path must be fast: flush an already-captured snapshot rather than starting a heavy capture.
 
 ### Non-blocking autosave
 
-A 50 ms hitch every autosave is a quality bug. The fix is to split the operation across threads, exploiting the capture/encode/write separation from the architecture section:
+A visible hitch at every autosave is a quality bug. Exploit the capture/encode split:
 
-```
-Game thread:    [ Capture() ]  ── fast, synchronous snapshot (deep-copy data)
-                      │  hand off immutable snapshot
-                      ▼
-Worker thread:  [ Encode → Compress → Atomic write ]  ── slow, off the hot path
-```
-
-The capture must produce an **immutable snapshot** (a deep copy of the persistent data) so the worker can serialize it while the game thread keeps mutating the live world. Serializing the live world directly from a worker thread is a data race that produces torn, corrupt saves.
-
-### Rotating slots and ring buffers
-
-Never overwrite the only save during an autosave — a crash mid-write would destroy it (the atomic-write section addresses this, but rotation is defense in depth). Keep a small ring of autosave slots:
-
-```
-autosave_0  autosave_1  autosave_2   ← rotate, oldest overwritten
-     ▲
-   newest
-
-A crash that corrupts autosave_2 still leaves _1 and _0 intact.
+```mermaid
+sequenceDiagram
+    participant G as Game thread
+    participant W as Worker thread
+    participant D as Storage
+    G->>G: Capture() into immutable snapshot (fast)
+    G->>W: hand off snapshot
+    Note over G: game continues mutating live world
+    W->>W: encode + compress
+    W->>D: write temp file, flush, atomic rename
+    D-->>W: success / failure
+    W-->>G: completion event (update "Saved" indicator)
 ```
 
-Rotation also gives players an "undo a mistake" affordance and protects against a *logically* bad save (e.g. you autosaved while soft-locked) by letting them step back a slot.
+The snapshot must be an **immutable copy** of the persistent data. Serializing live objects from a worker thread while the game thread mutates them is a data race that produces torn, internally inconsistent saves. If capture itself is too slow, make sections copy-on-write or capture them incrementally across a few frames while gameplay that would modify them is paused.
 
-## Cloud Saves & Sync
+Most platforms require a visible save indicator while writing and forbid powering off during it; follow the platform's rules for the icon and its minimum display time.
 
-Cloud saves move the same save file between devices through a remote store (Steam Cloud, PlayStation/Xbox cloud, iCloud, Google Play Games, or your own backend). The moment two devices can write, you have a distributed-systems problem: **conflict resolution**.
+### Rotating slots
 
-### The conflict
-
-```
-Device A (offline)  ──play──►  save gen 5, t=10:00  ──┐
-                                                       ├──► conflict at sync
-Device B (offline)  ──play──►  save gen 5, t=10:30  ──┘
-```
-
-Both devices started from generation 5 and diverged. Neither is strictly "newer in causal terms" — they are concurrent edits. Strategies, from crudest to safest:
-
-- **Last-writer-wins by timestamp.** Pick the file with the later modified time. Simple, but clocks lie (device clock skew, time-zone changes) and it silently destroys the loser's progress.
-- **Generation counter + timestamp.** Track a monotonically increasing `generation` (in the header). The cloud stores the highest generation seen; a device must base its write on the latest generation or be told to reconcile. This catches stale writes that timestamps miss.
-- **Player-prompted resolution.** When a true conflict is detected (two saves with the same parent generation), show the player both options — "Device A: Level 12, 4h played" vs "Device B: Level 14, 5h played" — and let them choose. This is the gold standard for single-player games because it never silently discards progress.
-- **Mergeable state.** For some data (unlocked achievements, max-level-reached, total currency earned) you can merge by taking the union/maximum rather than choosing a winner. Design save sections to be merge-friendly where possible (CRDT-like monotonic fields).
-
-### A practical sync protocol
-
-1. On launch, fetch the cloud header (cheap: just metadata).
-2. Compare cloud `generation` to the local `generation`.
-3. If cloud > local and local is unmodified since last sync → download (cloud is authoritative).
-4. If local > cloud and they share a parent → upload (local is ahead).
-5. If both advanced from the same parent → **conflict**: prompt the player or merge.
-6. After a successful play session, write locally (atomically), then upload with the new generation; the cloud rejects the upload if its generation has advanced underneath you (optimistic concurrency), forcing a re-check.
-
-This is optimistic concurrency control — the same pattern relational databases use for lost-update prevention. See [Database Design](../technology/database-design/) for the underlying theory of transactions and concurrency. Always keep cloud sync *advisory*: a network failure must never block the player from playing offline against the local save.
-
-## Anti-Corruption & Atomic Writes
-
-The most important property of a save system is that it **never destroys a good save**. A player who loses an hour to a missed autosave is annoyed; a player whose 80-hour file is corrupted is gone for good. The threats are: a crash or power loss mid-write, partial writes, OS/filesystem caching that reorders writes, and bit-rot/tampering.
-
-### Atomic write via temp-file-and-rename
-
-Writing a file in place is the cardinal sin. If the process dies after truncating the old file but before finishing the new contents, you are left with a half-written, useless save *and* the original is already gone. The fix is the **write-temp-then-rename** protocol, which exploits the fact that `rename()` is atomic on POSIX and Windows (on the same volume):
+Keep a small ring of autosave slots rather than one file. Rotation is defense in depth on top of atomic writes, and it protects against **logically bad** saves (autosaving while soft-locked) that no checksum can detect:
 
 ```
-1. Write the full new save to  save.tmp
-2. flush() + fsync(save.tmp)        ← force bytes to physical disk, not just cache
-3. fsync(directory)                 ← ensure the temp file's directory entry is durable
-4. rename(save.tmp → save.dat)      ← ATOMIC: an observer sees old OR new, never partial
-5. fsync(directory)                 ← make the rename itself durable
+autosave_0   autosave_1   autosave_2      <- ring; the oldest slot is overwritten next
+                             ^ newest
 ```
+
+## Cloud Saves & Synchronization
+
+Cloud saves copy the save between devices through a remote store: Steam Cloud, Xbox Game Saves, PlayStation and Nintendo cloud services, Apple iCloud / Game Center, Google Play Games Services, Epic Online Services, or a custom backend. Once more than one device can write, save synchronization becomes a distributed-systems problem.
+
+### Detecting conflicts
+
+Compare each side against the **last state both agreed on** (the last successful sync), not merely against each other:
+
+| Local since last sync | Cloud since last sync | Action |
+|:-:|:-:|--------|
+| Unchanged | Unchanged | Nothing to do |
+| Changed | Unchanged | Upload local |
+| Unchanged | Changed | Download cloud |
+| Changed | Changed | **Conflict** — prompt or merge |
+
+This is exactly the model Microsoft documents for Xbox Game Saves, which then shows a system dialog asking the player which copy to keep.
+
+```mermaid
+flowchart TD
+    A["Launch: fetch cloud header only"] --> B{"Cloud generation<br/>vs last-synced generation"}
+    B -- "same" --> C{"Local changed<br/>since last sync?"}
+    B -- "advanced" --> D{"Local changed<br/>since last sync?"}
+    C -- "no" --> OK["In sync: play"]
+    C -- "yes" --> UP["Upload local<br/>(conditional on cloud generation)"]
+    D -- "no" --> DOWN["Download cloud"]
+    D -- "yes" --> CONF["Conflict: show both summaries<br/>or merge monotonic fields"]
+    UP -- "rejected: cloud moved" --> A
+```
+
+Resolution strategies, from crudest to safest:
+
+- **Last writer wins by timestamp.** Simple, but device clocks drift or are set wrong, and it silently destroys the losing device's progress.
+- **Generation counters with conditional upload.** Each save records the generation it was based on; the server accepts an upload only if its current generation still matches (optimistic concurrency, the same technique databases use to prevent lost updates — see [Transactions & Concurrency](../technology/database-design/transactions-and-concurrency.html)). Stale writes are rejected instead of applied.
+- **Player-chosen resolution.** On a true conflict, show both candidates with their summary blocks ("This device: Level 12, 4 h 10 m, Riverside" vs "Cloud: Level 14, 5 h 02 m, Old Mine") and let the player choose. Standard for single-player games, because it never discards progress silently.
+- **Merging.** Some data can be merged rather than chosen: unlocked achievements and codex entries (set union), best times and highest level reached (maximum), lifetime statistics (per-device counters summed). Designing such fields as monotonic, CRDT-style values makes them conflict-free.
+
+### Platform behavior to design around
+
+- **Steam Cloud** offers **Auto-Cloud** (no code; Steam syncs configured paths at launch and exit) or the **`ISteamRemoteStorage`** API for direct control. With *Dynamic Cloud Sync*, Steam can upload while a game is suspended on Steam Deck and resume on another PC; wrapping multi-file writes in `BeginFileWriteBatch` / `EndFileWriteBatch` tells Steam not to sync a half-written set. Splitting data into several files avoids re-uploading unchanged data.
+- **Xbox Game Saves** (Microsoft GDK) provides `XGameSave` (containers of blobs, written through update handles) and `XGameSaveFiles` (a synced folder, mainly for PC ports). Updates are atomic per container, a lock prevents two devices from writing concurrently, the system syncs periodically during play and at session end, and conflicts are resolved through a platform dialog.
+- **Console platforms** in general impose declared size quotas, require the game to handle "storage full" and "save corrupted" through platform-standard messaging, and check this during certification (see [Testing & QA](testing-qa.html#certification)).
+
+Whatever the service, keep sync **advisory**: a network failure must never stop someone from playing offline against the local save.
+
+## Crash-Safe Writes & Integrity
+
+The most important property of a save system is that it **never destroys a good save**. Threats include a crash or power loss mid-write, full storage, OS write caching that reorders or delays writes, storage bit-rot, and deliberate tampering.
+
+### Write to a temporary file, then rename
+
+Overwriting a save in place is never safe: if the process dies after truncating the old contents and before the new contents are complete, both versions are gone. The standard protocol writes a complete new file and atomically swaps it in:
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant FS as Filesystem
+    App->>FS: write full payload to save.tmp
+    App->>FS: fsync(save.tmp)
+    Note right of FS: contents durable before they become visible
+    App->>FS: rename(save.tmp -> save.dat)
+    Note right of FS: atomic: readers see old or new, never partial
+    App->>FS: fsync(parent directory)
+    Note right of FS: the rename itself is durable
+```
+
+The ordering matters. If the rename becomes durable before the file contents, a power loss can leave a correctly named but empty or zero-filled file — the worst outcome, because it looks valid until it is parsed. Platform details:
+
+- **Linux / POSIX:** `rename()` within one filesystem is atomic; `fsync` the file before renaming and the directory after.
+- **macOS / iOS:** plain `fsync` does not force the drive's own cache to stable storage; use `fcntl(fd, F_FULLFSYNC)` when true power-loss durability is required.
+- **Windows:** `MoveFileEx` with `MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH`, or `ReplaceFile` (which .NET's `File.Replace` wraps and which can also keep a backup copy). Both require the source and destination to be on the same volume.
+- **Consoles:** use the platform save-data API and its commit semantics rather than raw file I/O; the platform provides the journaling.
 
 ```csharp
+// .NET / Unity: atomic replace with a retained backup.
 public static void AtomicWrite(string path, ReadOnlySpan<byte> bytes)
 {
     string tmp = path + ".tmp";
-    using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write,
-                                   FileShare.None))
+    using (var fs = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
     {
         fs.Write(bytes);
-        fs.Flush(flushToDisk: true);   // fsync the data
+        fs.Flush(flushToDisk: true);           // force contents to the device
     }
-    // File.Replace performs an atomic rename and (optionally) keeps a backup.
+
     if (File.Exists(path))
-        File.Replace(tmp, path, path + ".bak");  // old save → .bak
+        File.Replace(tmp, path, path + ".bak"); // old save becomes .bak
     else
         File.Move(tmp, path);
 }
 ```
 
-The crucial subtlety is the **`fsync` before the rename**. Without it, the OS may have the rename durable but the file *contents* still in a write-back cache; a power loss then leaves a renamed-but-empty file — the worst outcome. The order "fsync contents, then rename, then fsync directory" is what guarantees that the rename only ever exposes fully-written data.
-
-After this protocol, a crash at *any* point leaves the filesystem in exactly one of two valid states:
+After this protocol, a crash at any point leaves one of two valid states:
 
 ```
-crash before rename:  save.dat = old (intact),  save.tmp = garbage (discard)
-crash after  rename:  save.dat = new (intact),  save.bak = old   (recoverable)
+crash before rename:  save.dat = old (intact)   save.tmp = incomplete (delete on next launch)
+crash after rename:   save.dat = new (intact)   save.bak = previous save (recoverable)
 ```
 
-### Integrity checking
+Check free space before writing (a full disk mid-write is a common real-world failure), and treat any write error as "the old save is still the current save."
 
-A checksum in the header (CRC32 for speed, xxHash for a better speed/collision tradeoff, or a cryptographic hash if tamper-resistance matters) lets you detect corruption *before* feeding bad data into the game. On load:
+### Verifying on load
 
-```
-1. Read header, verify magic bytes.            → reject foreign files
-2. Recompute checksum over payload, compare.   → detect bit-rot / truncation
-3. On mismatch: fall back to .bak, then to an  → graceful degradation,
-   older rotating autosave slot.                 never a hard crash
-```
-
-The combination of a checksum, a `.bak` backup from the atomic rename, and rotating autosave slots gives a layered recovery story: a single corrupted file almost never means lost progress.
-
-### Defending against tampering
-
-For competitive or monetized games, players will edit local saves to grant items or currency. You cannot make a client-side save truly tamper-proof (the player owns the machine), but you can raise the cost:
-
-- **Keyed hash (HMAC):** store an HMAC of the payload using a key embedded in the binary. A naive editor that changes a value but not the HMAC is rejected. (Determined attackers extract the key, so this only stops casual cheating.)
-- **Server authority:** for anything that matters competitively, the *server* holds the authoritative state and the local save is just a cache. This is the only robust answer. See [Cybersecurity Basics](../technology/cybersecurity/) for the principle that the client is never trusted.
-- **Encryption is not integrity:** encrypting a save hides its contents but does not prevent a player from restoring an older, legitimately-encrypted save (a "rollback" to before they spent a resource). Pair encryption with the generation counter to detect rollbacks.
-
-## Worked Example: End-to-End Save Flow
-
-Tying the pieces together, here is the full lifecycle of one autosave, showing where each technique applies:
-
-```
-1. Trigger fires (event-driven: boss defeated, in a safe state)
-        │
-2. SaveManager.BuildSnapshot()           ── architecture: capture, no I/O
-        │   → immutable deep copy of all persistent sections
-        │   → stamps version = CurrentVersion, generation++, timestamp
-        │
-3. Hand snapshot to worker thread        ── autosave: non-blocking
-        │
-4. Encode (MessagePack) + compress       ── format: compact, schema-evolving
-        │
-5. Prepend header (magic, version,        ── format/integrity
-        │   checksum, generation, timestamp)
-        │
-6. AtomicWrite to autosave_2.tmp          ── anti-corruption
-        │   → fsync, rename over autosave_2.dat, old → .bak
-        │
-7. Rotate ring (newest = slot 2)          ── autosave: rotation
-        │
-8. Upload to cloud with generation        ── cloud: optimistic concurrency
-            (cloud rejects if its gen advanced → re-sync)
+```mermaid
+flowchart TD
+    L["Load slot"] --> H{"Magic and header valid?"}
+    H -- no --> FB
+    H -- yes --> C{"Checksum matches?"}
+    C -- no --> FB["Try save.bak, then older<br/>rotating autosave slots"]
+    C -- yes --> DEC["Decode payload"] --> MIG["Run migration chain"] --> V{"Semantic validation<br/>(ranges, IDs resolve)"}
+    V -- fail --> FB
+    V -- pass --> RES["Restore()"]
+    FB --> MSG["If nothing loads: tell the player,<br/>keep the damaged file for support"]
 ```
 
-On the next launch, the load path runs in reverse: read header, verify magic and checksum, fall back to `.bak`/older slot on failure, decode the payload, run the migration chain `version → CurrentVersion`, then `ApplySnapshot` restores each system, instantiating entities and relinking ID references in two passes.
+Use CRC32C or xxHash for fast corruption detection; a cryptographic hash is only needed for tamper resistance. Never delete a file that failed to load — keep it so it can be attached to a support ticket or repaired by a later patch.
 
-## Key Takeaways
+### Tampering
 
-- **Classify your state.** Persist the authoritative facts, recompute derived data on load, discard transient state. Serializing the whole scene graph is the original sin.
-- **Separate save model from runtime model.** Capture into plain data objects, restore from them. Serialize references as stable IDs and relink in a two-pass load. Never serialize pointers or engine handles.
-- **Version and migrate, additively.** Every save carries a version. Write migrations once, chain them v→v+1, and never reuse field IDs. This is a launch-day requirement, not polish.
-- **Autosave off the hot path.** Capture an immutable snapshot on the game thread, encode and write on a worker. Rotate slots so one bad write never loses everything.
-- **Cloud saves need conflict resolution.** Generation counters plus optimistic concurrency catch stale writes; prompt the player on true conflicts and keep sync advisory so offline play still works.
-- **Write atomically, verify on load.** Temp-file, fsync, rename — a crash leaves old or new, never partial. A checksum plus a .bak backup turns corruption into recoverable degradation.
+A client-side save cannot be made tamper-proof, because the player controls the machine. It is possible only to raise the cost:
+
+- **Keyed hash (HMAC)** of the payload with a key embedded in the binary rejects casual hex-editing. A determined attacker extracts the key.
+- **Rollback detection.** Encryption hides contents but does not stop a player from restoring an older, legitimately signed save to undo spending. Checking the save's `generation` against a server-side or platform-stored counter detects this.
+- **Server authority.** For anything competitive or monetized — currencies, ranked progress, purchasable items — the server holds the authoritative state and the local save is only a cache. This is the only robust defense; see [Cybersecurity](../technology/cybersecurity/) and [Multiplayer Networking](multiplayer-networking.html).
+
+For single-player games, many studios deliberately leave saves editable: modding and save editing are a feature for many players, and effort is better spent on corruption resistance.
+
+## Engine and Platform APIs
+
+| Environment | Built-in facilities | Notes |
+|-------------|---------------------|-------|
+| **Unity** | `Application.persistentDataPath`; `JsonUtility`; Newtonsoft Json.NET (`com.unity.nuget.newtonsoft-json`); `PlayerPrefs`; Unity Gaming Services Cloud Save | `JsonUtility` handles only serializable fields and does not support dictionaries or polymorphism. `PlayerPrefs` is for settings, not game saves (it lives in the registry on Windows). |
+| **Unreal Engine** | `USaveGame` subclasses with `UGameplayStatics::SaveGameToSlot` / `AsyncSaveGameToSlot`; `FArchive` with the `SaveGame` property specifier (`Ar.ArIsSaveGame`); `ISaveGameSystem` platform abstraction | The platform save-game system maps slots onto each console's save API. Serializing whole actors via `SaveGame`-flagged properties is convenient but couples the format to class layouts; version it with custom version GUIDs. |
+| **Godot 4** | `FileAccess` (`user://`); `JSON`; `store_var` / `get_var`; `ConfigFile` for settings; `ResourceSaver` | Keep `get_var` object decoding disabled for untrusted data, and do not load player-supplied `.tres` / `.res` files. |
+| **Steam** | Auto-Cloud; `ISteamRemoteStorage` | Per-user byte and file-count quotas configured in Steamworks. |
+| **Xbox / PC Game Pass** | GDK `XGameSave`, `XGameSaveFiles` | Container-level atomicity, device locks, platform conflict dialog. |
+| **PlayStation, Nintendo** | Platform save-data libraries (under NDA) | Quotas declared up front; journaled commits; mandatory handling of full or corrupted storage. |
+
+## Testing a Save System
+
+Save bugs are among the most damaging a game can ship, and they are cheap to catch with automation:
+
+- **Round-trip tests.** `Restore(Capture(state))` must reproduce `state`; compare a canonical hash of persistent data before and after.
+- **Golden-save corpus.** Keep real save files from every shipped version (and from late-game and edge-case playthroughs) in the repository, and load each through the current migration chain in CI. A migration regression then fails the build instead of reaching players.
+- **Corruption and fuzz tests.** Truncate files at random offsets, flip bits, and feed malformed payloads; the loader must fall back or report an error, never crash or hang.
+- **Kill tests.** Terminate the process at random points during a save (or cut power to a test device) and verify that a valid save always remains.
+- **Platform scenarios.** Full storage, storage removed mid-save, sign-out during save, suspend during save, and simultaneous play on two devices. These map directly onto certification requirements; see [Testing & QA](testing-qa.html).
+
+## End-to-End Flow
+
+The complete lifecycle of one autosave, and where each technique on this page applies:
+
+```mermaid
+flowchart TD
+    T["Trigger fires and IsSafeToSave() is true"] --> CAP["Capture(): immutable snapshot of all sections<br/>stamp schema_version, generation+1, timestamp"]
+    CAP --> HAND["Hand off to worker thread"]
+    HAND --> ENC["Encode (MessagePack) and compress (zstd)"]
+    ENC --> HDR["Prepend header and summary; compute checksum"]
+    HDR --> AW["Atomic write into next ring slot<br/>tmp, flush, rename, keep .bak"]
+    AW --> CLOUD["Conditional cloud upload<br/>(rejected if cloud generation moved: re-sync)"]
+```
+
+Loading runs the same path in reverse: read the header, verify magic and checksum, fall back to `.bak` or an older slot on failure, decode, migrate to the current schema, validate, then restore each system with two-pass ID relinking.
 
 ## See Also
 
-- **[Game Development Hub](./)** — section overview: engines, the game loop, ECS, and the systems a save file must capture
-- **[Database Design](../technology/database-design/)** — transactions, concurrency control, and the durability guarantees a save system borrows
-- **[Cybersecurity Basics](../technology/cybersecurity/)** — why the client is never trusted, and how tamper-resistance and server authority work
-- **[Networking Fundamentals](../technology/networking/)** — the transport layer beneath cloud-save synchronization
-- **[Memory Optimization](../optimization/memory-optimization.html)** — asset streaming and the serialization-adjacent cost of large in-memory state
-- **[Game AI](../ai-ml/game-ai.html)** — behavior and world state that frequently needs to be persisted across sessions
-
----
-
-*This page is part of the Game Development guide. For suggestions or contributions, visit our [GitHub repository](https://github.com/AndrewAltimit/Documentation).*
+- [Game Development Hub](./) — engines, the game loop, ECS, and the systems a save must capture
+- [Testing & QA](testing-qa.html) — certification requirements for storage handling, soak tests, and regression testing
+- [Multiplayer Networking](multiplayer-networking.html) — server-authoritative state for anything that must not be tampered with
+- [Database Design](../technology/database-design/) — durability, transactions, and concurrency control that save systems borrow
+- [Schema Evolution & Migrations](../technology/database-design/schema-evolution-and-migrations.html) — the same versioning discipline applied to databases
+- [Cybersecurity](../technology/cybersecurity/) — why the client is never trusted
+- [Memory Optimization](../optimization/memory-optimization.html) — the cost of large in-memory state and streaming

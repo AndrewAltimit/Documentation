@@ -3,506 +3,642 @@ layout: docs
 title: "Quantum Algorithms Research"
 permalink: /docs/advanced/quantum-algorithms-research/
 parent: "Advanced Topics"
+description: "Graduate-level reference on quantum algorithms, quantum complexity, error correction, and fault tolerance, current through 2026 results on below-threshold codes, verifiable advantage, and cryptanalytic resource estimates"
 hide_title: true
 ---
 
 # Quantum Algorithms Research
 
 <div class="advanced-note" markdown="1">
-**Graduate-level research page.** This is a rigorous treatment of quantum complexity, error correction, and algorithm design aimed at quantum computing researchers and physicists. **Prerequisites:** linear algebra, complex analysis, group theory, computational complexity theory, and quantum mechanics fundamentals. For an accessible, hands-on introduction with runnable circuits instead, start at the [Quantum Computing Hub](../../quantum-computing/).
+**Graduate-level research page.** This is a rigorous survey of quantum algorithms, quantum complexity theory, quantum error correction, and the current experimental frontier. **Prerequisites:** linear algebra, basic group theory, computational complexity (P, NP, BPP), and quantum mechanics fundamentals. For a hands-on introduction with runnable circuits, start at the [Quantum Computing Hub](../../quantum-computing/).
 </div>
 
-Quantum computing is often mis-described as "trying all answers in parallel." The truth is subtler and more interesting: a quantum computer can prepare a superposition over exponentially many inputs, but a measurement returns only one. Quantum *advantage* comes entirely from **interference** — arranging unitary operations so that the amplitudes of wrong answers cancel while the amplitude of the right answer reinforces. Every algorithm below, from Shor's factoring to Grover's search, is a recipe for engineering that constructive interference.
+A quantum computer can prepare a superposition over exponentially many inputs, but a measurement returns only one outcome. Quantum speedups therefore come from **interference**. Unitary operations are arranged so that the amplitudes of wrong answers cancel and the amplitude of the right answer grows. This page covers the model of computation, the core algorithmic primitives (phase estimation, amplitude amplification, Hamiltonian simulation, and the singular-value transformation that unifies them), the complexity theory that bounds what they can do, the error correction and fault tolerance that make them physically realizable, and the state of the field as of 2026.
 
-- **Interference, not parallelism.** Superposition is cheap; extracting a useful answer requires amplitudes to interfere so wrong outcomes cancel. That is the real source of speedup.
-- **Exponential vs quadratic.** Shor gives an exponential speedup for factoring (a structured problem); Grover gives only a quadratic one for unstructured search — and that quadratic bound is provably optimal.
-- **Error correction is mandatory.** Physical qubits decohere. Fault tolerance via surface/stabilizer codes — below a threshold error rate — is what makes scalable quantum computing possible at all.
-- **NISQ is the present.** Today's noisy, intermediate-scale devices run variational hybrids (VQE, QAOA) that lean on a classical optimizer to tolerate hardware imperfection.
+The size of the speedup depends on the structure of the problem:
 
-### Map of the Algorithmic Landscape
+- **Hidden algebraic structure** gives exponential speedups. Shor's algorithm finds the period of a function using the quantum Fourier transform.
+- **No structure** gives at most a quadratic speedup. Grover's search is provably optimal.
+- **Simulating quantum systems** is the most natural application, with exponential speedups for many physical dynamics problems.
+- **Heuristic and variational methods** on noisy hardware have not yet shown a clear advantage on practically relevant problems.
 
-Quantum algorithms cluster by the mathematical structure they exploit. The hidden-subgroup family (period finding) powers Shor; amplitude amplification powers Grover and its descendants; and a third family encodes problems into Hamiltonians for adiabatic or variational solution.
+## Map of the Field
 
 ```mermaid
 flowchart TD
-    QM["Quantum computation model<br/>unitaries + measurement"] --> HSP["Hidden Subgroup Problem<br/>(QFT-based)"]
-    QM --> AA["Amplitude Amplification"]
-    QM --> HAM["Hamiltonian encoding"]
-    HSP --> SHOR["Shor's factoring<br/>(exponential speedup)"]
-    AA --> GROVER["Grover search<br/>(quadratic speedup)"]
-    HAM --> VQE["VQE / QAOA<br/>(NISQ, variational)"]
-    HAM --> ADIA["Adiabatic / annealing"]
-    SHOR --> FT["Fault tolerance<br/>(surface & stabilizer codes)"]
-    GROVER --> FT
+    M["Circuit model<br/>unitaries + measurement"] --> QFT["Quantum Fourier transform"]
+    M --> AA["Amplitude amplification"]
+    M --> HS["Hamiltonian simulation"]
+    QFT --> QPE["Phase estimation"]
+    HS --> QPE
+    QPE --> SHOR["Shor: factoring,<br/>discrete log (exponential)"]
+    QPE --> HHL["Linear systems (HHL)"]
+    QPE --> CHEM["Ground-state energies<br/>(chemistry, materials)"]
+    QFT --> HSP["Hidden subgroup problem"]
+    HSP --> SHOR
+    QFT --> DQI["Decoded quantum<br/>interferometry"]
+    AA --> GROVER["Grover search<br/>(quadratic, optimal)"]
+    AA --> QSVT["Quantum singular value<br/>transformation (unifying)"]
+    HS --> QSVT
+    HHL --> QSVT
+    M --> VAR["Variational / NISQ<br/>VQE, QAOA"]
+    SHOR --> FT["Requires fault tolerance"]
+    CHEM --> FT
 ```
 
-## Table of Contents
+## Contents
 
-The page follows the natural arc of the field: first the **model of computation**, then the **landmark algorithms** that exploit it, then the **complexity theory** that bounds what they can achieve, then the **error correction** that makes them physically realizable, and finally the **near-term and frontier** directions that dominate current research.
-
-- [Quantum Computation Model](#quantum-computation-model)
-- [Fundamental Quantum Algorithms](#fundamental-quantum-algorithms) — Shor, Grover, QFT, HHL
-- [Quantum Complexity Theory](#quantum-complexity-theory) — BQP and quantum advantage
-- [Quantum Error Correction](#quantum-error-correction) — stabilizer & surface codes, fault tolerance
-- [Current Research Frontiers](#current-research-frontiers) — NISQ, simulation, error mitigation
+- [Quantum Computation Model](#quantum-computation-model): states, gates, measurement, universality, the oracle model
+- [Core Algorithmic Primitives](#core-algorithmic-primitives): QFT, phase estimation, Shor, hidden subgroups, Grover, Hamiltonian simulation, linear systems, QSVT
+- [Quantum Complexity Theory](#quantum-complexity-theory): BQP, QMA, query and communication complexity, quantum advantage experiments
+- [Quantum Error Correction](#quantum-error-correction): stabilizer, surface, and qLDPC codes, decoding, fault tolerance, experimental milestones
+- [Near-Term Algorithms](#near-term-algorithms): variational methods, barren plateaus, error mitigation
 - [Quantum Machine Learning](#quantum-machine-learning)
+- [Optimization](#optimization): adiabatic computation, QAOA, decoded quantum interferometry
 - [Topological Quantum Computing](#topological-quantum-computing)
-- [Further Frontier Topics](#further-frontier-topics) — optimization, post-quantum crypto, Shannon theory
+- [Cryptographic Implications](#cryptographic-implications)
+- [Quantum Shannon Theory](#quantum-shannon-theory)
 
 ## Quantum Computation Model
 
-Before any algorithm, we need the rules of the game. A classical computer manipulates bits with logic gates; a quantum computer manipulates *amplitudes* — complex numbers attached to each possible bit-string — with unitary gates, and reads out a single bit-string at the end via measurement. The entire art is to choreograph those amplitudes so the measurement is likely to reveal the answer we want. This section fixes the three primitives every later algorithm is built from: the state space, the gates, and measurement. (For runnable circuits illustrating these primitives in Qiskit and Cirq, see the [Quantum Computing Hub](../../quantum-computing/).)
+### States, Operations, and Measurement
 
-### Mathematical Foundations
+An $n$-qubit pure state is a unit vector in $\mathbb{C}^{2^n}$:
 
-**Quantum State Space**: an $n$-qubit system lives in the $\mathbb{C}^{2^n}$ Hilbert space:
+$$|\psi\rangle = \sum_{x \in \{0,1\}^n} \alpha_x |x\rangle, \qquad \sum_x |\alpha_x|^2 = 1.$$
 
-$$|\psi\rangle = \sum_{x \in \{0,1\}^n} \alpha_x |x\rangle$$
+The three primitive operations are:
 
-where $\sum_x |\alpha_x|^2 = 1$.
+1. **Unitary evolution.** $|\psi\rangle \mapsto U|\psi\rangle$ with $U^\dagger U = I$.
+2. **Measurement.** Measuring in the computational basis gives outcome $x$ with probability $|\langle x|\psi\rangle|^2$ (the Born rule), and the state collapses to $|x\rangle$.
+3. **Mixed states and noise.** An ensemble $\{p_i, |\psi_i\rangle\}$ is described by a density matrix $\rho = \sum_i p_i |\psi_i\rangle\langle\psi_i|$. General physical processes, including noise, are completely positive trace-preserving (CPTP) maps with a Kraus representation:
 
-**Quantum Operations**:
+$$\mathcal{E}(\rho) = \sum_k K_k \rho K_k^\dagger, \qquad \sum_k K_k^\dagger K_k = I.$$
 
-1. **Unitary Evolution**: $|\psi'\rangle = U|\psi\rangle$ where $U^\dagger U = I$
-2. **Measurement**: Probability of outcome x is $|\langle x|\psi\rangle|^2$
-3. **Density Matrices**: Mixed states represented as $\rho = \sum_i p_i |\psi_i\rangle\langle\psi_i|$
-
-### Quantum Circuit Model
-
-**Universal Gate Sets**:
+### Circuits and Universality
 
 <div class="theory-card" markdown="1">
-#### Theorem (Universality)
-The set $\{H, T, \text{CNOT}\}$ is **universal**: any $n$-qubit unitary can be approximated to arbitrary precision by a circuit drawn from this finite gate set. Universality is what lets a fixed hardware gate set run any quantum program.
+#### Theorem (Universality of Clifford + T)
+The gate set $\{H, S, \text{CNOT}, T\}$ is universal. Any $n$-qubit unitary can be approximated to arbitrary precision by a finite circuit over it. Here $S = T^2$, so $\{H, T, \text{CNOT}\}$ is also universal.
 </div>
 
-The set $\{H, T, \text{CNOT}\}$ is universal, where:
-- Hadamard: $H = \frac{1}{\sqrt{2}}\begin{pmatrix}1 & 1\\1 & -1\end{pmatrix}$
-- T-gate: $T = \begin{pmatrix}1 & 0\\0 & e^{i\pi/4}\end{pmatrix}$
-- CNOT: $|x,y\rangle \mapsto |x, y \oplus x\rangle$
+$$H = \frac{1}{\sqrt{2}}\begin{pmatrix}1 & 1\\ 1 & -1\end{pmatrix}, \qquad S = \begin{pmatrix}1 & 0\\ 0 & i\end{pmatrix}, \qquad T = \begin{pmatrix}1 & 0\\ 0 & e^{i\pi/4}\end{pmatrix}, \qquad \text{CNOT}: |x, y\rangle \mapsto |x, y \oplus x\rangle.$$
 
-**Solovay–Kitaev Theorem**: Any single-qubit gate can be approximated to precision $\epsilon$ using $O(\log^c(1/\epsilon))$ gates from a finite universal set.
+Two results set the cost of this universality:
 
-### Quantum Parallelism
+- **Gottesman–Knill theorem.** Circuits made only of Clifford gates ($H$, $S$, CNOT) acting on computational-basis states, followed by Pauli measurements, can be simulated efficiently on a classical computer. The **non-Clifford** $T$ gate is therefore the resource that carries quantum advantage. In fault-tolerant settings $T$ is also the expensive gate (see [magic states](#fault-tolerant-computation)), so algorithm costs are usually quoted in **T-count** or **Toffoli count**.
+- **Solovay–Kitaev theorem.** Any single-qubit unitary can be approximated to precision $\epsilon$ with $O(\log^c(1/\epsilon))$ gates from any finite universal set that is closed under inverses. The standard construction gives $c \approx 4$. For Clifford+T specifically, number-theoretic synthesis (Ross–Selinger) achieves about $3\log_2(1/\epsilon)$ T gates, which is asymptotically optimal.
 
-**Principle**: Apply function to superposition of inputs:
+### The Oracle Model and Phase Kickback
 
-$$U_f: |x\rangle|0\rangle \mapsto |x\rangle|f(x)\rangle$$
+Many algorithms are stated in the **query model**: the input is a black box $f$, and cost is counted in queries to it. A classical function is embedded reversibly as
 
-Applied to superposition:
-$$U_f\left(\frac{1}{\sqrt{2^n}}\sum_x |x\rangle\right)|0\rangle = \frac{1}{\sqrt{2^n}}\sum_x |x\rangle|f(x)\rangle$$
+$$U_f : |x\rangle|y\rangle \mapsto |x\rangle|y \oplus f(x)\rangle.$$
 
-## Fundamental Quantum Algorithms
+If the target register holds $|-\rangle = (|0\rangle - |1\rangle)/\sqrt{2}$, then $U_f|x\rangle|-\rangle = (-1)^{f(x)}|x\rangle|-\rangle$. The function value ends up in a **phase** on the input register. This *phase kickback* is how oracles interact with interference. Applying $U_f$ to a uniform superposition evaluates $f$ on every input at once. That alone is useless, because measurement returns one random $(x, f(x))$ pair. The algorithms below add a final interference step that converts a global property of $f$ into a measurable outcome.
 
-With the model in hand, we turn to the algorithms that made the field famous. Two of them anchor the whole landscape: **Shor's algorithm** wrings an *exponential* speedup out of hidden periodic structure, while **Grover's algorithm** wrings only a *quadratic* one out of structureless search — and that contrast (structure buys exponential gains, its absence caps you at quadratic) is the single most important intuition in quantum algorithm design. Underneath Shor sits the **quantum Fourier transform**, the reusable engine for detecting periodicity, and **HHL** shows how the same phase-estimation machinery attacks linear algebra. We present them in that dependency order.
+## Core Algorithmic Primitives
 
-### Shor's Algorithm
-
-> **Intuition.** Factoring $N$ is hard, but it reduces to a problem a quantum computer loves: finding the *period* of the function $f(x) = a^x \bmod N$. Classically you cannot see this period without exponentially many evaluations; quantumly you evaluate $f$ on a superposition of all inputs at once, then use the QFT to make every amplitude *except those at multiples of the period* interfere destructively. The surviving peaks reveal the period, and elementary number theory turns the period into a factor.
-
-**Problem**: Factor $N = pq$ where $p, q$ are prime.
-
-**Quantum Subroutine**: Find the period $r$ of $f(x) = a^x \bmod N$.
-
-**Recent Improvements (2023-2024)**:
-- Reduced quantum gate count by 30% using optimized modular arithmetic
-- Demonstrated on 48-bit integers with trapped ions
-- Hybrid classical-quantum approaches for larger numbers
-
-**Algorithm**:
-1. Create superposition: $\frac{1}{\sqrt{2^n}}\sum_{x=0}^{2^n-1}|x\rangle|0\rangle$
-2. Compute f(x): $\frac{1}{\sqrt{2^n}}\sum_x|x\rangle|a^x \bmod N\rangle$
-3. Measure the second register, obtaining the state $\frac{1}{\sqrt{|S|}}\sum_{x \in S}|x\rangle$ where $S = \{x : a^x \equiv a^s \bmod N\}$
-4. Apply the QFT: $\frac{1}{\sqrt{r}}\sum_{k=0}^{r-1}e^{2\pi i sk/r}|k \cdot 2^n/r\rangle$
-5. Measure, then use continued fractions to recover $r$
-
-**Complexity**: $O((\log N)^3)$ versus the best classical $O\!\left(\exp((\log N)^{1/3})\right)$.
-
-<div class="advanced-note" markdown="1">
-**Why this matters for cryptography.** The same exponential speedup that factors $N$ also computes discrete logarithms, so a large fault-tolerant quantum computer running Shor's algorithm breaks RSA, Diffie–Hellman, and elliptic-curve cryptography outright — the public-key primitives securing essentially all internet traffic. This is the entire reason the field is migrating to lattice-, code-, hash-, and isogeny-based replacements. See [Cryptography: Foundations & Post-Quantum](../cryptography/) for how those replacements are constructed and why Grover only forces a doubling of symmetric key lengths rather than a wholesale redesign.
-</div>
-
-**Period Finding Analysis**:
-
-**Theorem**: The probability of measuring $k \cdot 2^n/r$ (rounded) is at least $4/\pi^2$.
-
-**Proof**: After the QFT, the amplitude of $|y\rangle$ is
-$$\alpha_y = \frac{1}{2^n}\sum_{x: a^x = a^s} e^{2\pi i xy/2^n}.$$
-
-For $y$ close to $k \cdot 2^n/r$, we have $|\alpha_y|^2 \geq 4/(\pi^2 r)$.
-
-### Grover's Algorithm
-
-**Problem**: Search unsorted database of N items.
-
-**Oracle Model**: A black box $U_f$ acting as $U_f|x\rangle = (-1)^{f(x)}|x\rangle$.
-
-**Intuition**: Grover's iteration is a geometric rotation. Start with an equal superposition; the oracle flips the sign of the target state (a reflection), and the diffusion operator reflects about the average amplitude. Each oracle+diffusion pair rotates the state vector by $2\theta$ toward the solution subspace. After $\approx \frac{\pi}{4}\sqrt{N}$ rotations the state nearly coincides with the solution — overshoot it and the amplitude rotates back down.
-
-```mermaid
-flowchart LR
-    A["Uniform superposition<br/>H&#8855;n on |0&#8319;&#10217;"] --> B["Oracle U_f<br/>phase-flip solution"]
-    B --> C["Diffusion D<br/>reflect about mean"]
-    C --> D{"~&#8730;N<br/>iterations done?"}
-    D -- no --> B
-    D -- yes --> E["Measure &rArr; solution w.h.p."]
-```
-
-**Algorithm**:
-1. Initialize: $|\psi\rangle = \frac{1}{\sqrt{N}}\sum_{x=0}^{N-1}|x\rangle$
-2. Repeat $O(\sqrt{N})$ times:
-   - Apply the oracle: $U_f|\psi\rangle$
-   - Apply diffusion: $D = 2|\psi\rangle\langle\psi| - I$
-
-**Amplitude Analysis**: Let $|\alpha\rangle$ be the uniform superposition of non-solutions and $|\beta\rangle$ the uniform superposition of solutions.
-
-After $k$ iterations:
-$$|\psi_k\rangle = \cos\!\big((2k+1)\theta\big)\,|\alpha\rangle + \sin\!\big((2k+1)\theta\big)\,|\beta\rangle$$
-
-where $\sin\theta = \sqrt{M/N}$ and $M$ is the number of solutions.
-
-**Optimality**:
-
-<div class="postulate-card" markdown="1">
-#### Theorem (Bennett–Bernstein–Brassard–Vazirani)
-Any quantum algorithm needs $\Omega(\sqrt{N})$ oracle queries to search an unstructured database of $N$ items. Grover's $O(\sqrt{N})$ is therefore **optimal** — no quantum algorithm can do better on a truly unstructured problem.
-</div>
-
-This is a crucial reality check: the dramatic exponential speedups (Shor) require *structure* to exploit. For genuinely structureless search, quantum offers only a quadratic edge.
-
-**Proof idea**: The hybrid/adversary method shows that a single query can change the algorithm's state by only $O(1/\sqrt{N})$ in amplitude, so $\Omega(\sqrt{N})$ queries are required to concentrate amplitude on the marked item.
+The algorithms below build on one another. The QFT enables phase estimation. Phase estimation enables Shor's algorithm and HHL. Amplitude amplification generalizes Grover's search. The quantum singular value transformation unifies most of them.
 
 ### Quantum Fourier Transform
 
-The QFT is the periodicity-detector that powered Shor's period-finding step above, and it reappears inside phase estimation and HHL below. Its magic is efficiency: the classical FFT on $2^n$ amplitudes costs $O(n 2^n)$ operations, but the quantum version factorizes into a tensor product of single-qubit phase rotations and runs in $O(n^2)$ gates. It never *outputs* the Fourier coefficients (a measurement would collapse them) — instead it leaves periodic structure encoded as constructive interference at the right basis states.
+On $N = 2^n$ basis states,
 
-**Definition**: Maps computational basis to Fourier basis:
+$$\mathrm{QFT}: |x\rangle \mapsto \frac{1}{\sqrt{N}}\sum_{y=0}^{N-1} e^{2\pi i xy/N}|y\rangle.$$
 
-$$\mathrm{QFT}: |x\rangle \mapsto \frac{1}{\sqrt{N}}\sum_{y=0}^{N-1} e^{2\pi i xy/N}|y\rangle$$
+It factorizes into a tensor product of single-qubit states. Write $x = x_1 x_2 \cdots x_n$ in binary and let $0.x_j \cdots x_n$ denote a binary fraction. Then
 
-**Circuit Construction** (for $N = 2^n$): the transform factorizes into a tensor product of single-qubit phases,
+$$|x_1 x_2 \cdots x_n\rangle \mapsto \bigotimes_{j=1}^{n} \frac{1}{\sqrt{2}}\left(|0\rangle + e^{2\pi i\,(0.x_{n-j+1} \cdots x_n)}|1\rangle\right).$$
 
-$$|x_1 x_2 \cdots x_n\rangle \;\mapsto\; \bigotimes_{j=1}^{n}\frac{1}{\sqrt{2}}\left(|0\rangle + e^{2\pi i\,(0.x_j x_{j+1}\cdots x_n)}|1\rangle\right),$$
+This factorization gives an exact circuit of $n$ Hadamards and $n(n-1)/2$ controlled phase rotations, which is $O(n^2)$ gates. The classical FFT on $2^n$ numbers costs $O(n2^n)$. Dropping rotations smaller than $\epsilon$ gives an approximate QFT with $O(n\log(n/\epsilon))$ gates. The QFT does not *output* Fourier coefficients. It produces a state whose measurement statistics reveal periodicity in the input amplitudes.
 
-which is exactly why it needs only $O(n^2)$ gates.
+### Phase Estimation
 
-**Complexity**: $O(n^2)$ gates versus $O(n 2^n)$ for the classical FFT.
+**Problem.** You are given a unitary $U$ as controlled powers $C\text{-}U^{2^j}$ and an eigenstate $U|u\rangle = e^{2\pi i\varphi}|u\rangle$. Estimate $\varphi \in [0,1)$.
 
-### HHL Algorithm (Quantum Linear Systems)
+**Algorithm.** Prepare $t$ ancilla qubits in uniform superposition and apply $C\text{-}U^{2^j}$ controlled by ancilla $j$. Phase kickback leaves the ancilla register in the state
 
-> **Intuition.** HHL reuses Shor's phase-estimation machinery in a new setting. To "solve" $Ax = b$, decompose $|b\rangle$ in the eigenbasis of $A$, use phase estimation to write each eigenvalue $\lambda_i$ into a register, then apply a rotation proportional to $1/\lambda_i$ — effectively multiplying by $A^{-1}$ eigenvalue-by-eigenvalue. The catch (and the reason HHL is not a blanket speedup) is that the answer lives in the *quantum state* $|x\rangle$, not as a readable vector: you can only extract summary statistics like $\langle x|M|x\rangle$, and the cost scales with the condition number $\kappa$.
+$$\frac{1}{\sqrt{2^t}}\sum_{k=0}^{2^t-1} e^{2\pi i \varphi k}|k\rangle,$$
 
-**Problem**: Solve $Ax = b$ for $x$, given a Hermitian matrix $A$.
+which is the Fourier transform of $|2^t\varphi\rangle$. An inverse QFT followed by measurement returns a $t$-bit approximation of $\varphi$.
 
-**Key Insight**: Encode the solution in the quantum state $|x\rangle$.
+<figure class="diagram" style="margin: 1.5em 0; text-align: center;">
+<svg viewBox="0 0 600 230" role="img" aria-label="Phase estimation circuit: three ancilla qubits each receive a Hadamard, then control U to the powers 4, 2 and 1 on the eigenstate register, followed by an inverse QFT and measurement of the ancillas" style="max-width: 600px; width: 100%; color: inherit;" fill="none" stroke="currentColor" stroke-width="1.5" font-family="serif" font-size="15">
+<g fill="currentColor" stroke="none" text-anchor="end">
+<text x="40" y="45">|0⟩</text><text x="40" y="85">|0⟩</text><text x="40" y="125">|0⟩</text><text x="40" y="195">|u⟩</text>
+</g>
+<path d="M45 40 H60 M90 40 H380 M45 80 H60 M90 80 H380 M45 120 H60 M90 120 H380 M450 40 H490 M450 80 H490 M450 120 H490"/>
+<path d="M45 190 H125 M175 190 H205 M255 190 H285 M335 190 H560"/>
+<rect x="60" y="27" width="30" height="26"/><rect x="60" y="67" width="30" height="26"/><rect x="60" y="107" width="30" height="26"/>
+<g fill="currentColor" stroke="none" text-anchor="middle">
+<text x="75" y="45">H</text><text x="75" y="85">H</text><text x="75" y="125">H</text>
+</g>
+<circle cx="150" cy="120" r="4" fill="currentColor"/><path d="M150 120 V175"/>
+<circle cx="230" cy="80" r="4" fill="currentColor"/><path d="M230 80 V175"/>
+<circle cx="310" cy="40" r="4" fill="currentColor"/><path d="M310 40 V175"/>
+<rect x="125" y="175" width="50" height="30"/><rect x="205" y="175" width="50" height="30"/><rect x="285" y="175" width="50" height="30"/>
+<g fill="currentColor" stroke="none" text-anchor="middle">
+<text x="150" y="195">U</text><text x="159" y="186" font-size="11">1</text>
+<text x="227" y="195">U</text><text x="240" y="186" font-size="11">2</text>
+<text x="307" y="195">U</text><text x="320" y="186" font-size="11">4</text>
+</g>
+<rect x="380" y="25" width="70" height="110"/>
+<text x="415" y="85" fill="currentColor" stroke="none" text-anchor="middle">QFT†</text>
+<rect x="490" y="27" width="30" height="26"/><rect x="490" y="67" width="30" height="26"/><rect x="490" y="107" width="30" height="26"/>
+<path d="M495 47 A10 10 0 0 1 515 47 M505 47 L513 33 M495 87 A10 10 0 0 1 515 87 M505 87 L513 73 M495 127 A10 10 0 0 1 515 127 M505 127 L513 113"/>
+<g fill="currentColor" stroke="none" text-anchor="start" font-size="13">
+<text x="528" y="85">bits of φ</text>
+<text x="565" y="195">|u⟩</text>
+</g>
+</svg>
+<figcaption>Phase estimation with a 3-qubit readout register. Ancilla <em>j</em> controls <em>U</em><sup>2<sup>j</sup></sup>. The inverse QFT converts the kicked-back phases into the binary digits of φ.</figcaption>
+</figure>
 
-**Recent Developments (2023-2024)**:
-- **Quantum Singular Value Transformation**: Generalization of HHL
-- **Variational Quantum Linear Solver**: NISQ-friendly alternative
-- **Applications**: Quantum machine learning, differential equations
+**Precision.** With $t = m + \lceil \log_2(2 + 1/(2\delta)) \rceil$ ancillas, the first $m$ bits are correct with probability at least $1 - \delta$. The cost is $O(2^m)$ applications of $U$, so precision $\epsilon$ costs $O(1/\epsilon)$ uses of $U$. This is the **Heisenberg limit**. Statistical sampling would need $O(1/\epsilon^2)$.
 
-**Algorithm Steps**:
-1. Prepare $|b\rangle = \sum_i \beta_i |u_i\rangle$ in the eigenbasis of $A$
-2. Phase estimation: $|u_i\rangle|0\rangle \to |u_i\rangle|\lambda_i\rangle$
-3. Controlled rotation: $|\lambda_i\rangle|0\rangle \to |\lambda_i\rangle\!\left(\sqrt{1 - C^2/\lambda_i^2}\,|0\rangle + \tfrac{C}{\lambda_i}|1\rangle\right)$
-4. Uncompute the phase estimation
-5. Post-select on $|1\rangle$
+If the input is a superposition of eigenstates rather than one eigenstate, phase estimation *samples* an eigenphase with probability equal to that eigenstate's squared overlap with the input. This is the basis of fault-tolerant quantum chemistry: to estimate a ground-state energy you need an initial state with non-negligible overlap with the true ground state.
 
-**Complexity**: $O(\log N \cdot \kappa^2/\epsilon)$ where $\kappa$ is the condition number.
+### Shor's Algorithm
+
+> **Intuition.** Factoring $N$ reduces to finding the multiplicative *order* $r$ of a random $a$ modulo $N$. That is the period of $f(x) = a^x \bmod N$. Evaluating $f$ in superposition and applying the QFT makes every amplitude cancel except those near multiples of $2^t/r$. The peaks reveal $r$, and number theory turns $r$ into a factor.
+
+**Classical reduction.** Pick $a$ uniformly at random with $\gcd(a, N) = 1$ and find its order $r$. If $r$ is even and $a^{r/2} \not\equiv -1 \pmod N$, then $\gcd(a^{r/2} - 1, N)$ is a nontrivial factor. For odd $N$ with at least two distinct prime factors, this happens with probability at least $1/2$.
+
+**Order finding as phase estimation.** Define the unitary $U_a|y\rangle = |ay \bmod N\rangle$. Its eigenstates
+
+$$|u_s\rangle = \frac{1}{\sqrt{r}}\sum_{k=0}^{r-1} e^{-2\pi i sk/r}|a^k \bmod N\rangle$$
+
+have eigenvalues $e^{2\pi i s/r}$, and $\frac{1}{\sqrt r}\sum_s |u_s\rangle = |1\rangle$. Phase estimation on the easily prepared input $|1\rangle$ therefore returns $s/r$ for a uniformly random $s$. The powers $U_a^{2^j}$ are implemented by repeated squaring (modular exponentiation), and the **continued-fraction expansion** of the measured value recovers $r$ whenever $\gcd(s, r) = 1$. That happens with probability $\Omega(1/\log\log r)$.
+
+**Success probability.** When $r$ does not divide $2^t$, each of the $r$ outcomes nearest to $k \cdot 2^t/r$ still occurs with probability at least $4/(\pi^2 r)$. So some good outcome is observed with probability at least $4/\pi^2 \approx 0.405$, and a constant number of repetitions suffices.
+
+**Complexity.** For an $n$-bit $N$, schoolbook arithmetic uses $O(n^3)$ gates. Fast multiplication brings this to $O(n^2 \log n \log\log n)$. The best known classical algorithm, the general number field sieve, runs in heuristic time
+
+$$\exp\!\left(\left(\sqrt[3]{64/9} + o(1)\right)(\ln N)^{1/3}(\ln \ln N)^{2/3}\right).$$
+
+The same machinery solves **discrete logarithms**, including over elliptic-curve groups.
+
+**Beyond Shor.** Regev (2023) gave a multidimensional variant that uses about $O(n^{3/2})$ gates per run, compared with $O(n^2)$ for fast-arithmetic Shor. It needs about $\sqrt{n}$ independent runs combined by classical lattice reduction. Follow-up work reduced its qubit count. Whether it beats optimized Shor circuits in practice under fault-tolerance overheads is still being studied.
+
+**Resource estimates** are the practical measure of the cryptographic threat:
+
+| Target | Estimate | Assumptions | Source |
+|--------|----------|-------------|--------|
+| RSA-2048 | ~20 million physical qubits, ~8 hours | Surface code, $10^{-3}$ physical error, planar superconducting | Gidney &amp; Ekerå (2019) |
+| RSA-2048 | **< 1 million** physical qubits, **< 1 week** | Same hardware assumptions; approximate residue arithmetic, yoked surface codes, magic state cultivation | Gidney (2025) |
+| 256-bit ECDLP (secp256k1) | < 1,200 logical qubits and < 90 M Toffolis (or < 1,450 and < 70 M); < 500,000 physical qubits; minutes of runtime | Superconducting, $10^{-3}$ physical error | Google Quantum AI et al. (2026) |
+
+Elliptic-curve cryptography is a smaller target than RSA at comparable classical security, because its keys are much shorter. Experimental demonstrations of Shor's algorithm remain tiny. The honest records are on numbers like 15 and 21, often with circuits simplified using prior knowledge of the answer. No quantum computer has factored a number that is hard classically. See [Cryptographic Implications](#cryptographic-implications).
+
+### The Hidden Subgroup Problem
+
+Simon's, Shor's, and several other exponential speedups are instances of one problem. Given $f: G \to S$ that is constant on the cosets of an unknown subgroup $H \le G$ and distinct between cosets, find $H$.
+
+| Group $G$ | Instance | Quantum status |
+|-----------|----------|----------------|
+| $\mathbb{Z}_2^n$ | Simon's problem | Polynomial; exponential query separation vs. classical |
+| $\mathbb{Z}_N$, $\mathbb{Z}_N \times \mathbb{Z}_N$ | Order finding, discrete log | Polynomial (Shor) |
+| $\mathbb{R}$, number fields | Pell's equation, unit group, class group | Polynomial (Hallgren and successors) |
+| Any finite abelian group | General abelian HSP | Polynomial (Fourier sampling) |
+| Dihedral group $D_N$ | Related to unique-SVP lattice problems | Subexponential $2^{O(\sqrt{\log N})}$ (Kuperberg); no polynomial algorithm known |
+| Symmetric group $S_n$ | Graph isomorphism | Standard Fourier sampling provably fails; open |
+
+Efficient algorithms for non-abelian groups remain largely out of reach. This matters for cryptography: lattice-based schemes are believed quantum-safe partly because the HSP instances that would break them are exactly the hard non-abelian cases.
+
+### Grover's Algorithm and Amplitude Amplification
+
+**Problem.** Given oracle access to $f: \{0,\dots,N-1\} \to \{0,1\}$ with $M$ marked inputs, find one.
+
+**Algorithm.** Start from $|s\rangle = \frac{1}{\sqrt N}\sum_x |x\rangle$ and repeat the **Grover iterate** $G = D \cdot O_f$, where $O_f|x\rangle = (-1)^{f(x)}|x\rangle$ and $D = 2|s\rangle\langle s| - I$ is the "inversion about the mean".
+
+**Geometry.** Let $|\alpha\rangle$ and $|\beta\rangle$ be the normalized uniform superpositions of unmarked and marked items, and define $\sin\theta = \sqrt{M/N}$. Then $|s\rangle = \cos\theta|\alpha\rangle + \sin\theta|\beta\rangle$. $G$ is a product of two reflections, so it is a rotation by $2\theta$ in this plane:
+
+$$G^k|s\rangle = \cos\big((2k+1)\theta\big)|\alpha\rangle + \sin\big((2k+1)\theta\big)|\beta\rangle.$$
+
+Choosing $k \approx \frac{\pi}{4\theta} \approx \frac{\pi}{4}\sqrt{N/M}$ makes the success probability close to 1. Iterating further rotates *past* the target, so $M$ must be known or estimated. Quantum counting, which is phase estimation on $G$, provides the estimate. Exponentially growing random schedules (Boyer–Brassard–Høyer–Tapp) avoid the problem entirely.
+
+```mermaid
+flowchart LR
+    A["Prepare |s⟩<br/>(Hadamards)"] --> B["Oracle O_f<br/>flip sign of marked"]
+    B --> C["Diffusion D<br/>reflect about |s⟩"]
+    C --> D{"≈ (π/4)√(N/M)<br/>iterations?"}
+    D -- no --> B
+    D -- yes --> E["Measure"]
+```
+
+**Amplitude amplification** generalizes this. Suppose any algorithm $\mathcal{A}$ succeeds with probability $p$. Replacing $|s\rangle$ with $\mathcal{A}|0\rangle$ and $D$ with $\mathcal{A}(2|0\rangle\langle 0| - I)\mathcal{A}^\dagger$ boosts the success probability to near 1 in $O(1/\sqrt{p})$ calls, where classical repetition needs $O(1/p)$. **Amplitude estimation** similarly estimates $p$ to additive error $\epsilon$ in $O(1/\epsilon)$ calls instead of $O(1/\epsilon^2)$. This quadratic Monte Carlo speedup is the one usually cited for finance applications.
+
+<div class="postulate-card" markdown="1">
+#### Theorem (Bennett–Bernstein–Brassard–Vazirani, 1997)
+Any quantum algorithm that finds a marked item among $N$ with bounded error needs $\Omega(\sqrt{N})$ oracle queries. Grover's algorithm is therefore optimal, and quantum computers cannot solve unstructured NP search in polynomial time by black-box methods alone.
+</div>
+
+**Practical caveat.** A quadratic speedup is fragile. Error-corrected gates are orders of magnitude slower than classical operations, Grover iterations are inherently sequential, and parallelizing over $P$ machines only gains a factor of $\sqrt{P}$. Babbush et al. (2021) estimated that quadratic speedups on early fault-tolerant hardware are largely erased by these overheads unless problem sizes are very large. Quartic and higher speedups are needed for a practical advantage.
+
+### Hamiltonian Simulation
+
+Simulating $e^{-iHt}$ for a physical Hamiltonian was Feynman's original motivation and is the most widely expected source of useful quantum advantage.
+
+**Product formulas (Trotterization).** For $H = \sum_{j=1}^{L} H_j$ with each $e^{-iH_j t}$ easy to implement,
+
+$$e^{-iHt} \approx \left(\prod_{j=1}^{L} e^{-iH_j t/r}\right)^{r}, \qquad \text{error } O\!\left(\frac{t^2}{r}\sum_{j<k}\big\|[H_j, H_k]\big\|\right).$$
+
+Higher-order Suzuki formulas of order $2k$ reduce the error to $O\big((\Lambda t)^{2k+1}/r^{2k}\big)$. Commutator-scaling analyses (Childs et al., 2021) showed product formulas perform much better in practice than their older worst-case bounds suggested.
+
+**Post-Trotter methods.** Linear combinations of unitaries (LCU), quantum signal processing, and **qubitization** (Low–Chuang) access $H$ through a *block encoding*. A block encoding is a unitary whose top-left block is $H/\alpha$. These methods reach query complexity
+
+$$O\!\left(\alpha t + \frac{\log(1/\epsilon)}{\log\log(1/\epsilon)}\right),$$
+
+which is optimal in both $t$ and $\epsilon$. Combined with phase estimation, qubitization is the method used in most fault-tolerant resource estimates for chemistry, such as the FeMoco nitrogenase cofactor.
+
+### Linear Systems (HHL) and Its Fine Print
+
+> **Intuition.** To apply $A^{-1}$ to $|b\rangle$, decompose $|b\rangle$ in the eigenbasis of $A$, use phase estimation to write each eigenvalue $\lambda_j$ into a register, and rotate an ancilla by an angle proportional to $1/\lambda_j$. After uncomputing and post-selecting on the ancilla, the state is $|x\rangle \propto A^{-1}|b\rangle$.
+
+For $N \times N$ Hermitian $A$ with $|b\rangle = \sum_j \beta_j |u_j\rangle$:
+
+1. Phase estimation: $\sum_j \beta_j |u_j\rangle|0\rangle \mapsto \sum_j \beta_j |u_j\rangle|\tilde\lambda_j\rangle$.
+2. Controlled rotation: $|\tilde\lambda_j\rangle|0\rangle \mapsto |\tilde\lambda_j\rangle\left(\sqrt{1 - C^2/\tilde\lambda_j^2}\,|0\rangle + \frac{C}{\tilde\lambda_j}|1\rangle\right)$.
+3. Uncompute phase estimation, then post-select the ancilla on $|1\rangle$. Amplitude amplification is used to boost this step.
+
+| Algorithm | Query complexity |
+|-----------|------------------|
+| HHL (2009) | $\tilde O(\log N \cdot s^2\kappa^2/\epsilon)$ for $s$-sparse $A$ |
+| Childs–Kothari–Somma (2017) | $\mathrm{poly}(\log(1/\epsilon))$ dependence on precision |
+| Costa et al. (2022), discrete adiabatic | $O(\kappa\log(1/\epsilon))$, optimal |
+
+The exponential speedup in $N$ holds only under conditions that Aaronson summarized as "read the fine print":
+
+- $|b\rangle$ must be preparable efficiently.
+- $A$ must be sparse or block-encodable and well-conditioned ($\kappa = \mathrm{polylog}\,N$).
+- The output is a *quantum state*. Reading out all of $x$ costs $\Omega(N)$, so only global quantities such as $\langle x|M|x\rangle$ are cheap.
+
+When classical algorithms get comparable sampling access to the input, many claimed exponential speedups disappear. Tang's 2018 **dequantization** of quantum recommendation systems is the canonical example, and it was later extended to low-rank linear algebra in general. HHL-type speedups survive mainly for sparse, high-rank, well-conditioned problems.
+
+### Quantum Singular Value Transformation
+
+Gilyén, Su, Low, and Wiebe (2019) showed that given a block encoding of $A = \sum_i \sigma_i |w_i\rangle\langle v_i|$, a sequence of single-qubit phase rotations interleaved with the block encoding implements
+
+$$P^{(SV)}(A) = \sum_i P(\sigma_i)\,|w_i\rangle\langle v_i|$$
+
+for any bounded polynomial $P$ of degree $d$, using $O(d)$ queries. Choosing $P$ appropriately recovers amplitude amplification, Hamiltonian simulation (with $P \approx e^{-i\lambda t}$), matrix inversion (with $P \approx 1/x$), phase estimation, and fixed-point search. The cost of an algorithm then reduces to the degree of the polynomial approximation. QSVT is the standard language of modern algorithm design ("a grand unification of quantum algorithms", Martyn et al. 2021).
+
+### Summary of Primitives
+
+| Primitive | Speedup | Structure exploited | Hardware regime |
+|-----------|---------|---------------------|-----------------|
+| Shor / abelian HSP | Exponential (superpolynomial) | Periodicity in an abelian group | Fault-tolerant |
+| Hamiltonian simulation + phase estimation | Exponential for many physical systems | Locality and sparsity of physical Hamiltonians | Fault-tolerant |
+| HHL / QSVT linear algebra | Exponential only under strict input/output conditions | Sparsity, conditioning | Fault-tolerant |
+| Grover / amplitude amplification / estimation | Quadratic (optimal) | None needed | Fault-tolerant; overheads often erase the gain |
+| DQI | Superpolynomial vs. known classical for specific algebraic problems | Algebraic codes | Fault-tolerant |
+| VQE / QAOA | Unproven (heuristic) | Problem Hamiltonian | NISQ / early fault-tolerant |
 
 ## Quantum Complexity Theory
 
-Having seen what specific algorithms achieve, the natural question is what quantum computers can achieve *in principle*. Complexity theory answers it by placing the class of efficiently-quantum-solvable problems, **BQP**, on the map relative to classical classes. The punchline is a measured one: BQP is believed to strictly contain classical randomized computation (BPP) — so quantum is genuinely more powerful — yet it sits inside PSPACE, so quantum computers are not omnipotent and almost certainly cannot solve NP-complete problems in polynomial time. (For the underlying classical hierarchy P/NP/PSPACE, see [Complexity Theory](../complexity-theory/).)
+### BQP
 
-### Complexity Classes
+$L \in \mathrm{BQP}$ if a uniform family of polynomial-size quantum circuits decides it with bounded error:
 
-**BQP (Bounded-Error Quantum Polynomial Time)**:
-- Languages decidable by a polynomial-time quantum algorithm with error $\leq 1/3$
+$$x \in L \Rightarrow \Pr[\text{accept}] \geq \tfrac{2}{3}, \qquad x \notin L \Rightarrow \Pr[\text{accept}] \leq \tfrac{1}{3}.$$
 
-**Formal Definition**: $L \in \mathrm{BQP}$ iff there is a poly-time quantum algorithm $A$ with
+**Known inclusions:**
 
-$$x \in L \;\Rightarrow\; \Pr[A(x) = 1] \geq \tfrac{2}{3}, \qquad x \notin L \;\Rightarrow\; \Pr[A(x) = 1] \leq \tfrac{1}{3}.$$
+$$\mathrm{BPP} \subseteq \mathrm{BQP} \subseteq \mathrm{PP} \subseteq \mathrm{PSPACE}.$$
 
-**Relations**:
-$$\mathrm{BPP} \subseteq \mathrm{BQP} \subseteq \mathrm{PP} \subseteq \mathrm{PSPACE}, \qquad \mathrm{BQP} \subseteq \mathrm{P}^{\#\mathrm{P}}.$$
+The containment $\mathrm{BQP} \subseteq \mathrm{PP}$ is due to Adleman–DeMarrais–Huang (1997). None of these inclusions is known to be strict unconditionally, because proving $\mathrm{BPP} \neq \mathrm{BQP}$ would separate P from PSPACE. The evidence is relative and conditional:
 
-### Quantum Advantage (formerly Supremacy)
+- **Factoring** is in BQP and is not believed to be in BPP.
+- **Oracle separations.** Simon's problem separates BQP from BPP relative to an oracle. Raz and Tal (2019) gave an oracle relative to which **BQP is not contained in PH**, the polynomial hierarchy. So quantum computation can escape all of PH in the black-box setting.
+- **NP.** BQP is not believed to contain NP-complete problems. The BBBV bound rules out black-box approaches, and no structural approach is known.
 
-**Definition**: Computational task performed by quantum computer that classical computers cannot perform in reasonable time.
+```mermaid
+flowchart BT
+    P["P"] --> BPP["BPP"]
+    BPP --> BQP["BQP"]
+    P --> NP["NP"]
+    NP --> MA["MA"]
+    BPP --> MA
+    MA --> QMA["QMA"]
+    BQP --> QMA
+    QMA --> PP["PP"]
+    BQP --> PP
+    PP --> PSPACE["PSPACE"]
+```
 
-**Random Circuit Sampling**:
-- Generate a random quantum circuit $C$
-- Sample from the distribution $|\langle x|C|0^n\rangle|^2$
-- Classical simulation requires $\sim 2^n$ operations
+*Arrows denote known inclusions (lower ⊆ upper). BQP and NP are believed incomparable.* (For the classical hierarchy see [Complexity Theory](../complexity-theory/).)
 
-**Recent Milestones (2023-2024)**:
-- **Google Sycamore 2**: 70 qubits, error rates < 0.1%
-- **IBM Condor**: 1000+ qubit processor
-- **Atom Computing**: 1000+ neutral atom qubits
-- **Photonic Advantage**: Gaussian boson sampling with 216 modes
+### QMA and the Local Hamiltonian Problem
 
-**Complexity-Theoretic Evidence**:
-- If efficient classical simulation exists, then polynomial hierarchy collapses
+**QMA** is the quantum analogue of NP (more precisely of MA). A quantum verifier checks a polynomial-size quantum witness. Kitaev showed that the **$k$-local Hamiltonian problem** is QMA-complete: deciding whether the ground energy of $H = \sum_i H_i$ is below $a$ or above $b$, with $b - a \geq 1/\mathrm{poly}(n)$. The result is the quantum Cook–Levin theorem, and it holds already for 2-local Hamiltonians. So even quantum computers are not expected to find ground states of arbitrary Hamiltonians efficiently. Quantum chemistry depends on physical instances being easier than the worst case, and in particular on good initial states.
 
-### Quantum Communication Complexity
+### Query Complexity
 
-**Model**: Alice has x, Bob has y, compute f(x,y) with minimal communication.
+The query model is where quantum speedups can be proved unconditionally. The two main lower-bound techniques are:
 
-**Quantum Fingerprinting**:
-- Classical: $\Omega(\sqrt{n})$ bits to test equality
-- Quantum: $O(\log n)$ qubits suffice
+- **Polynomial method** (Beals et al.). A $T$-query algorithm's acceptance probability is a polynomial of degree at most $2T$ in the input bits, so approximate-degree lower bounds give query lower bounds. For example, OR has approximate degree $\Theta(\sqrt{N})$.
+- **Adversary method** (Ambainis). The general (negative-weight) adversary bound of Høyer–Lee–Špalek is **tight** for bounded-error quantum query complexity, as Reichardt showed.
 
-**Inner Product mod 2**:
-- Classical: $\Omega(n)$ bits
-- Quantum: $O(\log n)$ with prior entanglement
+For *total* Boolean functions, quantum and classical query complexities are polynomially related: $D(f) = O(Q(f)^4)$ (Aaronson et al., 2021). Exponential separations therefore require promises or partial functions, which is exactly the structure Shor and Simon exploit.
+
+### Communication Complexity
+
+Alice holds $x$, Bob holds $y$, both $n$ bits, and they must compute $f(x, y)$.
+
+| Problem | Classical (randomized) | Quantum | Notes |
+|---------|------------------------|---------|-------|
+| Equality, simultaneous-message model | $\Theta(\sqrt{n})$ | $O(\log n)$ | Quantum fingerprinting (Buhrman–Cleve–Watrous–de Wolf) |
+| Disjointness | $\Theta(n)$ | $\Theta(\sqrt{n})$ | Upper bound via distributed Grover (Aaronson–Ambainis); lower bound Razborov |
+| Inner product mod 2 | $\Theta(n)$ | $\Theta(n)$ | No quantum advantage, **even with shared entanglement** (Cleve–van Dam–Nielsen–Tapp) |
+| Specific promise problems | $n^{\Omega(1)}$ | $O(\log n)$ | Exponential separations (Raz 1999; Gavinsky et al.) |
+
+### Quantum Advantage Experiments
+
+A **quantum advantage** (formerly "supremacy") experiment performs a well-defined task that no feasible classical computation can match. The complexity-theoretic basis is that exact, or multiplicatively approximate, classical sampling from these distributions would collapse PH (Aaronson–Arkhipov; Bremner–Jozsa–Shepherd). For the additive-error sampling that experiments actually do, hardness rests on additional conjectures.
+
+| Year | Experiment | Task | Status |
+|------|-----------|------|--------|
+| 2019 | Google Sycamore, 53 qubits | Random circuit sampling (RCS) | Original "10,000 years" estimate later undercut by tensor-network simulations (2021–2022) |
+| 2020–2022 | USTC Jiuzhang; Xanadu Borealis (216 modes) | Gaussian boson sampling | Classical spoofing attacks debated; advantage claims narrowed |
+| 2023 | IBM Eagle, 127 qubits (Kim et al.) | Kicked-Ising dynamics with error mitigation ("utility") | Reproduced classically within weeks (belief-propagation tensor networks and others) |
+| 2024 | Google Willow, 105 qubits | RCS | Estimated $10^{25}$ years on a classical supercomputer; unverifiable at full scale by design |
+| 2025 | Google Willow, 65-qubit subsystem ("Quantum Echoes") | Out-of-time-order correlators (OTOCs) | Reported ~13,000× faster than best classical; the output is a reproducible expectation value, so it is *verifiable* |
+
+The field has moved from sampling tasks, whose output cannot be checked, toward **verifiable** advantage on physically meaningful observables. Classical simulation methods (tensor networks, Pauli-path propagation, belief propagation) keep improving at the same time and move the bar with them.
 
 ## Quantum Error Correction
 
-Every algorithm above assumes perfect unitaries, but real qubits decohere within microseconds and every gate is slightly wrong. Quantum error correction is what bridges the gap between the idealized circuits and physical hardware — and it is far subtler than classical error correction because the no-cloning theorem forbids simple copying, and *measuring* a qubit to check it would destroy the very superposition you are protecting. The resolution is to spread one logical qubit across many physical ones and measure only *parities* (stabilizers), which reveal errors without revealing — and thus without collapsing — the encoded data. The **threshold theorem** then promises that once physical error rates dip below a constant, arbitrarily long computations become reliable.
+Physical qubits decohere, and every gate has errors. Current hardware reaches two-qubit error rates of about $10^{-3}$, while useful algorithms need logical error rates of $10^{-10}$ or lower. Error correction closes that gap by encoding one logical qubit in many physical ones and repeatedly measuring **parity checks** (stabilizers). The checks reveal *which error occurred* without revealing, and so without disturbing, the encoded state. This gets around the no-cloning theorem and measurement collapse, which rule out classical repetition codes as-is.
 
-### Quantum Error Model
+### Error Model and Discretization
 
-**Pauli Errors**: Single-qubit errors form a basis:
-- $X$ (bit flip): $|0\rangle \leftrightarrow |1\rangle$
-- $Z$ (phase flip): $|1\rangle \to -|1\rangle$
-- $Y = iXZ$ (both)
+Any single-qubit error operator is a linear combination of Paulis $I, X, Y, Z$: $X$ is a bit flip, $Z$ a phase flip, and $Y = iXZ$ both. Syndrome measurement projects a continuous error onto one of these discrete Paulis. **Correcting a discrete set of Pauli errors therefore corrects all errors in their linear span.** This is why quantum codes are designed around Pauli errors.
 
-**General Error**: $E = \sum_{P \in \{I,X,Y,Z\}^{\otimes n}} \alpha_P P$
+**Knill–Laflamme conditions.** A code with projector $P$ corrects the error set $\{E_a\}$ if and only if
+
+$$P E_a^\dagger E_b P = c_{ab} P$$
+
+for some Hermitian matrix $(c_{ab})$. The errors must act on the codespace in a way that doesn't depend on which codeword is present.
 
 ### Stabilizer Codes
 
-**Definition**: The code space is the joint $+1$ eigenspace of an abelian group $S \subset \mathcal{P}_n$ (the $n$-qubit Pauli group).
+An $[[n, k, d]]$ **stabilizer code** is the joint $+1$ eigenspace of an abelian subgroup $\mathcal{S}$ of the $n$-qubit Pauli group, with $-I \notin \mathcal{S}$ and $n - k$ independent generators. It encodes $k$ logical qubits and has distance $d$, the minimum weight of a Pauli that commutes with $\mathcal{S}$ but is not in it. Such a code corrects $\lfloor (d-1)/2 \rfloor$ arbitrary errors. Measuring the generators gives an $(n-k)$-bit **syndrome**.
 
-**Example - 5-qubit code**:
-```
-S = ⟨XZZXI, IXZZX, XIXZZ, ZXIXZ⟩
-```
+| Code | Parameters | Notes |
+|------|-----------|-------|
+| Shor code | [[9,1,3]] | First QEC code (1995); concatenates bit- and phase-flip repetition codes |
+| Steane code | [[7,1,3]] | CSS code built from the classical Hamming code; transversal Clifford gates |
+| Five-qubit code | [[5,1,3]] | Smallest code correcting any single-qubit error; saturates the quantum Hamming bound |
+| Rotated surface code | [[$d^2$,1,$d$]] | Local weight-4 checks on a 2D grid; the workhorse of current experiments |
+| Bivariate bicycle ("gross") code | [[144,12,12]] | qLDPC; about 10× fewer qubits than a surface code with comparable protection (Bravyi et al., 2024) |
 
-Encodes 1 logical qubit in 5 physical qubits, corrects any single-qubit error.
+The five-qubit code's generators are the cyclic shifts of $XZZXI$:
 
-**Quantum Singleton Bound**: an $[[n,k,d]]$ code satisfies
-$$n - k \geq 2(d-1).$$
+$$\mathcal{S} = \langle XZZXI,\; IXZZX,\; XIXZZ,\; ZXIXZ \rangle.$$
+
+**CSS codes** (Calderbank–Shor–Steane) take two classical codes $C_2 \subset C_1$ and use $X$-type checks from one and $Z$-type checks from the other, so bit flips and phase flips are corrected separately. The surface code and most qLDPC codes are CSS codes.
+
+**Quantum Singleton bound.** Every $[[n,k,d]]$ code satisfies $n - k \geq 2(d-1)$.
 
 ### Surface Codes
 
-**Definition**: Qubits on the vertices of a 2D lattice, with stabilizers on faces/vertices.
+In the rotated surface code, $d^2$ data qubits sit on a $d \times d$ grid. $d^2 - 1$ measurement qubits read out alternating weight-4 $X$-type and $Z$-type checks in the bulk, with weight-2 checks on the boundary, for $2d^2 - 1$ qubits in total. Logical $\bar X$ and $\bar Z$ are strings of $X$ or $Z$ operators crossing the lattice between opposite boundaries. Its attractions are:
 
-**Properties**:
-- Distance $d$ requires a $d \times d$ lattice
-- Threshold error rate $\sim 1\%$
-- Local stabilizers (4-body)
+- **Nearest-neighbor connectivity only.** This matches planar superconducting chips.
+- **High threshold.** About 1% under circuit-level depolarizing noise.
+- **Simple scaling.** Below threshold, the logical error per round falls exponentially with distance:
 
-**Recent Progress (2023-2024)**:
-- **Google Willow**: Demonstrated exponential error suppression
-- **Real-time decoding**: ML decoders achieve microsecond latency
-- **Biased-noise codes**: Tailored to physical qubit errors
-- **Floquet codes**: Dynamic error correction protocols
+$$\epsilon_L(d) \approx A \left(\frac{p}{p_{\text{th}}}\right)^{(d+1)/2}, \qquad \Lambda \equiv \frac{\epsilon_L(d)}{\epsilon_L(d+2)}.$$
 
-**Logical Operations**:
-- $\bar{X}$: a string of $X$ operators across the lattice
-- $\bar{Z}$: a string of $Z$ operators perpendicular to it
+$\Lambda > 1$ is the experimental signature of below-threshold operation. The price is low encoding rate. Each surface-code patch holds one logical qubit, and at $p \approx 10^{-3}$ a logical error rate of $10^{-12}$ needs $d \approx 25$, which is over a thousand physical qubits per logical qubit.
+
+**qLDPC codes** give up strict planarity, needing some long-range couplers, in exchange for far better encoding rates. IBM's roadmap is built on bivariate bicycle codes, and neutral-atom and trapped-ion platforms can realize such codes natively because they can move qubits. **Floquet codes** (Hastings–Haah, 2021) produce their logical qubits from a periodic sequence of two-qubit measurements, which suits hardware with native pair measurements.
+
+```mermaid
+flowchart LR
+    D["Data qubits<br/>(encoded state)"] --> SM["Measure stabilizers<br/>via ancillas"]
+    SM --> SY["Syndrome bits<br/>(every round, ~1 μs)"]
+    SY --> DEC["Decoder<br/>(MWPM, union-find, BP-OSD, neural)"]
+    DEC --> PF["Update Pauli frame<br/>(track correction in software)"]
+    PF --> D
+```
+
+**Decoding** must keep up with syndrome generation in real time, typically one round per microsecond on superconducting hardware. Otherwise a backlog builds up exponentially. Standard decoders are minimum-weight perfect matching (PyMatching, with sparse blossom), union-find, belief propagation with ordered-statistics post-processing (BP-OSD) for qLDPC codes, and neural decoders. Google DeepMind's AlphaQubit (2024) was more accurate than matching on experimental data but was not yet real-time. Corrections are usually tracked in a classical **Pauli frame** rather than applied physically.
 
 ### Fault-Tolerant Computation
 
 <div class="principle-card" markdown="1">
 #### Threshold Theorem
-If the physical per-gate error rate $p$ is below a constant threshold $p_{\text{th}}$, then arbitrarily long quantum computations can be performed reliably with only **polylogarithmic** overhead in the number of qubits and gates. This is the theoretical guarantee that scalable, fault-tolerant quantum computing is possible — the entire field of quantum error correction exists to push hardware below $p_{\text{th}}$.
+There is a constant $p_{\text{th}} > 0$ such that if every physical component fails with probability $p < p_{\text{th}}$, a circuit of size $T$ can be simulated to accuracy $\epsilon$ with only $O(\mathrm{polylog}(T/\epsilon))$ overhead per gate (Aharonov–Ben-Or; Kitaev; Knill–Laflamme–Zurek). With concatenated codes, each level of encoding squares the relative error, $p^{(\ell)} \approx p_{\text{th}}(p/p_{\text{th}})^{2^\ell}$, so the error falls doubly exponentially in the number of levels.
 </div>
 
-In short: if physical error rate $p < p_{\text{th}}$, arbitrarily long quantum computation is possible with polylogarithmic overhead.
+**No free universal gate set.** By the **Eastin–Knill theorem**, no code that can detect errors has a universal set of *transversal* gates, meaning gates applied qubit-by-qubit that therefore cannot spread errors within a block. Surface codes implement Clifford gates cheaply through lattice surgery. The non-Clifford $T$ gate is supplied by consuming a **magic state** $|T\rangle = T|+\rangle$:
 
-**Proof Idea**:
-1. Concatenated codes reduce logical error exponentially
-2. Fault-tolerant gates prevent error spread
-3. Recursive construction maintains low error rate
+- **Magic state distillation** (Bravyi–Kitaev, 2005) turns many noisy magic states into fewer, cleaner ones. The 15-to-1 protocol takes the error from $p$ to $35p^3$. Distillation "factories" have historically dominated the qubit budgets of fault-tolerant resource estimates.
+- **Magic state cultivation** (Gidney–Shutty–Jones, 2024) grows a high-fidelity $T$ state inside a single surface-code patch, at a small fraction of distillation's cost. It is one reason the 2025 RSA-2048 estimate dropped below a million qubits.
 
-## Current Research Frontiers
+### Experimental Milestones
 
-Fault tolerance is years away, so most working quantum hardware today is **NISQ** — Noisy, Intermediate-Scale Quantum: tens to hundreds of qubits with no error correction. The dominant strategy is *hybrid*: let a shallow, noise-tolerant quantum circuit do the part it is good at and hand the rest to a classical optimizer. This section collects the near-term toolbox — variational algorithms, Hamiltonian simulation, and the error-*mitigation* techniques that squeeze signal out of noisy runs without the overhead of full error correction.
+| Year | Group / platform | Result |
+|------|------------------|--------|
+| 2023 | Google, superconducting (Sycamore) | Distance-5 surface code slightly beats distance-3, the first sign of scaling |
+| 2023–24 | Harvard / QuEra / MIT, neutral atoms | Logical processor with up to 48 logical qubits; transversal gates on reconfigurable atom arrays (Bluvstein et al.) |
+| 2024 | Quantinuum, trapped ions; Microsoft collaboration | Logical qubits with error rates well below physical, using high-fidelity ion gates |
+| Dec 2024 | Google Willow, 105 qubits | Below threshold: $\Lambda = 2.14 \pm 0.02$; distance-7 memory at 0.143% error per cycle, 2.4× longer lifetime than the best physical qubit; real-time decoding at distance 5 |
+| 2025 | Harvard / MIT / QuEra | 448-atom integrated fault-tolerant architecture operating below threshold; separately, a 3,000-qubit array run continuously for over two hours with atom reloading |
+| 2025 | Quantinuum Helios, 98 barium ions | Commercial system with 99.92% two-qubit fidelity |
+| 2025 | IBM Loon / Nighthawk | Test chip with long-range couplers for qLDPC codes; roadmap targets "Starling" (~200 logical qubits, $10^8$ gates) by 2029 |
 
-### NISQ Algorithms
+The field's main question has shifted. It is no longer whether error correction works, but how fast overheads fall and when a machine with hundreds of logical qubits running $10^8$ to $10^{12}$ logical operations becomes available.
 
-**Variational Quantum Eigensolver (VQE)**:
-- Find ground state of H
-- Ansatz |ψ(θ)⟩ with classical optimization
-- Challenges: Barren plateaus, noise resilience
+## Near-Term Algorithms
 
-**Breakthrough Techniques (2023-2024)**:
-- **Symmetry-Preserving Ansätze**: Reduce search space
-- **Adaptive VQE**: Dynamically grow circuit depth
-- **Error-Mitigated VQE**: Zero-noise extrapolation
-- **Quantum Embedding**: Solve larger problems on small devices
+**NISQ** (Noisy Intermediate-Scale Quantum, Preskill 2018) describes machines with tens to hundreds of qubits and no full error correction. The standard NISQ approach is the **variational hybrid loop**:
 
-### Quantum Simulation
+```mermaid
+flowchart LR
+    Q["Quantum: prepare |ψ(θ)⟩<br/>measure ⟨H⟩"] --> C["Classical optimizer<br/>update θ"]
+    C --> Q
+```
 
-**Digital Quantum Simulation**: Trotter decomposition,
-$$e^{-iHt} \approx \left(\prod_j e^{-iH_j t/n}\right)^n,$$
+### VQE and Variational Algorithms
 
-with error $O(t^2/n)$ for the first-order Trotter formula.
+The **variational quantum eigensolver** minimizes $E(\theta) = \langle\psi(\theta)|H|\psi(\theta)\rangle \geq E_0$ over a parameterized circuit $U(\theta) = \prod_i e^{-i\theta_i G_i}$. Gradients come from the **parameter-shift rule**: for generators with eigenvalues $\pm\frac{1}{2}$,
 
-### Quantum Error Mitigation
+$$\frac{\partial E}{\partial \theta_i} = \frac{1}{2}\left[E\!\left(\theta + \tfrac{\pi}{2}e_i\right) - E\!\left(\theta - \tfrac{\pi}{2}e_i\right)\right].$$
 
-Error *mitigation* is the NISQ-era cousin of error *correction*: instead of encoding logical qubits (which costs more qubits than current devices have), it accepts noisy outputs and statistically post-processes them toward the noise-free answer.
+Ansatz choices range from hardware-efficient layers to chemistry-inspired unitary coupled cluster (UCCSD) and adaptive constructions (ADAPT-VQE). VQE has several known obstacles:
 
-**Zero Noise Extrapolation**:
-- Run the circuit at noise levels $\lambda, 2\lambda, 3\lambda, \ldots$
-- Extrapolate to $\lambda = 0$
+- **Measurement cost.** Estimating $E$ to precision $\epsilon$ needs $O(1/\epsilon^2)$ shots per term. Chemical accuracy on realistic molecules requires an impractical number of shots.
+- **Barren plateaus.** For sufficiently expressive random circuits (approximate 2-designs), gradient variance vanishes exponentially, $\mathrm{Var}[\partial_i E] \in O(2^{-n})$ (McClean et al., 2018). Global cost functions and noise cause the same effect.
+- **Barren plateaus vs. simulability.** A 2023–2025 line of work (Cerezo et al. and others) argues that the architectures *provably* free of barren plateaus are, in most known cases, the ones whose loss landscapes can be simulated or estimated classically. Trainability and quantum advantage appear to be in tension.
 
-**Probabilistic Error Cancellation**:
-- Decompose noise as sum of Pauli operations
-- Cancel via post-processing
+### Error Mitigation
 
-**Advanced Mitigation (2023-2024)**:
-- **Clifford Data Regression**: Learn noise from classical shadows
-- **Virtual Distillation**: Exponential error suppression
-- **Symmetry Verification**: Detect and correct logical errors
-- **Machine Learning Mitigation**: Neural networks predict noise-free results
+Error *mitigation* estimates noise-free **expectation values** from noisy runs without encoding logical qubits:
+
+- **Zero-noise extrapolation (ZNE).** Deliberately amplify noise, by pulse stretching or gate folding, to levels $\lambda, 2\lambda, 3\lambda, \dots$, then extrapolate to $\lambda = 0$.
+- **Probabilistic error cancellation (PEC).** Learn the noise channel, write its inverse as a quasi-probability mixture of implementable operations, and sample from it. The result is unbiased, but the variance is multiplied by $\gamma^2$ per layer.
+- **Symmetry verification, virtual distillation, and Clifford data regression.** These exploit conserved quantities, multiple state copies, or classically simulable training circuits.
+
+**Fundamental limit.** For generic noise, every mitigation method needs a sampling overhead exponential in circuit depth times error rate. That result is proven for broad classes of methods (Takagi et al.; Quek et al., 2022–2024). Mitigation extends the reach of today's devices and pairs well with partial error correction, but it cannot replace fault tolerance.
 
 ## Quantum Machine Learning
 
-A natural NISQ application is machine learning: parameterized quantum circuits act as trainable models, and the hope is that quantum feature spaces capture correlations no efficient classical model can. The promise is real but guarded — quantum kernels give provable advantage only on specially structured data, and the **barren-plateau** phenomenon (exponentially vanishing gradients) is the central obstacle to training large quantum models.
+Quantum machine learning (QML) has two distinct settings with different outlooks:
 
-### Quantum Kernel Methods
+- **Classical data, quantum model.** Examples are quantum kernels $K(x, x') = |\langle\phi(x)|\phi(x')\rangle|^2$ with feature maps $x \mapsto |\phi(x)\rangle$ (Havlíček et al., 2019), and parameterized circuits used as neural networks. A *provable* advantage exists for engineered data built on discrete-log hardness (Liu–Arunachalam–Temme, 2021), but not for natural datasets. Loading classical data into amplitudes can cancel any speedup, and dequantization removes many claimed advantages. Quantum kernels also suffer from **exponential concentration**: kernel values converge to a constant as $n$ grows, which parallels barren plateaus. (Classical kernel theory is covered in [AI Mathematics](../ai-mathematics/).)
+- **Quantum data.** The data are quantum states or processes produced by experiments or sensors. Here the advantages are rigorous and large. Learners with quantum memory can predict properties of unknown states and processes with **exponentially fewer experiments** than conventional measure-and-analyze protocols (Huang et al., *Science* 2022). **Classical shadows** (Huang–Kueng–Preskill, 2020) predict $M$ observables from $O(\log M)$ randomized measurements and are now a standard tool.
 
-**Feature Map**: $x \mapsto |\phi(x)\rangle$ in Hilbert space.
+## Optimization
 
-**Quantum Kernel**: $K(x,x') = |\langle\phi(x)|\phi(x')\rangle|^2$
+### Adiabatic Quantum Computation
 
-**Quantum Advantage**: arises when classically computing $K(x,x')$ is $\#\mathrm{P}$-hard yet the quantum circuit evaluates it efficiently. (For the classical kernel and feature-map theory this builds on, see [AI Mathematics](../ai-mathematics/).)
+Evolve slowly from $H(0) = H_{\text{init}}$, whose ground state is easy to prepare, to $H(1) = H_{\text{problem}}$, whose ground state encodes the answer, along $H(s)$, $s = t/T$. By the adiabatic theorem the system stays near the instantaneous ground state if
 
-### Variational Quantum Algorithms
+$$T = O\!\left(\frac{\max_s \|\partial_s H\|}{g_{\min}^2}\right), \qquad g_{\min} = \min_{s \in [0,1]} \big(E_1(s) - E_0(s)\big),$$
 
-**QAOA (Quantum Approximate Optimization Algorithm)**:
+up to refinements for the precise form of the bound. Adiabatic computation is polynomially equivalent to the circuit model (Aharonov et al., 2004). For hard optimization instances, however, $g_{\min}$ typically closes exponentially at first-order phase transitions, and no generic exponential speedup is known. Quantum annealers are the noisy, finite-temperature, non-universal version of this idea.
 
-Hamiltonian: $H = H_c + H_b$, where $H_c$ encodes the problem and $H_b$ is the mixing term.
+### QAOA
 
-Ansatz: $|\psi(\vec{\gamma}, \vec{\beta})\rangle = \prod_{i=1}^p e^{-i\beta_i H_b}e^{-i\gamma_i H_c}|+\rangle^{\otimes n}$
+The **Quantum Approximate Optimization Algorithm** (Farhi–Goldstone–Gutmann, 2014) alternates a cost Hamiltonian $H_C$ and a mixer $H_B = \sum_i X_i$ for $p$ layers:
 
-**Performance Guarantee**: For MaxCut on 3-regular graphs:
-$$\langle H_c \rangle \geq 0.6924 \cdot \text{MaxCut}$$
+$$|\vec\gamma, \vec\beta\rangle = \prod_{\ell=1}^{p} e^{-i\beta_\ell H_B} e^{-i\gamma_\ell H_C}\,|+\rangle^{\otimes n}.$$
 
-**Recent VQA Advances (2023-2024)**:
-- **Parameter-Efficient Ansätze**: Reduced parameter count by 90%
-- **Warm-Start QAOA**: Classical preprocessing improves convergence
-- **Recursive QAOA**: Iterative problem size reduction
-- **Quantum Natural Gradient**: Faster optimization convergence
+At $p = 1$ on 3-regular graphs, QAOA guarantees a MaxCut approximation ratio of at least $0.6924$. That is below the Goemans–Williamson SDP bound of $0.878$. As $p \to \infty$ it recovers adiabatic evolution. Locality arguments limit low-depth QAOA on sparse random graphs, and no advantage over the best classical heuristics has been shown for any practical problem class.
 
-### Quantum Neural Networks
+### Decoded Quantum Interferometry
 
-**Parameterized Quantum Circuits**:
-$$|\psi(\theta)\rangle = U(\theta)|0\rangle = \prod_i e^{-i\theta_i G_i}|0\rangle$$
-
-**Training**: Minimize loss function:
-$$L(\theta) = \langle\psi(\theta)|H|\psi(\theta)\rangle$$
-
-**Barren Plateaus**: Variance of gradient vanishes exponentially:
-$$\text{Var}[\partial_i L] \sim O(2^{-n})$$
+**DQI** (Jordan et al., arXiv 2024, *Nature* 2025) uses the QFT to reduce an optimization problem to a *decoding* problem for a related classical code. When that code has algebraic structure that makes decoding efficient, as Reed–Solomon codes do, DQI satisfies a larger fraction of constraints than any known polynomial-time classical algorithm. The main example is **Optimal Polynomial Intersection**, where DQI gives a superpolynomial speedup over known classical methods. DQI is one of the few new candidates for exponential advantage on an optimization-type problem. It needs fault-tolerant hardware, and whether classical algorithms can catch up remains open.
 
 ## Topological Quantum Computing
 
-A radically different route to fault tolerance encodes information not in fragile local states but in *global, topological* properties of an exotic phase of matter — properties that local noise physically cannot disturb. If realized, anyonic braiding would make error protection a feature of the hardware rather than an expensive software layer, which is why it remains one of the most ambitious long-term bets in the field.
+Topological quantum computing stores information in global degrees of freedom of a topological phase, which local noise cannot access. Error protection would then be a property of the hardware instead of an expensive software layer.
 
-### Anyonic Computing
+### Anyons and Braiding
 
-**2D Anyons**: Particles with fractional statistics.
+In two dimensions, exchanging particles can produce statistics other than bosonic or fermionic:
 
-**Braiding**: Exchanging anyons implements a unitary:
-$$U = \exp(i\theta)$$
+- **Abelian anyons.** An exchange multiplies the state by a phase $e^{i\theta}$. Examples are the excitations of the toric code and of Laughlin fractional quantum Hall states.
+- **Non-abelian anyons.** A collection of anyons has a degenerate fusion space, and braiding acts on it by a **unitary matrix** $B \in U(D)$. Braids compose non-commutatively, and together they form a representation of the braid group.
 
-**Fibonacci Anyons**: Universal for quantum computation — braiding alone suffices to approximate any gate.
+Computational power depends on the anyon model:
 
-### Topological Codes
+| Anyon model | Fusion rule | Braiding gives | Realization |
+|-------------|-------------|----------------|-------------|
+| Ising (Majorana) | $\sigma \times \sigma = 1 + \psi$ | Only Clifford gates; needs magic states for universality | Candidate: Majorana zero modes, $\nu = 5/2$ FQH |
+| Fibonacci | $\tau \times \tau = 1 + \tau$ | Dense in $SU(2)$, so **universal** from braiding alone | Candidate: $\nu = 12/5$ FQH; not yet realized |
 
-**Toric Code**:
-- Qubits on edges of 2D torus
-- Star operators: $A_s = \prod_{i \in \text{star}(s)} X_i$
-- Plaquette operators: $B_p = \prod_{i \in \text{boundary}(p)} Z_i$
+### The Toric Code
 
-**Ground Space**: 4-fold degenerate on the torus, encoding 2 logical qubits.
+Place qubits on the edges of an $L \times L$ lattice on a torus, with star and plaquette operators
 
-**Anyonic Excitations**:
-- $e$-particles: violate star operators ($Z$ errors)
-- $m$-particles: violate plaquette operators ($X$ errors)
-- Fusion rules: $e \times e = 1$, $m \times m = 1$, $e \times m = \varepsilon$
+$$A_s = \prod_{i \in \mathrm{star}(s)} X_i, \qquad B_p = \prod_{i \in \partial p} Z_i, \qquad H = -\sum_s A_s - \sum_p B_p.$$
 
-### Kitaev Chain
+The ground space is 4-fold degenerate, which encodes 2 logical qubits. The logical operators are non-contractible loops, so the code distance is $L$. A $Z$ error anticommutes with neighboring star operators and creates a pair of **$e$** (electric) excitations. An $X$ error creates **$m$** (magnetic) excitations on plaquettes. The fusion rules are $e \times e = m \times m = 1$ and $e \times m = \epsilon$, a fermion. Braiding $e$ around $m$ gives a phase of $-1$. These anyons are abelian. The planar version of this model is the surface code.
 
-**Hamiltonian**:
-$$H = -\mu\sum_i c_i^\dagger c_i - t\sum_i(c_i^\dagger c_{i+1} + h.c.) + \Delta\sum_i(c_i c_{i+1} + h.c.)$$
+### The Kitaev Chain and Majorana Zero Modes
 
-**Topological Phase**: when $|\mu| < 2t$, the chain supports Majorana zero modes:
+For spinless fermions with $p$-wave pairing on an $N$-site chain,
 
-$$\gamma_1 = \sum_i \left(\frac{-\mu}{2t}\right)^i (c_i + c_i^\dagger)$$
+$$H = -\mu\sum_{j} c_j^\dagger c_j - \sum_{j}\left(t\, c_j^\dagger c_{j+1} - \Delta\, c_j c_{j+1} + \text{h.c.}\right).$$
 
-## Further Frontier Topics
+Write each fermion as two Majorana operators, $c_j = \frac{1}{2}(a_j + i b_j)$, with $a_j^\dagger = a_j$ and $a_j^2 = 1$. At the special point $\mu = 0$, $t = \Delta$ the Hamiltonian becomes
 
-Three more directions round out the research landscape: encoding optimization problems into Hamiltonians for adiabatic solution, the post-quantum cryptography that Shor's threat makes urgent, and the information-theoretic limits of quantum channels.
+$$H = i t \sum_{j=1}^{N-1} b_j a_{j+1},$$
 
-### Quantum Algorithms for Optimization
+up to sign convention. This pairs Majoranas on *neighboring* sites and leaves $a_1$ and $b_N$ unpaired at the two ends. Together they form one zero-energy fermionic mode whose occupation is a nonlocally stored qubit. The topological phase persists for $|\mu| < 2|t|$ with $\Delta \neq 0$, where the end modes are exponentially localized with splitting $\sim e^{-N/\xi}$.
 
-**Quantum Adiabatic Algorithm**:
+**Experimental status.** Braiding of Majorana modes has not been demonstrated unambiguously. Microsoft's 2025 "Majorana 1" announcement and the accompanying Nature paper reported interferometric parity measurements in InAs–Al nanowires. The paper's own editorial note stated that it did not establish the presence of topological modes, and the claims remain disputed. Topological protection is still a long-term bet, and the leading fault-tolerance roadmaps rely on conventional codes.
 
-Start: $H(0) = H_{\text{init}}$ (whose ground state is easy to prepare).
-End: $H(T) = H_{\text{problem}}$ (whose ground state encodes the solution).
+## Cryptographic Implications
 
-**Adiabatic Theorem**: if the spectral gap satisfies $\Delta(s) \geq g$ for all $s \in [0,1]$, then
-$$T = O\!\left(\frac{\|dH/ds\|}{g^2}\right).$$
+Shor's algorithm breaks RSA, finite-field Diffie–Hellman, and elliptic-curve cryptography once a large enough fault-tolerant machine exists. Grover's algorithm only halves the effective key length of symmetric primitives. The 2025–2026 resource estimates cut the projected qubit counts by about 20× within a few years, so migration timelines have tightened. **"Harvest now, decrypt later"** makes the threat current for any data that must stay confidential for years.
 
-### Post-Quantum Cryptography
+**Standards status (2026):**
 
-**Learning With Errors (LWE)**: given $(A, As + e)$ where $e$ is a small error, recover $s$.
+| Standard | Algorithm | Basis | Status |
+|----------|-----------|-------|--------|
+| FIPS 203 (ML-KEM) | CRYSTALS-Kyber | Module-LWE | Final, Aug 2024 |
+| FIPS 204 (ML-DSA) | CRYSTALS-Dilithium | Module-LWE/SIS | Final, Aug 2024 |
+| FIPS 205 (SLH-DSA) | SPHINCS+ | Hash-based | Final, Aug 2024 |
+| FIPS 206 (FN-DSA) | Falcon | NTRU lattices | Draft submitted for approval Aug 2025 |
+| (forthcoming) | HQC | Quasi-cyclic codes | Selected Mar 2025 as backup KEM |
 
-**Quantum Reduction**: if LWE is easy, then worst-case lattice problems admit polynomial-time quantum algorithms.
+The quantum hardness of lattice schemes rests on **Learning With Errors**: given $(A, As + e \bmod q)$ with small error $e$, recover $s$. Regev (2005) gave a *quantum* reduction from worst-case lattice problems (GapSVP, SIVP) to LWE. Solving LWE efficiently would therefore give a quantum algorithm for worst-case lattice problems, which are believed hard even for quantum computers. The isogeny scheme SIKE was broken *classically* in 2022, a reminder that "post-quantum" also requires classical cryptanalysis. For constructions, security proofs, and the full post-quantum landscape, see [Cryptography: Post-Quantum](../cryptography/#post-quantum-cryptography).
 
-### Quantum Shannon Theory
+## Quantum Shannon Theory
 
-**Quantum Channel Capacity**:
+**Holevo bound.** If classical messages are encoded into states $\rho_i$ with probabilities $p_i$, the accessible information is bounded by the Holevo quantity
 
-**Holevo Bound**: Classical capacity of quantum channel:
-$$C = \max_{\{p_i, \rho_i\}} S\left(\sum_i p_i \rho_i\right) - \sum_i p_i S(\rho_i)$$
+$$\chi\big(\{p_i, \rho_i\}\big) = S\!\left(\sum_i p_i \rho_i\right) - \sum_i p_i S(\rho_i) \leq \log_2 d,$$
 
-**Quantum Capacity**: uses the coherent information,
-$$Q = \max_\rho I(A\rangle B)_{\rho}.$$
+where $S$ is the von Neumann entropy and $d$ the dimension. So $n$ qubits carry at most $n$ bits of classical information without entanglement assistance.
 
-The post-quantum cryptography sketched above is treated in full — including the LWE/lattice constructions, NIST standardization, and the SIKE break — in [Cryptography: Foundations & Post-Quantum](../cryptography/).
+**Classical capacity (Holevo–Schumacher–Westmoreland).** The capacity of a channel $\mathcal{N}$ is the *regularized* Holevo quantity
 
-## Emerging Applications
+$$C(\mathcal{N}) = \lim_{n \to \infty} \frac{1}{n}\,\chi^*\!\left(\mathcal{N}^{\otimes n}\right), \qquad \chi^*(\mathcal{N}) = \max_{\{p_i, \rho_i\}} \chi\big(\{p_i, \mathcal{N}(\rho_i)\}\big).$$
 
-### Quantum Machine Learning Applications
-- **Quantum Transformers**: Attention mechanisms on quantum states
-- **Quantum Diffusion Models**: Generate quantum states
-- **Quantum Reinforcement Learning**: Learn optimal quantum control
+Hastings (2009) showed that $\chi^*$ is **not additive** in general, so the regularization cannot be dropped, and computing the capacity is hard in general.
 
-### Quantum Cryptanalysis
-- **Lattice Problems**: Progress on LWE with quantum computers
-- **Hash Function Attacks**: Grover's algorithm optimizations
-- **Post-Quantum Standardization**: NIST round 4 algorithms
+**Quantum capacity (Lloyd–Shor–Devetak).** The rate of reliable qubit transmission is the regularized **coherent information**:
 
-## References
+$$Q(\mathcal{N}) = \lim_{n\to\infty}\frac{1}{n}\max_{\rho} I_c\big(\rho, \mathcal{N}^{\otimes n}\big), \qquad I_c = S(B) - S(AB).$$
 
-1. Nielsen, M. A., & Chuang, I. L. (2010). *Quantum Computation and Quantum Information*
-2. Kitaev, A., Shen, A., & Vyalyi, M. (2002). *Classical and Quantum Computation*
-3. Preskill, J. (2018). "Quantum Computing in the NISQ era and beyond"
-4. Arute, F., et al. (2019). "Quantum supremacy using a programmable superconducting processor"
-5. Gottesman, D. (1997). "Stabilizer Codes and Quantum Error Correction"
-6. Google Quantum AI (2024). "Quantum error correction below the surface code threshold"
-7. Kim, Y., et al. (2023). "Evidence for the utility of quantum computing before fault tolerance"
-8. Huang, H.-Y., et al. (2024). "Learning to predict arbitrary quantum processes"
-9. Bluvstein, D., et al. (2024). "Logical quantum processor based on reconfigurable atom arrays"
-10. Acharya, R., et al. (2024). "Suppressing quantum errors by scaling a surface code logical qubit"
-
----
-
-*Note: This page contains advanced quantum computing theory for researchers. For introductory quantum computing concepts, see our [main quantum computing documentation](../../quantum-computing/).*
+Quantum capacity shows **superactivation**: two channels that each have zero quantum capacity can have positive capacity when used together (Smith–Yard, 2008). Entanglement-assisted classical capacity, by contrast, is given by a single-letter formula, the quantum mutual information (Bennett–Shor–Smolin–Thapliyal). See [Information &amp; Coding Theory](../information-coding-theory/#quantum-information-measures) for the underlying entropy measures.
 
 ## Key Takeaways
 
-- **Speedups come from interference.** Quantum advantage is engineered interference, not brute-force parallelism. Wrong-answer amplitudes must cancel.
-- **Structure determines the gain.** Shor is exponential because factoring hides periodic structure; Grover is only quadratic — and provably optimal — because search has none.
-- **QFT is the workhorse.** The $O(n^2)$ quantum Fourier transform underlies phase estimation, period finding, and HHL.
-- **Fault tolerance is achievable.** The threshold theorem guarantees scalable computation below $p_{\text{th}}$; surface codes are the leading practical route.
-- **NISQ relies on hybrids.** VQE and QAOA offload optimization to a classical loop, but barren plateaus and noise limit current reach.
-- **BQP sits between BPP and PSPACE.** Quantum is believed strictly more powerful than classical randomized computation, but not omnipotent.
+- **Speedups come from interference guided by structure.** Periodicity gives exponential speedups (Shor), physical locality gives exponential speedups for simulation, and with no structure the limit is a provably optimal quadratic speedup (Grover).
+- **Phase estimation and QSVT are the core machinery.** Most fault-tolerant algorithms reduce to preparing a state, block-encoding an operator, and applying a polynomial transformation or phase estimation.
+- **BQP probably contains neither NP nor PH, and is probably not contained in them.** Quantum computers are not general NP solvers. Relative to oracles they can solve problems outside PH.
+- **Error correction now works below threshold.** Since 2024, experiments on superconducting, neutral-atom, and trapped-ion platforms have shown logical error falling as code size grows. The remaining problem is overhead, which qLDPC codes and magic-state cultivation are reducing quickly.
+- **The cryptographic threat is sooner than older estimates implied.** RSA-2048 is estimated at under a million noisy qubits and ECC-256 at under half a million. Migrating to the NIST post-quantum standards is under way.
+- **NISQ advantage is still unproven.** Variational methods face barren plateaus and measurement costs, and mitigation has exponential overhead. The strongest near-term results are verifiable physics simulations, not optimization or machine learning.
+
+## References
+
+**Textbooks and surveys**
+
+1. Nielsen, M. A., &amp; Chuang, I. L. (2010). *Quantum Computation and Quantum Information* (10th anniversary ed.). Cambridge University Press.
+2. Kitaev, A., Shen, A., &amp; Vyalyi, M. (2002). *Classical and Quantum Computation*. AMS.
+3. Preskill, J. (2018). "Quantum Computing in the NISQ era and beyond." *Quantum* 2, 79.
+4. Martyn, J. M., Rossi, Z. M., Tan, A. K., &amp; Chuang, I. L. (2021). "Grand unification of quantum algorithms." *PRX Quantum* 2, 040203.
+5. Gottesman, D. (1997). *Stabilizer Codes and Quantum Error Correction*. PhD thesis, Caltech.
+
+**Algorithms and complexity**
+
+6. Shor, P. W. (1997). "Polynomial-time algorithms for prime factorization and discrete logarithms on a quantum computer." *SIAM J. Comput.* 26(5).
+7. Grover, L. K. (1996). "A fast quantum mechanical algorithm for database search." *STOC '96*.
+8. Harrow, A. W., Hassidim, A., &amp; Lloyd, S. (2009). "Quantum algorithm for linear systems of equations." *PRL* 103, 150502.
+9. Gilyén, A., Su, Y., Low, G. H., &amp; Wiebe, N. (2019). "Quantum singular value transformation and beyond." *STOC '19*.
+10. Raz, R., &amp; Tal, A. (2019). "Oracle separation of BQP and PH." *STOC '19*.
+11. Regev, O. (2023). "An efficient quantum factoring algorithm." arXiv:2308.06572.
+12. Jordan, S. P., et al. (2025). "Optimization by decoded quantum interferometry." *Nature*. arXiv:2408.08292.
+
+**Resource estimates**
+
+13. Gidney, C., &amp; Ekerå, M. (2021). "How to factor 2048 bit RSA integers in 8 hours using 20 million noisy qubits." *Quantum* 5, 433.
+14. Gidney, C. (2025). "How to factor 2048 bit RSA integers with less than a million noisy qubits." arXiv:2505.15917.
+15. Google Quantum AI et al. (2026). "Securing Elliptic Curve Cryptocurrencies against Quantum Vulnerabilities: Resource Estimates and Mitigations." arXiv:2603.28846.
+
+**Error correction and experiments**
+
+16. Arute, F., et al. (2019). "Quantum supremacy using a programmable superconducting processor." *Nature* 574, 505.
+17. Google Quantum AI (2023). "Suppressing quantum errors by scaling a surface code logical qubit." *Nature* 614, 676.
+18. Kim, Y., et al. (2023). "Evidence for the utility of quantum computing before fault tolerance." *Nature* 618, 500.
+19. Bluvstein, D., et al. (2024). "Logical quantum processor based on reconfigurable atom arrays." *Nature* 626, 58.
+20. Bravyi, S., et al. (2024). "High-threshold and low-overhead fault-tolerant quantum memory." *Nature* 627, 778.
+21. Google Quantum AI and Collaborators (2025). "Quantum error correction below the surface code threshold." *Nature* 638, 920. arXiv:2408.13687.
+22. Gidney, C., Shutty, N., &amp; Jones, C. (2024). "Magic state cultivation: growing T states as cheap as CNOT gates." arXiv:2409.17595.
+23. Google Quantum AI and Collaborators (2025). "Observation of constructive interference at the edge of quantum ergodicity" (Quantum Echoes). *Nature*.
+
+**Learning**
+
+24. Huang, H.-Y., Kueng, R., &amp; Preskill, J. (2020). "Predicting many properties of a quantum system from very few measurements." *Nature Physics* 16, 1050.
+25. Huang, H.-Y., et al. (2022). "Quantum advantage in learning from experiments." *Science* 376, 1182.
 
 ## See Also
 
@@ -510,14 +646,16 @@ The post-quantum cryptography sketched above is treated in full — including th
 #### See Also
 
 **Related Advanced Topics**
-- [AI Mathematics](../ai-mathematics/) — Kernel theory underlying quantum machine learning
-- [Distributed Systems Theory](../distributed-systems-theory/) — Quantum Byzantine agreement and distributed quantum computing
-- [Monorepo Strategies](../monorepo/) — Managing quantum software projects
+- [Complexity Theory](../complexity-theory/): the classical hierarchy (P, NP, PH, PSPACE) against which BQP is measured
+- [Cryptography: Foundations &amp; Post-Quantum](../cryptography/): LWE, lattice constructions, and NIST standardization
+- [Information &amp; Coding Theory](../information-coding-theory/): classical codes (Hamming, LDPC) underlying CSS and qLDPC codes, and quantum entropy
+- [Topology &amp; Geometry in Computation](../topology-and-geometry-in-computation/): topology beyond anyonic computation
+- [AI Mathematics](../ai-mathematics/): kernel theory underlying quantum machine learning
 
-**Foundations & Applied**
-- [Quantum Mechanics](../../physics/quantum-mechanics/) — Wave functions, operators, and measurement
-- [Quantum Field Theory](../../physics/quantum-field-theory.html) — Deeper theoretical framework
-- [Quantum Computing Hub](../../quantum-computing/) — Programming with Qiskit and Cirq
-- [Quantum Computing (Technology)](../../technology/quantumcomputing.html) — Practical introduction
-- [Mathematical Reference](../../reference/) — Linear algebra and complexity quick reference
+**Foundations &amp; Applied**
+- [Quantum Mechanics](../../physics/quantum-mechanics/): states, operators, and measurement
+- [Quantum Field Theory](../../physics/quantum-field-theory.html): the deeper theoretical framework
+- [Quantum Computing Hub](../../quantum-computing/): programming with Qiskit and Cirq
+- [Quantum Computing (Technology)](../../technology/quantumcomputing.html): practical introduction
+- [Mathematical Reference](../../reference/): linear algebra and complexity quick reference
 </div>

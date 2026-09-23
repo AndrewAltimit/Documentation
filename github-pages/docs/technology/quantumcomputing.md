@@ -8,1021 +8,688 @@ toc_label: "On This Page"
 toc_icon: "cog"
 ---
 
-Quantum computing harnesses superposition, entanglement, and interference to process information in ways classical machines cannot — solving certain problems exponentially faster. This page builds from **qubits and gates** (superposition and entanglement replace deterministic 0/1 bits), up through the landmark **algorithms** (Shor and Grover show where quantum beats classical and where it doesn't), the practical realities of the noisy **NISQ era** (where noise and error correction define what hardware can do today), and the platforms you can program now.
+Quantum computing processes information with qubits, whose states are vectors in a complex vector space rather than fixed 0/1 values. By preparing superpositions, entangling qubits, and arranging for amplitudes to interfere, a quantum algorithm can solve some problems (factoring, simulating quantum systems, certain searches) with far fewer operations than any known classical method. It gives no general speedup for most workloads. This page covers the qubit model, gates and circuits, the main algorithms and their real speedups, error correction, the hardware platforms, and how to program today's machines. The status is current as of late 2026.
 
-> **For the physics underneath this, see the [Quantum Mechanics](../physics/quantum-mechanics/) page; for rigorous complexity theory, see [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/).**
+For the underlying physics, see [Quantum Mechanics](../physics/quantum-mechanics/). For proofs, complexity theory, and research-level algorithms, see [Quantum Algorithms Research](../advanced/quantum-algorithms-research/).
 
-## What is Quantum Computing?
+## Overview
 
-Imagine if a computer could explore multiple solutions to a problem simultaneously, rather than checking each possibility one by one. This is the fundamental promise of quantum computing - a revolutionary approach that harnesses the strange behaviors of quantum mechanics to process information in ways classical computers cannot.
+A classical computer with $n$ bits is in one of $2^n$ configurations at a time. An $n$-qubit register is described by $2^n$ complex **amplitudes**, one per configuration, and every gate updates all of them at once. The common summary "a quantum computer tries every answer in parallel" is misleading, though. Measuring the register returns only $n$ classical bits, sampled with probabilities set by the amplitudes. A useful quantum algorithm has to make the amplitudes of wrong answers cancel and those of right answers add up before it measures. That is only possible for problems with exploitable structure.
 
-We've entered the era of practical quantum advantage, with systems from IBM, Google, and others demonstrating real-world applications in drug discovery, materials science, and optimization. While still in the "Noisy Intermediate-Scale Quantum" (NISQ) era, quantum computers are transitioning from laboratory curiosities to practical tools.
+Three ideas carry the whole field:
 
-While your laptop or smartphone uses bits that must be either 0 or 1, quantum computers use quantum bits (qubits) that can exist in a "superposition" - being both 0 and 1 at the same time. This isn't just a quirky physics fact; it's the key to solving certain problems exponentially faster than any classical computer ever could.
+| Concept | What it means | Role in algorithms |
+|---------|---------------|--------------------|
+| **Superposition** | A state is a weighted combination of basis states, with complex weights | Lets one circuit act on exponentially many basis states |
+| **Entanglement** | A multi-qubit state that cannot be written as a product of single-qubit states | Produces correlations that no classical probability distribution over separate bits reproduces; needed for exponential speedups |
+| **Interference** | Amplitudes add like waves and can cancel | Concentrates probability on the answer before measurement |
 
-## The Journey from Classical to Quantum
+**Status in 2026.** Hardware has reached roughly 100 to 1,000+ physical qubits, depending on the platform. The best two-qubit gate fidelities are about 99.9%. Several groups have shown quantum error correction that gets *better* as the code grows, which is the property a scalable machine needs. No machine yet runs the long, error-corrected computations that Shor's algorithm or industrial chemistry would need. Most roadmaps place the first fault-tolerant systems with around 100 logical qubits near the end of the decade.
 
-To understand why quantum computing represents such a radical departure, let's start with what makes it different. Classical computers, no matter how powerful, are fundamentally limited by having to process information sequentially. Even when they appear to multitask, they're really just switching between tasks very quickly.
+## Qubits {#building-blocks-from-bits-to-qubits}
 
-Quantum computers break this limitation through three key quantum mechanical phenomena:
+### State and measurement
 
-1. **Superposition**: The ability to be in multiple states simultaneously
-2. **Entanglement**: The mysterious connection between qubits that Einstein called "spooky action at a distance"
-3. **Interference**: The ability to amplify correct answers and cancel out wrong ones
+A single qubit's state is a unit vector in $\mathbb{C}^2$, written in Dirac (bra-ket) notation over the computational basis $\{|0\rangle, |1\rangle\}$:
 
-These aren't just abstract concepts - they're the tools that allow quantum computers to explore vast solution spaces in ways that would take classical computers longer than the age of the universe.
+$$|\psi\rangle = \alpha|0\rangle + \beta|1\rangle, \qquad \alpha, \beta \in \mathbb{C}, \qquad |\alpha|^2 + |\beta|^2 = 1$$
 
-## Building Blocks: From Bits to Qubits
+Measuring in the computational basis gives 0 with probability $|\alpha|^2$ and 1 with probability $|\beta|^2$ (the **Born rule**). The state then becomes the observed basis state. A measurement cannot recover $\alpha$ and $\beta$ themselves. Estimating them takes many identically prepared copies, and the **no-cloning theorem** rules out copying an unknown state to make those copies.
 
-### Understanding Classical Bits First
+### The Bloch sphere
 
-Before diving into qubits, let's appreciate what we're building upon. A classical bit is beautifully simple - it's either 0 or 1, like a light switch that's either off or on. Everything your computer does, from displaying this text to streaming videos, ultimately comes down to manipulating billions of these binary switches.
+A global phase has no observable effect, so any pure single-qubit state can be written with two real angles:
 
-### Enter the Quantum Bit (Qubit)
+$$|\psi\rangle = \cos\frac{\theta}{2}\,|0\rangle + e^{i\varphi}\sin\frac{\theta}{2}\,|1\rangle, \qquad 0 \le \theta \le \pi, \quad 0 \le \varphi < 2\pi$$
 
-A qubit is where things get interesting. Instead of being confined to just 0 or 1, a qubit can exist in what physicists call a "superposition" of both states. But what does this really mean?
+This maps every pure state to a point on the unit sphere. $|0\rangle$ is at the north pole and $|1\rangle$ at the south pole. The equal superpositions $|\pm\rangle = (|0\rangle \pm |1\rangle)/\sqrt{2}$ sit on the equator. Single-qubit gates are rotations of the sphere. Noise pulls the state vector inward, toward the center, which is the maximally mixed state.
 
-Think of it this way: if a classical bit is like a coin that's either heads or tails, a qubit is like a coin that's spinning in the air. While it's spinning, it's neither purely heads nor purely tails - it's in a combination of both. Only when you "measure" it (catch the coin) does it "collapse" to a definite state.
+<figure class="diagram">
+<svg viewBox="0 0 360 330" role="img" aria-label="Bloch sphere with |0> at the north pole, |1> at the south pole, and a state vector at polar angle theta and azimuth phi" style="max-width: 360px; width: 100%;">
+  <g fill="none" stroke="currentColor">
+    <circle cx="180" cy="165" r="120" stroke-width="1.5"/>
+    <ellipse cx="180" cy="165" rx="120" ry="34" stroke-opacity="0.45" stroke-dasharray="4,4"/>
+    <path d="M180,45 L180,285" stroke-opacity="0.5"/>
+    <path d="M180,165 L95,215" stroke-opacity="0.5"/>
+    <path d="M180,165 L300,165" stroke-opacity="0.5"/>
+    <path d="M180,165 L258,88" stroke-width="2.2"/>
+    <path d="M258,88 L258,190" stroke-opacity="0.45" stroke-dasharray="3,3"/>
+    <path d="M180,165 L258,190" stroke-opacity="0.45" stroke-dasharray="3,3"/>
+    <path d="M180,125 A40,40 0 0 1 208,137" stroke-width="1.2"/>
+    <path d="M150,183 A45,18 0 0 0 214,176" stroke-width="1.2"/>
+  </g>
+  <circle cx="258" cy="88" r="4" fill="currentColor"/>
+  <g fill="currentColor" font-size="14" text-anchor="middle">
+    <text x="180" y="36">|0⟩</text>
+    <text x="180" y="306">|1⟩</text>
+    <text x="84" y="230">x</text>
+    <text x="314" y="169">y</text>
+    <text x="276" y="80">|ψ⟩</text>
+    <text x="202" y="120">θ</text>
+    <text x="186" y="200">φ</text>
+    <text x="320" y="240" font-size="12">|+⟩ on +x axis</text>
+  </g>
+</svg>
+<figcaption>The Bloch sphere. The polar angle $\theta$ sets the measurement probabilities $\cos^2(\theta/2)$ and $\sin^2(\theta/2)$. The azimuth $\varphi$ is a relative phase: invisible to a computational-basis measurement, but decisive for interference.</figcaption>
+</figure>
 
-This spinning coin analogy helps, but the reality is even stranger. A qubit's state can be described mathematically as:
+### Multiple qubits and entanglement {#from-one-qubit-to-many-the-magic-of-entanglement}
 
-$$|\psi\rangle = \alpha|0\rangle + \beta|1\rangle$$
+The joint state of several qubits lives in the **tensor product** of their spaces, so $n$ qubits need $2^n$ amplitudes:
 
-Here, $\alpha$ and $\beta$ are complex numbers that tell us the "probability amplitudes" for finding the qubit in state $|0\rangle$ or $|1\rangle$ when measured. The beauty is that until we measure it, the qubit genuinely exists in both states simultaneously.
+$$|\psi\rangle = \sum_{x \in \{0,1\}^n} c_x\,|x\rangle, \qquad \sum_x |c_x|^2 = 1$$
 
-### Why This Matters: The Power of Superposition
+Storing that vector classically takes $2^n$ complex numbers. At 16 bytes each, 50 qubits already need about 18 petabytes. This is why brute-force classical simulation stops being feasible at around 50 generic qubits. Simulators that exploit structure (tensor networks, stabilizer methods, belief propagation) can go much further on circuits that have little entanglement or a special form.
 
-With just one qubit in superposition, we can represent two states at once. With two qubits, we can represent four states. With three qubits, eight states. The pattern continues exponentially - with n qubits, we can represent 2^n states simultaneously.
+A state is **entangled** if it cannot be factored as $|a\rangle \otimes |b\rangle$. The four maximally entangled two-qubit **Bell states** are
 
-This exponential scaling is why quantum computers promise to revolutionize certain types of computation. A quantum computer with just 300 qubits could represent more states simultaneously than there are atoms in the observable universe!
+$$|\Phi^{\pm}\rangle = \frac{|00\rangle \pm |11\rangle}{\sqrt{2}}, \qquad |\Psi^{\pm}\rangle = \frac{|01\rangle \pm |10\rangle}{\sqrt{2}}$$
 
-### The Mathematics Behind Qubits
+Measuring either qubit of $|\Phi^+\rangle$ gives a uniformly random bit, and the other qubit then always matches it. The correlations persist in every measurement basis. That is what violates Bell inequalities and sets entanglement apart from classical shared randomness. Entanglement cannot transmit information faster than light, because each party's local outcomes are uniformly random.
 
-Now that we understand the concept, let's look at the mathematical framework that makes quantum computing precise and predictable. The key insights are more intuitive than the notation suggests.
+Two limits keep the exponential state space in perspective:
 
-<div class="advanced-note">
-  <i class="fas fa-graduation-cap"></i>
-  <p><strong>Looking for rigorous quantum theory?</strong> See our <a href="/docs/advanced/quantum-algorithms-research/">Advanced Quantum Algorithms Research</a> page for formal quantum mechanics, complexity theory, and cutting-edge algorithms.</p>
+- **Holevo bound.** $n$ qubits can carry at most $n$ bits of classical information that can be read out, despite needing $2^n$ amplitudes to describe.
+- **Entanglement is necessary but not sufficient.** Circuits built only from Clifford gates ($H$, $S$, CNOT) can create highly entangled states, yet the **Gottesman–Knill theorem** shows they can be simulated efficiently on a classical computer.
+
+### Mixed states and noise {#the-mathematical-foundations-why-it-all-works}
+
+Real qubits are coupled to their environment, so their state is described by a **density matrix**:
+
+$$\rho = \sum_i p_i\,|\psi_i\rangle\langle\psi_i|, \qquad \rho = \rho^\dagger, \qquad \rho \succeq 0, \qquad \operatorname{Tr}\rho = 1$$
+
+A pure state has $\operatorname{Tr}\rho^2 = 1$. Decoherence drives $\operatorname{Tr}\rho^2$ below 1. Two timescales characterize a physical qubit:
+
+| Parameter | Meaning | Effect on the Bloch vector |
+|-----------|---------|----------------------------|
+| $T_1$ (relaxation) | Energy decay from $\lvert 1\rangle$ to $\lvert 0\rangle$ | Pulls the vector toward the north pole |
+| $T_2$ (dephasing) | Loss of the relative phase between $\lvert 0\rangle$ and $\lvert 1\rangle$ | Shrinks the component in the $x$–$y$ plane; always $T_2 \le 2T_1$ |
+
+The formal rules of the model can be summarized as five postulates:
+
+| Postulate | Statement |
+|-----------|-----------|
+| States | A closed system is a unit vector in a Hilbert space (or a density matrix, for an open system) |
+| Evolution | Closed-system evolution is unitary: $\lvert\psi(t)\rangle = U(t)\lvert\psi(0)\rangle$, with $U^\dagger U = I$ |
+| Measurement | Outcome $m$ occurs with probability $\langle\psi\rvert M_m^\dagger M_m\lvert\psi\rangle$, after which the state updates |
+| Composition | A composite system's space is the tensor product of its parts' spaces |
+| Observables | Measurable quantities are Hermitian operators; their eigenvalues are the possible outcomes |
+
+<div class="code-reference">
+<i class="fas fa-code"></i> Implementations: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_state.py">quantum_state.py</a>, <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_postulates.py">quantum_postulates.py</a>
 </div>
 
-When we write $|\psi\rangle = \alpha|0\rangle + \beta|1\rangle$, we're using what physicists call "Dirac notation" or "bra-ket notation." The $|0\rangle$ and $|1\rangle$ are the two "basis states" - think of them as the quantum equivalent of 0 and 1. The coefficients $\alpha$ and $\beta$ must satisfy one crucial rule:
+## Gates and Circuits {#quantum-gates-programming-the-quantum-world}
 
-$$|\alpha|^2 + |\beta|^2 = 1$$
+Quantum gates are unitary matrices, so every gate is reversible. Measurement is the only irreversible step in the model. A circuit is drawn as one horizontal wire per qubit, with time running left to right.
 
-This ensures that when we measure the qubit, we'll definitely get either 0 or 1 (with probabilities $|\alpha|^2$ and $|\beta|^2$ respectively). This constraint reflects a fundamental principle: probabilities must always sum to 1.
+### Common gates
 
-### From One Qubit to Many: The Magic of Entanglement
+| Gate | Matrix | Action |
+|------|--------|--------|
+| Pauli-$X$ | $\begin{pmatrix}0&1\\1&0\end{pmatrix}$ | Bit flip, $\lvert 0\rangle \leftrightarrow \lvert 1\rangle$ (quantum NOT); a $\pi$ rotation about $x$ |
+| Pauli-$Y$ | $\begin{pmatrix}0&-i\\i&0\end{pmatrix}$ | Bit and phase flip; a $\pi$ rotation about $y$ |
+| Pauli-$Z$ | $\begin{pmatrix}1&0\\0&-1\end{pmatrix}$ | Phase flip; $\lvert 1\rangle \mapsto -\lvert 1\rangle$ |
+| Hadamard $H$ | $\tfrac{1}{\sqrt{2}}\begin{pmatrix}1&1\\1&-1\end{pmatrix}$ | $\lvert 0\rangle \mapsto \lvert +\rangle$, $\lvert 1\rangle \mapsto \lvert -\rangle$; swaps the $Z$ and $X$ bases |
+| Phase $S$ | $\begin{pmatrix}1&0\\0&i\end{pmatrix}$ | Quarter turn about $z$; $S^2 = Z$ |
+| $T$ | $\begin{pmatrix}1&0\\0&e^{i\pi/4}\end{pmatrix}$ | Eighth turn about $z$; $T^2 = S$. The non-Clifford gate in the standard universal set |
+| $R_z(\lambda)$ | $\begin{pmatrix}e^{-i\lambda/2}&0\\0&e^{i\lambda/2}\end{pmatrix}$ | Arbitrary rotation about $z$ (similarly $R_x$, $R_y$) |
+| CNOT (CX) | $4\times 4$, below | Flips the target when the control is $\lvert 1\rangle$ |
+| CZ | $\operatorname{diag}(1,1,1,-1)$ | Phase flip on $\lvert 11\rangle$; symmetric in its two qubits. Native on many superconducting chips |
 
-Here's where quantum computing becomes truly powerful. When we have multiple qubits, they can become "entangled" - a uniquely quantum phenomenon where the qubits become correlated in ways that have no classical analog.
+With the control as the first (left) qubit, in the basis ordering $|00\rangle, |01\rangle, |10\rangle, |11\rangle$:
 
-The simplest example is the "Bell state":
+$$\text{CNOT} = \begin{pmatrix} 1 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 \\ 0 & 0 & 0 & 1 \\ 0 & 0 & 1 & 0 \end{pmatrix}$$
 
-$$|\Phi^+\rangle = \frac{|00\rangle + |11\rangle}{\sqrt{2}}$$
+Qiskit orders qubits little-endian (qubit 0 is the rightmost bit), so its printed matrices show CNOT with rows and columns permuted. Check the convention before comparing matrices across tools.
 
-This represents two qubits that are perfectly correlated. If you measure the first qubit and get 0, you instantly know the second qubit is also 0. If you get 1, the second is also 1. This correlation persists no matter how far apart the qubits are - it's the "spooky action at a distance" that puzzled Einstein.
+### Universality
 
-Entanglement is crucial because it allows quantum computers to process information in ways that would require exponential resources on classical computers. It's the secret sauce that enables quantum speedups.
+A gate set is **universal** if it can approximate any unitary to arbitrary precision. $\{H, T, \text{CNOT}\}$ (Clifford + $T$) is the standard choice. By the **Solovay–Kitaev theorem**, accuracy $\epsilon$ costs only $O(\log^c(1/\epsilon))$ gates for a small constant $c$. For single-qubit rotations, number-theoretic Clifford + $T$ synthesis reaches the optimal $O(\log(1/\epsilon))$. Hardware uses native gate sets instead, for example $\{\sqrt{X}, R_z, \text{CZ}\}$ on IBM devices, or Mølmer–Sørensen/ZZ gates on trapped ions. A **transpiler** rewrites circuits into the native set and routes two-qubit gates onto the chip's connectivity graph. Routing inserts SWAP gates where the graph lacks a direct link.
 
-## Quantum Gates: Programming the Quantum World
+Clifford gates alone are not universal and can be simulated classically. The $T$ gate supplies the missing "quantumness". On error-corrected hardware, $T$ gates are the expensive part (see [magic states](#fault-tolerant-gates-and-magic-states)).
 
-Now that we understand qubits and entanglement, how do we actually compute with them? The answer is quantum gates - the quantum analog of logic gates in classical computers.
+### A first circuit: the Bell pair
 
-### Why Gates Matter
+<figure class="diagram">
+<svg viewBox="0 0 520 150" role="img" aria-label="Circuit: qubit 0 passes through a Hadamard gate, then acts as control of a CNOT targeting qubit 1; both qubits are then measured" style="max-width: 520px; width: 100%;">
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <path d="M70,45 L420,45"/>
+    <path d="M70,110 L420,110"/>
+    <rect x="130" y="25" width="40" height="40" fill="none"/>
+    <path d="M260,45 L260,124"/>
+    <circle cx="260" cy="110" r="14"/>
+    <rect x="400" y="27" width="46" height="36"/>
+    <rect x="400" y="92" width="46" height="36"/>
+    <path d="M408,55 A15,15 0 0 1 438,55"/>
+    <path d="M423,56 L436,36"/>
+    <path d="M408,120 A15,15 0 0 1 438,120"/>
+    <path d="M423,121 L436,101"/>
+    <path d="M446,43 L500,43 M446,47 L500,47" stroke-width="1"/>
+    <path d="M446,108 L500,108 M446,112 L500,112" stroke-width="1"/>
+  </g>
+  <circle cx="260" cy="45" r="6" fill="currentColor"/>
+  <g fill="currentColor" font-size="15" text-anchor="middle">
+    <text x="36" y="50">q0: |0⟩</text>
+    <text x="36" y="115">q1: |0⟩</text>
+    <text x="150" y="51">H</text>
+    <text x="195" y="145" font-size="12">1</text>
+    <text x="330" y="145" font-size="12">2</text>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-opacity="0.4" stroke-dasharray="3,3">
+    <path d="M195,15 L195,132"/>
+    <path d="M330,15 L330,132"/>
+  </g>
+</svg>
+<figcaption>Hadamard, then CNOT, prepares $|\Phi^+\rangle$. At slice 1 the state is $\tfrac{1}{\sqrt 2}(|00\rangle + |10\rangle)$ (writing $q_0$ first). The CNOT maps $|10\rangle \to |11\rangle$, so at slice 2 it is $\tfrac{1}{\sqrt 2}(|00\rangle + |11\rangle)$. Measurement gives <code>00</code> or <code>11</code>, each half the time, and never <code>01</code> or <code>10</code>.</figcaption>
+</figure>
 
-In classical computing, we manipulate bits using logic gates like AND, OR, and NOT. These gates transform input bits into output bits according to simple rules. Quantum gates do something similar for qubits, but with a crucial difference: they must be "reversible." This means you can always undo a quantum gate's operation - a requirement imposed by the laws of quantum mechanics.
+<div class="code-reference">
+<i class="fas fa-code"></i> Implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_gates.py">quantum_gates.py</a>
+</div>
 
-### Your First Quantum Gates
+## Foundational Algorithms {#classical-quantum-algorithms-the-foundations}
 
-Let's start with the simplest quantum gates and build up our intuition:
+Most quantum algorithms follow the same template:
 
-**The NOT Gate (Pauli-X)**
-This is the quantum version of the classical NOT gate. It flips $|0\rangle$ to $|1\rangle$ and $|1\rangle$ to $|0\rangle$. But here's the quantum twist: if a qubit is in superposition, it flips the entire superposition. So $\alpha|0\rangle + \beta|1\rangle$ becomes $\alpha|1\rangle + \beta|0\rangle$.
+1. **Prepare** a uniform superposition with Hadamards.
+2. **Query** a function in superposition through an **oracle** $U_f$. Written as a phase oracle, $|x\rangle \mapsto (-1)^{f(x)}|x\rangle$, it encodes $f$ into relative phases. This is **phase kickback**.
+3. **Interfere** the branches with a transform (Hadamard layer, quantum Fourier transform, or reflection) so that a global property of $f$ shows up as a basis state.
+4. **Measure**, and post-process classically if needed.
 
-**The Hadamard Gate: Creating Superposition**
-This gate has no classical equivalent - it's purely quantum. Applied to $|0\rangle$, it creates an equal superposition $\tfrac{1}{\sqrt{2}}(|0\rangle + |1\rangle)$. Applied to $|1\rangle$, it creates $\tfrac{1}{\sqrt{2}}(|0\rangle - |1\rangle)$. This gate is how we typically create superposition from classical states.
+### Deutsch–Jozsa and the query model
 
-**The CNOT Gate: Creating Entanglement**
-The Controlled-NOT gate operates on two qubits. It flips the second qubit if and only if the first qubit is $|1\rangle$. This conditional behavior is what allows us to create entanglement. For example:
-- CNOT applied to $|00\rangle$ gives $|00\rangle$ (nothing happens)
-- CNOT applied to $|10\rangle$ gives $|11\rangle$ (second qubit flips)
-- CNOT applied to $\tfrac{1}{\sqrt{2}}(|00\rangle + |10\rangle)$ gives $\tfrac{1}{\sqrt{2}}(|00\rangle + |11\rangle)$ - an entangled state!
+$f:\{0,1\}^n \to \{0,1\}$ is promised to be either **constant** or **balanced** (equal numbers of 0 and 1 outputs). A deterministic classical algorithm needs $2^{n-1}+1$ queries in the worst case. Deutsch–Jozsa needs one. After $H^{\otimes n}$, a phase-oracle query, and $H^{\otimes n}$ again, the amplitude of $|0^n\rangle$ is
 
-#### Common Single- and Two-Qubit Gates
+$$\frac{1}{2^n}\sum_{x}(-1)^{f(x)}$$
 
-| Gate | Symbol | Effect | Matrix |
-|------|--------|--------|--------|
-| Pauli-X (NOT) | $X$ | Flips $\lvert0\rangle \leftrightarrow \lvert1\rangle$ | $\begin{pmatrix}0&1\\1&0\end{pmatrix}$ |
-| Pauli-Z | $Z$ | Phase flip on $\lvert1\rangle$ | $\begin{pmatrix}1&0\\0&-1\end{pmatrix}$ |
-| Hadamard | $H$ | Creates superposition | $\tfrac{1}{\sqrt{2}}\begin{pmatrix}1&1\\1&-1\end{pmatrix}$ |
-| Phase | $S$ | Adds a $90^\circ$ phase | $\begin{pmatrix}1&0\\0&i\end{pmatrix}$ |
-| CNOT | $\text{CX}$ | Entangles control & target | $4\times4$ controlled-X |
+That amplitude has magnitude 1 if $f$ is constant and 0 if $f$ is balanced. The separation shrinks against a *randomized* classical algorithm, which answers correctly with high probability after a few queries. Deutsch–Jozsa therefore mainly illustrates the method. **Bernstein–Vazirani** (recovering a hidden string $s$ from $f(x) = s\cdot x$) and **Simon's algorithm** (finding a hidden XOR period) follow the same pattern. Simon's algorithm gives an exponential separation even against randomized algorithms, and it directly inspired Shor.
 
-### Building Quantum Circuits
+### Grover's algorithm {#grovers-algorithm-searching-the-unsearchable}
 
-Just as classical circuits are built by connecting logic gates, quantum circuits are built by applying quantum gates in sequence. But there's a key difference: quantum circuits are typically represented as horizontal lines (one per qubit) with gates shown as operations on these lines.
+Given an oracle that marks $M$ of $N$ items, Grover's algorithm finds a marked item with
 
-The simplest non-trivial circuit — Hadamard then CNOT — prepares a Bell state. As a gate flow:
+$$k \approx \frac{\pi}{4}\sqrt{\frac{N}{M}}$$
+
+queries, where a classical search needs $\Theta(N/M)$. Each iteration applies the oracle (a reflection about the unmarked subspace), then the **diffusion operator** $2|s\rangle\langle s| - I$ (a reflection about the uniform superposition $|s\rangle$). Two reflections compose to a rotation by $2\theta$, where $\sin\theta = \sqrt{M/N}$, so the state rotates steadily toward the marked subspace. Too many iterations rotate it past the target, so $k$ has to be chosen with care. When $M$ is unknown, **quantum counting** (below) or exponentially growing guesses handle it.
+
+- **Optimality.** The Bennett–Bernstein–Brassard–Vazirani lower bound shows no quantum algorithm beats $\Omega(\sqrt{N})$ queries for unstructured search. Quantum computers therefore do not solve NP-complete problems by brute force in polynomial time.
+- **Practical caveat.** The speedup is quadratic and counts oracle calls. On error-corrected hardware each oracle call is a deep circuit running orders of magnitude slower than a classical instruction. Resource estimates suggest that fault-tolerant overheads cancel out a quadratic speedup for all but very long computations.
+
+### Shor's algorithm {#shors-algorithm-the-killer-app}
+
+Shor's algorithm (1994) factors an $n$-bit integer $N$ in polynomial time: $O(n^3)$ gates with schoolbook arithmetic, and less with faster multiplication. The best known classical method, the general number field sieve, runs in sub-exponential time $\exp\!\big(O(n^{1/3}(\log n)^{2/3})\big)$. The algorithm reduces factoring to **order finding**:
 
 ```mermaid
 flowchart LR
-    q0i["q0: |0⟩"] --> H["H"] --> ctrl(("●")) --> q0o["measure"]
-    q1i["q1: |0⟩"] --> tgt["⊕ (CNOT target)"] --> q1o["measure"]
-    ctrl -. control .- tgt
-    classDef gate fill:#e1f5fe,stroke:#0277bd,color:#01579b;
-    class H,tgt gate;
+    A["Pick random a < N<br/>(classical)"] --> B{"gcd(a, N) > 1?"}
+    B -- yes --> F["Found a factor"]
+    B -- no --> C["Quantum order finding:<br/>modular exponentiation in superposition,<br/>then inverse QFT"]
+    C --> D["Continued fractions:<br/>recover order r of a mod N<br/>(classical)"]
+    D --> E{"r even and<br/>a^(r/2) != -1 mod N?"}
+    E -- yes --> G["gcd(a^(r/2) +/- 1, N)<br/>gives a factor"]
+    E -- no --> A
 ```
 
-Reading left to right: $H$ puts qubit 0 into superposition, then the CNOT couples qubit 1 to it,
-producing $|\Phi^+\rangle = \tfrac{1}{\sqrt{2}}(|00\rangle + |11\rangle)$. Measuring now yields
-`00` or `11` with equal probability — never `01` or `10`.
+The quantum part estimates the eigenphases $s/r$ of the modular-multiplication unitary $U_a|y\rangle = |ay \bmod N\rangle$ using [phase estimation](#quantum-phase-estimation). The same approach solves discrete logarithms, including over elliptic curves. Shor's algorithm therefore breaks RSA, Diffie–Hellman, and elliptic-curve cryptography alike. It is an instance of the **hidden subgroup problem** over abelian groups. No efficient algorithm is known for the non-abelian cases that would cover graph isomorphism or lattice problems.
 
-The power comes from combining simple gates to create complex quantum algorithms. With just a handful of basic gates (Hadamard, CNOT, and a few others), we can build any quantum computation - this is called "quantum universality."
+In 2019, Gidney and Ekerå estimated that factoring RSA-2048 needs about 20 million noisy physical qubits for 8 hours. A 2025 estimate by Gidney brought this below **one million physical qubits for under a week**. It assumes 0.1% gate error, a 1 µs surface-code cycle, and newer techniques such as yoked surface codes and magic-state cultivation. See [Cryptography](#cryptography) for what this means for deployed systems.
 
-### From Simple Gates to Quantum Algorithms
+### Speedup summary
 
-At this point, you might wonder: "How do these simple operations lead to exponential speedups?" The answer lies in how we combine three key ingredients:
+| Algorithm | Problem | Classical cost | Quantum cost | Speedup |
+|-----------|---------|----------------|--------------|---------|
+| Deutsch–Jozsa | Constant vs balanced (promise) | $2^{n-1}+1$ deterministic | 1 query | Exponential vs deterministic only |
+| Simon | Hidden XOR period | $\Omega(2^{n/2})$ | $O(n)$ queries | Exponential |
+| Shor | Factoring, discrete log | Sub-exponential (GNFS) | Polynomial | Super-polynomial |
+| Grover | Unstructured search | $\Theta(N)$ | $\Theta(\sqrt{N})$ | Quadratic, provably optimal |
+| Hamiltonian simulation | Time evolution of quantum systems | Exponential in general | Polynomial | Exponential (believed) |
+| Sorting (comparison) | Sort $n$ items | $\Theta(n\log n)$ | $\Omega(n\log n)$ | None |
 
-1. **Superposition**: Start with qubits in superposition to explore many possibilities at once
-2. **Interference**: Design the computation so correct answers amplify and wrong answers cancel out
-3. **Measurement**: Extract the final answer with high probability
+## Algorithmic Primitives {#modern-quantum-algorithms-beyond-the-classics}
 
-This is the template for virtually every quantum algorithm. Let's see how it works in practice.
+Fault-tolerant algorithms are mostly built from a small set of reusable subroutines.
 
-<div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_gates.py">quantum_gates.py</a>
-</div>
+### Quantum Fourier transform
 
-## Classical Quantum Algorithms: The Foundations
+The QFT maps $|x\rangle \mapsto \frac{1}{\sqrt{2^n}}\sum_{y} e^{2\pi i xy/2^n}|y\rangle$ using $O(n^2)$ gates, or fewer if the tiny rotations are dropped. The classical FFT needs $O(n2^n)$ operations on the same vector. The QFT cannot be used to compute Fourier coefficients directly, though, because they are stored in amplitudes that measurement cannot read. It is useful only inside algorithms such as phase estimation, where the output is a single basis state.
 
-Now that we understand the building blocks, let's explore the quantum algorithms that first demonstrated quantum computing's potential. These algorithms aren't just theoretical curiosities - they're the foundation for understanding how quantum advantage emerges.
+### Quantum phase estimation
 
-### The Deutsch-Jozsa Algorithm: A Simple Quantum Speedup
-
-Imagine you have a black box (what computer scientists call an "oracle") that computes some function f(x). The function is guaranteed to be either:
-- **Constant**: Always returns the same value (all 0s or all 1s)
-- **Balanced**: Returns 0 for exactly half the inputs and 1 for the other half
-
-Your task: determine which type of function it is.
-
-Classically, in the worst case, you'd need to check half the inputs plus one. For n input bits, that's 2^(n-1) + 1 queries. The Deutsch-Jozsa algorithm solves this with just one query, regardless of n. This exponential improvement was the first hint of quantum computing's power.
-
-### Grover's Algorithm: Searching the Unsearchable
-
-Here's a problem we all face: finding a specific item in an unsorted database. Classically, there's no clever trick - you just have to check items one by one. On average, you'll need to check half the database.
-
-Grover's algorithm provides a quadratic speedup: it can find the item in roughly √N steps for a database of size N. While not as dramatic as exponential speedup, this is remarkable because:
-1. The problem is completely unstructured
-2. The speedup is provably optimal
-3. It has practical applications in optimization and cryptography
-
-The algorithm works by repeatedly applying a "Grover operator" that amplifies the amplitude of the correct answer while suppressing wrong answers. After about π√N/4 iterations, measuring the qubits gives the correct answer with high probability.
-
-### Shor's Algorithm: The Killer App
-
-In 1994, Peter Shor discovered an algorithm that changed everything. His quantum algorithm can factor large integers exponentially faster than the best known classical algorithms. Since the security of RSA encryption relies on the difficulty of factoring, this algorithm has profound implications for cybersecurity.
-
-The algorithm's brilliance lies in transforming the factoring problem into a period-finding problem, which can be solved efficiently using the quantum Fourier transform. Here's the key insight: finding the period of certain functions related to the number we want to factor reveals its prime factors.
-
-What makes Shor's algorithm special:
-- **Exponential speedup**: Factors n-bit numbers in roughly n³ steps (vs. exponential classically)
-- **Practical importance**: Breaks widely-used encryption
-- **Elegant structure**: Combines classical and quantum processing beautifully
-
-## Modern Quantum Algorithms: Beyond the Classics
-
-### Quantum Phase Estimation: The Swiss Army Knife
-
-While the classical algorithms grabbed headlines, a more subtle algorithm called Quantum Phase Estimation (QPE) has emerged as perhaps the most important quantum subroutine. It's the quantum computing equivalent of the Fast Fourier Transform - a tool that appears everywhere.
-
-QPE solves a seemingly abstract problem: given a quantum operation $U$ and a state $|\psi\rangle$ that $U$ doesn't change (except for a phase), find that phase. Why does this matter? Because an astonishing number of problems can be recast as phase estimation:
-
-- **In Shor's algorithm**: Finding periods becomes estimating phases
-- **In chemistry**: Molecular energies are phases of time evolution
-- **In optimization**: Solution quality appears as phases
-
-The algorithm works by preparing a superposition of many applications of $U$ ($U^0, U^1, U^2, \ldots$), then using the quantum Fourier transform to extract the phase. It's a beautiful example of how quantum interference can extract global information from a quantum system.
+Given a unitary $U$ and an eigenstate $|u\rangle$ with $U|u\rangle = e^{2\pi i\phi}|u\rangle$, **quantum phase estimation (QPE)** writes $\phi$ to $t$ bits of precision into an ancilla register. It does this with controlled-$U^{2^j}$ operations followed by an inverse QFT. QPE underlies Shor's algorithm (eigenphases of modular multiplication) and quantum chemistry (energies as eigenphases of $e^{-iHt}$). Precision $\epsilon$ costs $O(1/\epsilon)$ applications of $U$, the **Heisenberg limit**. Sampling a classical estimator would need $O(1/\epsilon^2)$. Modern variants use a single ancilla with classical post-processing (iterative, Bayesian, or robust phase estimation), which suits early fault-tolerant hardware.
 
 <div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_algorithms.py#L14">quantum_algorithms.py#QuantumPhaseEstimation</a>
+<i class="fas fa-code"></i> Implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_algorithms.py#L14">quantum_algorithms.py#QuantumPhaseEstimation</a>
 </div>
 
-### The HHL Algorithm: When Linear Algebra Meets Quantum Computing
+### Amplitude amplification and estimation
 
-In 2009, Harrow, Hassidim, and Lloyd made a stunning discovery. They found a quantum algorithm that could solve certain systems of linear equations exponentially faster than any classical method. This might sound esoteric, but linear equations are everywhere - from engineering simulations to machine learning.
+**Amplitude amplification** generalizes Grover's algorithm. If an algorithm $A$ succeeds with probability $p$, then about $\frac{\pi}{4\sqrt{p}}$ rounds of $Q = -A S_0 A^{-1} S_f$ raise the success probability close to 1. $S_f$ flips the phase of good states and $S_0$ flips the phase of $|0\rangle$. A classical approach that simply repeats $A$ needs about $1/p$ runs.
 
-The catch? The quantum advantage only appears under specific conditions:
-- The matrix must be "sparse" (mostly zeros)
-- We need quantum access to the input
-- We only get quantum access to the output
+**Amplitude estimation** runs phase estimation on $Q$ to estimate $p$ to additive error $\epsilon$ with $O(1/\epsilon)$ calls to $A$, against $O(1/\epsilon^2)$ for Monte Carlo sampling. **Quantum counting** is the special case where $A$ is the uniform superposition, so it estimates the number of marked items $M$. This quadratic Monte Carlo speedup is behind most proposed quantum finance applications, such as derivative pricing. Resource estimates put those applications firmly in the fault-tolerant era.
 
-This last point is crucial and often misunderstood. HHL doesn't give you the full solution vector classically - it gives you a quantum state encoding the solution. This is perfect for some applications (like quantum machine learning) but limiting for others.
+### Hamiltonian simulation
 
-The algorithm showcases a key theme in quantum computing: exponential speedups often come with caveats. Understanding these subtleties is crucial for identifying where quantum computers will have real impact.
+Simulating $e^{-iHt}$ for a local or sparse Hamiltonian $H$ was Feynman's original motivation. It remains the application with the strongest case for exponential advantage. The main methods:
+
+| Method | Idea | Cost scaling (simplified) |
+|--------|------|---------------------------|
+| Product formulas (Trotter–Suzuki) | Split $H = \sum_j H_j$ and alternate short evolutions under each term | Polynomial in $t$ and $1/\epsilon$; simple, with small constants in practice |
+| Linear combination of unitaries / Taylor series | Implement a truncated series of $e^{-iHt}$ with ancilla-controlled Pauli terms | $\tilde O(t \log(1/\epsilon))$ |
+| Qubitization / quantum signal processing | Block-encode $H$, then apply polynomial transformations to it | $O(\alpha t + \log(1/\epsilon))$, optimal in query complexity |
+
+**Quantum singular value transformation (QSVT)** generalizes qubitization. It applies a polynomial function to the singular values of a block-encoded matrix, and Hamiltonian simulation, amplitude amplification, phase estimation, and linear-system solving all turn out to be special cases of it.
+
+### Linear systems (HHL) and its fine print
+
+The Harrow–Hassidim–Lloyd algorithm (2009) prepares a state proportional to $A^{-1}|b\rangle$ in time polylogarithmic in the dimension $N$, for a sparse, well-conditioned $A$. The exponential speedup comes with conditions:
+
+- The input $|b\rangle$ has to be loaded efficiently. That generally requires QRAM, which does not exist at scale.
+- The output is a quantum state, not a vector. Reading all $N$ entries would cancel the speedup, so HHL is useful only when a few summary quantities such as $\langle x|M|x\rangle$ are needed.
+- The cost grows with the condition number $\kappa$ (polynomially, and linearly in optimal variants).
+
+Starting with Ewin Tang's 2018 recommendation-systems result, **dequantization** work has shown that many proposed quantum machine-learning speedups based on HHL-style linear algebra disappear if the classical algorithm gets comparable sampling access to its input. The remaining exponential speedups come from problems whose input is itself quantum or implicitly defined, such as simulating physics.
+
+### Quantum walks
+
+Quantum walks are the quantum analog of random walks. On a line, a quantum walk spreads a distance proportional to $t$ (ballistically), whereas a classical random walk spreads as $\sqrt{t}$. Walk-based algorithms give Grover-type quadratic speedups for spatial search and element distinctness. On specially constructed graphs, such as glued trees, they give exponential speedups.
 
 <div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_algorithms.py#L56">quantum_algorithms.py#HHLAlgorithm</a>
+<i class="fas fa-code"></i> Implementations: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_algorithms.py#L56">HHL</a>, <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_algorithms.py#L152">QuantumWalk</a>
 </div>
 
-### Quantum Walks: A Different Way to Explore
+## Near-Term Algorithms {#algorithms-for-todays-quantum-computers}
 
-Imagine a drunk person randomly walking on a grid. Classically, they spread out slowly, diffusing like ink in water. Now imagine a quantum walker that can take superposition paths. The quantum walker spreads ballistically - like a wave rather than diffusing particles. This fundamentally different behavior leads to algorithmic advantages.
+Without error correction, useful circuits have to stay shallow. **Variational quantum algorithms** hand the outer optimization loop to a classical computer and use the quantum processor only to estimate expectation values of short parameterized circuits.
 
-Quantum walks have become a powerful framework for designing quantum algorithms because:
-1. They provide quadratic speedups for many search problems
-2. They offer intuitive ways to explore graph structures
-3. They connect to physics, making them natural for quantum hardware
+```mermaid
+flowchart LR
+    P["Parameters theta"] --> Q["QPU: run ansatz U(theta),<br/>measure observables"]
+    Q --> E["Estimate cost<br/>C(theta) = expectation of H"]
+    E --> O["Classical optimizer<br/>(SPSA, COBYLA, Adam...)"]
+    O -->|"update theta"| P
+    O -->|"converged"| R["Result: energy or bitstring"]
+```
 
-One beautiful application is spatial search. Imagine trying to find a marked location on a grid. A classical random walk takes O(N) time for an N-site grid. A quantum walk finds it in O(√N) time - achieving Grover-like speedup in a spatial setting.
+| Algorithm | Goal | Cost function | Main obstacles |
+|-----------|------|---------------|----------------|
+| **VQE** (variational quantum eigensolver) | Ground-state energy of a molecule or material | $\langle\psi(\theta)\rvert H\lvert\psi(\theta)\rangle$ | Measurement cost (many Pauli terms), ansatz expressivity, noise |
+| **QAOA** (quantum approximate optimization) | Approximate solutions to combinatorial problems (MaxCut, scheduling) | Expected cost of sampled bitstrings | No demonstrated advantage over good classical heuristics at useful sizes |
+| **Variational classifiers / quantum kernels** | Machine learning on classical data | Classification loss | Data loading, trainability, dequantization |
+
+**Barren plateaus** limit how far all of these scale. For expressive or deep random ansätze, and for global cost functions, gradients vanish exponentially in the number of qubits, so optimization needs exponentially many measurement shots. Recent theory suggests a trade-off: ansätze that provably avoid barren plateaus often have enough structure to be simulated classically. This has shifted near-term research toward problem-inspired circuits and away from generic "quantum neural networks".
+
+### Error mitigation
+
+Error *mitigation* reduces the bias in measured expectation values without the qubit overhead of error *correction*. It pays for this with extra circuit runs, and the number of runs usually grows exponentially with circuit size.
+
+| Technique | How it works |
+|-----------|--------------|
+| Zero-noise extrapolation (ZNE) | Run at deliberately amplified noise levels and extrapolate the results to zero noise |
+| Probabilistic error cancellation (PEC) | Learn the noise model and sample "inverse-noise" circuits. Unbiased, but the sampling overhead is exponential |
+| Probabilistic error amplification (PEA) | Learn the noise, then amplify it in a controlled way for ZNE. Used in IBM's 2023 "utility" experiment |
+| Measurement error mitigation | Calibrate and invert the readout confusion matrix |
+| Dynamical decoupling | Insert pulse sequences on idle qubits to cancel slow dephasing |
+
+A related approach is **sample-based quantum diagonalization** (SQD). The quantum computer only proposes important electronic configurations, and a classical supercomputer diagonalizes the Hamiltonian in the subspace they span. This avoids VQE's measurement bottleneck and has been run with 50 to 100+ qubits in IBM–RIKEN "quantum-centric supercomputing" work, though so far without any accuracy advantage over the best classical methods.
 
 <div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_algorithms.py#L152">quantum_algorithms.py#QuantumWalk</a>
+<i class="fas fa-code"></i> Implementations: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/nisq_algorithms.py">nisq_algorithms.py</a>
 </div>
+
+## Complexity and Limits {#the-deeper-theory-quantum-complexity-and-fundamental-limits}
+
+**BQP** (bounded-error quantum polynomial time) is the class of decision problems a quantum computer solves in polynomial time with error probability at most 1/3. Its known relationships to classical classes:
+
+```mermaid
+flowchart BT
+    P["P"] --> BPP["BPP"]
+    BPP --> BQP["BQP<br/>(factoring, discrete log,<br/>quantum simulation)"]
+    BQP --> PP["PP"]
+    PP --> PSPACE["PSPACE"]
+    P --> NP["NP<br/>(SAT, TSP decision)"]
+    NP --> PP
+    NP -.-|"relationship unknown;<br/>NP-complete believed outside BQP"| BQP
+    BQP --> QMA["QMA<br/>(local Hamiltonian problem)"]
+    NP --> QMA
+    QMA --> PP
+```
+
+- $\text{BPP} \subseteq \text{BQP} \subseteq \text{PP} \subseteq \text{PSPACE}$. None of these inclusions has been proven strict, since that would settle open questions about classical complexity too.
+- Factoring is in BQP and is not known to be in BPP. It is also not believed to be NP-complete. Quantum computers are therefore not expected to solve NP-complete problems efficiently, and Grover's bound rules out a brute-force route.
+- **QMA** is the quantum analog of NP: a quantum proof that a quantum verifier checks. Its canonical complete problem, estimating the ground-state energy of a local Hamiltonian, is QMA-complete. Even quantum computers therefore cannot find ground states efficiently in general. Chemistry algorithms depend on preparing a good initial state.
+- Raz and Tal (2018) built an oracle relative to which BQP is not contained in the polynomial hierarchy. This is evidence that quantum computation can do things classical computation, even with nondeterminism, cannot.
+
+<div class="code-reference">
+<i class="fas fa-code"></i> Implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_complexity.py">quantum_complexity.py</a>
+</div>
+
+### Quantum advantage experiments {#quantum-supremacy-crossing-the-classical-frontier}
+
+"Quantum supremacy" (Preskill, 2012), now usually called **quantum advantage**, is a demonstration that a quantum device performs *some* well-defined task beyond practical reach of classical computers. Better classical simulation methods have repeatedly narrowed early claims. The field now puts more weight on tasks whose answers can be *verified* and on tasks that are useful in their own right.
+
+| Year | Group / device | Task | Claim | Later developments |
+|------|----------------|------|-------|--------------------|
+| 2019 | Google Sycamore (53 qubits) | Random circuit sampling (RCS) | 200 s vs. an estimated 10,000 years | Tensor-network simulations (2021–2022) reproduced comparable samples in hours to days |
+| 2020–21 | USTC Jiuzhang (photonic) and Zuchongzhi (superconducting) | Gaussian boson sampling; RCS | Classical cost of $10^{9}$ years or more | Partially challenged by approximate classical samplers |
+| 2023 | IBM Eagle (127 qubits) | Kicked-Ising dynamics with error mitigation ("utility") | Accurate expectation values beyond brute-force simulation | Reproduced within weeks by tensor-network and belief-propagation methods |
+| 2024 | Google Willow (105 qubits) | RCS | Under 5 min vs. about $10^{25}$ years on Frontier | Still standing; the task has no application |
+| 2025 | D-Wave Advantage2 prototype | Quench dynamics of spin glasses (annealing) | Beyond-classical simulation of a materials problem | Classical groups disputed it with tensor-network and neural-network simulations |
+| 2025 | Google Willow, "Quantum Echoes" | Out-of-time-order correlators (OTOCs) | About 13,000× faster than the best classical algorithm on Frontier, and **verifiable** by repeating the experiment | A companion preprint applied the method to NMR molecular-structure problems as a proof of principle |
+| 2025 | Quantinuum Helios (98 ions) | RCS at high fidelity | Beyond classical simulation | — |
+
+<div class="code-reference">
+<i class="fas fa-code"></i> Implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_complexity.py#L71">quantum_complexity.py#QuantumSupremacy</a>
+</div>
+
+## Quantum Error Correction {#quantum-error-correction-protecting-quantum-information}
+
+Physical qubits fail at rates around $10^{-3}$ per operation. Shor's algorithm or a serious chemistry calculation needs more than $10^{9}$ operations with a good chance that none of them fails, so errors have to be corrected rather than just made rarer. Three features of quantum mechanics make this harder than classical error correction:
+
+- **No cloning.** An unknown state cannot be copied for majority voting.
+- **Continuous errors.** Small over-rotations are possible, not just discrete flips. Measuring a syndrome projects them onto discrete Pauli errors ($X$, $Z$, or $Y = iXZ$), so correcting Paulis is enough. This is **error discretization**.
+- **Measurement destroys superposition.** The code has to reveal *which error* occurred without revealing *the encoded data*.
+
+### From the repetition code to stabilizer codes
+
+The three-qubit bit-flip code encodes $|0\rangle_L = |000\rangle$ and $|1\rangle_L = |111\rangle$, which is entanglement, not copying. Measuring the **parities** $Z_1Z_2$ and $Z_2Z_3$ with ancilla qubits locates a single bit flip without measuring any individual qubit. The logical superposition $\alpha|000\rangle + \beta|111\rangle$ survives. Phase flips need the same construction in the Hadamard basis. Codes that combine both types of protection are described compactly by their **stabilizers**: a commuting group of Pauli operators that leave every codeword unchanged. Any error that anticommutes with some stabilizer shows up in the measured syndrome. (See the [stabilizer formalism](../advanced/quantum-algorithms-research/#stabilizer-codes) for the algebra.)
+
+A code is labeled $[[n, k, d]]$: $n$ physical qubits encode $k$ logical qubits with distance $d$, and it corrects up to $\lfloor (d-1)/2 \rfloor$ arbitrary errors.
+
+| Code | Parameters | Notes |
+|------|------------|-------|
+| Shor code | $[[9,1,3]]$ | First QEC code (1995); a bit-flip code nested inside a phase-flip code |
+| Steane code | $[[7,1,3]]$ | CSS code built from the classical Hamming code; transversal Clifford gates |
+| Five-qubit code | $[[5,1,3]]$ | The smallest code that corrects an arbitrary single-qubit error |
+| Rotated surface code | $[[d^2, 1, d]]$ plus $d^2-1$ ancillas | 2D nearest-neighbor checks and a threshold near 1%. The workhorse of superconducting roadmaps |
+| Color codes | $[[n,1,d]]$ on 2D lattices | Transversal Clifford gates; demonstrated on trapped ions and superconducting qubits |
+| Bivariate bicycle ("gross") code | $[[144,12,12]]$ | A quantum LDPC code: 12 logical qubits in 288 physical qubits (including checks), versus several thousand for surface codes of the same distance. Needs long-range couplers; IBM's chosen architecture |
+
+### The error-correction cycle
+
+```mermaid
+flowchart LR
+    D["Data qubits<br/>(encoded logical state)"] --> S["Syndrome extraction:<br/>entangle ancillas with<br/>stabilizer neighborhoods"]
+    S --> M["Measure ancillas<br/>(syndrome bits)"]
+    M --> DEC["Classical decoder<br/>(MWPM, union-find, neural)<br/>must keep pace, ~1 us per round"]
+    DEC --> F["Update Pauli frame /<br/>apply correction"]
+    F --> D
+```
+
+The decoder is a real-time classical computation that is easy to overlook. A superconducting surface code produces a syndrome round about every microsecond. If decoding falls behind, a backlog builds up and the computation stalls. Real-time decoding on FPGAs, ASICs, and GPUs, for example with NVIDIA CUDA-Q QEC, is now a research area in its own right.
+
+### Threshold theorem and scaling
+
+The **threshold theorem** says that if the physical error rate $p$ is below a threshold $p_{\text{th}}$, logical errors can be suppressed as far as needed at polylogarithmic overhead. For the surface code, $p_{\text{th}} \approx 1\%$, and the logical error rate per round scales roughly as
+
+$$p_L \approx A\left(\frac{p}{p_{\text{th}}}\right)^{\lfloor (d+1)/2 \rfloor}$$
+
+Each increase of the distance by 2 divides $p_L$ by the **suppression factor** $\Lambda = p_{\text{th}}/p$. With $p = 10^{-3}$, $\Lambda \approx 10$. Reaching $p_L \approx 10^{-12}$ then takes a distance around 23, or roughly 1,000 physical qubits per logical qubit. That ratio is the origin of the "1000:1" rule of thumb. qLDPC codes and better decoders are the main routes to lowering it.
+
+### Fault-tolerant gates and magic states
+
+Clifford gates can be applied to surface-code qubits cheaply, through lattice surgery or by tracking them in software. Non-Clifford gates such as $T$ cannot be done transversally. They are implemented by consuming **magic states** $|T\rangle = T|+\rangle$. Magic states are prepared noisily and then purified by **magic-state distillation**, which traditionally takes up most of the machine. **Magic-state cultivation** (Gidney, Shutty and Jones, 2024) grows high-fidelity $T$ states in place at a fraction of the cost, and it is one reason resource estimates fell sharply in 2024 and 2025.
+
+### Experimental milestones
+
+| Year | Result |
+|------|--------|
+| 2023 | Google: a distance-5 surface code slightly outperforms distance 3, the first sign of scaling |
+| 2023 | Harvard/MIT/QuEra: 48 logical qubits on reconfigurable neutral atoms, with logical-level algorithms |
+| 2024 | Google Willow: surface-code memory **below threshold** at $d = 3, 5, 7$, with $\Lambda \approx 2.1$. The $d=7$ logical qubit outlives the best physical qubit, and decoding runs in real time |
+| 2024 | Microsoft and Quantinuum; Microsoft and Atom Computing: tens of logical qubits with error rates below the physical rates, using error detection or correction |
+| 2025 | Quantinuum Helios: 48 error-corrected logical qubits at a 2:1 encoding ratio, plus a 94-logical-qubit GHZ state with error detection |
+| 2025 | IBM Loon: test processor with the long-range couplers that bivariate bicycle codes need |
+
+<div class="code-reference">
+<i class="fas fa-code"></i> Implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_error_correction.py">quantum_error_correction.py</a> · Formal treatment: <a href="../advanced/quantum-algorithms-research/#quantum-error-correction">quantum error correction theory</a>
+</div>
+
+## Hardware Platforms {#building-quantum-computers-from-theory-to-hardware}
+
+DiVincenzo's criteria (2000) still frame the engineering problem. A quantum computer needs well-defined, scalable qubits; reliable initialization; coherence times much longer than gate times; a universal gate set; and qubit-specific measurement. No platform leads on every criterion.
+
+| Platform | Qubit | Best 2Q fidelity (approx.) | 2Q gate time | Connectivity | Largest systems (2025–26) | Main players |
+|----------|-------|----------------------------|--------------|--------------|---------------------------|--------------|
+| **Superconducting** | Transmon: a Josephson-junction circuit at about 10 mK | 99.7–99.9% | 20–100 ns | Fixed nearest-neighbor; long-range couplers emerging | About 100–1,100 qubits | Google, IBM, Rigetti, IQM, USTC, AWS |
+| **Trapped ion** | Hyperfine levels of ions (Yb⁺, Ba⁺, Ca⁺) | Up to ~99.9% or better | 10–500 µs | All-to-all within a trap; ion shuttling (QCCD) | ~100 qubits | Quantinuum, IonQ, AQT |
+| **Neutral atom** | Rydberg-excitable atoms (Rb, Cs, Yb) held in optical tweezers | 99.5% and above | ~0.2–1 µs | Reconfigurable: atoms physically moved mid-circuit | Arrays of 1,000–6,000+ atoms; fewer used in circuits | QuEra, Pasqal, Atom Computing, Infleqtion |
+| **Photonic** | Photon modes: polarization, time bins, squeezed light | Gates are probabilistic or measurement-based | — | Set by optical routing | Special-purpose samplers; fault-tolerant designs in development | PsiQuantum, Xanadu, Quandela |
+| **Silicon spin** | Electron or hole spins in quantum dots | ~99% and above | ~100 ns | Nearest-neighbor | Tens of qubits | Intel, Diraq, Quantum Motion |
+| **Topological** | Majorana zero modes in superconductor–semiconductor nanowires | Not yet demonstrated as a qubit | — | — | Early devices; physics disputed | Microsoft |
+
+Figures are representative of leading published devices and move quickly. Treat them as orders of magnitude.
+
+### Superconducting circuits
+
+A transmon is an anharmonic LC oscillator whose inductor is a Josephson junction. Its lowest two levels serve as the qubit, controlled by microwave pulses inside a dilution refrigerator. The 2025 Nobel Prize in Physics (Clarke, Devoret, Martinis) recognized the 1980s experiments showing macroscopic quantum tunnelling and energy quantization in such circuits, the physical foundation of the platform. Gates are fast and fabrication borrows from the chip industry. The limits are coherence times of roughly 100 µs, fixed wiring, and the cryogenic I/O needed for thousands of control lines. Google's 105-qubit **Willow** (2024) set the error-correction milestones above. IBM moved away from ever-larger monolithic chips (Condor, 1,121 qubits, 2023) toward quality and modularity: **Heron** (133–156 qubits, tunable couplers), **Nighthawk** (120 qubits with square-lattice connectivity, 2025), and **Loon** (qLDPC test chip, 2025).
+
+### Trapped ions
+
+Identical atomic ions held in radio-frequency traps have coherence times of seconds or more and the highest gate fidelities of any platform. They are also slow, with gates taking microseconds to hundreds of microseconds. Quantinuum's QCCD architecture shuttles ions between zones to give all-to-all connectivity. Its **Helios** system (November 2025; 98 barium ions; 99.92% two-qubit fidelity across all pairs) holds the fidelity records. IonQ, which bought Oxford Ionics in 2025, is pursuing electronically controlled traps built with standard chip fabrication. (Honeywell's trapped-ion business merged into Quantinuum in 2021.)
+
+### Neutral atoms
+
+Optical tweezers hold arrays of single atoms. Entangling gates excite pairs into Rydberg states, whose strong interactions make the gates possible. Arrays can be rearranged during a computation, which gives nonlocal connectivity well suited to error-correcting codes, and they scale well: tweezer arrays of more than 6,000 atoms were demonstrated in 2025. The difficulties are atom loss, slower cycle times, and continuously reloading atoms during long computations. The same hardware also runs in **analog** mode as a programmable quantum simulator, for example QuEra's Aquila on Amazon Braket.
+
+### Photonics, spins, and topological qubits
+
+- **Photonic** systems operate at room temperature, apart from their detectors, and use existing fiber networks. Photons barely interact, so entangling gates are probabilistic. Fault-tolerant designs rely on **fusion-based** or measurement-based computation with very large numbers of components.
+- **Silicon spin qubits** are tiny and compatible with CMOS manufacturing, and could in principle reach millions of qubits per chip. They are at an earlier stage, with device variability and wiring as the main problems.
+- **Topological qubits** would store information non-locally in Majorana zero modes and be protected from local noise by the physics itself. Microsoft announced its "Majorana 1" chip in February 2025. The accompanying peer-reviewed paper showed interferometric parity measurements, but the editors noted that it did not establish topological protection, and the claims are still contested. A 2018 Majorana-signature paper in the same field was retracted in 2021.
+
+<div class="code-reference">
+<i class="fas fa-code"></i> Implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/physical_implementations.py">physical_implementations.py</a>
+</div>
+
+## Roadmaps and Outlook {#the-current-landscape-nisq-era-and-practical-progress}
+
+John Preskill named the **NISQ** (noisy intermediate-scale quantum) era in 2018: devices of 50 to a few hundred qubits without error correction. The field is now leaving it. Current work targets **early fault-tolerant** machines with tens to hundreds of logical qubits, able to run about a million logical operations (Preskill's "megaquop" regime), before full-scale fault tolerance.
+
+```mermaid
+timeline
+    title Quantum computing milestones and published targets
+    2019 : Sycamore random-circuit-sampling advantage
+    2023 : IBM utility experiment : First logical-qubit arrays on neutral atoms
+    2024 : Willow below-threshold surface code : NIST PQC standards (FIPS 203-205)
+    2025 : Verifiable advantage (Quantum Echoes) : Helios 98-qubit trapped-ion system : RSA-2048 estimate under 1M qubits
+    2026 : IBM target - first verified quantum advantage claims
+    2029 : IBM Starling target - 200 logical qubits, 100M gates : Quantinuum Apollo target - universal fault tolerance
+    2033+ : IBM Blue Jay target - 2,000 logical qubits, 1B gates
+```
+
+Entries from 2026 on are vendor targets, not results. The US DARPA **Quantum Benchmarking Initiative** (QBI) is independently evaluating whether any approach can reach utility-scale operation by 2033. It advanced a first cohort of companies to its Stage B in late 2025.
+
+The open engineering problems:
+
+- **Overhead.** Reducing the physical-to-logical qubit ratio (qLDPC codes, better decoders, cheaper magic states).
+- **Scale-out.** Wiring, cryogenics, and control electronics for $10^4$ to $10^6$ qubits; modular architectures linked by microwave or optical interconnects.
+- **Real-time classical co-processing.** Decoding, feed-forward, and hybrid HPC integration.
+- **Algorithms with verified value.** Problems where a fault-tolerant machine with a few hundred logical qubits beats the best classical methods. The strongest candidates are in chemistry and materials simulation.
+
+## Applications {#real-world-applications-where-quantum-computing-will-make-a-difference}
+
+Separating demonstrated results from speculation is essential here. Press coverage often cites pilot projects that show no advantage over classical methods.
+
+| Area | Key algorithms | Nature of the speedup | Hardware needed | Status (2026) |
+|------|----------------|-----------------------|-----------------|---------------|
+| Quantum chemistry and materials | QPE, qubitization, SQD, VQE | Exponential for strongly correlated systems (believed) | Fault tolerant: hundreds to thousands of logical qubits, $10^{8}$ to $10^{11}$ $T$ gates for industrial targets such as FeMoco or cytochrome P450 | Resource estimates falling fast; no advantage demonstrated yet |
+| Condensed-matter physics | Hamiltonian simulation, analog simulation | Exponential (believed) | Some tasks on today's analog and digital devices | The most credible near-term scientific use |
+| Cryptanalysis | Shor | Super-polynomial | About 1M physical qubits for RSA-2048 (2025 estimate) | Far beyond current machines, but drives the PQC migration now |
+| Optimization | QAOA, annealing, Grover-type search, decoded quantum interferometry (DQI) | Mostly quadratic or unproven | Varies | No demonstrated practical advantage over classical heuristics |
+| Finance and Monte Carlo | Amplitude estimation | Quadratic | Fault tolerant | Long-term; overheads currently cancel the gain |
+| Machine learning | Quantum kernels, QSVT-based linear algebra | Often dequantized; exponential only for quantum data | Varies | Research stage |
+| Sensing and networking | QKD, entanglement distribution, quantum sensing | Security or precision rather than speed | Specialized hardware | QKD networks deployed, including China's satellite links; niche use |
+
+### Cryptography
+
+Shor's algorithm breaks RSA, finite-field Diffie–Hellman, and elliptic-curve cryptography. Grover's algorithm only halves the effective key length of symmetric ciphers and hashes, so AES-256 and SHA-256/384 remain adequate. The threat is real today because of **harvest now, decrypt later**: traffic recorded now can be decrypted once a large enough machine exists.
+
+- **NIST standards (August 2024):** FIPS 203 **ML-KEM** (Kyber) for key encapsulation, FIPS 204 **ML-DSA** (Dilithium) and FIPS 205 **SLH-DSA** (SPHINCS+) for signatures. **HQC** was selected in March 2025 as a backup KEM based on different mathematics, and **FN-DSA** (Falcon) is being standardized as FIPS 206.
+- **Deprecation timeline:** NIST's draft IR 8547 proposes deprecating quantum-vulnerable public-key algorithms after 2030 and disallowing them after 2035.
+- **Deployment:** hybrid key exchange (X25519 combined with ML-KEM-768) is already the default in major browsers, Cloudflare, and OpenSSH.
+
+See [Cybersecurity](cybersecurity/) and the [cryptography](cybersecurity/cryptography.html) page for migration details.
+
+## Programming Quantum Computers {#getting-started-programming-quantum-computers}
+
+Quantum programs are ordinary classical programs that build circuits, compile them for a specific device, submit them as jobs, and post-process the measurement statistics.
+
+```mermaid
+flowchart TD
+    A["Algorithm / application<br/>(Python, Q#)"] --> B["SDK builds circuit<br/>Qiskit, Cirq, PennyLane, CUDA-Q, Braket SDK"]
+    B --> C["Transpiler / compiler<br/>native gates, qubit layout, routing, optimization"]
+    C --> D["Cloud runtime / job queue<br/>primitives: Sampler, Estimator"]
+    D --> E["Control system<br/>pulse generation, real-time feedback, decoding"]
+    E --> F["QPU"]
+    F -->|"bitstrings / expectation values"| D
+    B -. "local testing" .-> S["Simulators<br/>statevector, stabilizer, tensor-network, GPU"]
+```
+
+### Frameworks
+
+| Framework | Maintainer | Strengths |
+|-----------|------------|-----------|
+| **Qiskit** (2.x) | IBM | The largest ecosystem, a strong transpiler, and the Qiskit Runtime primitives. Version 1.0 (February 2024) brought API stability and removed `execute`; 2.0 (2025) removed the pulse and `BackendV1` APIs |
+| **Cirq** | Google | Fine control of circuits and moments for Google hardware; pairs with `qsim` and `Stim` |
+| **PennyLane** | Xanadu | Differentiable programming with JAX, PyTorch, and TensorFlow; variational algorithms; runs on many backends |
+| **CUDA-Q** | NVIDIA | C++/Python kernels, GPU-accelerated simulation, hybrid HPC workflows, QEC and decoder libraries |
+| **Amazon Braket SDK** | AWS | One API across several hardware vendors, plus managed simulators |
+| **Q# / Microsoft QDK** | Microsoft | A domain-specific language with a Rust-based toolchain (the "modern QDK", 2024) and fault-tolerant **resource estimation** |
+| **Stim** | Google (open source) | Very fast stabilizer-circuit simulation, the standard tool for QEC research |
+
+### Bell state in Qiskit
+
+The Qiskit 2.x example below runs locally with the reference sampler, then on IBM hardware through Qiskit Runtime. All jobs now go through **primitives**: `SamplerV2` for bitstring counts and `EstimatorV2` for expectation values. Circuits have to be transpiled to the backend's instruction set architecture (ISA) before they are submitted.
 
 ```python
-# Example: Quantum walk on a cycle graph
-n = 10  # Number of vertices
-adjacency = np.roll(np.eye(n), 1, axis=1) + np.roll(np.eye(n), -1, axis=1)
-walk = QuantumWalk(adjacency)
-final_state = walk.continuous_time_walk(0, time=5.0)
-```
-
-## The Quantum Advantage: Where and Why It Emerges
-
-After exploring these algorithms, you might wonder: "Why do some problems have quantum speedups while others don't?" This is one of the deepest questions in computer science.
-
-### Understanding Quantum Advantage
-
-Quantum advantage doesn't come from quantum computers being "faster" in a clock-speed sense. Instead, it emerges from three uniquely quantum phenomena working together:
-
-1. **Superposition enables massive parallelism**: A quantum computer can explore exponentially many solution paths simultaneously
-2. **Interference allows answer amplification**: Quantum algorithms arrange for correct answers to interfere constructively and wrong answers to interfere destructively
-3. **Entanglement provides non-local correlations**: Information can be processed in ways that would require exponential classical resources
-
-### Where Quantum Computers Excel
-
-Quantum advantages typically appear in problems with special structure:
-- **Hidden periodicity** (Shor's algorithm)
-- **Unstructured search** (Grover's algorithm)
-- **Quantum simulation** (modeling quantum systems)
-- **Certain optimization landscapes** (quantum approximate optimization)
-
-But there's no free lunch. Many problems show no quantum advantage. Sorting, for instance, can't be done faster than O(n log n) even with a quantum computer. The art lies in identifying problems where quantum mechanics provides a genuine advantage.
-
-### The Challenges: Why We Don't Have Quantum Laptops Yet
-
-Building quantum computers is extraordinarily difficult because quantum states are fragile. The same superposition and entanglement that provide computational power also make qubits incredibly sensitive to noise. This leads to several challenges:
-
-**Decoherence**: Qubits lose their quantum properties quickly - often in microseconds
-**Gate errors**: Quantum operations aren't perfect, introducing small errors
-**Limited connectivity**: Not all qubits can interact directly
-**Classical control overhead**: Quantum computers need sophisticated classical control systems
-
-## Quantum Error Correction: Protecting Quantum Information
-
-Here we encounter one of quantum computing's greatest challenges and most elegant solutions. Remember how we said qubits are fragile? Even tiny disturbances can destroy quantum information. Classical computers face similar issues but solve them simply - just copy the data multiple times. But quantum mechanics forbids copying unknown quantum states (the "no-cloning theorem"). So how do we protect quantum information?
-
-### The Quantum Error Correction Breakthrough
-
-The solution is ingenious: instead of copying the quantum state, we spread it across multiple qubits in a clever way. If errors affect some qubits, we can detect and correct them without ever learning what the protected quantum state actually was.
-
-Think of it like this: imagine you want to protect a secret message. Classically, you'd make copies. Quantumly, you might spread the message across multiple people such that any small group knows nothing, but the full group can reconstruct the message even if some people forget their parts.
-
-### How Quantum Error Correction Works
-
-The key insight is to encode one "logical" qubit into multiple "physical" qubits. The simplest example is encoding one qubit into three:
-
-$$|0\rangle_L = |000\rangle, \qquad |1\rangle_L = |111\rangle$$
-
-Now if one qubit flips, we can detect it (it's the odd one out) and correct it by majority vote. But this only works for bit flips. Quantum errors are more complex - qubits can also experience phase flips and combinations thereof.
-
-### Stabilizer Codes: A Systematic Approach
-
-The breakthrough came with "stabilizer codes," which provide a systematic way to protect against all types of quantum errors. The idea is to define a set of measurements ("stabilizers") that check for errors without revealing the encoded information.
-
-<div class="advanced-note">
-  <i class="fas fa-graduation-cap"></i>
-  <p><strong>Ready for group theory?</strong> Dive into the <a href="/docs/advanced/quantum-algorithms-research/#stabilizer-codes">mathematical framework of stabilizer codes</a>, including the stabilizer formalism, logical operators, and code construction techniques.</p>
-</div>
-
-Key examples that paved the way:
-- **Shor's 9-qubit code**: The first code to correct arbitrary single-qubit errors
-- **Steane's 7-qubit code**: More efficient, using only 7 qubits
-- **The 5-qubit code**: The smallest possible code correcting arbitrary single-qubit errors
-
-### Surface Codes: The Path to Practical Quantum Computing
-
-While early codes were theoretical breakthroughs, "surface codes" have emerged as the most promising approach for real quantum computers. They arrange qubits on a 2D grid where each qubit only needs to interact with its neighbors - perfect for real hardware.
-
-What makes surface codes special:
-- **High threshold**: They can tolerate error rates up to ~1%
-- **Local interactions**: Only neighboring qubits need to interact
-- **Scalable**: Easy to make the code stronger by using more qubits
-
-The trade-off is overhead: protecting one logical qubit might require hundreds or thousands of physical qubits. This is why current quantum computers are still "noisy" - we don't yet have enough qubits for full error correction.
-
-### The Threshold Theorem: Why Quantum Computing is Possible
-
-Here's the crucial result that makes scalable quantum computing possible: if you can reduce errors below a certain threshold (about 1%), you can compute arbitrarily long by using more error correction. This "threshold theorem" transformed quantum computing from a theoretical curiosity to an engineering challenge.
-
-<div class="advanced-note">
-  <i class="fas fa-graduation-cap"></i>
-  <p><strong>Want the formal proof?</strong> Explore the <a href="/docs/advanced/quantum-algorithms-research/#quantum-error-correction">rigorous treatment of quantum error correction</a>, including stabilizer codes, surface codes, and fault-tolerant computation theory.</p>
-</div>
-
-<div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_error_correction.py">quantum_error_correction.py</a>
-</div>
-
-```python
-# Example: Create a distance-3 surface code
-surface_code = SurfaceCode(distance=3)
-x_stabilizers = surface_code.x_stabilizers()  # Vertex operators
-z_stabilizers = surface_code.z_stabilizers()  # Plaquette operators
-
-# See how logical error rate improves with code distance
-physical_error_rate = 0.001
-distance = 5
-threshold = 0.01
-logical_error_rate = (physical_error_rate/threshold)**((distance+1)/2)
-# Result: ~10^-9 logical error rate
-```
-
-## Real-World Applications: Where Quantum Computing Will Make a Difference
-
-Now that we understand how quantum computers work, let's explore where they'll have real impact. The applications fall into several categories, each leveraging different aspects of quantum advantage.
-
-### Quantum Simulation: The Original Killer App
-
-Feynman's original vision for quantum computers was simulating quantum systems - using quantum to understand quantum. This remains perhaps the most promising near-term application.
-
-**Drug Discovery**: Molecules are quantum mechanical systems. Understanding how drugs interact with proteins requires simulating quantum effects that are intractable classically. Quantum computers could revolutionize pharmaceutical development by accurately modeling these interactions.
-
-**Materials Science**: Designing better batteries, solar cells, or superconductors requires understanding quantum effects in materials. Quantum computers could help discover new materials with desired properties.
-
-**Quantum Chemistry**: Calculating reaction rates, catalyst efficiency, and chemical properties with quantum accuracy could transform chemistry and lead to breakthroughs in areas like carbon capture or fertilizer production.
-
-### Cryptography: Breaking and Making
-
-**Breaking Current Encryption**: Shor's algorithm threatens RSA and similar encryption methods. This has prompted a worldwide effort to develop "post-quantum cryptography" - classical encryption methods that even quantum computers can't break.
-
-**Quantum Key Distribution**: Quantum mechanics enables provably secure communication. Any eavesdropping attempt necessarily disturbs the quantum states, alerting the legitimate users. Several countries have already deployed quantum communication networks.
-
-### Optimization: Finding Needles in Exponential Haystacks
-
-Many business and scientific problems involve finding the best solution among exponentially many possibilities:
-
-**Financial Portfolio Optimization**: Balancing risk and return across thousands of assets
-**Supply Chain Management**: Routing deliveries optimally across complex networks
-**Machine Learning**: Training certain types of models or finding optimal architectures
-**Drug Design**: Finding molecules with specific properties
-
-While quantum computers don't always provide exponential speedups for optimization, even modest improvements could have enormous economic value given the importance of these problems.
-
-### Machine Learning: A Quantum Boost?
-
-The intersection of quantum computing and machine learning is particularly exciting:
-
-**Quantum Neural Networks**: Using parameterized quantum circuits as machine learning models
-**Quantum Feature Maps**: Encoding classical data in quantum states to find patterns classical computers miss
-**Quantum Speedups**: Potential advantages for certain linear algebra operations central to ML
-
-However, this field is still emerging, and it remains to be seen where genuine quantum advantages will appear.
-
-## The Deeper Theory: Quantum Complexity and Fundamental Limits
-
-As quantum computing matured, computer scientists developed a rich theory of what quantum computers can and cannot do. This "quantum complexity theory" helps us understand the fundamental power and limitations of quantum computation.
-
-### Quantum Complexity Classes: Mapping the Quantum Landscape
-
-Just as classical computer science categorizes problems by difficulty (P, NP, etc.), quantum complexity theory does the same for quantum computers:
-
-**BQP (Bounded-error Quantum Polynomial time)**: Problems efficiently solvable by quantum computers. This includes factoring (Shor) and simulation of quantum systems, but probably doesn't include NP-complete problems.
-
-**QMA (Quantum Merlin-Arthur)**: The quantum analog of NP. These are problems where a quantum computer can efficiently verify a quantum proof. Many physics problems fall into this class.
-
-**BQP vs NP**: One of the biggest open questions is whether quantum computers can efficiently solve NP-complete problems. Most experts believe they cannot, which would mean quantum computers are powerful but not all-powerful.
-
-These theoretical insights guide us toward problems where quantum computers genuinely help, avoiding wild goose chases after unlikely speedups.
-
-<div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_complexity.py">quantum_complexity.py</a>
-</div>
-
-### Quantum Supremacy: Crossing the Classical Frontier
-
-In 2019, quantum computing reached a historic milestone. Google's team demonstrated "quantum supremacy" (now often called "quantum advantage" to avoid unfortunate connotations) - the first time a quantum computer provably outperformed the world's best classical supercomputers at any task.
-
-**What Actually Happened**: Google's 53-qubit Sycamore processor performed a specific sampling task in 200 seconds that would take the world's fastest supercomputer an estimated 10,000 years. While the task itself has no practical application, it proved that quantum computers can indeed surpass classical computers.
-
-**Why It Matters**: This demonstration showed that:
-1. We can build quantum computers with enough qubits and low enough error rates to enter a new computational regime
-2. Quantum advantage is real, not just theoretical
-3. The engineering challenges, while formidable, are surmountable
-
-**The Ongoing Debate**: The classical simulation time is disputed (IBM claimed "only" days, not millennia), and the task was carefully chosen to favor quantum computers. But the broader point stands: we've entered the era where quantum computers can do things classical computers cannot practically do.
-
-**Other Demonstrations**:
-- **Photonic quantum computers** have shown advantage using "boson sampling"
-- **Chinese teams** have demonstrated advantage with both superconducting and photonic systems
-- **Multiple groups** are pushing toward advantage in useful tasks
-
-<div class="code-reference">
-<i class="fas fa-code"></i> See quantum supremacy implementations: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_complexity.py#L71">quantum_complexity.py#QuantumSupremacy</a>
-</div>
-
-## Building Quantum Computers: From Theory to Hardware
-
-Now we come to perhaps the most challenging aspect: actually building quantum computers. The requirements are extreme - we need to control individual quantum systems while isolating them from environmental noise, all while maintaining the ability to manipulate and measure them precisely.
-
-### The Superconducting Approach: Quantum Circuits on Chips
-
-The leading approach, used by Google, IBM, and others, builds qubits from superconducting circuits. These are essentially electrical circuits operated at temperatures near absolute zero (-273°C) where they exhibit quantum behavior.
-
-**How It Works**: At these extreme temperatures, electrical current can flow without resistance, and the circuits behave like artificial atoms with quantized energy levels. We can use these levels as our |0⟩ and |1⟩ states.
-
-**Key Innovation - The Transmon**: Early superconducting qubits were too sensitive to electrical noise. The breakthrough "transmon" design traded some control for dramatically better noise immunity, making practical quantum processors possible.
-
-**Current Performance**:
-- Qubit lifetime: 100-300 microseconds (improving yearly)
-- Gate operation time: 10-100 nanoseconds
-- Gate fidelity: >99.9% for single qubits, >99% for two qubits
-- System size: Up to 1000+ qubits (IBM's Condor), though IBM has since shifted from a single monolithic chip to modular architectures (Heron, Flamingo) that link smaller processors
-
-### Trapped Ions: Precision Quantum Control
-
-An alternative approach traps individual ions (charged atoms) using electromagnetic fields and manipulates them with precisely controlled laser pulses.
-
-**Why Ions Are Special**:
-- Natural qubits: Atomic energy levels are identical and stable
-- Long coherence: Qubits can maintain superposition for seconds
-- High fidelity: The best gate fidelities of any platform (>99.9%)
-- All-to-all connectivity: Any ion can interact with any other
-
-**The Challenges**:
-- Slower gates: Operations take microseconds vs nanoseconds
-- Scaling difficulties: Hard to trap many ions while maintaining control
-- Complex control: Requires sophisticated laser systems
-
-Companies like IonQ and Honeywell are betting that ion traps' superior performance outweighs their engineering complexity.
-
-### The Topological Dream: Error-Free by Design
-
-The most exotic approach seeks to build qubits from "topological" quantum states that are inherently protected from errors. Microsoft is pursuing this path with "Majorana zero modes" - exotic quantum states that theory predicts should exist in certain materials.
-
-**The Promise**: Topological qubits would be naturally error-resistant, potentially eliminating the need for complex error correction.
-
-**The Challenge**: After decades of research, unambiguous demonstration of topological qubits remains elusive. The physics is subtle and the engineering requirements extreme.
-
-### Other Quantum Platforms: Diversity in Approaches
-
-**Photonic Quantum Computing**: Using particles of light as qubits
-- Works at room temperature (huge advantage)
-- Naturally error-resistant for certain types of noise
-- Challenge: Photons don't easily interact, making gates difficult
-- Applications: Quantum communication, sampling problems
-
-**Neutral Atom Arrays**: Trapping atoms with focused laser beams
-- Highly scalable: Can trap thousands of atoms in programmable arrays
-- Flexible connectivity: Can rearrange atoms during computation
-- Natural simulator for quantum many-body physics
-- Companies like QuEra and Pasqal are commercializing this approach
-
-**Silicon Spin Qubits**: Quantum dots in silicon chips
-- Leverages decades of semiconductor manufacturing expertise
-- Extremely small: Millions of qubits could fit on a chip
-- Compatible with classical control electronics
-- Still early stage but advancing rapidly
-
-Each platform has unique advantages and challenges. The diversity is healthy - we don't yet know which approach will ultimately win, and different platforms may excel at different applications.
-
-<div class="code-reference">
-<i class="fas fa-code"></i> Full implementation details: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/physical_implementations.py">physical_implementations.py</a>
-</div>
-
-## The Current Landscape: NISQ Era and Practical Progress
-
-We're currently in what John Preskill termed the "Noisy Intermediate-Scale Quantum" (NISQ) era. We have quantum computers with 50-1000 qubits, enough for quantum advantage but too noisy for full-scale quantum algorithms like Shor's.
-
-### What NISQ Computers Can Do
-
-Despite their limitations, NISQ devices are already useful for:
-
-**Research**: Understanding quantum systems, developing algorithms, training the quantum workforce
-**Proof of Concepts**: Demonstrating quantum advantages for specific problems
-**Hybrid Algorithms**: Combining quantum and classical processing for near-term applications
-
-### The Path Forward: From NISQ to Fault-Tolerant
-
-The quantum computing roadmap has become clearer:
-
-**Near Term (2024-2027)**:
-- Demonstrate useful quantum advantage (solving practical problems faster)
-- Scale to thousands of physical qubits
-- Improve error rates below error correction thresholds
-- Develop quantum cloud services and software stacks
-
-**Medium Term (2027-2035)**:
-- Achieve error correction at scale
-- Build logical qubits with error rates below 10^-6
-- Run algorithms requiring millions of gate operations
-- Solve commercially valuable problems
-
-**Long Term (2035+)**:
-- Large-scale fault-tolerant quantum computers
-- Break RSA encryption (forcing cryptographic transitions)
-- Revolutionize drug discovery and materials science
-- Enable currently unimaginable applications
-
-### The Biggest Challenges Ahead
-
-**Error Correction Overhead**: Current schemes require 1000+ physical qubits per logical qubit. Reducing this overhead is crucial for scaling.
-
-**Coherence Times**: Qubits need to last long enough for meaningful computations. While improving, this remains a fundamental challenge.
-
-**Control Systems**: Managing thousands of qubits requires sophisticated classical control systems that can operate at cryogenic temperatures.
-
-**Software and Algorithms**: We need better tools for programming quantum computers and more algorithms that provide real-world advantage.
-
-**Quantum Workforce**: There's a global shortage of quantum engineers and programmers. Education and training are critical.
-
-## Algorithms for Today's Quantum Computers
-
-While we wait for fault-tolerant quantum computers, researchers have developed clever algorithms that work with noisy qubits. These "variational" algorithms use quantum computers for the hard parts and classical computers for optimization.
-
-### Variational Quantum Eigensolver (VQE): Chemistry on Quantum Computers
-
-VQE exemplifies the hybrid approach. To find the ground state energy of a molecule:
-
-1. **Prepare a trial quantum state** using a parameterized circuit
-2. **Measure the energy** of this state on the quantum computer
-3. **Optimize parameters** classically to minimize energy
-4. **Repeat** until convergence
-
-This approach is resilient to noise because each quantum computation is short, and the classical optimizer can adapt to systematic errors. Companies are already using VQE to study catalysts, drug molecules, and materials.
-
-### Quantum Approximate Optimization Algorithm (QAOA): Solving Hard Problems
-
-QAOA tackles combinatorial optimization - problems like scheduling, routing, and resource allocation that businesses face daily. It alternates between:
-- Encoding the problem's constraints (classical to quantum)
-- Exploring the solution space (quantum evolution)
-- Measuring and refining (quantum to classical)
-
-While QAOA doesn't promise exponential speedups, even modest improvements on optimization problems worth billions could be transformative.
-
-### Quantum Machine Learning: A New Frontier
-
-The intersection of quantum computing and AI is generating enormous excitement:
-
-**Quantum Feature Maps**: Encode classical data into quantum states, potentially finding patterns invisible to classical methods
-**Variational Quantum Circuits**: Use parameterized quantum circuits as machine learning models
-**Quantum Kernel Methods**: Compute similarities in exponentially large feature spaces
-
-The jury's still out on whether quantum ML will deliver practical advantages, but early experiments show promise for specific tasks.
-
-<div class="code-reference">
-<i class="fas fa-code"></i> Full implementations: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/nisq_algorithms.py">nisq_algorithms.py</a>
-</div>
-
-```python
-# Example: VQE for H2 molecule
-H_H2 = create_h2_hamiltonian(bond_length=0.74)
-ansatz = hardware_efficient_ansatz(n_qubits=4, n_layers=3)
-result = vqe(H_H2, ansatz)
-print(f"Ground state energy: {result['ground_energy']}")
-```
-
-## The Mathematical Foundations: Why It All Works
-
-Now that we've built intuition, let's peek under the hood at the mathematical framework that makes quantum computing precise and powerful. Don't worry if you're not a mathematician - focus on the key insights.
-
-<div class="advanced-note">
-  <i class="fas fa-graduation-cap"></i>
-  <p><strong>Want the complete mathematical treatment?</strong> Our <a href="/docs/advanced/quantum-algorithms-research/">Advanced Quantum Algorithms Research</a> page covers Hilbert spaces, density matrices, quantum channels, and the formal postulates of quantum mechanics.</p>
-</div>
-
-### Quantum States as Vectors
-
-Quantum mechanics represents states as vectors in complex vector spaces called Hilbert spaces. For a single qubit:
-- $|0\rangle$ and $|1\rangle$ are basis vectors (like $x$ and $y$ axes)
-- Any qubit state is a combination: $|\psi\rangle = \alpha|0\rangle + \beta|1\rangle$
-- The constraint $|\alpha|^2 + |\beta|^2 = 1$ ensures valid probabilities
-
-For multiple qubits, we use tensor products:
-- Two qubits: 4-dimensional space with basis $\{|00\rangle, |01\rangle, |10\rangle, |11\rangle\}$
-- $n$ qubits: $2^n$-dimensional space
-
-This exponential growth in dimension is why quantum computers can process so much information.
-
-### Quantum Operations as Matrices
-
-Quantum gates are represented by unitary matrices - matrices that preserve the total probability (normalization) of quantum states. For example:
-
-$$H = \frac{1}{\sqrt{2}}\begin{pmatrix} 1 & 1 \\ 1 & -1 \end{pmatrix}, \qquad X = \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}$$
-
-and CNOT is a $4\times4$ matrix that flips the target qubit when the control is $|1\rangle$.
-
-The requirement of unitarity ($U^\dagger U = I$) ensures quantum operations are reversible - a fundamental requirement from physics.
-
-### The Density Matrix: Handling Real-World Quantum States
-
-Pure states ($|\psi\rangle$) represent ideal quantum systems. Real systems often involve statistical mixtures or entanglement with environments. Density matrices handle these cases:
-
-- Pure state: $\rho = |\psi\rangle\langle\psi|$
-- Mixed state: $\rho = \sum_i p_i\,|\psi_i\rangle\langle\psi_i|$
-- Partial trace: tracing out the environment gives a reduced density matrix
-
-This formalism is crucial for understanding decoherence, error correction, and real quantum devices.
-
-### The Postulates: Quantum Mechanics in Five Rules
-
-1. **States are vectors**: in Hilbert space with $\langle\psi|\psi\rangle = 1$
-2. **Evolution is unitary**: $|\psi(t)\rangle = U(t)|\psi(0)\rangle$
-3. **Measurement collapses**: probabilities given by the Born rule
-4. **Composite systems**: Use tensor products
-5. **Observables**: Physical quantities are Hermitian operators
-
-These postulates, discovered through experiment, form the bedrock of quantum computing.
-
-<div class="code-reference">
-<i class="fas fa-code"></i> Full mathematical implementations: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_state.py">quantum_state.py</a>, <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/quantum-computing/quantum_postulates.py">quantum_postulates.py</a>
-</div>
-
-## The Future: Quantum Computing's Next Decade
-
-### The Quantum Internet: Connecting Quantum Computers
-
-Just as classical computers became truly powerful when networked together, quantum computers will reach their full potential through quantum networks:
-
-**Quantum Communication**: Provably secure communication using quantum key distribution
-**Distributed Quantum Computing**: Link multiple quantum processors for larger computations
-**Quantum Sensor Networks**: Unprecedented precision in measuring gravitational waves, dark matter
-**Blind Quantum Computing**: Use remote quantum computers without revealing your computation
-
-China has already demonstrated satellite-based quantum communication, and cities worldwide are building quantum networks. The quantum internet is coming.
-
-### Transformative Applications on the Horizon
-
-**Drug Discovery Revolution**: Simulate protein folding, drug-protein interactions, and enzyme catalysis with quantum accuracy. This could slash drug development time from decades to years.
-
-**Materials by Design**: Engineer materials with specific properties - superconductors that work at room temperature, ultra-efficient solar cells, or catalysts that make fertilizer production carbon-neutral.
-
-**Financial Modeling**: Capture market dynamics with quantum models that include all correlations classical computers must approximate.
-
-**Climate Science**: Simulate atmospheric chemistry and dynamics at scales impossible classically, improving climate predictions and mitigation strategies.
-
-### The Quantum Software Revolution
-
-As hardware improves, software becomes crucial:
-
-**Quantum Programming Languages**: Moving beyond circuit models to high-level abstractions
-**Quantum Compilers**: Optimizing programs for specific quantum hardware
-**Error Mitigation**: Clever techniques to extract useful results from noisy quantum computers
-**Quantum Cloud Services**: Making quantum computers accessible to everyone
-
-Companies like IBM, Google, Amazon, and Microsoft are building comprehensive quantum cloud platforms, democratizing access to quantum computing.
-
-## Advanced Quantum Algorithms: Pushing the Boundaries
-
-As we look toward fault-tolerant quantum computers, researchers are developing increasingly sophisticated algorithms that showcase quantum computing's full potential.
-
-### Amplitude Amplification: Generalizing Grover's Algorithm
-
-```python
-class AmplitudeAmplification:
-    """Generalization of Grover's algorithm for any quantum subroutine"""
-    
-    def __init__(self, oracle: Callable, state_preparation: Callable):
-        self.oracle = oracle  # Marks good states with phase -1
-        self.A = state_preparation  # Prepares initial superposition
-    
-    def grover_operator(self) -> Callable:
-        """G = -AS₀A†Sf where S₀, Sf are reflections"""
-        def G(state):
-            # Oracle reflection
-            state = self.oracle(state)
-            
-            # Inversion about average
-            state = self.A.inverse(state)
-            state = self._zero_reflection(state)
-            state = self.A(state)
-            
-            return -state
-        
-        return G
-    
-    def optimal_iterations(self, success_probability: float) -> int:
-        """Calculate optimal number of Grover iterations"""
-        theta = np.arcsin(np.sqrt(success_probability))
-        return int(np.pi / (4 * theta) - 0.5)
-```
-
-Amplitude amplification shows how quantum ideas generalize. While Grover searches databases, amplitude amplification boosts the success probability of any quantum algorithm quadratically. It's a meta-algorithm that makes other quantum algorithms better.
-
-### Quantum Counting: Estimating Without Measuring
-
-```python
-class QuantumCounting:
-    """Count solutions without collapsing the superposition"""
-    
-    def count_solutions(self, n_qubits: int) -> float:
-        """
-        Estimate number of marked items M in database of size N
-        Returns estimate with standard deviation O(√M)
-        """
-        # Use phase estimation on Grover operator
-        grover_op = self._build_grover_operator(n_qubits)
-        
-        # QPE extracts eigenvalue e^(2πiθ) where sin²(πθ) = M/N
-        phase = self._phase_estimation(grover_op)
-        
-        # Extract count
-        N = 2**n_qubits
-        M = N * np.sin(np.pi * phase)**2
-        
-        return M
-```
-
-Quantum counting elegantly combines Grover's algorithm with phase estimation to count solutions without examining them individually - something classically impossible. It achieves quadratic improvement in precision: classical sampling needs O(N) samples for √N precision, while quantum counting needs only O(√N) operations.
-
-### The Future of Quantum Algorithms
-
-The algorithms we've explored - from Deutsch-Jozsa to quantum counting - represent just the beginning. As quantum computers scale up, we'll see:
-
-**Quantum Simulation Algorithms**: Tackling problems in chemistry, materials, and physics that would require universe-scale classical computers
-**Quantum Optimization**: Finding better solutions to logistics, scheduling, and resource allocation
-**Quantum Machine Learning**: Processing and finding patterns in data using uniquely quantum approaches
-**Cryptanalysis**: Not just breaking codes, but understanding the limits of information security
-
-Each new algorithm teaches us more about the boundary between classical and quantum computation, bringing us closer to understanding the true power of quantum mechanics for information processing.
-
-## Getting Started: Programming Quantum Computers
-
-Ready to try quantum computing yourself? Several platforms make it accessible:
-
-### Qiskit: IBM's Quantum Development Kit
-
-Qiskit is an open-source framework that lets you program real quantum computers. Here's how to get started:
-
-```bash
-pip install qiskit
-```
-
-Your first quantum program - creating a Bell state:
-
-```python
+# pip install qiskit qiskit-ibm-runtime
 from qiskit import QuantumCircuit
+from qiskit.primitives import StatevectorSampler
 
-# Create a quantum circuit with 2 qubits
 qc = QuantumCircuit(2)
-
-# Create superposition on first qubit
 qc.h(0)
-
-# Entangle the qubits
 qc.cx(0, 1)
+qc.measure_all()                     # adds a classical register named "meas"
 
-# Visualize what we built
-print(qc)
+# Local, noiseless reference run
+result = StatevectorSampler().run([qc], shots=1000).result()
+print(result[0].data.meas.get_counts())   # e.g. {'00': 503, '11': 497}
 ```
 
-This simple circuit demonstrates superposition (Hadamard gate) and entanglement (CNOT gate) - the key ingredients of quantum computing.
+```python
+from qiskit.transpiler import generate_preset_pass_manager
+from qiskit_ibm_runtime import QiskitRuntimeService, SamplerV2 as Sampler
 
-### Cloud Quantum Computing: Access Without Building
+service = QiskitRuntimeService()     # uses credentials saved with save_account()
+backend = service.least_busy(operational=True, simulator=False)
 
-Quantum computing has become increasingly accessible through cloud platforms:
+isa_circuit = generate_preset_pass_manager(backend=backend, optimization_level=1).run(qc)
+job = Sampler(mode=backend).run([isa_circuit], shots=1000)
+print(job.result()[0].data.meas.get_counts())   # mostly 00/11, plus a few noisy 01/10
+```
 
-**IBM Quantum Network**: 
-- Free access to 5-127 qubit devices
-- Qiskit Runtime for optimized execution
-- 1000+ qubit systems now available
+The small counts of `01` and `10` on hardware come from gate and readout errors. Comparing them with the ideal result is a simple way to see device noise.
 
-**Amazon Braket**: 
-- Access to IonQ (trapped ion), Rigetti (superconducting), QuEra (neutral atom)
-- Integrated with AWS services
-- Hybrid classical-quantum workflows
-
-**Google Quantum AI**: 
-- 70+ qubit Sycamore processors
-- Cirq framework and quantum virtual machine
-- Focus on NISQ algorithms
-
-**Microsoft Azure Quantum**: 
-- IonQ, Quantinuum, and Rigetti hardware
-- Q# programming language
-- Resource estimation tools
-
-**Other Platforms**:
-- **Quantinuum**: Up to 56 qubit trapped-ion systems
-- **PsiQuantum**: Building utility-scale photonic quantum computers
-- **Xanadu Cloud**: Photonic quantum computing with Strawberry Fields
-- **D-Wave Leap**: Quantum annealing for optimization problems
-
-These platforms let you:
-- Run real quantum algorithms on actual quantum hardware
-- Compare different quantum technologies
-- Develop and test quantum software
-- Learn without million-dollar investments
-
-### Example: Running on Real Quantum Hardware
+### Bell state on Amazon Braket
 
 ```python
-# Amazon Braket example
+# pip install amazon-braket-sdk
 from braket.circuits import Circuit
+from braket.devices import LocalSimulator
 from braket.aws import AwsDevice
 
-# Create a quantum circuit
-circuit = Circuit().h(0).cnot(0, 1)
+bell = Circuit().h(0).cnot(0, 1)
 
-# Choose quantum hardware (e.g., IonQ ion trap)
-device = AwsDevice("arn:aws:braket::device/qpu/ionq/ionQdevice")
+print(LocalSimulator().run(bell, shots=1000).result().measurement_counts)
 
-# Run on real quantum computer
-task = device.run(circuit, shots=1000)
-result = task.result()
-
-print(f"Results from real quantum computer: {result.measurement_counts}")
+# Real QPU (billed per task and per shot). Device ARNs are region- and case-specific.
+device = AwsDevice("arn:aws:braket:us-east-1::device/qpu/ionq/Forte-1")
+task = device.run(bell, shots=100)
+print(task.result().measurement_counts)
 ```
 
-## Additional Resources
+### Cloud access
 
-### Educational Materials
+| Service | Hardware | Notes |
+|---------|----------|-------|
+| **IBM Quantum Platform** | IBM Heron-class superconducting processors (100+ qubits) | A free Open Plan gives a small monthly allowance of QPU time; paid plans add priority and dedicated access |
+| **Amazon Braket** | IonQ (Forte), IQM (Garnet, Emerald), Rigetti (Ankaa-3, Cepheus), AQT (IBEX), QuEra Aquila (analog) | Pay-per-shot; managed simulators SV1 and DM1; hybrid jobs |
+| **Azure Quantum** | Partner hardware (for example Quantinuum, IonQ, Pasqal, Rigetti) | Q#/QDK integration and the Azure Quantum Resource Estimator |
+| **Google Quantum AI** | Willow-generation processors | Access through research collaborations rather than a public pay-as-you-go service |
+| **Vendor clouds** | Quantinuum (Nexus), IonQ, D-Wave Leap (annealing), Pasqal | Direct access, often with extra features |
 
-**Online Courses**:
-- IBM Qiskit Textbook (free, comprehensive)
-- Microsoft Quantum Development Kit tutorials
-- MIT OpenCourseWare quantum computation course
+### A minimal statevector simulator
 
-**Hands-On Practice**:
-- Quantum computing puzzles and games
-- Open-source quantum projects on GitHub
-- Quantum hackathons and competitions
-
-### Build Your Own Quantum Simulator
-
-The best way to understand quantum computing is to build a simulator:
+Writing a small simulator makes the linear algebra concrete. The version below applies gates to an $n$-qubit state by reshaping it into a tensor with one axis per qubit, the same method full-scale simulators use.
 
 ```python
-# Start simple - single qubit operations
 import numpy as np
 
-class Qubit:
-    def __init__(self):
-        self.state = np.array([1, 0])  # |0⟩ state
-    
-    def hadamard(self):
-        H = np.array([[1, 1], [1, -1]]) / np.sqrt(2)
-        self.state = H @ self.state
-    
-    def measure(self):
-        prob_zero = abs(self.state[0])**2
-        return 0 if np.random.random() < prob_zero else 1
+H = np.array([[1, 1], [1, -1]]) / np.sqrt(2)
+X = np.array([[0, 1], [1, 0]])
 
-# Test superposition
-q = Qubit()
-q.hadamard()
-results = [q.measure() for _ in range(1000)]
-print(f"Measured 0: {results.count(0)/1000:.2%}")
-print(f"Measured 1: {results.count(1)/1000:.2%}")
+class Statevector:
+    def __init__(self, n):
+        self.n = n
+        self.psi = np.zeros(2**n, dtype=complex)
+        self.psi[0] = 1.0                          # |00...0>
+
+    def apply(self, gate, *qubits):
+        """Apply a k-qubit gate to the given qubits (qubit 0 = most significant)."""
+        k = len(qubits)
+        t = self.psi.reshape([2] * self.n)
+        t = np.moveaxis(t, qubits, range(k))       # bring target axes to the front
+        t = (gate.reshape(2**k, 2**k) @ t.reshape(2**k, -1)).reshape([2] * self.n)
+        self.psi = np.moveaxis(t, range(k), qubits).reshape(-1)
+
+    def sample(self, shots, rng=np.random.default_rng()):
+        probs = np.abs(self.psi) ** 2
+        outcomes = rng.choice(2**self.n, size=shots, p=probs)
+        return np.unique([format(o, f"0{self.n}b") for o in outcomes], return_counts=True)
+
+CNOT = np.eye(4)[[0, 1, 3, 2]]                     # control = first listed qubit
+
+sv = Statevector(2)
+sv.apply(H, 0)
+sv.apply(CNOT, 0, 1)
+print(sv.psi.round(3))       # [0.707, 0, 0, 0.707]
+print(sv.sample(1000))       # only '00' and '11'
 ```
 
-Gradually add features:
-1. Multiple qubits and entanglement
-2. Universal gate set
-3. Quantum algorithms
-4. Noise and error models
-5. Optimization and compilation
+Natural extensions are parameterized rotations, measurement with state collapse, density matrices with noise channels, and Grover's algorithm on 3 to 5 qubits.
 
-### Join the Quantum Community
+## Further Reading
 
-**Get Involved**:
-- Contribute to open-source quantum projects
-- Join quantum computing forums and Discord servers
-- Attend quantum computing meetups and conferences
-- Follow quantum researchers and companies on social media
-
-**Career Paths**:
-- Quantum software engineer
-- Quantum algorithm researcher
-- Quantum hardware engineer
-- Quantum applications scientist
-- Quantum educator and advocate
-
-## Conclusion: The Quantum Future is Being Written Now
-
-Quantum computing represents one of humanity's most ambitious technological undertakings. We're literally harnessing the fundamental laws of nature to process information in revolutionary ways.
-
-The journey from quantum mechanics' discovery to today's quantum computers spans a century. The next decade will likely see quantum computers solving real-world problems, transforming drug discovery, revolutionizing cryptography, and opening possibilities we haven't yet imagined.
-
-Whether you're a student, developer, researcher, or simply curious, there's never been a more exciting time to explore quantum computing. The field needs diverse perspectives and skills - from physics and computer science to engineering and applications.
-
-Quantum computing has moved from theoretical possibility to an active engineering discipline, and its development will continue to unfold over the coming decades.
-
-## Quantum Computing: Current State of the Field
-
-### Recent Breakthroughs
-
-**IBM's Quantum Utility (2023)**: Demonstrated quantum advantage for materials science problems on 127-qubit Eagle processor.
-
-**Google's Error Correction Milestone (2023)**: Achieved logical qubit with lower error rate than physical qubits using surface codes.
-
-**Google's Willow Chip (December 2024)**: Demonstrated the first below-threshold quantum error correction — scaling up the surface code (distance 3 → 5 → 7) drove the logical error rate down exponentially, a key milestone toward fault tolerance.
-
-**Atom Computing's 1,000+ Qubit System (2023)**: Neutral atom platform crossing the 1,000 qubit threshold.
-
-**QuEra's Analog Quantum Computing (2024)**: 256-qubit neutral atom system for optimization problems.
-
-### Industry Applications
-
-**Drug Discovery**:
-- Menten AI and IBM: Quantum-enhanced drug design
-- Roche and Cambridge Quantum Computing: Alzheimer's drug development
-- Merck and Microsoft: Quantum chemistry simulations
-
-**Financial Services**:
-- Goldman Sachs: Quantum algorithms for derivatives pricing
-- JP Morgan: Portfolio optimization with quantum computers
-- HSBC: Quantum-secured communications
-
-**Materials Science**:
-- Mercedes-Benz: Battery chemistry optimization
-- BASF: Catalyst design with quantum simulation
-- Boeing: Quantum algorithms for materials discovery
-
-### Quantum Software Stack
-
-```python
-# Modern quantum development stack
-from qiskit import QuantumCircuit
-from qiskit_ibm_runtime import QiskitRuntimeService, Sampler, Estimator
-from qiskit_nature import problems
-from qiskit_optimization import QuadraticProgram
-from qiskit_machine_learning import QSVM
-
-# Runtime for efficient execution
-service = QiskitRuntimeService()
-backend = service.backend('ibm_brisbane')  # 127-qubit system
-
-# Use primitives for better performance
-sampler = Sampler(backend)
-estimator = Estimator(backend)
-```
-
-### Quantum Programming Frameworks
-
-**Production-Ready**:
-- **Qiskit 1.0**: IBM's framework with stability guarantees
-- **Cirq 1.3**: Google's framework for NISQ algorithms
-- **PennyLane 0.34**: Quantum machine learning focus
-- **Q# and Azure Quantum**: Microsoft's full-stack approach
-
-**Emerging Frameworks**:
-- **CUDA-Q**: NVIDIA's GPU-accelerated quantum simulation
-- **Braket SDK**: AWS's unified interface to multiple backends
-- **Tensorflow Quantum**: Quantum ML with TensorFlow integration
-- **JAX Quantum**: High-performance quantum simulation
-
-## References and Further Reading
-
-### Essential Textbooks
-- Nielsen, M. A., & Chuang, I. L. (2010). *Quantum Computation and Quantum Information*. Cambridge University Press.
-- Preskill, J. (2023). *Quantum Computing in the NISQ era and beyond* (Updated). Quantum, 2, 79.
+**Textbooks**
+- Nielsen, M. A., & Chuang, I. L. (2010). *Quantum Computation and Quantum Information* (10th anniversary ed.). Cambridge University Press.
 - Kitaev, A., Shen, A., & Vyalyi, M. (2002). *Classical and Quantum Computation*. AMS.
-- Hidary, J. D. (2021). *Quantum Computing: An Applied Approach*. Springer.
-- Johnston, E. R., Harrigan, N., & Gimeno-Segovia, M. (2024). *Programming Quantum Computers*. O'Reilly Media.
+- Johnston, E. R., Harrigan, N., & Gimeno-Segovia, M. (2019). *Programming Quantum Computers*. O'Reilly.
 
-### Key Research Papers
-- Arute, F., et al. (2019). "Quantum supremacy using a programmable superconducting processor." *Nature*, 574(7779), 505-510.
-- Kim, Y., et al. (2023). "Evidence for the utility of quantum computing before fault tolerance." *Nature*, 618(7965), 500-505.
-- Google Quantum AI (2023). "Suppressing quantum errors by scaling a surface code logical qubit." *Nature*, 614(7949), 676-681.
-- Bharti, K., et al. (2022). "Noisy intermediate-scale quantum algorithms." *Reviews of Modern Physics*, 94(1), 015004.
-- Cerezo, M., et al. (2022). "Variational quantum algorithms." *Nature Reviews Physics*, 3(9), 625-644.
+**Key papers**
+- Preskill, J. (2018). "Quantum Computing in the NISQ era and beyond." *Quantum* 2, 79.
+- Arute, F., et al. (2019). "Quantum supremacy using a programmable superconducting processor." *Nature* 574, 505–510.
+- Kim, Y., et al. (2023). "Evidence for the utility of quantum computing before fault tolerance." *Nature* 618, 500–505.
+- Bluvstein, D., et al. (2024). "Logical quantum processor based on reconfigurable atom arrays." *Nature* 626, 58–65.
+- Bravyi, S., et al. (2024). "High-threshold and low-overhead fault-tolerant quantum memory." *Nature* 627, 778–782.
+- Google Quantum AI and collaborators (2025). "Quantum error correction below the surface code threshold." *Nature* 638, 920–926.
+- Gidney, C. (2025). "How to factor 2048 bit RSA integers with less than a million noisy qubits." arXiv:2505.15917.
+- Cerezo, M., et al. (2021). "Variational quantum algorithms." *Nature Reviews Physics* 3, 625–644.
 
-### Online Resources
-- [Quantum Algorithm Zoo](https://quantumalgorithmzoo.org/) - Comprehensive list of quantum algorithms
-- [Quirk](https://algassert.com/quirk) - Interactive quantum circuit simulator
-- [PennyLane](https://pennylane.ai/) - Quantum machine learning library
-- [Quantum Computing Stack Exchange](https://quantumcomputing.stackexchange.com/) - Q&A community
-- [Qiskit Textbook](https://qiskit.org/textbook/) - Free interactive quantum computing course
-- [Quantum Open Source Foundation](https://qosf.org/) - Quantum software projects
-- [arXiv Quantum Physics](https://arxiv.org/list/quant-ph/recent) - Latest research papers
-- [Quantum Computing Report](https://quantumcomputingreport.com/) - Industry news and analysis
-
-## Key Takeaways
-
-- **Superposition + entanglement + interference** are the three ingredients of every quantum algorithm: prepare many possibilities at once, correlate them, then steer amplitude toward the answer.
-- **A qubit is a unit vector** $|\psi\rangle = \alpha|0\rangle + \beta|1\rangle$ with $|\alpha|^2+|\beta|^2=1$; $n$ qubits span $2^n$ dimensions, but a single measurement returns only $n$ classical bits.
-- **Quantum gates are reversible (unitary).** A universal set such as $\{H, T, \text{CNOT}\}$ can approximate any computation.
-- **Speedups are selective.** Shor's (factoring) is exponential but needs fault tolerance; Grover's (search) is quadratic; HHL and QPE power chemistry and ML subroutines with important caveats.
-- **Error correction is the gating challenge.** Surface codes and the threshold theorem turn many noisy physical qubits into a few reliable logical ones — today's ~1000:1 overhead is the road to fault tolerance.
+**Online**
+- [IBM Quantum Learning](https://quantum.cloud.ibm.com/learning): free courses built on Qiskit
+- [Quantum Algorithm Zoo](https://quantumalgorithmzoo.org/): a catalogue of quantum algorithms and their speedups
+- [Quirk](https://algassert.com/quirk): a drag-and-drop circuit simulator in the browser
+- [PennyLane demos](https://pennylane.ai/qml/demonstrations): worked variational and QML examples
+- [Quantum Computing Stack Exchange](https://quantumcomputing.stackexchange.com/)
+- [arXiv quant-ph](https://arxiv.org/list/quant-ph/recent): new preprints
 
 ## See Also
 
-- [Quantum Computing Hub](../quantum-computing/) - Learning paths, quick start, and topic map
-- [Quantum Mechanics](../physics/quantum-mechanics/) - Fundamental quantum principles
-- [Quantum Field Theory](../physics/quantum-field-theory.html) - Advanced quantum theory
-- [Statistical Mechanics](../physics/statistical-mechanics/) - Quantum statistics
-- [Condensed Matter Physics](../physics/condensed-matter/) - Quantum phenomena in materials
-- [Advanced Quantum Algorithms Research](../advanced/quantum-algorithms-research/) - Rigorous theory and complexity
-- [AWS](aws/) - AWS Braket quantum computing service
-- [AI](ai/) - Quantum machine learning algorithms
-- [Cybersecurity](cybersecurity/) - Post-quantum cryptography
+- [Quantum Computing Hub](../quantum-computing/): learning paths and a topic map
+- [Quantum Algorithms Research](../advanced/quantum-algorithms-research/): rigorous algorithms, complexity, and QEC theory
+- [Quantum Mechanics](../physics/quantum-mechanics/): the physics underneath
+- [Condensed Matter Physics](../physics/condensed-matter/): superconductivity and topological phases behind the hardware
+- [Cybersecurity](cybersecurity/): post-quantum cryptography migration
+- [AWS](aws/): the Amazon Braket service
+- [AI Fundamentals](ai/): the classical ML that quantum ML is measured against

@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Database Design: Replication & Consensus"
+description: "How databases keep copies of data on several machines: replication topologies, physical vs. logical replication, synchronous vs. asynchronous commit, replication lag, Raft and Paxos, failover, quorum systems, and log-based cloud storage."
 permalink: /docs/technology/database-design/replication-and-consensus.html
 toc: true
 toc_sticky: true
@@ -11,373 +12,405 @@ hide_title: true
 
 # Replication & Consensus
 
-## Why Replicate at All?
+**Replication** keeps copies of the same data on several machines so that a database can survive failures, scale reads, serve users closer to where they are, and take backups without disturbing production. As soon as there is more than one copy, the system must decide what it means for the copies to agree and what to do when they cannot communicate. This page covers the mechanics of copying data (topologies, physical and logical replication, synchronous and asynchronous commit), the consequences for readers (replication lag), the **consensus** protocols that let a cluster agree on a leader and an ordered log despite crashes and partitions (Raft and Paxos), failover, leaderless quorum systems, and the log-shipping cloud architectures that blur the line between replication and storage.
 
-A single database server is a single point of failure and a single ceiling on throughput. **Replication** copies the same data onto multiple machines so the system can:
-
-- **Survive failures** — if the primary dies, a replica takes over (high availability).
-- **Scale reads** — route read-only queries to replicas instead of overloading the primary.
-- **Reduce latency** — place replicas near users in other regions.
-- **Take backups without downtime** — back up a replica instead of the live primary.
-
-The catch is that the moment you have more than one copy, you have to answer a hard question: *what does it mean for the copies to "agree"?* That question is the whole subject of this page. We start with the mechanics of moving data between nodes (replication topologies and the wire formats databases use), then build up to **consensus** — the protocols that let a cluster agree even when machines crash and networks split.
+For the theory underneath — consistency models, CAP/PACELC, and the FLP result — see [Consensus & Coordination](../../distributed-systems/consensus-and-coordination.html).
 
 ## Replication Topologies
 
-A topology describes *who copies from whom*. The choice determines your consistency model, your write throughput, and how painful failover is.
+A topology describes who accepts writes and who copies from whom. It determines whether write conflicts can happen, where write latency comes from, and how failover works.
 
-### Single-Leader (Primary/Replica)
-
-The most common arrangement. One node is the **leader** (a.k.a. primary, master); all writes go to it. The leader streams its changes to one or more **followers** (replicas, standbys), which apply them in the same order.
-
-```
-            writes
-              |
-              v
-        +-----------+
-        |  Leader   |
-        +-----------+
-         /    |    \      replication stream
-        v     v     v
-    +------++------++------+
-    |Follow||Follow||Follow|   <-- serve reads only
-    +------++------++------+
-```
-
-**Pros:** writes have a single ordering authority, so conflicts never arise. Simple to reason about.
-**Cons:** the leader is a write bottleneck and a failover point. Followers lag behind (see [Read Replicas & Replication Lag](#read-replicas--replication-lag)).
-
-Used by PostgreSQL, MySQL, MongoDB replica sets, and most managed cloud databases (Amazon RDS, Cloud SQL).
-
-### Multi-Leader (Active/Active)
-
-Multiple nodes accept writes, typically one leader per region. Each leader replicates its writes to the others.
-
-```
-   Region A                 Region B
-  +--------+   bidirectional  +--------+
-  | Leader |<---------------->| Leader |
-  +--------+   replication    +--------+
+```mermaid
+flowchart TB
+    subgraph SL["Single-leader"]
+        direction TB
+        W1(["writes"]) --> L1["Leader"]
+        L1 --> F1["Follower"]
+        L1 --> F2["Follower"]
+    end
+    subgraph ML["Multi-leader"]
+        direction TB
+        W2(["writes (region A)"]) --> LA["Leader A"]
+        W3(["writes (region B)"]) --> LB["Leader B"]
+        LA <--> LB
+    end
+    subgraph LL["Leaderless"]
+        direction TB
+        CL(["client / coordinator"]) --> N1["Replica 1"]
+        CL --> N2["Replica 2"]
+        CL --> N3["Replica 3"]
+    end
 ```
 
-**Pros:** writes are local in each region (low latency), and the system survives a whole region going offline.
-**Cons:** two regions can write to the same row concurrently, producing a **write conflict** that must be resolved (last-write-wins, CRDTs, or application logic). Multi-leader is powerful but operationally subtle — most teams avoid it unless geography forces their hand.
+| Topology | Writes accepted by | Write conflicts | Typical systems |
+|---|---|---|---|
+| **Single-leader** | One node | Impossible: the leader orders all writes | PostgreSQL, MySQL, SQL Server Always On, MongoDB replica sets, most managed databases |
+| **Multi-leader** | Several nodes, usually one per region | Must be detected and resolved | MySQL Group Replication (multi-primary mode), EDB Postgres Distributed, pgactive, CouchDB |
+| **Leaderless** | Any W of N replicas | Resolved by versions, last-write-wins, or read repair | Cassandra, ScyllaDB, Riak |
+| **Consensus groups** | The Raft/Paxos leader of each shard | Impossible within a shard | CockroachDB, TiDB, YugabyteDB, Spanner, etcd |
 
-### Leaderless (Quorum)
+**Single-leader** replication is the default because it is simple: one node decides the order of writes, so replicas never disagree about *what* happened, only about *how far* they have caught up. The leader is a write bottleneck and its failure requires a failover.
 
-There is no leader at all. A client (or a coordinator on its behalf) writes to *several* replicas directly and reads from *several* replicas, using quorums to paper over the fact that any individual node might be stale or down. This is the Dynamo-style model used by Cassandra, ScyllaDB, and Riak — covered in detail under [Quorum Reads & Writes](#quorum-reads--writes).
+**Multi-leader** replication lets each region write locally and survive the loss of a region, at the price of **write conflicts** when two leaders modify the same row concurrently. Resolution strategies are last-write-wins (simple, silently discards data), conflict-free replicated data types (**CRDTs**, which merge deterministically), or application-level merge logic. Most teams avoid multi-leader unless geography or offline operation requires it; where possible, route each record's writes to a single "home" region to make conflicts rare.
 
-| Topology | Writes go to | Conflict handling | Typical systems |
-|----------|--------------|-------------------|-----------------|
-| Single-leader | One node | None (single ordering) | PostgreSQL, MySQL, RDS |
-| Multi-leader | Several nodes | Required (LWW/CRDT/app) | BDR, CouchDB, multi-region MySQL |
-| Leaderless | A quorum of nodes | Read repair + LWW/versions | Cassandra, Riak, DynamoDB |
+**Leaderless** (Dynamo-style) systems have no leader: a client or coordinator writes to several replicas and reads from several, relying on overlapping quorums. See [Quorum Reads & Writes](#quorum-reads--writes).
+
+**Consensus-replicated** systems are single-leader per shard, but use a consensus protocol so that leader election and commit are provably safe. Distributed SQL databases split data into many ranges, each its own consensus group, so leadership and write load are spread across the cluster.
 
 ## Streaming vs. Logical Replication
 
-Once you pick single-leader, the leader still has to *describe* its changes to followers. There are two fundamentally different wire formats, and the distinction shapes what you can do with the stream.
+A single-leader system must describe its changes to followers. There are two fundamentally different formats.
+
+```mermaid
+flowchart LR
+    subgraph P["Physical (streaming)"]
+        direction LR
+        PW["Primary WAL<br/>page 4217, offset 96:<br/>new bytes"] --> PS["Standby replays<br/>identical bytes"]
+    end
+    subgraph LG["Logical"]
+        direction LR
+        LW["Primary WAL"] --> DEC["Logical decoding"]
+        DEC --> EV["INSERT orders (id=42 ...)<br/>UPDATE users SET email ..."]
+        EV --> SUB["Subscriber, Kafka,<br/>search index, warehouse"]
+    end
+```
 
 ### Physical (Streaming) Replication
 
-The leader ships the **write-ahead log (WAL)** — the same byte-level record of physical page changes it writes for crash recovery (see [Storage Engines & Recovery](storage-internals.html)). Followers replay those WAL records verbatim, reproducing the leader's data files block-for-block.
+The primary ships its **write-ahead log** — the same record of page-level changes it writes for crash recovery (see [Storage Engines & Recovery](storage-internals.html#write-ahead-logging-surviving-crashes)). The standby stays in permanent recovery mode, replaying WAL as it arrives, and its data files are byte-for-byte copies of the primary's.
 
-```
-Leader WAL:   "page 4217, offset 96, write 64 bytes: <bytes>"
-                      |
-                      v  (TCP stream)
-Follower:     apply identical byte change to its own page 4217
-```
+- **Low overhead**: no parsing or re-planning, just log replay.
+- **Exact copy**: a standby can be promoted to primary immediately, and can serve read-only queries (a *hot standby*).
+- **All or nothing**: you replicate the entire cluster, not individual tables.
+- **Version-locked**: primary and standby must run the same major version on the same platform, because WAL is an internal format.
 
-**Properties:**
+This is PostgreSQL **streaming replication** (the `walsender`/`walreceiver` processes) and SQL Server log shipping and Always On availability groups. MySQL is different: its standard replication ships the **binary log**, a logical (row- or statement-based) record separate from InnoDB's redo log, so MySQL replicas are logical copies even when used as HA standbys.
 
-- **Fast and low-overhead** — no parsing or re-planning, just byte replay.
-- **Exact replica** — followers are physically identical, so a follower can be promoted to leader instantly.
-- **All-or-nothing** — you replicate the *entire* cluster; you cannot copy just one table.
-- **Version-locked** — leader and follower usually must run the same major version and architecture, because WAL is an internal format.
-
-This is PostgreSQL **streaming replication** (the `walsender`/`walreceiver` pair) and MySQL's row-based binlog replication when treated as a physical stream. It is the backbone of read replicas and hot standbys.
+A **replication slot** makes the primary retain WAL until a given standby or subscriber has consumed it, so a slow replica cannot fall irrecoverably behind. The flip side is that an abandoned slot retains WAL forever and can fill the primary's disk; cap it with `max_slot_wal_keep_size`, and on PostgreSQL 18 with `idle_replication_slot_timeout`.
 
 ```sql
--- PostgreSQL: a standby connects and streams WAL from the primary.
--- On the standby (postgresql.conf / connection):
---   primary_conninfo = 'host=primary port=5432 user=replicator'
--- The standby stays in continuous recovery, replaying WAL as it arrives.
-
--- Inspect replication state on the primary:
-SELECT client_addr, state, sent_lsn, replay_lsn,
-       pg_wal_lsn_diff(sent_lsn, replay_lsn) AS replay_lag_bytes
+-- On the primary: per-standby replication progress and lag
+SELECT application_name, client_addr, state, sync_state,
+       pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn) AS replay_lag_bytes,
+       write_lag, flush_lag, replay_lag
 FROM pg_stat_replication;
+
+-- Slots and how much WAL each is holding back
+SELECT slot_name, slot_type, active,
+       pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) AS retained
+FROM pg_replication_slots;
 ```
 
 ### Logical Replication
 
-Instead of physical bytes, the leader decodes the WAL into a stream of **logical change events**: "INSERT into orders (id=42, total=19.99)", "UPDATE users SET email=… WHERE id=7". Followers apply these as ordinary statements.
+With **logical decoding**, the primary turns WAL into a stream of row-level change events — "insert this row into `orders`", "update `users` row 7" — which subscribers apply as ordinary operations.
 
-```
-Leader change stream:  INSERT orders (id=42, total=19.99)
-                       UPDATE users SET email='x' WHERE id=7
-                              |
-                              v
-Subscriber:            executes equivalent SQL against its own tables
-```
-
-**Properties:**
-
-- **Selective** — replicate specific tables or rows (a *publication*), not the whole cluster.
-- **Cross-version / cross-engine** — the subscriber only needs to understand the logical rows, so you can replicate Postgres 14 → 16, or feed the stream into Kafka, Elasticsearch, or a data warehouse.
-- **Bidirectional-capable** — the building block for multi-leader and zero-downtime upgrades.
-- **More overhead** — decoding and re-executing is costlier than byte replay, and large transactions/DDL need care.
-
-This is **Change Data Capture (CDC)**: tools like Debezium tail the logical stream to publish every row change to downstream systems.
+- **Selective**: replicate chosen tables (a *publication*), and optionally a row filter or column list.
+- **Cross-version and cross-platform**: the subscriber only needs to understand rows, so PostgreSQL 16 can feed PostgreSQL 18, or the stream can feed Kafka, a search index, or a data warehouse.
+- **Writable subscribers**: the subscriber is an independent database, which enables consolidation, fan-in, and bidirectional setups (PostgreSQL 16 added `origin = none` to prevent changes from looping).
+- **Costs and gaps**: decoding and re-applying rows costs more than byte replay; DDL and sequence values are not replicated in PostgreSQL, so schema changes must be applied to both sides.
 
 ```sql
--- PostgreSQL logical replication: publish a subset on the source...
+-- On the source
 CREATE PUBLICATION orders_pub FOR TABLE orders, order_items;
 
--- ...and subscribe on the destination (possibly a different major version):
+-- On the destination (may be a newer major version)
 CREATE SUBSCRIPTION orders_sub
   CONNECTION 'host=source dbname=shop user=repl'
   PUBLICATION orders_pub;
 ```
 
-> **Rule of thumb.** Use **physical/streaming** replication for high-availability standbys and read replicas of an entire database — it is fastest and yields a byte-identical, instantly-promotable copy. Reach for **logical** replication when you need to replicate a *subset*, cross versions/engines, perform a zero-downtime major upgrade, or feed a CDC pipeline.
+Recent PostgreSQL releases have closed many of the practical gaps: 16 allows logical decoding from a standby and parallel apply of large transactions; 17 adds **failover slots** (logical slots synchronized to standbys, so CDC consumers survive a primary failover) and `pg_createsubscriber`, which converts a physical standby into a logical subscriber without re-copying the data; 18 makes parallel streaming the default for new subscriptions and reports apply conflicts in `pg_stat_subscription_stats`.
+
+Tailing the logical stream to publish every row change to other systems is **change data capture (CDC)**; Debezium is the most widely used open-source implementation. Its reliable counterpart for application events is the [outbox pattern](distributed-transactions.html#the-outbox-pattern).
+
+| Use | Physical | Logical |
+|---|---|---|
+| HA standby, instantly promotable | Yes | Possible, but slower to set up and fail over |
+| Read replica of the whole database | Yes | Yes |
+| Replicate a subset of tables | No | Yes |
+| Major-version upgrade with near-zero downtime | No | Yes |
+| Feed Kafka, search, analytics (CDC) | No | Yes |
+| Replicates DDL automatically | Yes | No (PostgreSQL) |
+
+## Synchronous vs. Asynchronous Replication
+
+When does the primary tell the client a commit succeeded?
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant P as Primary
+    participant S as Standby
+    C->>P: COMMIT
+    P->>P: flush WAL locally
+    alt asynchronous
+        P-->>C: OK
+        P->>S: stream WAL (later)
+    else synchronous
+        P->>S: stream WAL
+        S-->>P: flushed
+        P-->>C: OK
+    end
+```
+
+| Mode | Primary waits for | Data lost if the primary dies | Write latency |
+|---|---|---|---|
+| **Asynchronous** | Nothing beyond its own disk | Anything not yet streamed | Lowest |
+| **Synchronous (one or quorum)** | At least *k* standbys to confirm | None that was acknowledged | Plus a network round-trip to the *k*-th fastest standby |
+| **Synchronous to all** | Every standby | None | Highest; one slow or dead standby stalls all writes |
+
+Waiting for *every* replica is fragile, so production systems wait for a subset. In PostgreSQL, `synchronous_standby_names = 'ANY 1 (s1, s2, s3)'` waits for any one of three standbys, and `synchronous_commit` chooses how far along it must be: `remote_write` (received by the standby's OS), `on` (flushed to its disk), or `remote_apply` (replayed and visible to queries on the standby, giving read-your-writes on that standby). MySQL's semi-synchronous replication (`rpl_semi_sync_source_wait_for_replica_count`) plays the same role. In the cloud, placing synchronous standbys in another availability zone in the same region keeps the added latency to around a millisecond.
 
 ## Read Replicas & Replication Lag
 
-The biggest payoff of single-leader replication is **read scaling**: send writes to the leader and fan reads out to followers.
+The payoff of single-leader replication is read scaling: send writes to the primary and spread reads across replicas. The cost is **replication lag** — the delay between a commit on the primary and its visibility on a replica. It is usually milliseconds, but a write burst, a long-running query on the replica (which can pause replay), a large transaction, or a network problem can stretch it to minutes.
+
+Lag produces anomalies that users notice:
+
+| Anomaly | Scenario | Remedy |
+|---|---|---|
+| **Read-your-writes violation** | A user saves a profile change, the next page load reads a stale replica, and the change seems lost | Route that user's reads to the primary for a short window after a write, or wait until a replica has replayed past the write's LSN |
+| **Monotonic reads violation** | Successive requests hit a fresh replica, then a stale one; data appears to go backwards in time | Pin a session to one replica (for example, hash the user ID) |
+| **Consistent prefix violation** | A reader sees an answer before the question it replies to, because they were written to different shards | Keep causally related writes on the same shard, or track causal dependencies |
+
+The general technique behind the first remedy is a **causal token**: after a write, return the primary's commit LSN (PostgreSQL `pg_current_wal_lsn()`, MySQL GTID set) to the client; a later read goes to any replica whose replayed position is at or beyond that token, and falls back to the primary otherwise. Some managed services and proxies implement this automatically. See [Client-Side Consistency](../../distributed-systems/client-side-consistency.html) for session guarantees in general.
 
 ```python
-# Route queries by intent
-def get_connection(query_is_write: bool):
-    if query_is_write:
-        return primary_pool.get()        # all writes -> leader
-    return random.choice(replica_pools)  # reads -> any follower
+def run_read(query, session):
+    """Serve a read from a replica that has caught up to the session's last write."""
+    token = session.last_write_lsn                      # set after each write
+    for replica in healthy_replicas():
+        if token is None or replica.replayed_lsn() >= token:
+            return replica.execute(query)
+    return primary.execute(query)                       # nobody caught up yet
 ```
 
-But replicas are always a little behind. **Replication lag** is the time (or WAL bytes) between a write committing on the leader and that same write becoming visible on a follower. Under steady load it might be a few milliseconds; under a write spike, a long-running query, or a slow network it can balloon to seconds or minutes.
-
-Lag produces the classic anomaly of asynchronous replication, **read-your-own-writes** violations:
-
-```
-1. User updates their profile photo   -> committed on leader
-2. Page reloads, reads from a replica  -> replica hasn't applied it yet
-3. User sees the OLD photo and panics
-```
-
-### Strategies to Tame Lag
-
-- **Read-your-writes via stickiness** — for a short window after a user writes, route *that user's* reads to the leader (or to a replica known to be caught up). Cheap and effective for "I just changed it" UX.
-- **Monotonic reads** — pin a user's session to a single replica so they never see time go backwards by bouncing between a fresh and a stale node.
-- **Bounded-staleness reads** — only use a replica whose lag is under a threshold; databases expose lag (`pg_stat_replication.replay_lag`, `SHOW REPLICA STATUS \G` → `Seconds_Behind_Source`).
-- **Synchronous replication for critical writes** — make the leader wait for at least one follower to acknowledge before reporting commit. Eliminates lag for that data at the cost of write latency.
-
-### Synchronous vs. Asynchronous Replication
-
-This is the central durability/latency dial:
-
-| Mode | Leader waits for follower? | On leader failure | Write latency |
-|------|----------------------------|-------------------|---------------|
-| **Asynchronous** | No — commit returns immediately | Recently-acked writes can be lost | Lowest |
-| **Synchronous** | Yes — at least one follower acks | No acknowledged write is lost | Higher (network round-trip) |
-| **Semi-sync / quorum** | Waits for *k* of *n* followers | Tunable durability | In between |
-
-Pure synchronous replication to *all* followers is fragile: one slow follower stalls every write. The practical compromise is **semi-synchronous** (PostgreSQL `synchronous_standby_names` with `ANY 1 (...)`, MySQL semi-sync) — block until *one* standby confirms, so you can lose the leader without losing data, but a single straggler can't freeze the cluster.
+Measure lag rather than guess: `replay_lag` in `pg_stat_replication` on the primary, `now() - pg_last_xact_replay_timestamp()` on a PostgreSQL standby, and `Seconds_Behind_Source` from `SHOW REPLICA STATUS` in MySQL (8.0.22+ terminology; older versions use `SHOW SLAVE STATUS`). Alert on lag and remove badly lagging replicas from the read pool automatically.
 
 ## Consensus: Getting Distributed Nodes to Agree
 
-Replication mechanics tell you *how* bytes move; they don't tell you how the cluster decides **who the leader is** when machines crash and networks split. That decision is the job of a **consensus** protocol. Consensus lets a set of nodes agree on a single value (or a single ordered log of values) even though some nodes may fail and messages may be delayed or reordered — as long as a *majority* are alive and can talk to each other.
+Replication moves bytes; it does not decide **who the leader is** when machines crash and networks partition. Doing that safely is the job of a **consensus** protocol, which lets a group of nodes agree on a sequence of values even if a minority of them fail and messages are delayed, lost, or reordered.
 
-Databases use consensus for two closely related jobs:
+Databases use consensus for two related jobs:
 
-1. **Leader election** — pick exactly one leader, and make sure a partitioned-away old leader can't keep accepting writes (avoiding "split-brain").
-2. **Replicated log / state machine replication** — agree on the *order* of writes so every replica applies them identically.
+1. **Leader election** — choose exactly one leader, and make sure a deposed leader that is still running cannot keep committing writes (**split-brain**).
+2. **State machine replication** — agree on the *order* of log entries, so every replica applies the same commands in the same order and ends in the same state.
 
-### Raft: Consensus Made Understandable
+Consensus protocols assume **crash failures** (nodes stop or restart, but do not lie). Tolerating malicious nodes requires Byzantine fault-tolerant protocols, which need $n \ge 3f + 1$ nodes and are used in blockchains rather than databases.
 
-Raft deliberately decomposes the problem into pieces a human can hold in their head: leader election, log replication, and safety.
+### Raft
 
-**The Leader Election Analogy**
-Imagine a group project where you need a coordinator:
+Raft (Ongaro and Ousterhout, 2014) was designed to be understandable. It separates leader election, log replication, and safety, and makes every node a follower, a candidate, or a leader.
 
-1. **Everyone starts as a follower** — waiting for a leader.
-2. **If no leader speaks up** — someone volunteers (becomes a *candidate*).
-3. **Candidates request votes** — "I'll be leader, okay?"
-4. **Majority wins** — becomes leader; others go back to following.
-5. **Leader sends heartbeats** — "Still here, still in charge!"
-
-**How It Handles Failures:**
-
-```python
-# Simplified Raft leader election
-class RaftNode:
-    def __init__(self):
-        self.state = "follower"
-        self.term = 0
-        self.voted_for = None
-
-    def election_timeout(self):
-        # No heartbeat from leader? Start election!
-        self.state = "candidate"
-        self.term += 1
-        self.voted_for = self.id
-
-        votes = 1  # Vote for self
-        for node in other_nodes:
-            if node.request_vote(self.term, self.id):
-                votes += 1
-
-        if votes > len(all_nodes) / 2:
-            self.state = "leader"
-            self.send_heartbeats()  # Tell everyone I'm leader
+```mermaid
+stateDiagram-v2
+    [*] --> Follower
+    Follower --> Candidate: election timeout, no heartbeat
+    Candidate --> Candidate: split vote, timeout, new term
+    Candidate --> Leader: votes from a majority
+    Candidate --> Follower: sees current leader or higher term
+    Leader --> Follower: sees higher term
 ```
 
-**Why This Works:**
+**Terms.** Time is divided into numbered **terms**, each beginning with an election. Every message carries the sender's term; a node that sees a higher term updates its own and reverts to follower, and messages with a stale term are rejected. Terms act as a logical clock that makes deposed leaders harmless: when a partitioned old leader reconnects, its messages carry an outdated term and are refused.
 
-- Only one leader per term (majority vote — two leaders would each need a majority, and two majorities of the same set must overlap, so they can't both win).
-- Split votes resolved by randomized election timeouts (the next timeout to fire usually wins uncontested).
-- Old leaders step down when they see a higher term number.
-- All changes go through the leader, which appends them to a replicated log; an entry is **committed** once a majority of followers have stored it. This single funnel is what makes consistency tractable.
+**Leader election.** A follower that hears no heartbeat within its **randomized election timeout** (for example 150–300 ms) increments its term, votes for itself, and sends `RequestVote` to every other node. A node grants at most one vote per term, and only if the candidate's log is **at least as up to date** as its own (compared by the term, then the index, of the last entry). A candidate with votes from a majority becomes leader. Randomized timeouts make split votes rare, and the up-to-date check guarantees that any elected leader already holds every committed entry.
 
-**Terms as a logical clock.** Each election bumps a monotonically increasing *term* number. Terms let nodes detect stale leaders instantly: any message carrying a smaller term is rejected, and any node seeing a larger term reverts to follower. This is how a partitioned old leader is neutralized — when the partition heals, its writes carry an outdated term and are refused, so it cannot corrupt the committed log.
+**Log replication.** Clients send commands to the leader, which appends them to its log and sends `AppendEntries` to followers (the same message, empty, serves as the heartbeat). Each `AppendEntries` includes the index and term of the preceding entry; a follower whose log does not match rejects it, and the leader backs up until the logs agree, then overwrites the follower's divergent suffix. Once a majority has stored an entry, the leader marks it **committed**, applies it, and tells followers in subsequent messages.
 
-Raft is the engine inside **etcd** (and therefore Kubernetes' control plane), **Consul**, **TiKV/TiDB**, **CockroachDB** (one Raft group *per data range*), and **MongoDB**'s replica-set election protocol.
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant L as Leader (term 5)
+    participant F1 as Follower 1
+    participant F2 as Follower 2
+    C->>L: write x = 7
+    L->>L: append entry 42 (term 5)
+    par replicate
+        L->>F1: AppendEntries(prev=41/5, entry 42)
+        L->>F2: AppendEntries(prev=41/5, entry 42)
+    end
+    F1-->>L: success
+    Note over L: 2 of 3 have entry 42: committed
+    L-->>C: OK
+    F2-->>L: success (late, harmless)
+```
 
-### Paxos: The Original (Complex) Solution
+A condensed sketch of the vote-granting rule, which is where most home-grown implementations go wrong:
 
-Paxos solves the same problem but is notoriously hard to understand — Leslie Lamport originally presented it through an analogy of part-time legislators on the fictional Greek island of Paxos. The key insight is a **two-phase** structure that guarantees safety even when proposers fail or compete:
+```python
+def handle_request_vote(self, term, candidate_id, last_log_index, last_log_term):
+    if term < self.current_term:
+        return False                                   # stale candidate
+    if term > self.current_term:
+        self.current_term, self.voted_for = term, None
+        self.state = "follower"
+    up_to_date = (last_log_term, last_log_index) >= (self.last_log_term(), self.last_log_index())
+    if self.voted_for in (None, candidate_id) and up_to_date:
+        self.voted_for = candidate_id
+        self.persist()                                 # term and vote must survive a restart
+        self.reset_election_timer()
+        return True
+    return False
+```
 
-- **Phase 1 — Prepare:** a proposer picks a ballot number *n* and asks a majority of *acceptors* to promise not to accept anything numbered below *n*. Acceptors reply with the highest-numbered value they have already accepted (if any).
-- **Phase 2 — Accept:** the proposer then asks the majority to accept value *v* at ballot *n* — where *v* must be the value from the highest-numbered prior acceptance it heard about, if one exists. This rule is what prevents two different values from ever being chosen.
+Production implementations add several refinements:
 
-A value is **chosen** once a majority of acceptors have accepted it at the same ballot. Because any two majorities overlap in at least one acceptor, no two conflicting values can both be chosen — the same overlap argument that makes Raft safe.
+- **Pre-vote**: a node first checks whether it *could* win before incrementing its term, so a node isolated by a flaky link does not disrupt a healthy leader when it reconnects.
+- **CheckQuorum / leader leases**: a leader steps down if it has not heard from a majority recently, and can serve **linearizable reads** locally while its lease is valid instead of running a round of consensus for each read (the alternative is Raft's *ReadIndex* protocol).
+- **Joint consensus** or single-server changes for adding and removing members safely.
+- **Snapshots** to truncate the log, and batching and pipelining of `AppendEntries` for throughput.
 
-Basic ("single-decree") Paxos agrees on *one* value. Real systems need an ordered *log* of values, so they use **Multi-Paxos**, which elects a stable leader to skip Phase 1 on the common path — at which point it looks a lot like Raft, just harder to implement correctly. Google's Chubby lock service and Spanner's per-shard replication use Paxos variants.
+Raft or a close variant runs inside **etcd** (and therefore every Kubernetes control plane), **Consul**, **CockroachDB** (one Raft group per range), **TiKV/TiDB**, **YugabyteDB**, **MongoDB** replica sets (protocol version 1 is Raft-inspired), and **Apache Kafka**, whose KRaft metadata quorum fully replaced ZooKeeper in Kafka 4.0 (2025).
 
-<div class="notice--info">
-  <p><strong>Raft vs. Paxos in practice.</strong> They provide the same guarantees and the same fault tolerance (survive failure of a minority, i.e. up to <code>floor((n-1)/2)</code> of <code>n</code> nodes). Raft "won" in industry not because it is more capable but because its prescriptive, single-leader design is dramatically easier to implement, test, and operate. Most new systems reach for Raft; Paxos endures in older Google infrastructure and the literature.</p>
-</div>
+### Paxos
+
+Paxos (Lamport, *The Part-Time Parliament*, 1998; *Paxos Made Simple*, 2001) solves the same problem and was the first protocol proven correct for it. Single-decree Paxos agrees on one value using **proposers**, **acceptors**, and **learners**, in two phases:
+
+1. **Prepare / promise.** A proposer picks a ballot number *n* and sends `prepare(n)` to the acceptors. Each acceptor that has not promised a higher ballot promises to ignore lower ballots from now on, and reports the highest-ballot value it has already accepted, if any.
+2. **Accept / accepted.** Once a majority has promised, the proposer sends `accept(n, v)`, where *v* **must** be the value from the highest-numbered acceptance reported in phase 1 — the proposer may choose its own value only if none was reported. Acceptors accept unless they have since promised a higher ballot.
+
+A value is **chosen** once a majority of acceptors accept it in the same ballot. Because any two majorities intersect, a later proposer's phase 1 always discovers a chosen value and is forced to propose it again, so two different values can never both be chosen.
+
+**Multi-Paxos** agrees on a whole log by running an instance per slot and letting a stable leader skip phase 1 for every slot after the first. At that point it closely resembles Raft; the differences are mostly in how leader election and log gaps are handled, and Raft's prescriptive design is easier to implement correctly.
+
+Paxos variants run Google's Chubby and Spanner, MySQL Group Replication (the XCom protocol), Amazon DynamoDB's per-partition replication, and Cassandra's lightweight transactions. **Flexible Paxos** (Howard, Malkhi and Spiegelman, 2016) showed that only phase-1 and phase-2 quorums need to intersect each other, not every pair of quorums — so a system can use small replication quorums at the price of larger election quorums.
 
 ### Why an Odd Number of Nodes?
 
-Consensus needs a **majority (quorum) = floor(n/2) + 1**. The fault tolerance — how many nodes can fail while a majority survives — is what matters:
+Consensus needs a **majority**, $\lfloor n/2 \rfloor + 1$ nodes, to elect a leader or commit an entry. The number of failures a cluster tolerates is therefore $\lfloor (n-1)/2 \rfloor$:
 
-| Cluster size *n* | Majority needed | Failures tolerated |
-|------------------|-----------------|--------------------|
+| Cluster size *n* | Majority | Failures tolerated |
+|---|---|---|
 | 3 | 2 | 1 |
 | 4 | 3 | 1 |
 | 5 | 3 | 2 |
 | 6 | 4 | 2 |
+| 7 | 4 | 3 |
 
-Notice that going from 3→4 or 5→6 adds a node but *not* fault tolerance, while making quorum harder to reach (more nodes must agree, slowing writes). That is why consensus clusters almost always run **3 or 5 nodes** — odd sizes give the best failure-tolerance-per-node.
+Adding a fourth or sixth node increases the quorum size without increasing fault tolerance, and makes commits wait on more replicas. Consensus clusters therefore run 3 or 5 voting members (occasionally 7). Nodes added purely to scale reads join as **non-voting** members (Raft *learners*, MongoDB non-voting members, etcd learners). Spread voters across failure domains: three nodes in one rack survive a disk failure but not a rack outage, and a two-datacentre deployment always has one site holding the majority — a third site, even a small witness, is what lets the cluster survive the loss of either main site.
 
 ## Failover & High Availability
 
-Consensus solves leader election *inside* the database. But a complete HA story has more moving parts: detecting that the leader is gone, promoting a replacement, and redirecting clients.
+Consensus databases elect a new leader themselves. Traditional primary/standby databases such as PostgreSQL and MySQL need an external **HA manager** to do the equivalent: detect failure, pick a replacement, promote it, and redirect clients.
 
-### The Failover Sequence
-
+```mermaid
+sequenceDiagram
+    participant M as HA manager + DCS (etcd or Consul)
+    participant P as Old primary
+    participant S as Most up-to-date standby
+    participant R as Router / proxy / DNS
+    M->>P: health check
+    P--xM: no response (x3)
+    M->>M: leader key in DCS expires, confirm with quorum
+    M->>P: fence (revoke lease, STONITH, block at proxy)
+    M->>S: promote
+    S-->>M: now primary (new timeline)
+    M->>R: point writes at new primary
+    Note over P: On return, rejoins as a standby<br/>(pg_rewind if its history diverged)
 ```
-1. Detect    Health checks / heartbeats stop arriving from the leader.
-2. Decide    Don't act on one missed beat (a GC pause looks like death).
-             Confirm via timeout + (ideally) a majority's agreement.
-3. Promote   Choose the most up-to-date replica; tell it to become leader.
-4. Reconfigure  Point clients/proxy at the new leader; demote the old one.
-5. Recover   When the old leader returns, it rejoins as a follower
-             (it must NOT keep serving writes -> split-brain).
-```
 
-### Automatic vs. Manual Failover
+The steps and their pitfalls:
 
-- **Automatic** (etcd/Raft elections, Patroni for PostgreSQL, Orchestrator/Group Replication for MySQL, MongoDB replica sets) — fast recovery, no human in the loop, but risks acting on a false alarm.
-- **Manual** — an operator confirms and triggers promotion. Slower, but avoids needless failovers during transient blips.
+1. **Detect.** One missed heartbeat is not a failure: a garbage-collection pause, a long `fsync`, or a congested link looks identical to a crash. Require several misses and, ideally, agreement from a quorum of observers.
+2. **Fence.** Before promoting a replacement, make sure the old primary *cannot* accept writes — revoke its lease, cut it off at the proxy, or power it off (STONITH, "shoot the other node in the head"). Without fencing, two primaries accept writes simultaneously and diverge (split-brain).
+3. **Promote** the standby with the most WAL applied; with asynchronous replication, anything the old primary committed but never shipped is lost at this point.
+4. **Redirect** clients, via a proxy (HAProxy, PgBouncer, ProxySQL), a virtual IP, DNS, or a Kubernetes Service.
+5. **Rejoin.** The old primary must return as a standby. If it had written WAL the new primary never received, its history has diverged and must be rewound (`pg_rewind`) or rebuilt.
 
-### The Two Failure Modes to Fear
+Common tooling:
 
-- **Split-brain** — two nodes both believe they are leader and both accept writes, silently diverging. Consensus prevents this *for committed data* by requiring a majority; the old leader, stuck in a minority partition, cannot reach quorum and so cannot commit. Systems without true consensus (e.g. naive primary/replica with an external failover script) must add **fencing** — actively shutting down or STONITH-ing the old leader — to be safe.
-- **Lost writes on failover** — with *asynchronous* replication, a leader can ack writes that no follower has yet received; if it then dies, those writes vanish when a behind replica is promoted. Synchronous/semi-sync replication trades latency to close this gap.
+| Database | HA managers |
+|---|---|
+| PostgreSQL | **Patroni** (stores leader state in etcd, Consul, ZooKeeper, or the Kubernetes API), **CloudNativePG** and other Kubernetes operators, pg_auto_failover, repmgr |
+| MySQL | **InnoDB Cluster** (Group Replication plus MySQL Router), Orchestrator, Vitess (sharding and failover) |
+| Managed cloud | RDS/Aurora Multi-AZ, Cloud SQL HA, Azure Database flexible server HA — see [AWS Databases](../aws/databases.html) |
 
-```python
-# A health check that resists false positives:
-def leader_is_dead(leader, *, misses_required=3, interval_s=1):
-    consecutive_misses = 0
-    for _ in range(misses_required):
-        if leader.heartbeat(timeout=interval_s):
-            return False          # any success -> still alive
-        consecutive_misses += 1
-    # Require a majority of MONITORS to agree before promoting,
-    # so a single observer's network blip can't trigger failover.
-    return consecutive_misses >= misses_required and quorum_of_monitors_agree()
-```
+Patroni illustrates the standard design: instead of implementing consensus itself, it delegates it to a distributed configuration store. The primary holds a leader key with a short TTL and renews it continually; a primary that cannot renew the key demotes itself, and standbys race to acquire the key when it expires. The store's consensus guarantees there is only one leader key.
+
+**Recovery objectives.** Asynchronous replication with automatic failover typically yields a recovery time (RTO) of tens of seconds and a small but non-zero recovery point (RPO). Synchronous replication to at least one standby makes RPO zero for acknowledged writes. Failover does not protect against logical errors such as a bad `DELETE`, which replicate faithfully; that requires backups and point-in-time recovery ([Operations & Monitoring](operations-and-monitoring.html#point-in-time-recovery-pitr)).
 
 ## Quorum Reads & Writes
 
-Leaderless (Dynamo-style) systems skip elections entirely and lean on **quorums** to deliver consistency on demand. The idea: with *N* replicas of each piece of data, a write must be acknowledged by *W* replicas and a read must consult *R* replicas.
-
-The magic inequality is:
+Leaderless (Dynamo-style) systems skip elections and use **quorums** to provide consistency on demand. Each key is stored on *N* replicas; a write succeeds once *W* replicas acknowledge it, and a read consults *R* replicas and returns the newest version it sees. If
 
 $$
 W + R > N
 $$
 
-When this holds, the set of nodes a write touched and the set a read touches are guaranteed to **overlap in at least one node** — so every read sees at least one replica carrying the latest write. (It's the same majority-overlap argument that makes Raft and Paxos safe, exposed as a tunable knob.) Each stored value carries a version (timestamp or vector clock), so the reader can pick the newest among the replicas it contacted.
+then every read quorum overlaps every write quorum in at least one replica, so a read contacts at least one node holding the latest successful write — the same intersection argument behind Raft and Paxos, exposed as a per-request setting.
+
+```mermaid
+flowchart LR
+    WR(["write v2<br/>W = 3"]) --> A["A: v2"]
+    WR --> B["B: v2"]
+    WR --> C["C: v2"]
+    RD(["read<br/>R = 3"]) --> C
+    RD --> D["D: v1 (stale)"]
+    RD --> E["E: v1 (stale)"]
+```
+
+With N = 5, W = 3, R = 3, the write reached A, B, and C. A read that happens to contact C, D, and E still finds v2 on C, returns it, and repairs D and E.
 
 ```python
-# Dynamo-style tunable quorum
-N = 3   # replicas per key
-W = 2   # acks required for a write to succeed
-R = 2   # replicas consulted for a read
-# W + R = 4 > N = 3  -> read and write sets always overlap
+N, W, R = 3, 2, 2        # W + R = 4 > 3: read and write sets overlap
 
-def write(key, value, version):
-    acks = 0
-    for replica in replicas_for(key):              # N replicas
-        if replica.put(key, value, version):
-            acks += 1
-        if acks >= W:                              # quorum reached
-            return "OK"
-    return "FAILED: quorum not met"
+def write(key, value):
+    version = hlc_now()                               # timestamp or vector clock
+    acks = send_to_all(replicas_for(key), ("put", key, value, version))
+    return "OK" if wait_for(acks, W) else "FAILED: quorum not met"
 
 def read(key):
-    responses = []
-    for replica in replicas_for(key):
-        responses.append(replica.get(key))         # value + version
-        if len(responses) >= R:
-            break
-    # Newest version wins; stale replicas get fixed (read repair)
-    return max(responses, key=lambda r: r.version)
+    responses = wait_for(send_to_all(replicas_for(key), ("get", key)), R)
+    newest = max(responses, key=lambda r: r.version)
+    for r in responses:
+        if r.version < newest.version:
+            r.replica.repair(key, newest)             # read repair
+    return newest.value
 ```
 
 ### Tuning the Knobs
 
-| Goal | Setting | Effect |
-|------|---------|--------|
-| Strong-ish consistency | `W + R > N` | Reads always see latest acked write |
-| Fast writes, durable | `W=1` (small) | Cheap writes, but reads may miss them unless `R` large |
-| Fast reads | `R=1` | One replica answers; may be stale |
-| Survive a node loss on write | `W <= N-1` | Don't require the down node |
+| Goal | Setting (N = 3) | Trade-off |
+|---|---|---|
+| Reads see the latest acknowledged write | W + R > N, e.g. W = 2, R = 2 | Each request waits for the slower of two replicas |
+| Fast writes | W = 1 | A read must use R = N to be sure of seeing it |
+| Fast reads | R = 1 | Writes need W = N, so one down node blocks writes |
+| Survive one node down for both | W = 2, R = 2 | Standard choice |
 
-Cassandra exposes these as per-query *consistency levels* (`ONE`, `QUORUM`, `ALL`, `LOCAL_QUORUM`); DynamoDB offers "eventually consistent" (`R=1`) vs. "strongly consistent" reads. `QUORUM` on both reads and writes (W=R=⌈(N+1)/2⌉) satisfies the overlap rule.
+Cassandra exposes these as per-query **consistency levels** (`ONE`, `QUORUM`, `LOCAL_QUORUM`, `EACH_QUORUM`, `ALL`); `QUORUM` for both reads and writes ($\lfloor N/2 \rfloor + 1$ each) satisfies the overlap rule, and `LOCAL_QUORUM` confines the quorum to one datacentre to avoid cross-region latency. For contrast, Amazon DynamoDB is *not* leaderless internally: each partition is replicated with Multi-Paxos, and a "strongly consistent" read is served by the partition leader while an "eventually consistent" read may be served by any replica.
 
 ### The Catch: Quorums Aren't Quite Linearizable
 
-`W + R > N` guarantees a read overlaps the latest *successful* write, but it does **not** by itself give you the strong, single-copy illusion (linearizability) that Raft/Paxos provide:
+$W + R > N$ ensures overlap with the latest *successful* write, but it does not by itself provide linearizability — the illusion of a single up-to-date copy that Raft and Paxos give:
 
-- **Sloppy quorums / hinted handoff** — to stay available during a partition, a write may be accepted by *any* W reachable nodes (not the "home" replicas). Now the overlap guarantee with later reads can break.
-- **Concurrent writes** — two clients writing the same key at once produce sibling versions that last-write-wins may silently drop. Vector clocks detect the conflict but the application must resolve it.
-- **Partial writes** — a write that reaches some but not W replicas is neither rolled back nor completed; later reads may or may not see it.
+- **Sloppy quorums and hinted handoff** — to stay writable during a partition, a write may be accepted by any W reachable nodes, not the key's home replicas, and handed back later. Until then, a read quorum of home replicas may miss it.
+- **Concurrent writes** — two clients writing the same key produce conflicting versions. Last-write-wins silently discards one (and depends on clock accuracy); vector clocks detect the conflict but leave resolution to the application.
+- **Partial writes** — a write that reached fewer than W replicas reports failure but is not rolled back; later reads may or may not return it.
+- **Read-after-read anomalies** — without read repair completing synchronously, two sequential reads can return new then old values.
 
-**Read repair** and **anti-entropy** (background Merkle-tree comparison between replicas) heal the resulting divergence over time, which is why these systems are described as *eventually consistent*. If you need true linearizable guarantees, use a consensus-backed system (Raft/Paxos, Spanner, CockroachDB) rather than tuning quorums.
+Background **anti-entropy** (comparing Merkle trees of replica contents) and read repair converge the replicas over time, which is why these systems are described as eventually consistent. Where true linearizability is needed for a few operations, Cassandra offers Paxos-based **lightweight transactions** (`INSERT ... IF NOT EXISTS`, `UPDATE ... IF`); for more, use a consensus-replicated database.
 
 <div class="notice--info">
-  <p>Quorum replication sits at the <strong>AP</strong> end of the <a href="distributed-and-nosql.html#the-cap-theorem-pick-two">CAP</a> spectrum (available, eventually consistent), while consensus-replicated systems sit at the <strong>CP</strong> end (consistent, refusing writes when they can't reach a majority). Choosing between them is choosing what to do during a network partition.</p>
+  <p>In <a href="distributed-and-nosql.html#the-cap-theorem">CAP</a> terms, quorum replication with sloppy quorums sits at the <strong>AP</strong> end (stays available during a partition, converges later), while consensus-replicated systems sit at the <strong>CP</strong> end (the minority side refuses writes). PACELC adds the everyday trade-off: even without a partition, stronger consistency costs latency.</p>
 </div>
 
-> **Code Reference:** For working implementations of leader election, quorum I/O, and the other algorithms here, see [`distributed_systems.py`](../../../code-examples/technology/database-design/distributed_systems.py).
+## Log-Based Cloud Storage
+
+Cloud-native databases move replication below the database engine. **Amazon Aurora** sends only redo-log records from the compute node to a storage service that keeps six copies of each 10 GB segment across three availability zones, acknowledging a write once four of the six have it (read quorum three), so the storage layer can lose an entire zone without losing writes. Storage nodes materialize pages from the log themselves, and read replicas share the same storage volume, so replica lag is typically tens of milliseconds and adding a replica does not copy data. **Neon** (Postgres) follows a similar split, with the WAL made durable by a Paxos-replicated set of *safekeepers* and served to compute nodes by *pageservers*; Google **AlloyDB** and Azure SQL Hyperscale take related approaches.
+
+These architectures change the operational picture — failover is a compute restart against shared storage, and new replicas start in seconds — but the underlying ideas are the ones on this page: a single ordered log, made durable by a quorum.
+
+> **Code Reference:** Toy implementations of leader election, quorum reads and writes, and related algorithms are in [`distributed_systems.py`](../../../code-examples/technology/database-design/distributed_systems.py).
 
 ## See Also
 
-- **Closely related:** [Distributed Databases & NoSQL](distributed-and-nosql.html) — CAP, distributed transactions (2PC/Saga), and the NoSQL data models these techniques underpin.
-- **Foundations:** [Storage Engines & Recovery](storage-internals.html) — the write-ahead log that physical replication streams.
-- **Correctness:** [Transactions & Concurrency](transactions-and-concurrency.html) — ACID and isolation, the single-node story replication must preserve.
-- **Up:** [Database Design hub](./)
-- See also: [AWS](../aws/) for managed replication (RDS read replicas, Multi-AZ failover) and [Networking](../networking/) for the protocols beneath these clusters.
+- [Consensus & Coordination](../../distributed-systems/consensus-and-coordination.html) — consistency models, CAP/PACELC, FLP, and deeper Paxos and Raft coverage.
+- [Replication Strategies](../../distributed-systems/replication-strategies.html) — replication from the general distributed-systems perspective.
+- [Distributed Databases & NoSQL](distributed-and-nosql.html) — CAP, NewSQL, and choosing a database.
+- [Distributed Transactions](distributed-transactions.html) — 2PC, sagas, and the outbox pattern.
+- [Storage Engines & Recovery](storage-internals.html) — the write-ahead log that replication ships.
+- [Transactions & Concurrency](transactions-and-concurrency.html) — the single-node isolation guarantees replication must preserve.
+- [Operations & Monitoring](operations-and-monitoring.html) — backups, PITR, and monitoring replicas in production.
+- **Up:** [Database Design hub](./) · Related: [AWS](../aws/) for managed replication (RDS read replicas, Multi-AZ, Aurora) and [Networking](../networking/) for the protocols beneath these clusters.

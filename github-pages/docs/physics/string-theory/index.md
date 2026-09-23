@@ -1,902 +1,297 @@
 ---
 layout: docs
 title: String Theory
+description: "Foundations of string theory: why strings, the classical and quantum relativistic string, the critical dimension, the superstring, and the five ten-dimensional superstring theories."
 permalink: /docs/physics/string-theory/
 toc: false
 hide_title: true
 ---
 
-<!-- Custom styles for string theory visualizations -->
-<link rel="stylesheet" href="{{ '/assets/css/physics-string-theory.css' | relative_url }}">
-
 <div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 1.5rem 2rem; margin: -2rem -3rem 2rem -3rem;">
   <h1 style="color: white; margin: 0; font-size: 2rem;">String Theory</h1>
-  <p style="margin-top: 0.5rem; opacity: 0.9;">The Quest for a Theory of Everything</p>
+  <p style="margin-top: 0.5rem; opacity: 0.9;">Quantum gravity from one-dimensional objects</p>
 </div>
 
-String theory is a theoretical framework in which the point-like particles of particle physics are replaced by one-dimensional objects called strings. It attempts to describe all fundamental forces and forms of matter in a single, unified theory. String theory potentially provides a quantum theory of gravity and has profoundly influenced our understanding of spacetime, quantum mechanics, and cosmology.
+**String theory** is a framework in which the point-like particles of quantum field theory are replaced by one-dimensional extended objects, **strings**, whose different vibrational states appear as different particles. Its defining feature is that a massless spin-2 state — the **graviton** — appears automatically in the spectrum of the closed string, so the theory is a candidate for a consistent quantum theory of gravity unified with gauge forces and matter. Quantum consistency fixes the spacetime dimension (26 for the bosonic string, 10 for the superstring) and, at weak coupling, allows exactly five supersymmetric theories, now understood as limits of a single framework often called **M-theory**. No experiment has yet tested a prediction specific to string theory; its established impact so far is on mathematics, black-hole physics, and quantum field theory (notably through holography).
 
-This hub covers the foundations: what strings are, the classical and quantum theory of a single string, and the five superstring theories. Three companion pages continue the story:
+This hub covers the foundations: the motivation, the classical and quantum theory of a single string, the superstring, and the five theories. Three companion pages continue:
 
-- [**D-Branes, Dualities & M-Theory**](dualities-and-branes.html) — D-branes, T- and S-duality, M-theory, compactification, AdS/CFT, black holes, and cosmology.
-- [**Criticisms & Research Frontiers**](frontiers-and-formalism.html) — open problems, current research directions, experimental prospects, and the live debates over the theory's scientific status.
-- [**Graduate Formalism**](string-theory-formalism.html) — the full graduate-level mathematical machinery: worldsheet CFT, RNS and Green-Schwarz superstrings, BRST quantization, D-brane actions, Calabi-Yau compactification, and the AdS/CFT dictionary.
+| Page | Covers |
+|---|---|
+| [D-Branes, Dualities & M-Theory](dualities-and-branes.html) | D-branes, T- and S-duality, M-theory and F-theory, Calabi–Yau and flux compactification, AdS/CFT, black-hole microstates |
+| [Criticisms & Research Frontiers](frontiers-and-formalism.html) | The landscape and the Swampland, holography and quantum information, amplitudes, experimental status and phenomenology, the scientific-status debate |
+| [Graduate Formalism](string-theory-formalism.html) | Worldsheet CFT, BRST quantization, RNS and Green–Schwarz superstrings, D-brane actions, the AdS/CFT dictionary, topological strings |
 
-## Fundamental Concepts
+## Motivation
 
-**Why replace particles with strings?** The motivation is a crisis at the meeting point of our two best theories. Quantum field theory treats particles as *points*, and general relativity treats gravity as *spacetime curvature*. Try to combine them — to quantize gravity the way we quantized electromagnetism — and the calculations spew uncontrollable infinities. A point particle has zero size, so interactions happen at a single spacetime point where field strengths blow up; for gravity these divergences cannot be renormalized away. String theory's one radical move fixes this: smear the point out into a tiny one-dimensional **string** roughly $10^{-35}$ m long. Interactions are now spread over the smooth tube of a worldsheet rather than crammed into a single point, and the infinities soften into finite answers. The unexpected bonus: one of the string's natural vibration modes is a massless spin-2 particle with exactly the properties of the **graviton**. String theory does not just *tolerate* gravity — it predicts it.
+General relativity and quantum field theory are each extremely well tested, but they do not combine naively. Quantizing the metric as a field around flat space gives a theory whose coupling, Newton's constant $G$, has mass dimension $-2$ in four dimensions; each additional loop brings more powers of energy, and the divergences cannot be absorbed into finitely many parameters. Perturbative quantum gravity is therefore **non-renormalizable**: it works as an effective field theory below the Planck scale $M_{\text{Pl}} \approx 1.2 \times 10^{19}$ GeV but says nothing about what happens above it.
 
-<div class="concepts-section">
-  <div class="string-types">
-    <h3><i class="fas fa-circle-notch"></i> From Points to Strings</h3>
-    <p>In string theory, fundamental objects are not zero-dimensional points but one-dimensional strings:</p>
-    
-    <div class="string-comparison">
-      <div class="string-card closed">
-        <h4><i class="fas fa-ring"></i> Closed Strings</h4>
-        <p>Form loops with no endpoints</p>
-        <svg viewBox="0 0 220 200" class="string-visual" style="max-width: 500px; width: 100%;">
-          <!-- Define gradients and markers -->
-          <defs>
-            <linearGradient id="stringGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" style="stop-color:#2980b9;stop-opacity:0.9" />
-              <stop offset="50%" style="stop-color:#c0392b;stop-opacity:1" />
-              <stop offset="100%" style="stop-color:#2980b9;stop-opacity:0.9" />
-            </linearGradient>
-            <marker id="arrowUp" markerWidth="10" markerHeight="10" refX="5" refY="0" orient="auto">
-              <path d="M 0 5 L 5 0 L 10 5" stroke="#555" fill="none" stroke-width="1.5" />
-            </marker>
-            <marker id="arrowDown" markerWidth="10" markerHeight="10" refX="5" refY="10" orient="auto">
-              <path d="M 0 5 L 5 10 L 10 5" stroke="#555" fill="none" stroke-width="1.5" />
-            </marker>
-          </defs>
-          <!-- Background circle showing equilibrium position -->
-          <circle cx="110" cy="85" r="50" fill="none" stroke="#34495e" stroke-width="2" stroke-dasharray="4,3" opacity="0.4" />
-          <text x="170" y="50" font-size="12" fill="#555" font-style="italic">n=0 (ground)</text>
-          <!-- First harmonic (n=1) - prominent -->
-          <path d="M 60 85 Q 85 65, 110 85 Q 135 105, 160 85 Q 135 65, 110 85 Q 85 105, 60 85"
-                fill="none" stroke="#2980b9" stroke-width="3.5" opacity="0.95" />
-          <text x="185" y="75" font-size="12" fill="#2980b9" font-weight="bold">n=1</text>
-          <!-- Second harmonic (n=2) -->
-          <path d="M 65 80 Q 80 70, 95 80 Q 110 90, 125 80 Q 140 70, 155 80 Q 140 95, 125 85 Q 110 75, 95 85 Q 80 95, 65 85"
-                fill="none" stroke="#c0392b" stroke-width="2.5" opacity="0.8" />
-          <text x="185" y="95" font-size="12" fill="#c0392b" font-weight="bold">n=2</text>
-          <!-- Third harmonic (n=3) -->
-          <path d="M 63 82 Q 70 77, 77 82 Q 84 87, 91 82 Q 98 77, 105 82 Q 112 87, 119 82 Q 126 77, 133 82 Q 140 87, 147 82 Q 154 77, 161 82"
-                fill="none" stroke="#d35400" stroke-width="2" opacity="0.65" />
-          <text x="185" y="115" font-size="12" fill="#d35400" font-weight="bold">n=3</text>
-          <!-- Vibration direction arrows -->
-          <path d="M 85 55 L 85 45" stroke="#555" stroke-width="2" marker-end="url(#arrowUp)" />
-          <path d="M 135 115 L 135 125" stroke="#555" stroke-width="2" marker-end="url(#arrowDown)" />
-          <text x="75" y="42" font-size="11" fill="#555">vibration</text>
-          <!-- Main labels -->
-          <text x="110" y="160" text-anchor="middle" font-size="15" fill="#2c3e50" font-weight="bold">Vibrating Closed String</text>
-          <text x="110" y="178" text-anchor="middle" font-size="13" fill="#555">Harmonic modes n = 0, 1, 2, 3, ...</text>
-          <text x="110" y="193" text-anchor="middle" font-size="11" fill="#777">Higher n = higher energy/mass</text>
-        </svg>
-      </div>
-      
-      <div class="string-card open">
-        <h4><i class="fas fa-wave-square"></i> Open Strings</h4>
-        <p>Have two distinct endpoints</p>
-        <svg viewBox="0 0 240 200" class="string-visual" style="max-width: 500px; width: 100%;">
-          <!-- Define arrow markers first -->
-          <defs>
-            <marker id="arrowUp2" markerWidth="10" markerHeight="10" refX="5" refY="0" orient="auto">
-              <path d="M 0 5 L 5 0 L 10 5" stroke="#555" fill="none" stroke-width="1.5" />
-            </marker>
-            <marker id="arrowDown2" markerWidth="10" markerHeight="10" refX="5" refY="10" orient="auto">
-              <path d="M 0 5 L 5 10 L 10 5" stroke="#555" fill="none" stroke-width="1.5" />
-            </marker>
-          </defs>
-          <!-- Background equilibrium line -->
-          <line x1="40" y1="85" x2="180" y2="85" stroke="#bdc3c7" stroke-width="2" stroke-dasharray="5,3" opacity="0.5" />
-          <!-- Endpoints (enlarged and highlighted) -->
-          <circle cx="40" cy="85" r="8" fill="#c0392b" stroke="#922b21" stroke-width="2" />
-          <circle cx="180" cy="85" r="8" fill="#c0392b" stroke="#922b21" stroke-width="2" />
-          <!-- Fundamental mode (n=1) -->
-          <path d="M 40 85 Q 110 40, 180 85" fill="none" stroke="#27ae60" stroke-width="3.5" opacity="0.95" />
-          <text x="200" y="55" font-size="12" fill="#27ae60" font-weight="bold">n=1</text>
-          <!-- First overtone (n=2) -->
-          <path d="M 40 85 Q 75 60, 110 85 Q 145 110, 180 85" fill="none" stroke="#2980b9" stroke-width="2.8" opacity="0.85" />
-          <text x="200" y="80" font-size="12" fill="#2980b9" font-weight="bold">n=2</text>
-          <!-- Second overtone (n=3) -->
-          <path d="M 40 85 Q 62 68, 85 85 Q 110 100, 135 85 Q 157 68, 180 85" fill="none" stroke="#d35400" stroke-width="2.2" opacity="0.7" />
-          <text x="200" y="105" font-size="12" fill="#d35400" font-weight="bold">n=3</text>
-          <!-- Boundary condition labels -->
-          <text x="40" y="60" text-anchor="middle" font-size="12" fill="#555" font-weight="bold">Endpoint</text>
-          <text x="180" y="60" text-anchor="middle" font-size="12" fill="#555" font-weight="bold">Endpoint</text>
-          <!-- Vibration arrows -->
-          <path d="M 110 45 L 110 32" stroke="#555" stroke-width="2" marker-end="url(#arrowUp2)" />
-          <path d="M 75 108 L 75 120" stroke="#555" stroke-width="2" marker-end="url(#arrowDown2)" />
-          <path d="M 145 108 L 145 120" stroke="#555" stroke-width="2" marker-end="url(#arrowDown2)" />
-          <text x="125" y="30" font-size="11" fill="#555">vibration</text>
-          <!-- Main labels -->
-          <text x="110" y="150" text-anchor="middle" font-size="15" fill="#2c3e50" font-weight="bold">Vibrating Open String</text>
-          <text x="110" y="168" text-anchor="middle" font-size="13" fill="#555">Standing wave modes with fixed ends</text>
-          <text x="110" y="185" text-anchor="middle" font-size="11" fill="#777">Endpoints can attach to D-branes</text>
-        </svg>
-      </div>
-    </div>
-    
-    <div class="vibrational-modes">
-      <h4>Vibrational Modes = Particles</h4>
-      <div class="mode-spectrum">
-        <svg viewBox="0 0 600 260" style="max-width: 500px; width: 100%;">
-          <!-- Define arrow -->
-          <defs>
-            <marker id="energyArrow" markerWidth="12" markerHeight="12" refX="6" refY="6" orient="auto">
-              <path d="M 0 12 L 6 0 L 12 12" fill="none" stroke="#2c3e50" stroke-width="2" />
-            </marker>
-          </defs>
+String theory addresses this by changing the objects that interact. A point particle traces a **worldline**; a string traces a two-dimensional **worldsheet**. In a Feynman diagram, particles meet at a vertex — a sharp point where the short-distance divergences originate. A string interaction is a smooth surface (the "pair of pants" below) with no distinguished point at which the interaction happens, and the ultraviolet behaviour of string amplitudes is soft: in perturbation theory, string amplitudes are free of the ultraviolet divergences of point-particle gravity.
 
-          <!-- Energy level axis -->
-          <line x1="60" y1="220" x2="60" y2="30" stroke="#2c3e50" stroke-width="2.5" marker-end="url(#energyArrow)" />
-          <text x="30" y="25" font-size="14" fill="#2c3e50" font-weight="bold">Energy</text>
-          <text x="30" y="42" font-size="12" fill="#555">(E/Ms)</text>
+<figure>
+<svg viewBox="0 0 600 230" role="img" aria-label="Left: a Feynman vertex where three particle worldlines meet at a point. Right: the corresponding closed-string diagram, a smooth pair-of-pants surface where two tubes merge into one." style="max-width: 600px; width: 100%; height: auto;" fill="none" stroke="currentColor" font-family="inherit">
+  <!-- Feynman vertex -->
+  <g stroke-width="2.5">
+    <line x1="70" y1="190" x2="150" y2="110"/>
+    <line x1="230" y1="190" x2="150" y2="110"/>
+    <line x1="150" y1="110" x2="150" y2="30"/>
+  </g>
+  <circle cx="150" cy="110" r="6" fill="currentColor" stroke="none"/>
+  <text x="162" y="114" fill="currentColor" stroke="none" font-size="13">vertex: a single point</text>
+  <text x="150" y="222" text-anchor="middle" fill="currentColor" stroke="none" font-size="14" font-weight="bold">Particles: worldlines meet at a point</text>
+  <!-- Pair of pants -->
+  <g stroke-width="2">
+    <ellipse cx="400" cy="30" rx="32" ry="8"/>
+    <ellipse cx="345" cy="190" rx="32" ry="8"/>
+    <ellipse cx="505" cy="190" rx="32" ry="8"/>
+    <path d="M 313 190 C 313 120, 368 100, 368 30"/>
+    <path d="M 537 190 C 537 120, 432 100, 432 30"/>
+    <path d="M 377 190 C 377 130, 473 130, 473 190"/>
+  </g>
+  <path d="M 313 190 C 313 120, 368 100, 368 30 L 432 30 C 432 100, 537 120, 537 190 L 473 190 C 473 130, 377 130, 377 190 Z" fill="currentColor" fill-opacity="0.08" stroke="none"/>
+  <text x="425" y="222" text-anchor="middle" fill="currentColor" stroke="none" font-size="14" font-weight="bold">Strings: a smooth worldsheet, no vertex</text>
+  <text x="20" y="20" fill="currentColor" stroke="none" font-size="12" font-style="italic">time</text>
+  <line x1="30" y1="200" x2="30" y2="30" stroke-width="1.2" stroke-dasharray="3,3"/>
+</svg>
+<figcaption>Two strings joining into one. Slicing the pants at different times gives different "moments of interaction" depending on the observer's time coordinate, so there is no invariant interaction point — the origin of the soft short-distance behaviour.</figcaption>
+</figure>
 
-          <!-- Ground state (tachyon for bosonic string) -->
-          <line x1="80" y1="195" x2="200" y2="195" stroke="#c0392b" stroke-width="4" />
-          <circle cx="70" cy="195" r="4" fill="#c0392b" />
-          <text x="210" y="200" font-size="14" fill="#c0392b" font-weight="bold">n=0: Tachyon</text>
-          <text x="210" y="215" font-size="12" fill="#777">(m² &lt; 0, unstable in bosonic string)</text>
+The second reason string theory is taken seriously is that gravity is not put in by hand. The closed string always contains a massless symmetric spin-2 state, and consistency of the string propagating in a curved background requires, at leading order in $\alpha'$, that the background obey Einstein's equations. Gauge fields, chiral fermions, and supersymmetry arise from the same structure.
 
-          <!-- First excited state - MASSLESS -->
-          <line x1="80" y1="155" x2="200" y2="155" stroke="#2980b9" stroke-width="4" />
-          <circle cx="70" cy="155" r="4" fill="#2980b9" />
-          <!-- Mode shape visualization -->
-          <path d="M 90 150 Q 110 140, 130 150 Q 150 160, 170 150 Q 190 140, 200 150"
-                fill="none" stroke="#2980b9" stroke-width="2" opacity="0.7" />
-          <text x="210" y="150" font-size="14" fill="#2980b9" font-weight="bold">n=1: Massless States</text>
-          <text x="210" y="167" font-size="12" fill="#555">Graviton, Dilaton, B-field</text>
+### Historical development
 
-          <!-- Second excited state - MASSIVE -->
-          <line x1="80" y1="110" x2="200" y2="110" stroke="#27ae60" stroke-width="4" />
-          <circle cx="70" cy="110" r="4" fill="#27ae60" />
-          <!-- Mode shape -->
-          <path d="M 90 105 Q 100 98, 110 105 Q 120 112, 130 105 Q 140 98, 150 105 Q 160 112, 170 105 Q 180 98, 190 105"
-                fill="none" stroke="#27ae60" stroke-width="2" opacity="0.7" />
-          <text x="210" y="108" font-size="14" fill="#27ae60" font-weight="bold">n=2: Massive Particles</text>
-          <text x="210" y="123" font-size="12" fill="#555">Mass proportional to 1/string length</text>
+| Year | Development |
+|---|---|
+| 1968 | Veneziano writes a scattering amplitude with the Regge behaviour seen in hadron physics |
+| 1970 | Nambu, Nielsen, and Susskind interpret it as the scattering of relativistic strings |
+| 1971 | Ramond, Neveu, and Schwarz add worldsheet fermions — the precursor of the superstring |
+| 1974 | Scherk–Schwarz and Yoneya identify the massless spin-2 state as the graviton; strings are recast as a theory of gravity. QCD displaces string models of hadrons |
+| 1984 | Green and Schwarz show anomaly cancellation for gauge group $SO(32)$ ("first superstring revolution") |
+| 1985 | Heterotic string (Gross, Harvey, Martinec, Rohm); Calabi–Yau compactification (Candelas, Horowitz, Strominger, Witten) |
+| 1995 | Witten proposes M-theory; Polchinski identifies D-branes as carriers of Ramond–Ramond charge ("second revolution") |
+| 1996 | Strominger and Vafa count black-hole microstates with D-branes |
+| 1997 | Maldacena proposes the AdS/CFT correspondence |
+| 2003 | KKLT construction of de Sitter vacua; the "landscape" enters the debate |
+| 2006 | Ryu–Takayanagi formula ties entanglement entropy to bulk geometry |
+| 2019 | Island / quantum-extremal-surface computations reproduce the Page curve of an evaporating black hole |
 
-          <!-- Higher states (tower) -->
-          <line x1="80" y1="75" x2="200" y2="75" stroke="#d35400" stroke-width="3" opacity="0.85" />
-          <circle cx="70" cy="75" r="3" fill="#d35400" opacity="0.85" />
-          <line x1="80" y1="50" x2="200" y2="50" stroke="#8e44ad" stroke-width="3" opacity="0.7" />
-          <circle cx="70" cy="50" r="3" fill="#8e44ad" opacity="0.7" />
-          <line x1="80" y1="35" x2="200" y2="35" stroke="#7f8c8d" stroke-width="2" opacity="0.5" />
-          <circle cx="70" cy="35" r="2" fill="#7f8c8d" opacity="0.5" />
-          <text x="210" y="60" font-size="14" fill="#555" font-weight="bold">n = 3, 4, 5, ...</text>
-          <text x="210" y="77" font-size="12" fill="#777">Infinite tower of heavy particles</text>
+## Strings and Scales
 
-          <!-- Mass formula box -->
-          <rect x="400" y="85" width="185" height="130" fill="#f8f9fa" stroke="#34495e" stroke-width="2" rx="8" />
-          <text x="492" y="110" text-anchor="middle" font-size="15" fill="#2c3e50" font-weight="bold">Mass Formulas</text>
-          <line x1="415" y1="120" x2="570" y2="120" stroke="#bdc3c7" stroke-width="1" />
-          <text x="492" y="145" text-anchor="middle" font-size="13" fill="#c0392b">Bosonic:</text>
-          <text x="492" y="162" text-anchor="middle" font-size="14" fill="#2c3e50" font-weight="bold">M² = (n-1)/l_s²</text>
-          <text x="492" y="185" text-anchor="middle" font-size="13" fill="#27ae60">Superstring:</text>
-          <text x="492" y="202" text-anchor="middle" font-size="14" fill="#2c3e50" font-weight="bold">M² = n/l_s²</text>
+A string is characterized by a single dimensionful parameter, the **Regge slope** $\alpha'$, equivalently the **string tension** $T$ or the **string length** $\ell_s$ (natural units, $\hbar = c = 1$):
 
-          <!-- Legend -->
-          <text x="80" y="248" font-size="12" fill="#555">n = oscillator excitation number</text>
-          <text x="320" y="248" font-size="12" fill="#555">l_s = string length scale</text>
-        </svg>
-      </div>
-    </div>
-  </div>
-  
-  <div class="string-scale">
-    <h3><i class="fas fa-ruler"></i> String Scale</h3>
-    <p>The fundamental length scale in string theory:</p>
-    
-    <div class="scale-equations">
-      <div class="equation-box primary" markdown="1">
-$$\ell_s = \sqrt{\frac{\hbar}{T}} \approx 10^{-35} \text{ m}$$
-</div>
-      <p>Where T is the string tension. This is near the Planck length:</p>
-      <div class="equation-box" markdown="1">
-$$\ell_P = \sqrt{\frac{\hbar G}{c^3}} \approx 1.6 \times 10^{-35} \text{ m}$$
-</div>
-    </div>
-    
-    <div class="scale-comparison">
-      <svg viewBox="0 0 550 150" style="max-width: 500px; width: 100%;">
-        <!-- Title -->
-        <text x="275" y="22" text-anchor="middle" font-size="16" fill="#2c3e50" font-weight="bold">Length Scales in Physics</text>
+$$T = \frac{1}{2\pi\alpha'}, \qquad \ell_s = \sqrt{\alpha'}, \qquad M_s = \frac{1}{\sqrt{\alpha'}}.$$
 
-        <!-- Scale bar with gradient -->
-        <defs>
-          <linearGradient id="scaleGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" style="stop-color:#8e44ad;stop-opacity:1" />
-            <stop offset="50%" style="stop-color:#2980b9;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#27ae60;stop-opacity:1" />
-          </linearGradient>
-        </defs>
-        <line x1="60" y1="70" x2="490" y2="70" stroke="url(#scaleGradient)" stroke-width="6" stroke-linecap="round" />
+A second parameter, the **string coupling** $g_s$, controls interactions. It is not a free input: it is the expectation value of a dynamical scalar, the dilaton, $g_s = e^{\langle \phi \rangle}$.
 
-        <!-- Markers -->
-        <line x1="60" y1="58" x2="60" y2="82" stroke="#8e44ad" stroke-width="3" />
-        <line x1="170" y1="58" x2="170" y2="82" stroke="#9b59b6" stroke-width="3" />
-        <line x1="330" y1="58" x2="330" y2="82" stroke="#2980b9" stroke-width="3" />
-        <line x1="490" y1="58" x2="490" y2="82" stroke="#27ae60" stroke-width="3" />
+Strings come in two topologies:
 
-        <!-- Scale labels (names) -->
-        <text x="60" y="100" text-anchor="middle" font-size="14" fill="#8e44ad" font-weight="bold">Planck</text>
-        <text x="170" y="100" text-anchor="middle" font-size="14" fill="#9b59b6" font-weight="bold">String</text>
-        <text x="330" y="100" text-anchor="middle" font-size="14" fill="#2980b9" font-weight="bold">Proton</text>
-        <text x="490" y="100" text-anchor="middle" font-size="14" fill="#27ae60" font-weight="bold">Atom</text>
+- **Closed strings** are loops. Their spectrum always contains the graviton.
+- **Open strings** have two endpoints. Their massless states include gauge bosons, and the endpoints may be confined to hypersurfaces called **D-branes**.
 
-        <!-- Scale values -->
-        <text x="60" y="50" text-anchor="middle" font-size="13" fill="#555" font-weight="bold">10⁻³⁵ m</text>
-        <text x="170" y="50" text-anchor="middle" font-size="13" fill="#555" font-weight="bold">~10⁻³⁵ m</text>
-        <text x="330" y="50" text-anchor="middle" font-size="13" fill="#555" font-weight="bold">10⁻¹⁵ m</text>
-        <text x="490" y="50" text-anchor="middle" font-size="13" fill="#555" font-weight="bold">10⁻¹⁰ m</text>
+Every consistent string theory contains closed strings, because two open-string endpoints can join.
 
-        <!-- Descriptive labels -->
-        <text x="60" y="117" text-anchor="middle" font-size="11" fill="#777">Length</text>
-        <text x="170" y="117" text-anchor="middle" font-size="11" fill="#777">Length</text>
-        <text x="330" y="117" text-anchor="middle" font-size="11" fill="#777">Radius</text>
-        <text x="490" y="117" text-anchor="middle" font-size="11" fill="#777">Radius</text>
+### How large is a string?
 
-        <!-- Scale factor annotations -->
-        <text x="115" y="135" text-anchor="middle" font-size="11" fill="#aaa">~equal</text>
-        <text x="250" y="135" text-anchor="middle" font-size="11" fill="#aaa">10²⁰ larger</text>
-        <text x="410" y="135" text-anchor="middle" font-size="11" fill="#aaa">10⁵ larger</text>
-      </svg>
-    </div>
-  </div>
-  
-  <div class="worldsheet-concept">
-    <h3><i class="fas fa-scroll"></i> Worldsheet</h3>
-    <p>As a string moves through spacetime, it traces out a two-dimensional surface called a worldsheet:</p>
-    
-    <div class="worldsheet-comparison">
-      <div class="trace-item">
-        <svg viewBox="0 0 200 260" style="max-width: 500px; width: 100%;">
-          <!-- Define arrow marker -->
-          <defs>
-            <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-              <path d="M 0 0 L 8 3 L 0 6" fill="#555" />
-            </marker>
-          </defs>
-          <!-- Title -->
-          <text x="100" y="20" text-anchor="middle" font-size="15" fill="#2c3e50" font-weight="bold">Point Particle</text>
-          <!-- Point particle at different times -->
-          <circle cx="100" cy="210" r="8" fill="#c0392b" opacity="1" />
-          <circle cx="100" cy="175" r="7" fill="#c0392b" opacity="0.7" />
-          <circle cx="100" cy="140" r="6" fill="#c0392b" opacity="0.5" />
-          <circle cx="100" cy="105" r="5" fill="#c0392b" opacity="0.35" />
-          <circle cx="100" cy="70" r="4" fill="#c0392b" opacity="0.2" />
-          <circle cx="100" cy="45" r="3" fill="#c0392b" opacity="0.1" />
-          <!-- Worldline -->
-          <line x1="100" y1="210" x2="100" y2="45" stroke="#2980b9" stroke-width="3" />
-          <!-- Labels -->
-          <text x="100" y="235" text-anchor="middle" font-size="14" fill="#2c3e50" font-weight="bold">0-Dimensional</text>
-          <text x="145" y="125" font-size="13" fill="#2980b9" font-weight="bold">Worldline</text>
-          <text x="145" y="142" font-size="12" fill="#555">(1D curve)</text>
-          <!-- Time axis -->
-          <path d="M 30 210 L 30 40" stroke="#555" stroke-width="2" marker-end="url(#arrow)" />
-          <text x="25" y="32" font-size="12" fill="#555" font-weight="bold">t</text>
-          <text x="18" y="50" font-size="10" fill="#777">(time)</text>
-          <!-- Space axis -->
-          <path d="M 30 210 L 175 210" stroke="#555" stroke-width="2" marker-end="url(#arrow)" />
-          <text x="182" y="215" font-size="12" fill="#555" font-weight="bold">x</text>
-        </svg>
-      </div>
+The string scale is often quoted as "about the Planck length, $10^{-35}$ m", but the two are related through the coupling and the volume of any extra dimensions. For a ten-dimensional theory compactified on a six-dimensional space of volume $V_6$, the four-dimensional Planck mass satisfies, up to numerical factors,
 
-      <div class="trace-item">
-        <svg viewBox="0 0 260 260" style="max-width: 500px; width: 100%;">
-          <!-- Gradients and markers -->
-          <defs>
-            <linearGradient id="sheetGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" style="stop-color:#2980b9;stop-opacity:0.15" />
-              <stop offset="100%" style="stop-color:#2980b9;stop-opacity:0.5" />
-            </linearGradient>
-            <marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-              <path d="M 0 0 L 8 3 L 0 6" fill="#555" />
-            </marker>
-          </defs>
-          <!-- Title -->
-          <text x="130" y="20" text-anchor="middle" font-size="15" fill="#2c3e50" font-weight="bold">Closed String</text>
-          <!-- String at initial time (bottom) -->
-          <ellipse cx="130" cy="205" rx="50" ry="12" fill="none" stroke="#c0392b" stroke-width="3.5" />
-          <!-- String at intermediate times -->
-          <ellipse cx="130" cy="170" rx="42" ry="10" fill="none" stroke="#c0392b" stroke-width="2.5" opacity="0.6" />
-          <ellipse cx="130" cy="135" rx="34" ry="8" fill="none" stroke="#c0392b" stroke-width="2" opacity="0.4" />
-          <ellipse cx="130" cy="100" rx="26" ry="6" fill="none" stroke="#c0392b" stroke-width="1.5" opacity="0.3" />
-          <ellipse cx="130" cy="70" rx="18" ry="4" fill="none" stroke="#c0392b" stroke-width="1" opacity="0.2" />
-          <ellipse cx="130" cy="45" rx="12" ry="3" fill="none" stroke="#c0392b" stroke-width="0.5" opacity="0.1" />
-          <!-- Worldsheet surface -->
-          <path d="M 80 205 L 118 45 L 142 45 L 180 205 Z" fill="url(#sheetGradient)" stroke="#2980b9" stroke-width="2.5" />
-          <!-- Grid lines on worldsheet (tau = constant) -->
-          <path d="M 88 170 L 172 170" stroke="#1a5276" stroke-width="1" opacity="0.5" />
-          <path d="M 96 135 L 164 135" stroke="#1a5276" stroke-width="1" opacity="0.5" />
-          <path d="M 104 100 L 156 100" stroke="#1a5276" stroke-width="1" opacity="0.5" />
-          <path d="M 112 70 L 148 70" stroke="#1a5276" stroke-width="1" opacity="0.5" />
-          <!-- Grid lines (sigma = constant) -->
-          <path d="M 100 205 L 122 45" stroke="#1a5276" stroke-width="1" opacity="0.4" />
-          <path d="M 130 205 L 130 45" stroke="#1a5276" stroke-width="1" opacity="0.4" />
-          <path d="M 160 205 L 138 45" stroke="#1a5276" stroke-width="1" opacity="0.4" />
-          <!-- Labels -->
-          <text x="130" y="235" text-anchor="middle" font-size="14" fill="#2c3e50" font-weight="bold">1-Dimensional</text>
-          <text x="205" y="120" font-size="13" fill="#2980b9" font-weight="bold">Worldsheet</text>
-          <text x="205" y="138" font-size="12" fill="#555">(2D surface)</text>
-          <!-- Time axis -->
-          <path d="M 35 205 L 35 40" stroke="#555" stroke-width="2" marker-end="url(#arrow2)" />
-          <text x="30" y="32" font-size="12" fill="#555" font-weight="bold">t</text>
-          <text x="23" y="50" font-size="10" fill="#777">(time)</text>
-          <!-- Parameter labels -->
-          <text x="60" y="250" font-size="11" fill="#777">Parameters: (tau, sigma)</text>
-        </svg>
-      </div>
-    </div>
-  </div>
-</div>
+$$M_{\text{Pl}}^2 \sim \frac{M_s^8 \, V_6}{g_s^2}.$$
+
+With $g_s \lesssim 1$ and $V_6 \sim \ell_s^6$ this gives $M_s$ within one or two orders of magnitude of $M_{\text{Pl}}$ — the conventional expectation. Large volumes, strongly warped geometries, or very small $g_s$ can lower $M_s$ substantially, in principle as far as the TeV scale; collider and gravity experiments constrain those scenarios (see [experimental signatures](frontiers-and-formalism.html#experimental-signatures-and-phenomenology)).
+
+| Scale | Length | Energy |
+|---|---|---|
+| Planck length $\ell_P = \sqrt{\hbar G / c^3}$ | $1.6 \times 10^{-35}$ m | $1.2 \times 10^{19}$ GeV |
+| String length $\ell_s$ (conventional) | $\sim 10^{-34}$ – $10^{-32}$ m | $\sim 10^{16}$ – $10^{18}$ GeV |
+| LHC resolution | $\sim 10^{-20}$ m | $\sim 10^{4}$ GeV |
+| Proton radius | $0.84 \times 10^{-15}$ m | — |
 
 ## Classical String Theory
 
-<div class="classical-string-section">
-  <div class="action-formulations">
-    <h3><i class="fas fa-integral"></i> String Actions</h3>
-    
-    <div class="action-cards">
-      <div class="action-card nambu-goto">
-        <h4>Nambu-Goto Action</h4>
-        <p>The action for a relativistic string (area of worldsheet):</p>
-        <div class="equation-box" markdown="1">
-$$S = -T \int dA = -T \int d\tau d\sigma \sqrt{-\det(h_{ab})}$$
-</div>
-        <p class="note">Where $h_{ab}$ is the induced metric on the worldsheet</p>
-        
-        <div class="geometric-interpretation">
-          <svg viewBox="0 0 280 200" style="max-width: 500px; width: 100%;">
-            <defs>
-              <linearGradient id="minAreaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" style="stop-color:#2980b9;stop-opacity:0.15" />
-                <stop offset="100%" style="stop-color:#2980b9;stop-opacity:0.45" />
-              </linearGradient>
-            </defs>
-            <!-- Title -->
-            <text x="140" y="20" text-anchor="middle" font-size="14" fill="#2c3e50" font-weight="bold">Minimal Area Principle</text>
-            <!-- Initial string position (bottom) -->
-            <ellipse cx="140" cy="160" rx="45" ry="10" fill="none" stroke="#c0392b" stroke-width="3" />
-            <text x="200" y="165" font-size="12" fill="#c0392b" font-weight="bold">t = 0</text>
-            <!-- Final string position (top) -->
-            <ellipse cx="140" cy="55" rx="30" ry="7" fill="none" stroke="#c0392b" stroke-width="3" />
-            <text x="185" y="60" font-size="12" fill="#c0392b" font-weight="bold">t = T</text>
-            <!-- Minimal area worldsheet (highlighted) -->
-            <path d="M 95 160 Q 95 107, 110 55 L 170 55 Q 185 107, 185 160 Z"
-                  fill="url(#minAreaGrad)" stroke="#2980b9" stroke-width="2.5" />
-            <!-- Grid lines on worldsheet -->
-            <path d="M 100 140 L 180 140" stroke="#1a5276" stroke-width="1" opacity="0.5" />
-            <path d="M 103 120 L 177 120" stroke="#1a5276" stroke-width="1" opacity="0.5" />
-            <path d="M 106 100 L 174 100" stroke="#1a5276" stroke-width="1" opacity="0.5" />
-            <path d="M 109 80 L 171 80" stroke="#1a5276" stroke-width="1" opacity="0.5" />
-            <!-- Non-minimal surfaces (comparison) -->
-            <path d="M 95 160 Q 60 107, 110 55" fill="none" stroke="#7f8c8d" stroke-width="2" stroke-dasharray="5,3" opacity="0.6" />
-            <path d="M 185 160 Q 220 107, 170 55" fill="none" stroke="#7f8c8d" stroke-width="2" stroke-dasharray="5,3" opacity="0.6" />
-            <text x="45" y="105" font-size="11" fill="#7f8c8d">Non-minimal</text>
-            <text x="215" y="105" font-size="11" fill="#7f8c8d">Non-minimal</text>
-            <!-- Caption -->
-            <text x="140" y="185" text-anchor="middle" font-size="13" fill="#2c3e50" font-weight="bold">Classical path: Minimal worldsheet area</text>
-            <text x="140" y="198" text-anchor="middle" font-size="11" fill="#555">S = -T x Area (Nambu-Goto action)</text>
-          </svg>
-        </div>
-      </div>
-      
-      <div class="action-card polyakov">
-        <h4>Polyakov Action</h4>
-        <p>Equivalent formulation with manifest reparametrization invariance:</p>
-        <div class="equation-box" markdown="1">
-$$S = -\frac{T}{2} \int d^2\sigma \sqrt{-h} h^{ab} \partial_a X^\mu \partial_b X_\mu$$
-</div>
-        <p class="note">Independent worldsheet metric $h_{ab}$</p>
-        
-        <div class="advantages">
-          <span class="advantage-tag">Easier quantization</span>
-          <span class="advantage-tag">Manifest symmetries</span>
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  <div class="equations-motion">
-    <h3><i class="fas fa-wave-square"></i> Equations of Motion</h3>
-    
-    <div class="wave-equation">
-      <p>The string satisfies the wave equation:</p>
-      <div class="equation-box highlighted" markdown="1">
-$$\frac{\partial^2 X^\mu}{\partial \tau^2} - \frac{\partial^2 X^\mu}{\partial \sigma^2} = 0$$
-</div>
-      
-      <div class="wave-visualization">
-        <svg viewBox="0 0 420 180" style="max-width: 500px; width: 100%;">
-          <!-- Define arrow markers -->
-          <defs>
-            <marker id="waveArrowL" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-              <path d="M 0 0 L 8 3 L 0 6" fill="#2980b9" />
-            </marker>
-            <marker id="waveArrowR" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-              <path d="M 0 0 L 8 3 L 0 6" fill="#c0392b" />
-            </marker>
-          </defs>
-          <!-- Title -->
-          <text x="210" y="22" text-anchor="middle" font-size="15" fill="#2c3e50" font-weight="bold">Wave Equation Solutions</text>
-          <!-- Left-moving wave (blue) -->
-          <path d="M 40 85 Q 60 60, 80 85 Q 100 110, 120 85 Q 140 60, 160 85 Q 180 110, 200 85"
-                fill="none" stroke="#2980b9" stroke-width="3.5" opacity="0.9" />
-          <!-- Right-moving wave (red) -->
-          <path d="M 220 85 Q 240 110, 260 85 Q 280 60, 300 85 Q 320 110, 340 85 Q 360 60, 380 85"
-                fill="none" stroke="#c0392b" stroke-width="3.5" opacity="0.9" />
-          <!-- Superposition region -->
-          <rect x="185" y="55" width="50" height="60" fill="#9b59b6" opacity="0.15" rx="5" />
-          <path d="M 180 85 Q 195 55, 210 85 Q 225 115, 240 85"
-                fill="none" stroke="#8e44ad" stroke-width="4" />
-          <!-- Direction arrows -->
-          <path d="M 125 50 L 155 50" stroke="#2980b9" stroke-width="3" marker-end="url(#waveArrowL)" />
-          <path d="M 295 120 L 265 120" stroke="#c0392b" stroke-width="3" marker-end="url(#waveArrowR)" />
-          <!-- Wave labels -->
-          <text x="90" y="42" font-size="14" fill="#2980b9" font-weight="bold">X_L(tau + sigma)</text>
-          <text x="290" y="42" font-size="14" fill="#c0392b" font-weight="bold">X_R(tau - sigma)</text>
-          <!-- Superposition label -->
-          <text x="210" y="135" text-anchor="middle" font-size="12" fill="#8e44ad" font-weight="bold">Superposition</text>
-          <!-- General solution formula -->
-          <rect x="80" y="148" width="260" height="28" fill="#f8f9fa" stroke="#bdc3c7" stroke-width="1" rx="4" />
-          <text x="210" y="167" text-anchor="middle" font-size="14" fill="#2c3e50" font-weight="bold">X = X_L(tau+sigma) + X_R(tau-sigma)</text>
-          <!-- Legend -->
-          <line x1="360" y1="150" x2="380" y2="150" stroke="#2980b9" stroke-width="3" />
-          <text x="385" y="154" font-size="11" fill="#2980b9">Left-moving</text>
-          <line x1="360" y1="168" x2="380" y2="168" stroke="#c0392b" stroke-width="3" />
-          <text x="385" y="172" font-size="11" fill="#c0392b">Right-moving</text>
-        </svg>
-      </div>
-    </div>
-  </div>
-  
-  <div class="boundary-conditions">
-    <h3><i class="fas fa-border-style"></i> Boundary Conditions</h3>
-    
-    <div class="bc-grid">
-      <div class="bc-card closed-bc">
-        <h4>Closed Strings</h4>
-        <div class="equation-box" markdown="1">
-$$X^\mu(\tau, \sigma + 2\pi) = X^\mu(\tau, \sigma)$$
-</div>
-        <p>Periodic boundary condition</p>
-        
-        <svg viewBox="0 0 220 180" style="max-width: 500px; width: 100%;">
-          <defs>
-            <marker id="arrowParam" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-              <path d="M 0 0 L 6 3 L 0 6" fill="#555" />
-            </marker>
-          </defs>
-          <!-- Title -->
-          <text x="110" y="20" text-anchor="middle" font-size="14" fill="#2c3e50" font-weight="bold">Periodic Boundary</text>
-          <!-- Equilibrium circle -->
-          <circle cx="110" cy="90" r="50" fill="none" stroke="#34495e" stroke-width="2" stroke-dasharray="4,3" opacity="0.4" />
-          <!-- Vibrating string mode -->
-          <path d="M 60 90 Q 85 70, 110 90 Q 135 110, 160 90 Q 135 70, 110 90 Q 85 110, 60 90"
-                fill="none" stroke="#2980b9" stroke-width="3" />
-          <!-- Parameter point sigma=0=2pi -->
-          <circle cx="160" cy="90" r="6" fill="#c0392b" stroke="#922b21" stroke-width="2" />
-          <!-- Direction arrow showing parametrization -->
-          <path d="M 155 70 Q 165 55, 175 70" fill="none" stroke="#555" stroke-width="2" marker-end="url(#arrowParam)" />
-          <!-- Parameter labels -->
-          <text x="180" y="80" font-size="13" fill="#c0392b" font-weight="bold">sigma = 0</text>
-          <text x="180" y="98" font-size="13" fill="#c0392b" font-weight="bold">sigma = 2pi</text>
-          <text x="185" y="113" font-size="11" fill="#555">(same point!)</text>
-          <!-- Caption -->
-          <text x="110" y="160" text-anchor="middle" font-size="14" fill="#2c3e50" font-weight="bold">X(sigma + 2pi) = X(sigma)</text>
-          <text x="110" y="175" text-anchor="middle" font-size="12" fill="#555">String forms closed loop</text>
-        </svg>
-      </div>
-      
-      <div class="bc-card open-bc">
-        <h4>Open Strings</h4>
-        
-        <div class="bc-types">
-          <div class="bc-type neumann">
-            <h5>Neumann BC</h5>
-            <div class="equation-box small" markdown="1">
-$$\frac{\partial X^\mu}{\partial \sigma} = 0$$
-</div>
-            <p>Free endpoints</p>
-            <svg viewBox="0 0 180 110" style="max-width: 500px; width: 100%;">
-              <!-- Title -->
-              <text x="90" y="15" text-anchor="middle" font-size="12" fill="#2c3e50" font-weight="bold">Free Endpoints</text>
-              <!-- String vibration mode 1 -->
-              <path d="M 30 55 Q 90 25, 150 55" fill="none" stroke="#27ae60" stroke-width="3" />
-              <!-- String vibration mode 2 -->
-              <path d="M 30 55 Q 60 70, 90 55 Q 120 40, 150 55" fill="none" stroke="#2980b9" stroke-width="2.5" opacity="0.7" />
-              <!-- Endpoints (free to move) -->
-              <circle cx="30" cy="55" r="6" fill="#27ae60" stroke="#1e8449" stroke-width="2" />
-              <circle cx="150" cy="55" r="6" fill="#27ae60" stroke="#1e8449" stroke-width="2" />
-              <!-- Tangent lines showing horizontal slope at endpoints -->
-              <path d="M 15 55 L 45 55" stroke="#555" stroke-width="2" stroke-dasharray="4,2" />
-              <path d="M 135 55 L 165 55" stroke="#555" stroke-width="2" stroke-dasharray="4,2" />
-              <!-- Annotations -->
-              <text x="30" y="85" text-anchor="middle" font-size="11" fill="#555">dX/d(sigma)=0</text>
-              <text x="150" y="85" text-anchor="middle" font-size="11" fill="#555">dX/d(sigma)=0</text>
-              <!-- Caption -->
-              <text x="90" y="102" text-anchor="middle" font-size="10" fill="#777">Endpoints free to oscillate</text>
-            </svg>
-          </div>
-          
-          <div class="bc-type dirichlet">
-            <h5>Dirichlet BC</h5>
-            <div class="equation-box small" markdown="1">
-$$X^\mu = \text{const}$$
-</div>
-            <p>Fixed endpoints (D-branes)</p>
-            <svg viewBox="0 0 180 120" style="max-width: 500px; width: 100%;">
-              <!-- Title -->
-              <text x="90" y="15" text-anchor="middle" font-size="12" fill="#2c3e50" font-weight="bold">Fixed Endpoints</text>
-              <!-- D-branes as surfaces -->
-              <rect x="12" y="35" width="22" height="50" fill="#c0392b" opacity="0.25" stroke="#922b21" stroke-width="2" rx="3" />
-              <rect x="146" y="35" width="22" height="50" fill="#c0392b" opacity="0.25" stroke="#922b21" stroke-width="2" rx="3" />
-              <!-- String vibration mode 1 -->
-              <path d="M 34 60 Q 90 25, 146 60" fill="none" stroke="#c0392b" stroke-width="3" />
-              <!-- String vibration mode 2 -->
-              <path d="M 34 60 Q 62 75, 90 60 Q 118 45, 146 60" fill="none" stroke="#d35400" stroke-width="2.5" opacity="0.7" />
-              <!-- Fixed points on D-branes -->
-              <circle cx="34" cy="60" r="5" fill="#fff" stroke="#c0392b" stroke-width="2.5" />
-              <circle cx="146" cy="60" r="5" fill="#fff" stroke="#c0392b" stroke-width="2.5" />
-              <!-- D-brane labels -->
-              <text x="23" y="28" text-anchor="middle" font-size="11" fill="#922b21" font-weight="bold">D-brane</text>
-              <text x="157" y="28" text-anchor="middle" font-size="11" fill="#922b21" font-weight="bold">D-brane</text>
-              <!-- Caption -->
-              <text x="90" y="100" text-anchor="middle" font-size="12" fill="#555" font-weight="bold">X = constant at ends</text>
-              <text x="90" y="115" text-anchor="middle" font-size="10" fill="#777">Endpoints fixed on D-branes</text>
-            </svg>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+### Worldsheets
+
+As it moves, a string sweeps out a worldsheet parametrized by a time-like coordinate $\tau$ and a space-like coordinate $\sigma$. The embedding functions $X^\mu(\tau, \sigma)$ describe where each point of the string sits in $D$-dimensional spacetime.
+
+<figure>
+<svg viewBox="0 0 600 250" role="img" aria-label="Three spacetime diagrams: a point particle traces a curved worldline; an open string traces a strip bounded by the paths of its two endpoints; a closed string traces a tube." style="max-width: 600px; width: 100%; height: auto;" fill="none" stroke="currentColor" font-family="inherit">
+  <!-- time axis -->
+  <line x1="18" y1="205" x2="18" y2="30" stroke-width="1.2"/>
+  <path d="M 13 38 L 18 28 L 23 38" stroke-width="1.2"/>
+  <text x="10" y="20" fill="currentColor" stroke="none" font-size="12" font-style="italic">t</text>
+  <!-- Worldline -->
+  <path d="M 100 200 C 80 160, 125 110, 100 70 S 110 40, 105 35" stroke-width="2.5"/>
+  <circle cx="100" cy="200" r="4" fill="currentColor" stroke="none"/>
+  <text x="100" y="228" text-anchor="middle" fill="currentColor" stroke="none" font-size="13" font-weight="bold">Point particle</text>
+  <text x="100" y="244" text-anchor="middle" fill="currentColor" stroke="none" font-size="12">worldline (1D)</text>
+  <!-- Open string strip -->
+  <path d="M 230 200 C 215 150, 250 100, 240 40 L 340 40 C 355 100, 320 150, 350 200 Z" fill="currentColor" fill-opacity="0.08" stroke="none"/>
+  <path d="M 230 200 C 215 150, 250 100, 240 40" stroke-width="2.5"/>
+  <path d="M 350 200 C 320 150, 355 100, 340 40" stroke-width="2.5"/>
+  <path d="M 230 200 Q 290 180, 350 200" stroke-width="2"/>
+  <path d="M 234 140 Q 290 118, 334 140" stroke-width="1" stroke-dasharray="4,3"/>
+  <path d="M 243 90 Q 290 70, 340 90" stroke-width="1" stroke-dasharray="4,3"/>
+  <circle cx="230" cy="200" r="4" fill="currentColor" stroke="none"/>
+  <circle cx="350" cy="200" r="4" fill="currentColor" stroke="none"/>
+  <text x="290" y="228" text-anchor="middle" fill="currentColor" stroke="none" font-size="13" font-weight="bold">Open string</text>
+  <text x="290" y="244" text-anchor="middle" fill="currentColor" stroke="none" font-size="12">strip with two boundaries</text>
+  <!-- Closed string tube -->
+  <path d="M 440 195 C 430 150, 470 100, 460 45 L 530 45 C 540 100, 560 150, 540 195 Z" fill="currentColor" fill-opacity="0.08" stroke="none"/>
+  <ellipse cx="490" cy="195" rx="50" ry="10" stroke-width="2.5"/>
+  <ellipse cx="495" cy="45" rx="35" ry="7" stroke-width="2"/>
+  <path d="M 440 195 C 430 150, 470 100, 460 45" stroke-width="2"/>
+  <path d="M 540 195 C 560 150, 540 100, 530 45" stroke-width="2"/>
+  <ellipse cx="490" cy="120" rx="45" ry="8" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="490" y="228" text-anchor="middle" fill="currentColor" stroke="none" font-size="13" font-weight="bold">Closed string</text>
+  <text x="490" y="244" text-anchor="middle" fill="currentColor" stroke="none" font-size="12">tube (cylinder)</text>
+</svg>
+<figcaption>Dashed curves are constant-$\tau$ slices: the string at one instant. The boundaries of the open-string strip are the histories of its endpoints.</figcaption>
+</figure>
+
+### Nambu–Goto and Polyakov actions
+
+The natural action for a relativistic string is proportional to the area of its worldsheet — the direct analogue of a point particle's action being proportional to proper time. This is the **Nambu–Goto action**:
+
+$$S_{\text{NG}} = -T \int d\tau \, d\sigma \, \sqrt{-\det h_{ab}}, \qquad h_{ab} = \partial_a X^\mu \, \partial_b X^\nu \, \eta_{\mu\nu},$$
+
+where $h_{ab}$ is the metric induced on the worldsheet. Classical strings therefore sweep out surfaces of extremal area.
+
+The square root makes quantization awkward. The **Polyakov action** introduces an independent worldsheet metric $\gamma_{ab}$ and is classically equivalent (eliminating $\gamma_{ab}$ by its equation of motion returns $S_{\text{NG}}$):
+
+$$S_{\text{P}} = -\frac{T}{2} \int d^2\sigma \, \sqrt{-\gamma} \, \gamma^{ab} \, \partial_a X^\mu \, \partial_b X^\nu \, \eta_{\mu\nu}.$$
+
+$S_{\text{P}}$ is a two-dimensional field theory of $D$ free scalars $X^\mu$ coupled to 2D gravity. It has three symmetries:
+
+| Symmetry | Acts on | Role |
+|---|---|---|
+| Spacetime Poincaré | $X^\mu$ | Global symmetry of the target space |
+| Worldsheet diffeomorphisms | $\sigma^a$ | Reparametrization gauge redundancy |
+| Weyl rescaling $\gamma_{ab} \to e^{2\omega} \gamma_{ab}$ | $\gamma_{ab}$ | Special to strings; makes the worldsheet theory conformal |
+
+Diffeomorphisms and Weyl invariance together allow the **conformal gauge** $\gamma_{ab} = \eta_{ab}$. The equations of motion then become the free wave equation, supplemented by constraints from the $\gamma_{ab}$ equation of motion (the vanishing of the worldsheet stress tensor):
+
+$$\left(\partial_\tau^2 - \partial_\sigma^2\right) X^\mu = 0, \qquad \left(\partial_\tau X \pm \partial_\sigma X\right)^2 = 0.$$
+
+The general solution splits into left- and right-moving waves, $X^\mu = X_L^\mu(\tau + \sigma) + X_R^\mu(\tau - \sigma)$. That the two sectors are independent is what later allows the heterotic string to treat them differently.
+
+### Boundary conditions
+
+| String | Condition | Meaning |
+|---|---|---|
+| Closed | $X^\mu(\tau, \sigma + 2\pi) = X^\mu(\tau, \sigma)$ | Periodic; left- and right-movers independent |
+| Open, Neumann | $\partial_\sigma X^\mu = 0$ at the ends | No momentum flows off the end; endpoints move freely at the speed of light |
+| Open, Dirichlet | $X^\mu = \text{const}$ at the ends | Endpoint fixed in direction $\mu$; momentum is absorbed by a **D-brane** |
+
+A string with Neumann conditions in $p+1$ directions (including time) and Dirichlet conditions in the rest ends on a **D$p$-brane**. For many years Dirichlet conditions were treated as a curiosity because they break translation invariance; in 1995 Polchinski showed that D-branes are dynamical objects of the theory itself (see [D-branes](dualities-and-branes.html#d-branes)).
+
+### Mode expansion
+
+For the closed string, with $\sigma \in [0, 2\pi)$,
+
+$$X^\mu(\tau,\sigma) = x^\mu + \alpha' p^\mu \tau + i\sqrt{\frac{\alpha'}{2}} \sum_{n \neq 0} \frac{1}{n} \left( \alpha_n^\mu \, e^{-in(\tau - \sigma)} + \tilde{\alpha}_n^\mu \, e^{-in(\tau + \sigma)} \right).$$
+
+The zero modes $x^\mu, p^\mu$ describe the centre-of-mass motion; the oscillators $\alpha_n^\mu$ (right-moving) and $\tilde{\alpha}_n^\mu$ (left-moving) describe vibrations. The open string has a single set of oscillators, because the boundary conditions reflect left-movers into right-movers.
 
 ## Quantum String Theory
 
-### Light-Cone Quantization
+### Oscillators and the Virasoro algebra
 
-In light-cone gauge, the string oscillator modes satisfy:
+Quantization promotes the modes to operators obeying
 
-**Commutation relations:**
+$$[\alpha_m^\mu, \alpha_n^\nu] = m \, \delta_{m+n,0} \, \eta^{\mu\nu},$$
 
-$$[\alpha^{\mu}_m, \alpha^{\nu}_n] = m \delta_{m+n,0} \eta^{\mu\nu}$$
+so each $\alpha_{-n}^\mu$ ($n > 0$) is a creation operator for a vibration with frequency $n$. The Fourier modes $L_n$ of the worldsheet stress tensor generate the **Virasoro algebra**:
 
-### Virasoro Algebra
+$$[L_m, L_n] = (m-n) L_{m+n} + \frac{c}{12} \, m(m^2 - 1) \, \delta_{m+n,0}.$$
 
-Constraints from reparametrization invariance:
+The classical constraints become conditions on physical states, $L_n |\text{phys}\rangle = 0$ for $n > 0$ and $(L_0 - a)|\text{phys}\rangle = 0$, where $a$ is a normal-ordering constant.
 
-$$[L_m, L_n] = (m-n)L_{m+n} + \frac{c}{12} m(m^2-1)\delta_{m+n,0}$$
+### The critical dimension
 
-Where c is the central charge.
+The number of spacetime dimensions is an *output* of the quantum theory. In the covariant (BRST) treatment, each free boson $X^\mu$ contributes $c = 1$ to the central charge and the Faddeev–Popov ghosts from gauge-fixing contribute $c = -26$. The Weyl symmetry survives quantization only if the total vanishes:
 
-### Critical Dimension
+$$c_{\text{total}} = D - 26 = 0 \quad \Longrightarrow \quad D = 26.$$
 
-Here is one of string theory's most startling features: the number of spacetime dimensions is not an input you choose, but an *output* the theory demands. Quantizing the string introduces a quantum anomaly that would spoil the Lorentz symmetry (or, equivalently, leave a negative-norm "ghost" state) unless it cancels exactly. The cancellation condition fixes the dimension:
+In light-cone gauge the same result appears differently: only the $D-2$ transverse oscillators are physical, the normal-ordering constant is $a = (D-2)/24$ (from the regularized sum $\sum n = -1/12$), and Lorentz invariance of the quantum theory requires $a = 1$, hence $D = 26$. If $D \neq 26$ the theory either loses Lorentz symmetry or contains negative-norm states. For the superstring, worldsheet fermions add $c = D/2$ and superconformal ghosts contribute $+11$ (for a total ghost contribution of $-15$), giving $\tfrac{3}{2}D = 15$, i.e. **$D = 10$**.
 
-- **Bosonic string:** $D = 26$
-- **Superstring:** $D = 10$
+The mismatch with four observed dimensions is the origin of **compactification**: the extra dimensions must be small, curved, or otherwise hidden, and their geometry determines the four-dimensional physics (see [Compactification](dualities-and-branes.html#compactification)).
 
-In other words, demanding only that the quantum theory be consistent forces a specific dimensionality of spacetime — a constraint no other framework imposes. The mismatch with our observed four dimensions is what motivates **compactification**: the extra dimensions are presumed curled up too small to see.
+### Bosonic string spectrum
 
-### String Spectrum
+With $N = \sum_{n>0} \alpha_{-n} \cdot \alpha_n$ the oscillator level, the mass-shell conditions are
 
-**Bosonic string:**
-- Tachyon: m² = -1/ℓ_s²
-- Massless: graviton, dilaton, Kalb-Ramond field
-- Massive tower: m² = (n-1)/ℓ_s²
+$$\text{open:} \quad \alpha' M^2 = N - 1, \qquad \text{closed:} \quad \frac{\alpha'}{4} M^2 = N - 1 = \tilde{N} - 1.$$
 
-**Superstring:**
-- No tachyon
-- Massless: supergravity multiplet
-- Massive tower with supersymmetry
+The closed-string condition $N = \tilde{N}$ is **level matching**.
 
-## Types of String Theories
+| Level | Open string | Closed string |
+|---|---|---|
+| $N = 0$ | Tachyon, $\alpha' M^2 = -1$ | Tachyon, $\alpha' M^2 = -4$ |
+| $N = 1$ | Massless vector $\alpha_{-1}^i \lvert 0 \rangle$ — a gauge boson | Massless $\alpha_{-1}^i \tilde{\alpha}_{-1}^j \lvert 0 \rangle$: graviton $G_{\mu\nu}$, antisymmetric tensor $B_{\mu\nu}$, dilaton $\phi$ |
+| $N \geq 2$ | Massive tower, $M^2 \propto N/\alpha'$, increasing maximum spin | Massive tower |
 
-<div class="string-theories-section">
-  <div class="bosonic-theory">
-    <h3><i class="fas fa-wave-square"></i> Bosonic String Theory</h3>
-    
-    <div class="theory-card bosonic">
-      <div class="properties">
-        <div class="property-item">
-          <i class="fas fa-cube"></i>
-          <span>26 dimensions required</span>
-        </div>
-        <div class="property-item warning">
-          <i class="fas fa-exclamation-triangle"></i>
-          <span>Contains tachyons (unstable)</span>
-        </div>
-        <div class="property-item">
-          <i class="fas fa-times-circle"></i>
-          <span>No fermions</span>
-        </div>
-        <div class="property-item info">
-          <i class="fas fa-history"></i>
-          <span>Mainly of historical interest</span>
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  <div class="superstring-theories">
-    <h3><i class="fas fa-atom"></i> Superstring Theories</h3>
-    <p class="subtitle">Five consistent 10-dimensional theories:</p>
-    
-    <div class="theory-web">
-      <svg viewBox="0 0 700 480" class="theory-diagram" style="max-width: 500px; width: 100%;">
-        <!-- Define markers and gradients -->
-        <defs>
-          <marker id="arrowSelf" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
-            <path d="M 0 0 L 8 3 L 0 6" fill="#c0392b" />
-          </marker>
-          <linearGradient id="mTheoryGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" style="stop-color:#2c3e50;stop-opacity:0.9" />
-            <stop offset="100%" style="stop-color:#1a252f;stop-opacity:0.95" />
-          </linearGradient>
-        </defs>
+The massive states lie on linear **Regge trajectories**, $J_{\max} = \alpha' M^2 + 1$ for the open string — the feature that originally connected strings to hadron physics. The tachyon signals that the bosonic string's flat vacuum is unstable, and the theory has no fermions; it is a laboratory, not a candidate description of nature.
 
-        <!-- Title -->
-        <text x="350" y="28" text-anchor="middle" font-size="18" fill="#2c3e50" font-weight="bold">Web of String Theory Dualities</text>
+### The superstring
 
-        <!-- M-theory at top (central, unified) -->
-        <ellipse cx="350" cy="80" rx="80" ry="38" fill="url(#mTheoryGrad)" stroke="#1a252f" stroke-width="2" />
-        <text x="350" y="75" text-anchor="middle" font-size="18" font-weight="bold" fill="white">M-Theory</text>
-        <text x="350" y="95" text-anchor="middle" font-size="13" fill="#bdc3c7">(11 Dimensions)</text>
+Adding worldsheet fermions $\psi^\mu$, superpartners of $X^\mu$ under two-dimensional supersymmetry, gives the **RNS superstring**. Fermions on the closed string can be periodic or antiperiodic, giving two sectors:
 
-        <!-- Type I (left) -->
-        <circle cx="130" cy="200" r="55" fill="#c0392b" opacity="0.85" stroke="#922b21" stroke-width="2" />
-        <text x="130" y="195" text-anchor="middle" font-size="16" font-weight="bold" fill="white">Type I</text>
-        <text x="130" y="213" text-anchor="middle" font-size="11" fill="#fce4ec">SO(32) gauge</text>
+| Sector | Fermion periodicity | Ground state | Spacetime statistics |
+|---|---|---|---|
+| Neveu–Schwarz (NS) | Antiperiodic | Tachyon (removed by GSO) | Bosons |
+| Ramond (R) | Periodic | Massless spinor | Fermions |
 
-        <!-- Type IIA (center-left) -->
-        <circle cx="280" cy="270" r="55" fill="#27ae60" opacity="0.85" stroke="#1e8449" stroke-width="2" />
-        <text x="280" y="265" text-anchor="middle" font-size="16" font-weight="bold" fill="white">Type IIA</text>
-        <text x="280" y="283" text-anchor="middle" font-size="11" fill="#e8f8f5">Non-chiral</text>
+The **GSO projection** keeps states of definite worldsheet fermion parity. It removes the tachyon, makes the numbers of bosonic and fermionic states match at every level, and yields **spacetime supersymmetry**. The open superstring's lightest states are a massless vector and a massless Majorana–Weyl spinor — the ten-dimensional super-Yang–Mills multiplet — followed by a massive tower with $\alpha' M^2 = N$ for positive integer $N$. The alternative **Green–Schwarz formalism** makes spacetime supersymmetry manifest instead. Details of both are on the [Graduate Formalism](string-theory-formalism.html) page.
 
-        <!-- Type IIB (center-right) -->
-        <circle cx="420" cy="270" r="55" fill="#d35400" opacity="0.85" stroke="#a04000" stroke-width="2" />
-        <text x="420" y="265" text-anchor="middle" font-size="16" font-weight="bold" fill="white">Type IIB</text>
-        <text x="420" y="283" text-anchor="middle" font-size="11" fill="#fef5e7">Chiral</text>
+## The Five Superstring Theories
 
-        <!-- Heterotic SO(32) (right) -->
-        <circle cx="570" cy="200" r="55" fill="#8e44ad" opacity="0.85" stroke="#6c3483" stroke-width="2" />
-        <text x="570" y="190" text-anchor="middle" font-size="14" font-weight="bold" fill="white">Heterotic</text>
-        <text x="570" y="208" text-anchor="middle" font-size="14" font-weight="bold" fill="white">SO(32)</text>
+Quantum consistency — cancellation of gravitational and gauge anomalies, modular invariance, and tadpole cancellation — leaves exactly five supersymmetric string theories in ten flat dimensions:
 
-        <!-- Heterotic E8xE8 (bottom) -->
-        <circle cx="350" cy="390" r="55" fill="#16a085" opacity="0.85" stroke="#0e6655" stroke-width="2" />
-        <text x="350" y="382" text-anchor="middle" font-size="14" font-weight="bold" fill="white">Heterotic</text>
-        <text x="350" y="402" text-anchor="middle" font-size="14" font-weight="bold" fill="white">E8 x E8</text>
+| Theory | Strings | 10D supersymmetry (supercharges) | Chiral? | Gauge group (perturbative) | BPS D-branes |
+|---|---|---|---|---|---|
+| Type I | Open + closed, unoriented | $\mathcal{N} = (1,0)$ (16) | Yes | $SO(32)$ | D1, D5, D9 |
+| Type IIA | Closed, oriented | $\mathcal{N} = (1,1)$ (32) | No | $U(1)$ from RR sector only | D0, D2, D4, D6, D8 |
+| Type IIB | Closed, oriented | $\mathcal{N} = (2,0)$ (32) | Yes | None from perturbative strings | D(−1), D1, D3, D5, D7, D9 |
+| Heterotic $SO(32)$ | Closed, oriented | $\mathcal{N} = (1,0)$ (16) | Yes | $\mathrm{Spin}(32)/\mathbb{Z}_2$ | None |
+| Heterotic $E_8 \times E_8$ | Closed, oriented | $\mathcal{N} = (1,0)$ (16) | Yes | $E_8 \times E_8$ | None |
 
-        <!-- DUALITY CONNECTIONS -->
+A few structural points explain the table:
 
-        <!-- M-theory to Type IIA (compactify on circle) -->
-        <path d="M 310 115 L 295 220" stroke="#34495e" stroke-width="3" stroke-dasharray="8,4" />
-        <rect x="255" y="155" width="70" height="22" fill="white" rx="3" />
-        <text x="290" y="170" text-anchor="middle" font-size="11" fill="#34495e" font-weight="bold">S1 circle</text>
+- **Type II** theories apply the GSO projection to left- and right-movers independently. Choosing opposite chiralities on the two sides gives the non-chiral IIA; the same chirality gives the chiral IIB, whose Ramond–Ramond sector includes a four-form with self-dual field strength.
+- **Type I** is obtained from IIB by gauging worldsheet orientation reversal (an orientifold). Consistency then requires 32 D9-branes, which supply the $SO(32)$ gauge group; Green and Schwarz's 1984 anomaly-cancellation argument singled out exactly this group.
+- **Heterotic** strings combine a ten-dimensional superstring in one chiral sector with a 26-dimensional bosonic string in the other. The 16 surplus bosonic dimensions are compactified on an even self-dual lattice; the only two such lattices in 16 dimensions give $\mathrm{Spin}(32)/\mathbb{Z}_2$ and $E_8 \times E_8$.
 
-        <!-- M-theory to Heterotic E8xE8 (compactify on interval) -->
-        <path d="M 350 118 L 350 335" stroke="#34495e" stroke-width="3" stroke-dasharray="8,4" />
-        <rect x="355" y="220" width="75" height="22" fill="white" rx="3" />
-        <text x="392" y="235" text-anchor="middle" font-size="11" fill="#34495e" font-weight="bold">S1/Z2 orbifold</text>
+The low-energy limit of each theory is the corresponding ten-dimensional supergravity. Their perturbative spectra differ — but in the mid-1990s it became clear that all five, together with eleven-dimensional supergravity, are **limits of one theory**, connected by dualities:
 
-        <!-- Type IIA to Type IIB (T-duality - strongest connection) -->
-        <line x1="335" y1="270" x2="365" y2="270" stroke="#e67e22" stroke-width="5" />
-        <rect x="322" y="245" width="55" height="18" fill="white" rx="3" />
-        <text x="350" y="258" text-anchor="middle" font-size="12" fill="#d35400" font-weight="bold">T-duality</text>
+```mermaid
+flowchart TB
+    M["M-theory<br/>(11D; low energy: 11D supergravity)"]
+    IIA["Type IIA"]
+    IIB["Type IIB"]
+    I["Type I"]
+    HO["Heterotic SO(32)"]
+    HE["Heterotic E8 x E8"]
+    M -->|"compactify on circle S¹"| IIA
+    M -->|"compactify on interval S¹/Z₂"| HE
+    IIA <-->|"T-duality"| IIB
+    HO <-->|"T-duality"| HE
+    I <-->|"S-duality"| HO
+    IIB -->|"S-duality: self-dual"| IIB
+    IIB -->|"orientifold"| I
+```
 
-        <!-- Type I to Heterotic SO(32) (S-duality) -->
-        <line x1="185" y1="200" x2="515" y2="200" stroke="#9b59b6" stroke-width="4" />
-        <rect x="320" y="180" width="60" height="18" fill="white" rx="3" />
-        <text x="350" y="193" text-anchor="middle" font-size="12" fill="#8e44ad" font-weight="bold">S-duality</text>
+**T-duality** relates a theory on a circle of radius $R$ to another on radius $\alpha'/R$; **S-duality** relates strong coupling $g_s$ to weak coupling $1/g_s$; and the strong-coupling limits of Type IIA and heterotic $E_8 \times E_8$ each grow an eleventh dimension. These dualities, the D-branes that make them possible, and the compactifications and holographic dualities built on them are developed in [D-Branes, Dualities & M-Theory](dualities-and-branes.html).
 
-        <!-- Type IIB self-duality (S-duality loop) -->
-        <path d="M 465 245 Q 520 220, 520 270 Q 520 320, 465 295"
-              fill="none" stroke="#c0392b" stroke-width="3" marker-end="url(#arrowSelf)" />
-        <text x="540" y="270" font-size="12" fill="#c0392b" font-weight="bold">S-dual</text>
-        <text x="540" y="285" font-size="10" fill="#777">(self)</text>
+## Current Status
 
-        <!-- Heterotic SO(32) to Heterotic E8xE8 (T-duality) -->
-        <path d="M 535 245 Q 460 320, 400 365" stroke="#1abc9c" stroke-width="3" stroke-dasharray="6,3" />
-        <rect x="465" y="295" width="55" height="18" fill="white" rx="3" />
-        <text x="492" y="308" text-anchor="middle" font-size="11" fill="#16a085" font-weight="bold">T-duality</text>
-
-        <!-- LEGEND -->
-        <rect x="30" y="420" width="640" height="50" fill="#f8f9fa" stroke="#bdc3c7" stroke-width="1" rx="5" />
-        <text x="50" y="442" font-size="13" fill="#2c3e50" font-weight="bold">Dualities:</text>
-
-        <!-- T-duality legend -->
-        <line x1="130" y1="440" x2="160" y2="440" stroke="#e67e22" stroke-width="4" />
-        <text x="170" y="444" font-size="12" fill="#2c3e50">T-duality (R to 1/R)</text>
-
-        <!-- S-duality legend -->
-        <line x1="310" y1="440" x2="340" y2="440" stroke="#9b59b6" stroke-width="4" />
-        <text x="350" y="444" font-size="12" fill="#2c3e50">S-duality (g to 1/g)</text>
-
-        <!-- Dimensional reduction legend -->
-        <line x1="500" y1="440" x2="530" y2="440" stroke="#34495e" stroke-width="3" stroke-dasharray="8,4" />
-        <text x="540" y="444" font-size="12" fill="#2c3e50">Compactification</text>
-      </svg>
-    </div>
-    
-    <div class="theory-details">
-      <div class="theory-card type-i">
-        <h4><i class="fas fa-code-branch"></i> Type I</h4>
-        <ul>
-          <li>Open and closed strings</li>
-          <li>N=1 supersymmetry</li>
-          <li>Gauge group SO(32)</li>
-          <li>Unoriented strings</li>
-        </ul>
-        <div class="visual-hint">
-          <svg viewBox="0 0 160 80" style="max-width: 500px; width: 100%;">
-            <!-- Title -->
-            <text x="80" y="12" text-anchor="middle" font-size="11" fill="#2c3e50" font-weight="bold">Open + Closed Strings</text>
-            <!-- Closed string (loop) -->
-            <circle cx="50" cy="42" r="18" fill="none" stroke="#c0392b" stroke-width="2.5" />
-            <text x="50" y="70" text-anchor="middle" font-size="10" fill="#555">Closed</text>
-            <!-- Open string with endpoints -->
-            <path d="M 90 42 Q 115 25, 140 42" fill="none" stroke="#c0392b" stroke-width="2.5" />
-            <circle cx="90" cy="42" r="5" fill="#c0392b" />
-            <circle cx="140" cy="42" r="5" fill="#c0392b" />
-            <text x="115" y="70" text-anchor="middle" font-size="10" fill="#555">Open</text>
-          </svg>
-        </div>
-      </div>
-      
-      <div class="theory-card type-iia">
-        <h4><i class="fas fa-yin-yang"></i> Type IIA</h4>
-        <ul>
-          <li>Closed strings only</li>
-          <li>N=2 supersymmetry (non-chiral)</li>
-          <li>Massless fermions of both chiralities</li>
-        </ul>
-        <div class="visual-hint">
-          <svg viewBox="0 0 160 90" style="max-width: 500px; width: 100%;">
-            <defs>
-              <marker id="arrowL" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                <path d="M 0 0 L 6 3 L 0 6" fill="#1e8449" />
-              </marker>
-              <marker id="arrowR" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                <path d="M 0 0 L 6 3 L 0 6" fill="#27ae60" />
-              </marker>
-            </defs>
-            <!-- Title -->
-            <text x="80" y="12" text-anchor="middle" font-size="11" fill="#2c3e50" font-weight="bold">Non-Chiral Fermions</text>
-            <!-- Closed string background -->
-            <circle cx="80" cy="45" r="22" fill="none" stroke="#27ae60" stroke-width="1.5" opacity="0.4" />
-            <!-- Left-moving mode (one chirality) -->
-            <path d="M 58 45 Q 70 32, 80 45 Q 90 58, 102 45" fill="none" stroke="#1e8449" stroke-width="2.5" />
-            <!-- Right-moving mode (opposite chirality) -->
-            <path d="M 58 45 Q 70 58, 80 45 Q 90 32, 102 45" fill="none" stroke="#27ae60" stroke-width="2.5" />
-            <!-- Chirality arrows (opposite directions) -->
-            <path d="M 50 35 L 62 35" stroke="#1e8449" stroke-width="2" marker-end="url(#arrowL)" />
-            <path d="M 110 55 L 98 55" stroke="#27ae60" stroke-width="2" marker-end="url(#arrowR)" />
-            <!-- Labels -->
-            <text x="45" y="30" font-size="9" fill="#1e8449" font-weight="bold">L</text>
-            <text x="112" y="62" font-size="9" fill="#27ae60" font-weight="bold">R</text>
-            <text x="80" y="80" text-anchor="middle" font-size="11" fill="#555">Both chiralities present</text>
-          </svg>
-        </div>
-      </div>
-      
-      <div class="theory-card type-iib">
-        <h4><i class="fas fa-sync"></i> Type IIB</h4>
-        <ul>
-          <li>Closed strings only</li>
-          <li>N=2 supersymmetry (chiral)</li>
-          <li>Self-dual 4-form field</li>
-        </ul>
-        <div class="visual-hint">
-          <svg viewBox="0 0 160 90" style="max-width: 500px; width: 100%;">
-            <defs>
-              <marker id="arrowCh" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                <path d="M 0 0 L 6 3 L 0 6" fill="#d35400" />
-              </marker>
-            </defs>
-            <!-- Title -->
-            <text x="80" y="12" text-anchor="middle" font-size="11" fill="#2c3e50" font-weight="bold">Chiral Fermions</text>
-            <!-- Closed string background -->
-            <circle cx="80" cy="45" r="22" fill="none" stroke="#d35400" stroke-width="1.5" opacity="0.4" />
-            <!-- Both modes same chirality -->
-            <path d="M 58 45 Q 70 32, 80 45 Q 90 58, 102 45" fill="none" stroke="#d35400" stroke-width="2.5" />
-            <path d="M 60 43 Q 72 30, 82 43 Q 92 56, 100 43" fill="none" stroke="#e67e22" stroke-width="2" opacity="0.7" />
-            <!-- Chirality arrows (same direction) -->
-            <path d="M 50 35 L 62 35" stroke="#d35400" stroke-width="2" marker-end="url(#arrowCh)" />
-            <path d="M 98 35 L 110 35" stroke="#d35400" stroke-width="2" marker-end="url(#arrowCh)" />
-            <!-- Labels -->
-            <text x="45" y="30" font-size="9" fill="#d35400" font-weight="bold">L</text>
-            <text x="112" y="30" font-size="9" fill="#d35400" font-weight="bold">R</text>
-            <text x="80" y="80" text-anchor="middle" font-size="11" fill="#555">Same chirality (both left-handed)</text>
-          </svg>
-        </div>
-      </div>
-      
-      <div class="theory-card heterotic-so">
-        <h4><i class="fas fa-puzzle-piece"></i> Heterotic SO(32)</h4>
-        <ul>
-          <li>Closed strings only</li>
-          <li>N=1 supersymmetry</li>
-          <li>Left-moving: superstring</li>
-          <li>Right-moving: bosonic string</li>
-        </ul>
-        <div class="visual-hint">
-          <svg viewBox="0 0 180 90" style="max-width: 500px; width: 100%;">
-            <!-- Title -->
-            <text x="90" y="12" text-anchor="middle" font-size="11" fill="#2c3e50" font-weight="bold">Hybrid String</text>
-            <!-- Closed string background -->
-            <circle cx="90" cy="45" r="25" fill="none" stroke="#8e44ad" stroke-width="1.5" opacity="0.4" />
-            <!-- Left-moving: superstring (10D) - solid line -->
-            <path d="M 65 45 Q 78 28, 90 45 Q 103 62, 115 45" fill="none" stroke="#9b59b6" stroke-width="3" />
-            <!-- Right-moving: bosonic (26D compactified) - dashed line -->
-            <path d="M 65 45 Q 78 62, 90 45 Q 103 28, 115 45" fill="none" stroke="#6c3483" stroke-width="3" stroke-dasharray="5,2" />
-            <!-- Labels -->
-            <text x="35" y="32" font-size="10" fill="#9b59b6" font-weight="bold">10D</text>
-            <text x="30" y="44" font-size="9" fill="#9b59b6">Superstring</text>
-            <text x="135" y="32" font-size="10" fill="#6c3483" font-weight="bold">26D</text>
-            <text x="130" y="44" font-size="9" fill="#6c3483">Bosonic</text>
-            <text x="90" y="82" text-anchor="middle" font-size="11" fill="#555">Left and right movers different</text>
-          </svg>
-        </div>
-      </div>
-      
-      <div class="theory-card heterotic-e8">
-        <h4><i class="fas fa-project-diagram"></i> Heterotic E₈×E₈</h4>
-        <ul>
-          <li>Closed strings only</li>
-          <li>N=1 supersymmetry</li>
-          <li>Exceptional gauge group</li>
-        </ul>
-        <div class="group-structure">
-          <span class="group-tag">E₈</span>
-          <span class="times">×</span>
-          <span class="group-tag">E₈</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-### The Five Superstring Theories at a Glance
-
-By the mid-1980s, the demand for quantum consistency had narrowed the field to exactly five viable superstring theories — all living in 10 dimensions, all supersymmetric, but differing in their strings, symmetries, and chirality.
-
-| Theory | Strings | SUSY | Chiral? | Gauge group |
-|--------|---------|------|---------|-------------|
-| Type I | open + closed (unoriented) | $N=1$ | yes | $SO(32)$ |
-| Type IIA | closed only | $N=2$ | no | none |
-| Type IIB | closed only | $N=2$ | yes | none |
-| Heterotic $SO(32)$ | closed (hybrid L/R movers) | $N=1$ | yes | $SO(32)$ |
-| Heterotic $E_8 \times E_8$ | closed (hybrid L/R movers) | $N=1$ | yes | $E_8 \times E_8$ |
-
-**Five theories, one framework.** Having five "theories of everything" looked like an embarrassment of riches — surely a unique theory should be unique? The resolution came in the 1990s "second superstring revolution": these five are not rivals but five low-energy windows onto a single underlying 11-dimensional structure, **M-theory**, connected by the dualities (T, S, and their combinations) mapped in the diagram above. The apparent multiplicity is an artifact of looking at weak coupling.
-
-The dualities sketched above — and the D-branes, M-theory, compactification, and holography they connect — are developed in detail on the next page: **[D-Branes, Dualities &amp; M-Theory](dualities-and-branes.html)**.
-
-## Key Takeaways
-
-- **Strings, not points.** Replacing point particles with one-dimensional strings gives a finite, self-consistent theory of quantum gravity.
-- **Vibrations are particles.** Different vibrational modes of a single string correspond to different particles — including a massless spin-2 graviton.
-- **Extra dimensions are required.** Consistency forces 10 (superstring) or 11 (M-theory) dimensions; the extra ones are compactified, e.g. on Calabi–Yau manifolds.
-- **Dualities unify the theories.** T-duality, S-duality, and M-theory show the five superstring theories are limits of one underlying framework.
-- **Holography is concrete.** AdS/CFT relates gravity in the bulk to a field theory on the boundary, a tool now used well beyond string theory.
-- **Testability is the open challenge.** The vast landscape of vacua and Planck-scale energies make direct experimental tests its central unsolved difficulty.
-
-## Continue Reading
-
-- [D-Branes, Dualities & M-Theory](dualities-and-branes.html) — D-branes, T- and S-duality, M-theory, compactification, AdS/CFT, black-hole entropy, and string cosmology.
-- [Criticisms, Research & Graduate Formalism](frontiers-and-formalism.html) — Open problems, current research, experimental prospects, and the full graduate-level mathematical formalism.
+As of 2026, string theory is best described as a mathematically consistent framework for perturbative quantum gravity with a rich but incompletely understood non-perturbative structure. Its main established results are internal and theoretical: finite perturbative graviton scattering, the microscopic counting of entropy for supersymmetric black holes, and the AdS/CFT correspondence, which is now a standard tool in quantum field theory and quantum-information approaches to gravity. Its main open problems are the absence of a complete non-perturbative definition, the enormous number of candidate vacua and the question of whether any describe our accelerating universe, and the lack of experimental signatures at accessible energies. These are discussed in [Criticisms & Research Frontiers](frontiers-and-formalism.html).
 
 ## See Also
 
-- [Quantum Field Theory](../quantum-field-theory.html) — the point-particle starting point that string theory extends.
-- [Relativity](../relativity/) — general relativity and the spacetime geometry string theory must reproduce.
-- [Quantum Mechanics](../quantum-mechanics/) — the quantum foundations underlying string quantization.
-- [Condensed Matter Physics](../condensed-matter/) — AdS/CMT, where holographic methods find experimental traction.
-- [Statistical Mechanics](../statistical-mechanics/) — black-hole thermodynamics and microstate counting.
-- [Physics Hub](../) — browse all physics topics.
+- [D-Branes, Dualities & M-Theory](dualities-and-branes.html) — the non-perturbative structure connecting the five theories.
+- [Criticisms & Research Frontiers](frontiers-and-formalism.html) — the landscape, the Swampland, holography, and experimental prospects.
+- [Graduate Formalism](string-theory-formalism.html) — worldsheet CFT, BRST quantization, and the full mathematical treatment.
+- [Quantum Field Theory](../quantum-field-theory.html) — the point-particle framework that string theory extends.
+- [Gauge Theory and the Standard Model](../gauge-and-standard-model.html) — the low-energy physics string compactifications must reproduce.
+- [Quantum Gravity](../relativity/quantum-gravity.html) — string theory in the context of other approaches.
+- [Black Holes](../relativity/black-holes.html) — the geometry whose entropy string theory accounts for microscopically.
+- [Statistical Mechanics](../statistical-mechanics/) — the entropy counting behind black-hole thermodynamics.
+- [Physics Hub](../) — all physics topics.

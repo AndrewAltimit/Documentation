@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "AWS Architecture Patterns & Case Studies"
+description: "Well-Architected principles, six reference architectures from static sites to multi-Region active-active, and documented lessons from Netflix, Slack, Prime Video, and AWS's own outages."
 permalink: /docs/technology/aws/architecture.html
 hide_title: true
 toc: true
@@ -9,601 +10,320 @@ toc_label: "On This Page"
 toc_icon: "server"
 ---
 
-Individual services are building blocks; the value comes from how you assemble them. This page presents six reference architectures that progress from a static site to a multi-region global app, then a set of case studies showing how companies combine those patterns at scale to solve real problems.
+Individual AWS services are building blocks; reliability, cost, and operability come from how they are assembled. This page starts with the principles AWS and its large customers design against, then walks through six reference architectures in rough order of complexity, and closes with publicly documented case studies whose lessons generalize. Service details are on the [Compute](compute.html), [Database](databases.html), [Networking](networking.html), and [Storage](storage.html) pages; general theory is in [Resilience Patterns](../../distributed-systems/resilience-patterns.html).
 
 ---
 
-## Building Real Applications: Architecture Patterns
+## Design Principles
 
-Now that you understand individual services, let's see how they work together to solve real problems. These patterns progress from simple to complex, each building on concepts from the previous ones.
+### The Well-Architected Framework
 
-### Pattern 1: Static Website Hosting (Beginner)
+AWS's **Well-Architected Framework** organizes design review around six pillars. It is less a checklist than a set of questions to ask of every workload; the free **Well-Architected Tool** in the console records the answers and tracks remediation.
 
-Let's start with the simplest cloud architecture - hosting a static website. This pattern introduces core concepts with minimal complexity.
+| Pillar | Central question | Typical practices |
+|--------|------------------|-------------------|
+| **Operational excellence** | Can we run, observe, and change this safely? | Infrastructure as code, small reversible deployments, runbooks, post-incident reviews |
+| **Security** | Is every layer protected and every action attributable? | Least-privilege IAM, encryption everywhere, centralized logging, multi-account isolation |
+| **Reliability** | Does it recover from failure and scale with demand? | Multi-AZ by default, health checks and automatic replacement, backups tested by restore, quotas monitored |
+| **Performance efficiency** | Are we using the right resource types, and do we re-evaluate them? | Managed and serverless services, caching, current instance generations, load testing |
+| **Cost optimization** | Do we pay only for the value we get? | Right-sizing, commitments for steady load, Spot, scaling to zero, cost attribution (see [Cost Optimization](cost.html)) |
+| **Sustainability** | Are we minimizing the resources needed per unit of work? | High utilization, efficient instance types (such as Graviton), data lifecycle policies |
 
-**Components:**
-- **S3**: Stores your HTML, CSS, and JavaScript files
-- **CloudFront**: Delivers content globally with low latency
-- **Route 53**: Manages your domain name
+### Fault isolation boundaries
 
-**Why this architecture?** It's serverless (no EC2 instances to manage), globally distributed (CloudFront edge locations), and costs pennies per month for most sites. Perfect for portfolios, documentation, or marketing sites.
+AWS infrastructure is built in nested failure domains, and architectures inherit their resilience from which boundaries they span:
 
-**Evolution path**: Add API Gateway and Lambda for dynamic features, turning your static site into a full serverless application.
+```mermaid
+flowchart TB
+    subgraph Region[Region: independent control planes and services]
+        subgraph AZ1[Availability Zone a: one or more data centers]
+            C1[Cell / shard]
+        end
+        subgraph AZ2[Availability Zone b]
+            C2[Cell / shard]
+        end
+        subgraph AZ3[Availability Zone c]
+            C3[Cell / shard]
+        end
+    end
+    Region2[Second Region: independent failure domain]
+    Region -. asynchronous replication .- Region2
+```
 
-### Pattern 2: Traditional Web Application (Intermediate)
-
-The classic three-tier architecture, modernized for the cloud. This pattern teaches you networking, security, and scaling concepts.
-
-**Components:**
-- **VPC**: Your isolated network with public/private subnets
-- **EC2 + Auto Scaling**: Web servers that scale based on traffic
-- **Application Load Balancer**: Distributes traffic across instances
-- **RDS Multi-AZ**: Managed database with automatic failover
-- **ElastiCache**: Redis/Memcached for session storage and caching
-
-**Why this architecture?** It mirrors traditional on-premise setups but with cloud benefits - automatic scaling, managed databases, and high availability across multiple data centers.
-
-**Real-world example**: An e-commerce platform starts with 2 EC2 instances. During sales events, Auto Scaling launches up to 20 instances. RDS handles thousands of concurrent transactions while ElastiCache reduces database load by caching product catalogs.
-
-### Pattern 3: Serverless Microservices (Advanced)
-
-Embrace modern cloud-native development. No servers to manage, automatic scaling, and pay-per-request pricing.
-
-**Components:**
-- **API Gateway**: RESTful API endpoint management
-- **Lambda**: Individual functions for each microservice
-- **DynamoDB**: NoSQL database with single-digit millisecond performance
-- **Step Functions**: Orchestrate complex workflows
-- **EventBridge**: Decouple services with event-driven architecture
-
-**Why this architecture?** Each microservice scales independently, deploys separately, and costs nothing when idle. Perfect for variable workloads and rapid development.
-
-**Real-world example**: A food delivery app uses Lambda functions for order processing, restaurant notifications, and driver assignments. DynamoDB stores order data with automatic scaling. Step Functions coordinate the entire delivery workflow. During lunch rush, the system handles 10,000 orders per minute without any manual scaling.
-
-### Pattern 4: Data Analytics Pipeline (Advanced)
-
-Process massive amounts of data in real-time and batch modes. This pattern introduces big data concepts and tools.
-
-**Components:**
-- **Kinesis Data Streams**: Ingest real-time data from thousands of sources
-- **Kinesis Data Firehose**: Load streaming data into data stores
-- **S3 Data Lake**: Central repository for all your data
-- **AWS Glue**: ETL service for data preparation
-- **Athena**: Query data directly in S3 using SQL
-- **QuickSight**: Create dashboards and visualizations
-
-**Why this architecture?** It separates data ingestion, storage, processing, and analysis into specialized services. Each component scales independently and you only pay for what you process.
-
-**Real-world example**: An IoT company collects sensor data from millions of devices. Kinesis ingests 1TB per hour, Glue transforms it for analysis, and data scientists query historical data with Athena. Business users create real-time dashboards in QuickSight showing device health and usage patterns.
-
-### Pattern 5: Container-Based Microservices (Expert)
-
-For teams needing more control than serverless offers. Containers provide consistency across development and production.
-
-**Components:**
-- **ECS or EKS**: Container orchestration (ECS for simplicity, EKS for Kubernetes)
-- **Fargate**: Serverless compute for containers
-- **ECR**: Container registry for your Docker images
-- **App Mesh**: Service mesh for microservice communication
-- **CloudMap**: Service discovery for dynamic environments
-
-**Why this architecture?** Containers offer portability, consistency, and fine-grained resource control. Service mesh provides advanced traffic management and observability.
-
-**Real-world example**: A fintech platform runs 50+ microservices in EKS. Each team owns their services, deploying independently. App Mesh handles service-to-service authentication and implements canary deployments. During market hours, critical services auto-scale based on trading volume.
-
-### Pattern 6: Multi-Region Global Application (Expert)
-
-For applications requiring global presence, low latency, and extreme availability.
-
-**Components:**
-- **Route 53**: Geolocation and latency-based routing
-- **CloudFront**: Global content delivery
-- **DynamoDB Global Tables**: Multi-region replication
-- **Aurora Global Database**: Cross-region read replicas
-- **AWS Global Accelerator**: Improve global application availability
-
-**Why this architecture?** Users get low latency regardless of location. The application survives entire region failures. Data replicates globally in seconds.
-
-**Real-world example**: A social media platform serves users across continents. Route 53 directs users to the nearest region. DynamoDB Global Tables replicate user posts worldwide in under a second. If the US-East region fails, traffic automatically routes to US-West with minimal disruption.
+- **Availability Zones** have independent power, cooling, and networking, and are close enough for synchronous replication. Running across **at least two AZs, preferably three**, is the baseline for production.
+- **Regions** are fully independent. Spanning Regions protects against Regional events but brings asynchronous replication, higher latency between copies, and much more operational complexity; it is justified by explicit recovery objectives, not by default.
+- **Cells** are copies of a whole stack that each serve a subset of customers or traffic. A bad deployment or poison request then affects one cell rather than everyone. AWS uses cell-based designs extensively in its own services.
+- **Static stability** means a system keeps working during a failure *without* needing to make changes, for example by pre-provisioning enough capacity in the surviving AZs instead of relying on launching new instances during an incident (control-plane APIs are often the first thing to degrade).
 
 ---
 
-## Real-World AWS Case Studies: Learning from Production
+## Reference Architectures
 
-These case studies illustrate how real companies have solved complex problems with AWS — architecture decisions, challenges, and lessons learned.
+### Pattern 1: Static website
 
-<div class="notice--info">
-  <p><strong>Note:</strong> The code snippets below (chaos-engineering helpers, pricing algorithms, order executors, and similar) are <strong>illustrative and simplified</strong> to convey the architectural idea. They are <em>not</em> the named companies' real implementations.</p>
-</div>
+A static site (documentation, marketing, a single-page application) needs no servers at all.
 
-### Case Study 1: Netflix - Streaming at Planetary Scale
-
-**The Challenge**: Stream video to 200+ million subscribers worldwide with perfect reliability and quality.
-
-**Architecture Overview**:
-```
-Users → Route 53 → CloudFront (CDN) → Application Load Balancers
-                                     ↓
-                        EC2 Auto Scaling Groups (Microservices)
-                                     ↓
-                        DynamoDB (User Data) + S3 (Video Files)
-                                     ↓
-                        Kinesis (Real-time Analytics) → EMR (Big Data)
+```mermaid
+flowchart LR
+    U([Users]) -->|DNS| R53[Route 53]
+    U -->|HTTPS| CF[CloudFront<br/>ACM certificate, WAF]
+    CF -->|Origin Access Control| S3[(S3 bucket<br/>private)]
+    CF -. optional .-> Fn[CloudFront Functions<br/>redirects, headers]
 ```
 
-**Key AWS Services**:
-- **EC2**: Thousands of instances running microservices
-- **S3**: Stores the entire video catalog (petabytes)
-- **DynamoDB**: Handles billions of reads/writes for user data
-- **CloudFront**: Delivers video content globally
-- **Kinesis**: Processes billions of events for recommendations
+| Component | Role |
+|-----------|------|
+| **S3** | Stores the built files; the bucket stays private |
+| **CloudFront** | Serves content from edge locations, terminates TLS with an **ACM** certificate (issued in us-east-1 for CloudFront), caches aggressively |
+| **Origin Access Control (OAC)** | Lets only CloudFront read the bucket; replaces the older Origin Access Identity |
+| **Route 53** | Alias records pointing the domain at the distribution |
 
-**Technical Decisions**:
+Use the S3 REST endpoint with OAC rather than the S3 *website* endpoint, which supports only HTTP and requires a public bucket. Cost is typically a few dollars a month or less for modest traffic. **Evolution:** add API Gateway and Lambda (Pattern 3) for dynamic features.
 
-1. **Chaos Engineering with Chaos Monkey**
-   ```python
-   # Randomly terminate instances to test resilience
-   def chaos_monkey():
-       if random.random() < 0.1:  # 10% chance
-           instance = select_random_instance()
-           terminate_instance(instance)
-           log_termination(instance)
-   ```
+### Pattern 2: Three-tier web application
 
-2. **Multi-Region Active-Active**
-   - Every region can serve any user
-   - Data replicates globally in seconds
-   - Automatic failover between regions
+The classic presentation / application / data split, deployed across AZs.
 
-3. **Microservices Architecture**
-   - 700+ microservices
-   - Each team owns their service completely
-   - Deploy hundreds of times per day
-
-**Challenges and Solutions**:
-
-**Challenge**: Thundering herd when popular shows release
-**Solution**: Pre-scaling based on ML predictions
-```python
-def predict_and_scale(show_id):
-    predicted_viewers = ml_model.predict(show_id)
-    required_capacity = calculate_capacity(predicted_viewers)
-
-    # Pre-scale 30 minutes before release
-    schedule_scaling(
-        time=release_time - timedelta(minutes=30),
-        capacity=required_capacity
-    )
+```mermaid
+flowchart TB
+    U([Users]) --> CF[CloudFront + WAF]
+    CF --> ALB
+    subgraph VPC[VPC]
+        subgraph Pub[Public subnets, AZ a and b]
+            ALB[Application Load Balancer]
+            NAT[NAT gateways]
+        end
+        subgraph App[Private app subnets]
+            A1[App instance or task<br/>AZ a]
+            A2[App instance or task<br/>AZ b]
+        end
+        subgraph Data[Private data subnets]
+            DB1[(Aurora writer<br/>AZ a)]
+            DB2[(Aurora replica<br/>AZ b)]
+            Cache[(ElastiCache<br/>Multi-AZ)]
+        end
+    end
+    ALB --> A1
+    ALB --> A2
+    A1 --> DB1
+    A2 --> DB1
+    A1 -. reads .-> DB2
+    A1 --> Cache
+    A2 --> Cache
+    A1 -. outbound .-> NAT
 ```
 
-**Challenge**: Cost optimization at scale
-**Solution**: Reserved Instances + Spot for batch processing
-- 75% Reserved Instances for baseline
-- 20% On-Demand for peaks
-- 5% Spot for analytics workloads
+| Tier | Services | Notes |
+|------|----------|-------|
+| Edge | CloudFront, AWS WAF | Caches static assets; filters common attacks before they reach the VPC |
+| Load balancing | Application Load Balancer | Spans public subnets in each AZ; health checks drive replacement |
+| Application | EC2 Auto Scaling group, or ECS/EKS services | Stateless; sessions in ElastiCache or DynamoDB so any instance can serve any user |
+| Data | RDS Multi-AZ or Aurora; ElastiCache | Private subnets only; security groups allow traffic from the app tier alone |
 
-**Lessons Learned**:
-1. Design for failure - everything will fail eventually
-2. Automate everything - manual processes don't scale
-3. Data-driven decisions - measure everything
-4. Small teams with full ownership work best
+Keep the application tier stateless so scaling and replacement are routine. Add VPC gateway endpoints for S3 and DynamoDB so that traffic avoids NAT charges. **Evolution:** move the app tier to containers on Fargate, or split hot paths into serverless functions.
 
-### Case Study 2: Airbnb - Global Marketplace Platform
+### Pattern 3: Serverless API and event-driven processing
 
-**The Challenge**: Match millions of guests with hosts worldwide, handling payments, messaging, and trust.
-
-**Architecture Evolution**:
-```
-2008: Monolithic Ruby on Rails → Single MySQL database
-2012: Added caching layer → Memcached
-2015: Service-oriented architecture → Multiple databases
-2020: Kubernetes on AWS → Microservices
-```
-
-**Current Architecture**:
-```
-Mobile/Web → API Gateway → ALB → EKS (Kubernetes)
-                                    ↓
-            Service Mesh (Envoy) → Microservices
-                                    ↓
-    RDS (Transactions) + DynamoDB (Sessions) + S3 (Images)
-                                    ↓
-            Kinesis → Data Lake (S3) → Athena/Spark
+```mermaid
+flowchart LR
+    C([Clients]) --> APIGW[API Gateway<br/>auth, throttling]
+    APIGW --> F1[Lambda<br/>order API]
+    F1 --> DDB[(DynamoDB)]
+    F1 -->|OrderPlaced event| EB[EventBridge bus]
+    EB --> Q1[SQS queue] --> F2[Lambda<br/>payment]
+    EB --> Q2[SQS queue] --> F3[Lambda<br/>notifications]
+    EB --> SF[Step Functions<br/>fulfilment workflow]
+    DDB -. stream .-> F4[Lambda<br/>projections / search index]
 ```
 
-**Key Technical Innovations**:
+| Component | Role |
+|-----------|------|
+| **API Gateway** (or Lambda function URLs, or an ALB) | HTTP front door with authentication (Cognito, JWT, IAM) and throttling |
+| **Lambda** | One function per bounded piece of logic |
+| **DynamoDB** | Storage that scales with Lambda without connection limits |
+| **EventBridge** | Routes domain events to consumers by rule, decoupling producers from consumers |
+| **SQS** | Buffers work between services, absorbs bursts, and retries with a dead-letter queue |
+| **Step Functions** / Lambda durable functions | Multi-step workflows with retries, timeouts, and compensation |
 
-1. **Smart Pricing Algorithm**
-   ```python
-   # Lambda function for dynamic pricing
-   def calculate_optimal_price(listing_id, date):
-       factors = {
-           'seasonality': get_seasonal_demand(date),
-           'local_events': check_events_api(listing.location, date),
-           'competitor_prices': analyze_nearby_listings(listing_id),
-           'historical_booking': get_booking_patterns(listing_id)
-       }
+Each part scales independently and costs nothing when idle. The engineering burden moves to the seams: **make every consumer idempotent** (events can be delivered more than once), set dead-letter queues and alarms on them, propagate trace context (X-Ray or OpenTelemetry), and watch for downstream systems that cannot scale as fast as Lambda. Very fine-grained decomposition has real overhead; see the [Prime Video case](#prime-video-when-serverless-granularity-costs-too-much) below.
 
-       base_price = listing.base_price
-       optimal_price = ml_model.predict(base_price, factors)
+### Pattern 4: Data and analytics pipeline
 
-       return {
-           'price': optimal_price,
-           'confidence': ml_model.confidence,
-           'factors': factors
-       }
-   ```
-
-2. **Fraud Detection System**
-   - Real-time analysis with Kinesis Analytics
-   - Graph database for relationship mapping
-   - ML models retrained daily on EMR
-
-3. **Image Processing Pipeline**
-   ```python
-   # Step Functions workflow for image processing
-   {
-       "ProcessListingImages": {
-           "Type": "Parallel",
-           "Branches": [
-               {
-                   "StartAt": "GenerateThumbnails",
-                   "States": {
-                       "GenerateThumbnails": {
-                           "Type": "Task",
-                           "Resource": "arn:aws:lambda:function:resize-images"
-                       }
-                   }
-               },
-               {
-                   "StartAt": "DetectInappropriateContent",
-                   "States": {
-                       "DetectInappropriateContent": {
-                           "Type": "Task",
-                           "Resource": "arn:aws:lambda:function:content-moderation"
-                       }
-                   }
-               },
-               {
-                   "StartAt": "ExtractMetadata",
-                   "States": {
-                       "ExtractMetadata": {
-                           "Type": "Task",
-                           "Resource": "arn:aws:lambda:function:image-analysis"
-                       }
-                   }
-               }
-           ]
-       }
-   }
-   ```
-
-**Scaling Challenges**:
-
-1. **Search Performance**
-   - Solution: ElasticSearch with custom ranking
-   - Geographical sharding for faster queries
-   - Cache warming for popular destinations
-
-2. **Payment Processing**
-   - Challenge: Handle payments in 190+ countries
-   - Solution: Step Functions for complex workflows
-   - SQS for reliable payment retry logic
-
-**Key Metrics**:
-- 4 million listings worldwide
-- 1 billion+ searches per day
-- 99.99% uptime SLA
-
-### Case Study 3: Slack - Real-Time Messaging at Scale
-
-**The Challenge**: Deliver messages instantly to millions of concurrent users with perfect reliability.
-
-**Architecture Highlights**:
-```
-WebSocket Connections → ELB → EC2 Fleet (Connection Servers)
-                                        ↓
-                    Message Queue (Kafka on EC2)
-                                        ↓
-        Worker Fleet (Process messages, send notifications)
-                                        ↓
-            DynamoDB (Message history) + S3 (File uploads)
+```mermaid
+flowchart LR
+    Src([Apps, devices, logs, databases]) --> KDS[Kinesis Data Streams<br/>or Amazon MSK]
+    Src --> DMS[DMS / zero-ETL<br/>database change capture]
+    KDS --> FH[Amazon Data Firehose]
+    KDS --> Flink[Managed Service for<br/>Apache Flink: real-time]
+    FH --> Lake[(S3 data lake<br/>Parquet / Apache Iceberg)]
+    DMS --> Lake
+    Lake --> Cat[Glue Data Catalog<br/>+ Lake Formation permissions]
+    Cat --> Athena[Athena<br/>ad-hoc SQL]
+    Cat --> RS[Redshift<br/>warehouse]
+    Cat --> EMR[EMR / Glue jobs<br/>Spark ETL]
+    Athena --> BI[QuickSight dashboards]
+    RS --> BI
 ```
 
-**Real-Time Architecture**:
+The design separates **ingestion**, **storage**, **cataloguing**, and **compute**, so each scales and is paid for independently, and the lake in S3 remains the durable source of truth. Current practice stores analytical tables in an open table format, usually **Apache Iceberg** (managed natively by **S3 Tables**), which adds transactions, schema evolution, and time travel on top of Parquet files and lets Athena, Redshift, EMR, and non-AWS engines share the same data. Kinesis Data Firehose was renamed **Amazon Data Firehose** in 2024, and Kinesis Data Analytics became **Managed Service for Apache Flink**.
 
-1. **WebSocket Management**
-   ```python
-   class ConnectionManager:
-       def __init__(self):
-           self.connections = {}  # In Redis
+### Pattern 5: Container microservices
 
-       async def handle_connection(self, websocket, user_id):
-           # Register connection
-           connection_id = str(uuid.uuid4())
-           await self.register(user_id, connection_id, websocket)
-
-           # Handle messages
-           try:
-               async for message in websocket:
-                   await self.route_message(user_id, message)
-           finally:
-               await self.unregister(user_id, connection_id)
-
-       async def broadcast_to_channel(self, channel_id, message):
-           # Get all users in channel
-           users = await self.get_channel_users(channel_id)
-
-           # Send to all connected clients
-           tasks = []
-           for user_id in users:
-               connections = await self.get_user_connections(user_id)
-               for conn in connections:
-                   tasks.append(conn.send(message))
-
-           await asyncio.gather(*tasks, return_exceptions=True)
-   ```
-
-2. **Message Delivery Guarantees**
-   - At-least-once delivery with idempotency
-   - Message ordering per channel
-   - Offline queue for disconnected users
-
-3. **Search Infrastructure**
-   - Every message indexed in near real-time
-   - Elasticsearch cluster per workspace
-   - Query optimization for emoji and reactions
-
-**Scaling Milestones**:
-
-| Year | Daily Active Users | Messages/Day | Architecture Change |
-|------|-------------------|--------------|-------------------|
-| 2014 | 100K | 10M | Single database |
-| 2016 | 4M | 100M | Sharded MySQL |
-| 2018 | 8M | 1B | DynamoDB migration |
-| 2020 | 12M | 5B | Multi-region active |
-
-**Performance Optimizations**:
-
-1. **Connection Pooling**
-   ```python
-   # Efficient database connection management
-   class ShardedConnectionPool:
-       def __init__(self, shard_map):
-           self.pools = {
-               shard_id: ConnectionPool(config)
-               for shard_id, config in shard_map.items()
-           }
-
-       def get_connection(self, workspace_id):
-           shard_id = self.get_shard(workspace_id)
-           return self.pools[shard_id].get_connection()
-   ```
-
-2. **Caching Strategy**
-   - User presence in Redis (15-second TTL)
-   - Channel membership in ElastiCache
-   - Recent messages in memory
-
-**Lessons for Real-Time Apps**:
-1. Design for connection drops - mobile networks are unreliable
-2. Batch operations where possible
-3. Use backpressure to prevent overload
-4. Monitor everything - latency matters
-
-### Case Study 4: Robinhood - Financial Services Platform
-
-**The Challenge**: Process millions of stock trades with zero downtime and SEC compliance.
-
-**Regulatory Requirements**:
-- Every transaction must be logged
-- Data retention for 7 years
-- Disaster recovery with < 1-hour RPO
-- Encryption at rest and in transit
-
-**Architecture**:
-```
-Mobile Apps → API Gateway → WAF → ALB
-                                   ↓
-            ECS Fargate (Microservices)
-                                   ↓
-    Aurora (Transactions) + DynamoDB (Market Data)
-                                   ↓
-        Kinesis Data Firehose → S3 (Compliance Archive)
-                                   ↓
-                    Redshift (Analytics)
+```mermaid
+flowchart TB
+    U([Clients]) --> ALB[ALB / API Gateway]
+    subgraph Cluster[ECS cluster or EKS cluster]
+        S1[Service A<br/>Fargate tasks]
+        S2[Service B<br/>Fargate tasks]
+        S3[Service C<br/>Managed Instances / nodes]
+    end
+    ALB --> S1
+    S1 <-->|Service Connect or<br/>VPC Lattice| S2
+    S2 <--> S3
+    ECR[(ECR images)] -.-> Cluster
+    CICD[CI/CD pipeline] -->|push image,<br/>update service| ECR
+    S1 --> D1[(Service A's database)]
+    S2 --> D2[(Service B's database)]
 ```
 
-**Critical Components**:
+| Concern | AWS option |
+|---------|------------|
+| Orchestration | **ECS** for simplicity and deep AWS integration; **EKS** for the Kubernetes API and ecosystem |
+| Capacity | **Fargate** by default; ECS Managed Instances, EKS Auto Mode, or Karpenter-managed nodes for specialised hardware or density |
+| Images | **ECR** with image scanning and immutable tags |
+| Service-to-service traffic | **ECS Service Connect** (ECS), **VPC Lattice** (across VPCs, accounts, and compute types), or Istio/Linkerd on EKS |
+| Discovery | **AWS Cloud Map** (used by Service Connect) or Kubernetes DNS |
+| Deployment | Rolling or blue/green with automatic rollback on alarms |
 
-1. **Order Execution Engine**
-   ```python
-   class OrderExecutor:
-       def __init__(self):
-           self.market_connection = MarketConnection()
-           self.risk_checker = RiskChecker()
+**AWS App Mesh**, previously the standard answer for a managed service mesh, reaches end of support on 30 September 2026; new designs should not use it. Give each service its own datastore so teams can deploy independently, and resist splitting services more finely than team boundaries require.
 
-       async def execute_order(self, order):
-           # Pre-trade compliance checks
-           compliance_result = await self.check_compliance(order)
-           if not compliance_result.passed:
-               return OrderResult(status='rejected', reason=compliance_result.reason)
+### Pattern 6: Multi-Region
 
-           # Risk checks
-           risk_result = await self.risk_checker.check(order)
-           if risk_result.score > RISK_THRESHOLD:
-               return OrderResult(status='rejected', reason='risk_limit')
+Multi-Region designs are chosen from a spectrum defined by the **recovery point objective (RPO)**, how much data loss is acceptable, and the **recovery time objective (RTO)**, how long recovery may take:
 
-           # Execute with retry logic
-           for attempt in range(3):
-               try:
-                   result = await self.market_connection.submit(order)
-                   await self.log_execution(order, result)
-                   return result
-               except MarketUnavailable:
-                   await asyncio.sleep(0.1 * (attempt + 1))
+| Strategy | Secondary Region runs | Typical RPO / RTO | Relative cost |
+|----------|-----------------------|-------------------|---------------|
+| **Backup and restore** | Nothing; backups are copied there | Hours / hours to a day | Lowest |
+| **Pilot light** | Data replication only; compute is off or at zero | Minutes / tens of minutes | Low |
+| **Warm standby** | A scaled-down but working copy of the full stack | Seconds to minutes / minutes | Medium |
+| **Multi-site active/active** | Full stacks serving live traffic in every Region | Near zero (zero with synchronous stores) / near zero | Highest |
 
-           return OrderResult(status='failed', reason='market_unavailable')
-   ```
-
-2. **Real-Time Market Data Pipeline**
-   - 100,000+ price updates per second
-   - Sub-millisecond latency requirements
-   - DynamoDB with DAX for caching
-
-3. **Compliance and Audit System**
-   - Every API call logged to Kinesis
-   - Immutable audit trail in S3
-   - Daily reports generated with Athena
-
-**Scaling for Market Events**:
-
-```python
-# Auto-scaling based on market volatility
-def calculate_required_capacity():
-    volatility = get_market_volatility()
-    normal_capacity = 100
-
-    if volatility > HIGH_VOLATILITY_THRESHOLD:
-        return normal_capacity * 5  # 5x during high volatility
-    elif volatility > MEDIUM_VOLATILITY_THRESHOLD:
-        return normal_capacity * 2
-    else:
-        return normal_capacity
-
-# Pre-scale before market open
-schedule.every().day.at("09:00").do(
-    lambda: scale_to_capacity(calculate_required_capacity())
-)
+```mermaid
+flowchart TB
+    U([Users worldwide]) --> R53[Route 53 latency routing<br/>+ health checks, or Global Accelerator]
+    R53 --> RA
+    R53 --> RB
+    subgraph RA[Region A]
+        AppA[App tier] --> DDBA[(DynamoDB<br/>global table replica)]
+        AppA --> AurA[(Aurora Global DB<br/>primary)]
+    end
+    subgraph RB[Region B]
+        AppB[App tier] --> DDBB[(DynamoDB<br/>global table replica)]
+        AppB --> AurB[(Aurora Global DB<br/>secondary, read-only)]
+    end
+    DDBA <-->|replication| DDBB
+    AurA -->|storage replication,<br/>typically under 1 s| AurB
 ```
 
-**Security Architecture**:
-- All data encrypted with KMS
-- Network isolation with PrivateLink
-- API Gateway with rate limiting
-- WAF rules for common attacks
+Data is the hard part. DynamoDB global tables accept writes in every Region (last-writer-wins by default, or multi-Region strong consistency across three Regions); Aurora Global Database has one writer Region and promotes a secondary on failover; Aurora DSQL offers active-active strongly consistent SQL across peered Regions. Whatever the store, the application must tolerate replication lag or pay the latency of synchronous replication.
 
-### Case Study 5: Pinterest - Visual Discovery Engine
+Operational rules that separate multi-Region designs that work from those that do not:
 
-**The Challenge**: Serve billions of images with personalized recommendations to 400+ million users.
-
-**Data Scale**:
-- 300+ billion Pins
-- 5 billion boards
-- 600 million searches per month
-- 2 billion recommendations per day
-
-**Architecture**:
-```
-CDN (CloudFront) → Image Servers (EC2 + S3)
-        ↓
-API Gateway → Service Mesh → Microservices (EKS)
-        ↓
-Graph Database (Neptune) + Feature Store (DynamoDB)
-        ↓
-ML Pipeline (SageMaker) → Recommendation Service
-```
-
-**Key Innovations**:
-
-1. **Visual Search System**
-   ```python
-   class VisualSearchEngine:
-       def __init__(self):
-           self.feature_extractor = load_model('resnet50')
-           self.index = FaissIndex()  # Billion-scale similarity search
-
-       def process_image(self, image_url):
-           # Extract visual features
-           image = download_image(image_url)
-           features = self.feature_extractor.extract(image)
-
-           # Store in feature database
-           image_id = generate_id(image_url)
-           self.store_features(image_id, features)
-
-           # Find similar images
-           similar = self.index.search(features, k=100)
-           return self.rank_results(similar)
-
-       def build_index_shard(self, shard_id):
-           # Build index for billions of images
-           features = self.load_features_for_shard(shard_id)
-           index = FaissIndex()
-
-           # Add in batches for efficiency
-           for batch in chunks(features, 10000):
-               index.add_batch(batch)
-
-           # Save to S3
-           index.save_to_s3(f"index/shard_{shard_id}")
-   ```
-
-2. **Personalization Pipeline**
-   - User signals processed in real-time
-   - Graph neural networks for recommendations
-   - A/B testing framework for algorithms
-
-3. **Content Moderation**
-   - ML models detect inappropriate content
-   - Human review queue with SQS
-   - Feedback loop to improve models
-
-**Performance Optimizations**:
-- Image serving through CloudFront
-- Aggressive caching at every layer
-- Progressive image loading
-- WebP format for modern browsers
-
-**Lessons Learned**:
-1. **Cache Everything**: 99% cache hit rate saves millions
-2. **Precompute When Possible**: Recommendations generated offline
-3. **Shard by User**: Better cache locality
-4. **Monitor User Experience**: Not just system metrics
-
-### Key Takeaways from All Case Studies
-
-1. **Start Simple, Evolve Gradually**
-   - Every company started with basic architecture
-   - Complexity added only when needed
-   - Technical debt managed actively
-
-2. **Data is Everything**
-   - Instrument everything from day one
-   - Use data to drive decisions
-   - Build data pipelines early
-
-3. **Failure is Normal**
-   - Design for failure at every level
-   - Practice failure scenarios
-   - Automate recovery procedures
-
-4. **Scale Horizontally**
-   - Vertical scaling hits limits quickly
-   - Design for distributed systems
-   - Embrace eventual consistency
-
-5. **Security Cannot Be an Afterthought**
-   - Build security into architecture
-   - Automate security scanning
-   - Regular security audits
-
-These case studies demonstrate that successful AWS architectures share common patterns: they start simple, measure everything, automate aggressively, and evolve based on real needs rather than predicted ones.
+- **Fail over with data-plane actions** (health-check-driven DNS, Application Recovery Controller routing controls) rather than by creating resources during the incident.
+- **Exercise the failover regularly**, including failing back. An untested secondary Region is a hope, not a plan.
+- **Audit hidden dependencies** on a single Region: identity providers, CI/CD, secrets, DNS management, and global services whose control planes live in one Region.
 
 ---
 
-## Key Takeaways
+## Case Studies
 
-- **Start simple, evolve deliberately.** Begin with the simplest pattern that meets the need and add complexity only when a real constraint demands it. Every case study above grew this way.
-- **Architect for failure.** Spread across Availability Zones, decouple components with queues, and assume any single resource can disappear. Resilient designs degrade gracefully rather than fall over.
-- **Scale horizontally.** Vertical scaling hits a ceiling fast. Distribute load, embrace eventual consistency, and cache aggressively — the patterns that let these systems reach planetary scale.
+The following are drawn from the companies' own engineering publications and AWS's public post-event summaries. Figures are as published at the time.
+
+### Netflix: cloud-native from the ground up
+
+**Background.** After a major database corruption in 2008 halted DVD shipping for three days, Netflix decided to move off its own data centers. The migration to AWS took until January 2016 and was deliberately *not* a lift-and-shift: Netflix rebuilt nearly all of its technology as hundreds of microservices, moved from a monolithic relational database to distributed NoSQL stores, and adopted continuous delivery.
+
+**What runs where.** AWS hosts the control plane: sign-up, browsing, personalization, recommendations, playback authorization, and the data platform. The video bytes themselves do **not** come from AWS; they are served by **Open Connect**, Netflix's own CDN of appliances placed inside ISP networks and at interconnection points. This split, a cloud control plane with a purpose-built delivery network, is common at very large media scale.
+
+**Resilience practices.**
+
+- **Chaos engineering.** Chaos Monkey (introduced in 2011, open-sourced in 2012) randomly terminates production instances so that every service is built to survive instance loss. Later tools extended this to larger failures, up to evacuating an entire AWS Region (Chaos Kong).
+- **Multi-Region active-active.** Netflix runs its services in several AWS Regions, each able to take over another's traffic, with data replicated between Regions by its Cassandra and EVCache tiers.
+- **Open-source tooling** such as Spinnaker (continuous delivery), Eureka (discovery), and Zuul (edge gateway) came out of this work.
+
+**Lesson.** Resilience came from assuming failure is constant and testing that assumption continuously in production, not from any single AWS feature.
+
+Source: [Completing the Netflix Cloud Migration](https://about.netflix.com/en/news/completing-the-netflix-cloud-migration) (Netflix, 2016).
+
+### Slack: sharding and cellular architecture
+
+**Data tier.** Slack originally sharded MySQL by workspace. As large enterprise customers grew beyond what one shard could hold, and products such as shared channels between organizations broke the one-workspace-per-shard assumption, Slack migrated to **Vitess**, which shards MySQL flexibly (for example by channel) behind a single query interface. The migration ran from 2017 to the end of 2020; at the time Vitess served about 2.3 million queries per second at peak.
+
+**Gray AZ failure.** On 30 June 2021 a network problem in a single AZ caused user-visible errors even though Slack ran across several AZs: the failure was partial, so health checks did not remove the bad AZ, and services kept sending it traffic. Slack's response was to restructure into **AZ-aligned cells**:
+
+```mermaid
+flowchart TB
+    Edge[Edge load balancers - Envoy<br/>weighted by AZ] --> CA
+    Edge --> CB
+    Edge --> CC
+    subgraph CA[Cell: AZ a]
+        SA[Services] --> DA[(Data replicas)]
+    end
+    subgraph CB[Cell: AZ b]
+        SB[Services] --> DB[(Data replicas)]
+    end
+    subgraph CC[Cell: AZ c - drained]
+        SC[Services] --> DC[(Data replicas)]
+    end
+    Op([Operator or automation]) -->|set AZ c weight to 0| Edge
+```
+
+Services talk only to other services in the same AZ, so an AZ can be removed from service by changing edge weights. Drains propagate in seconds, against a goal of removing traffic from an impaired AZ in under five minutes.
+
+**Lesson.** Multi-AZ deployment is not the same as AZ fault isolation. Being able to *drain* a failure domain quickly, without diagnosing it first, handles partial failures that health checks miss.
+
+Sources: [Scaling Datastores at Slack with Vitess](https://slack.engineering/scaling-datastores-at-slack-with-vitess/) (2020); [Slack's Migration to a Cellular Architecture](https://slack.engineering/slacks-migration-to-a-cellular-architecture/) (2023).
+
+### Prime Video: when serverless granularity costs too much
+
+In 2023 Amazon's Prime Video team described a stream-quality monitoring tool originally built as distributed components orchestrated by **Step Functions**, with **Lambda** functions exchanging video frames through **S3**. At scale, the per-state-transition orchestration charges and the S3 traffic between steps dominated cost, and the system hit scaling limits well below its target load. The team consolidated the components into a single process running on **ECS**, passing data in memory, and reported infrastructure cost reductions of over 90% while scaling further.
+
+**Lesson.** The right granularity depends on the data flow. Serverless orchestration is cheap for coarse-grained, event-driven steps, and expensive when high-volume data has to cross a network boundary between every step. Reassess the decomposition when the workload's shape changes.
+
+### AWS us-east-1, October 2025: Regional dependencies
+
+On 19 and 20 October 2025, a latent race condition in DynamoDB's automated DNS management removed all IP addresses from the DynamoDB regional endpoint in US East (N. Virginia). DynamoDB was unreachable for several hours, and because many AWS services depend on it internally, EC2 instance launches, Network Load Balancer health checks, Lambda, ECS/EKS/Fargate, STS, and console sign-in were impaired for up to about 15 hours in total. AWS disabled the automation worldwide pending a fix.
+
+**Lessons.**
+
+- A single-Region architecture inherits the availability of that Region's shared dependencies, however many AZs it spans.
+- Recovery plans that need to **launch** capacity or **change** configuration during an incident are exposed to the same control-plane impairments; static stability (pre-provisioned capacity, data-plane failover) is what kept well-prepared workloads running.
+- Identity and authentication paths (STS, SSO) are dependencies too; check that failover procedures can run when they are degraded.
+
+Source: [Summary of the Amazon DynamoDB Service Disruption in the Northern Virginia (US-EAST-1) Region](https://aws.amazon.com/message/101925/) (AWS, 2025).
+
+---
+
+## Recurring Lessons
+
+Across these patterns and cases, a small set of principles recurs:
+
+1. **Start with the simplest architecture that meets the requirements**, and add complexity (more services, more Regions) only for a measured need. Every case above evolved incrementally.
+2. **Design for failure at every boundary**: instance, AZ, dependency, and Region. Decide in advance how each failure is detected and what happens automatically.
+3. **Isolate failure domains** with cells, per-service datastores, and bulkheads, so a problem affects a fraction of users rather than all of them.
+4. **Prefer static stability**: pre-provision headroom and use data-plane mechanisms for failover.
+5. **Test recovery, not just deployment**: game days, chaos experiments (AWS Fault Injection Service), and restore drills.
+6. **Treat cost as an architectural property**, measured per request or per customer, and revisit decomposition when it drifts.
 
 ---
 
 ## See Also
 
 - [AWS Hub](./) - Overview of all AWS documentation
-- [Infrastructure as Code](iac.html) - Build these patterns with CloudFormation and CDK
-- [Compute Services](compute.html) - EC2, Lambda, ECS, and Fargate building blocks
+- [Compute Services](compute.html) - EC2, Lambda, ECS, Fargate, and EKS building blocks
+- [Database Services](databases.html) - RDS, Aurora, DynamoDB global tables
 - [Networking & Content Delivery](networking.html) - VPC, load balancers, and CloudFront
-- [Kubernetes on AWS](../kubernetes/) - Container orchestration with EKS
+- [Cost Optimization](cost.html) - Commitments, Spot, and data transfer costs
+- [Infrastructure as Code](iac.html) - Build these patterns with CloudFormation, CDK, or Terraform
+- [Resilience Patterns](../../distributed-systems/resilience-patterns.html) - Bulkheads, retries, and circuit breakers in general
+- [Kubernetes](../kubernetes/) - Container orchestration concepts behind EKS

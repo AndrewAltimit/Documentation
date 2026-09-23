@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Computational Physics: Electronic Structure Beyond DFT"
+description: "The ab initio wavefunction hierarchy (Hartree-Fock, MP2, CI, coupled cluster), multireference methods, excited states, and current developments in GPU and machine-learned electronic structure."
 permalink: /docs/physics/computational-physics/electronic-structure-beyond-dft.html
 toc: true
 toc_sticky: true
@@ -9,46 +10,60 @@ hide_title: true
 
 <p><a href="./">Computational Physics</a> › Electronic Structure Beyond DFT</p>
 
-Wavefunction methods — Hartree-Fock, MP2, configuration interaction, coupled cluster — and excited states with TD-DFT, each trading cost for accuracy.
+**Wavefunction (*ab initio*) methods** approximate the many-electron Schrödinger equation directly instead of through an approximate density functional. They form a **systematically improvable hierarchy** — Hartree-Fock, perturbation theory, configuration interaction, coupled cluster — in which more computation buys a controlled approach to the exact answer. This page covers that hierarchy, the multireference methods needed when a single determinant is a poor starting point, excited-state methods (TD-DFT, EOM-CC, GW/BSE), practical concerns such as basis sets and local correlation, and the GPU and machine-learning developments that are reshaping the field.
 
-<div class="notice--info">
-  <p>This page complements <a href="quantum-methods.html">Quantum Computational Methods</a>, which covers density functional theory (DFT) and real-time wavefunction propagation. Here we focus on the <em>ab initio</em> wavefunction hierarchy that systematically improves on (or benchmarks) DFT, plus the time-dependent DFT route to excited states. Read the DFT material first if you have not — the two approaches are complementary, and practitioners routinely cross-check one against the other.</p>
-</div>
+Density functional theory itself, and the Kohn-Sham self-consistent field, are covered in [Quantum Computational Methods](quantum-methods.html#density-functional-theory-dft); the two approaches are complementary and are routinely used to check one another.
 
-## Why Go Beyond DFT?
+## Why go beyond DFT?
 
-Density functional theory is the workhorse of computational materials science and quantum chemistry because it delivers useful accuracy at a cost that scales as roughly $O(N^3)$ in the number of electrons. But DFT has a structural weakness: the **exact exchange-correlation functional is unknown**, and every practical functional (LDA, PBE, B3LYP, …) is an approximation with uncontrolled error. You cannot, in general, make a DFT result more accurate by spending more compute — there is no convergent ladder to the exact answer.
+Kohn-Sham DFT is the default for molecules and materials because it gives useful accuracy at roughly $O(N^3)$–$O(N^4)$ cost. Its weakness is structural: the exact exchange-correlation functional is unknown, and every practical functional (LDA, PBE, B3LYP, $\omega$B97M-V, …) has errors that cannot be reduced by spending more compute. There is no convergent path from a given functional to the exact answer.
 
-Wavefunction methods take the opposite stance. They start from a well-defined approximation (Hartree-Fock) and add electron correlation through a **systematically improvable hierarchy**. Spend more compute, get provably closer to the exact solution of the electronic Schrödinger equation within a given basis. The price is steep scaling — anywhere from $O(N^5)$ to $O(N^7)$ or worse — so these methods are reserved for small molecules, careful benchmarks, and cases where DFT is known to fail (dispersion-dominated complexes, bond breaking, near-degenerate states, excited states with charge transfer).
+Wavefunction methods take the opposite approach. They start from a well-defined mean-field reference and add electron correlation in a controlled way, so that — within a fixed one-electron basis — each step up the hierarchy approaches the exact (full CI) solution. The cost is steep scaling, from $O(N^5)$ to $O(N^7)$ and beyond, which restricts canonical implementations to small and medium molecules. They are used for:
 
-Four ideas organize the rest of this page:
+- **Benchmarks** that calibrate DFT functionals and train machine-learned models.
+- **Cases where DFT is known to fail**: dispersion-bound complexes, reaction barriers, conformer energies within a few kJ/mol, stretched bonds and biradicals, charge-transfer and doubly excited states.
+- **Spectroscopic accuracy** for small systems, where sub-kJ/mol errors matter.
 
-- **A convergent hierarchy.** HF → MP2 → CCSD → CCSD(T) → Full CI climbs systematically toward the exact answer in a fixed basis, unlike DFT's non-convergent functional zoo.
-- **Cost buys accuracy.** Each rung adds correlation but multiplies cost: $O(N^4)$ for HF, $O(N^5)$ for MP2, $O(N^7)$ for CCSD(T), factorial for Full CI.
-- **Basis sets matter.** Correlation energy converges slowly with basis size; correlation-consistent sets and extrapolation are essential for benchmark accuracy.
-- **Excited states need new tools.** Ground-state DFT says nothing about spectra; TD-DFT, EOM-CC, and CI give absorption energies and oscillator strengths.
+```mermaid
+flowchart LR
+    HF["Hartree-Fock<br/>O(N^4)"] --> MP2["MP2<br/>O(N^5)"]
+    MP2 --> CCSD["CCSD<br/>O(N^6)"]
+    CCSD --> CCSDT["CCSD(T)<br/>O(N^7)"]
+    CCSDT --> HIGH["CCSDT, CCSDT(Q)<br/>O(N^8)-O(N^9)"]
+    HIGH --> FCI["Full CI<br/>exponential"]
+    HF --> CAS["CASSCF<br/>multireference"]
+    CAS --> MRPT["CASPT2 / NEVPT2"]
+    CAS --> DMRG["DMRG, selected CI<br/>large active spaces"]
+```
 
-## The Electronic Structure Problem
+The main chain is the single-reference ladder; the CASSCF branch is the multireference route used when no single determinant dominates. In a finite basis both converge to full CI; the remaining basis-set error is removed separately by extrapolation or explicitly correlated (F12) methods.
 
-Within the Born-Oppenheimer approximation the nuclei are clamped and we solve for the electrons in their field. The non-relativistic electronic Hamiltonian (atomic units, with $\hbar = m_e = e = 1$) is
+## The electronic structure problem
+
+Within the Born-Oppenheimer approximation the nuclei are held fixed and the electrons are solved for in their field. The non-relativistic electronic Hamiltonian in atomic units ($\hbar = m_e = e = 4\pi\varepsilon_0 = 1$) is
 
 $$
 \hat{H} = -\frac{1}{2}\sum_i \nabla_i^2 \;-\; \sum_{i,A}\frac{Z_A}{r_{iA}} \;+\; \sum_{i<j}\frac{1}{r_{ij}}
 $$
 
-The first term is the electronic kinetic energy, the second the electron-nucleus attraction, and the third the electron-electron repulsion. That last term is the whole difficulty: it couples every electron to every other, so the exact wavefunction is not a product of one-electron orbitals. The exact ground state $\Psi(\mathbf{r}_1, \dots, \mathbf{r}_N)$ lives in $3N$-dimensional space and cannot be solved analytically for more than one electron.
+The terms are the electronic kinetic energy, the electron-nucleus attraction, and the electron-electron repulsion. The last term couples every electron to every other, so the exact wavefunction $\Psi(\mathbf{x}_1, \dots, \mathbf{x}_N)$ (with $\mathbf{x}$ combining position and spin) is not a product of one-electron functions and has no closed-form solution for more than one electron.
 
-Every method below is a strategy for approximating $\Psi$ and the energy $E = \langle \Psi | \hat{H} | \Psi \rangle$. The variational principle guarantees that for any normalized trial $\Psi$,
+Every method below is a strategy for approximating $\Psi$ and $E = \langle \Psi | \hat{H} | \Psi \rangle$. For variational methods the **variational principle** applies: for any normalized trial function,
 
 $$
 E[\Psi] = \langle \Psi | \hat{H} | \Psi \rangle \;\geq\; E_0
 $$
 
-so a method that minimizes this expectation over a class of trial functions gives an upper bound to the true ground-state energy $E_0$.
+so minimizing over a family of trial functions gives an upper bound to the exact ground-state energy $E_0$. Perturbative and coupled-cluster energies are *not* variational and can fall below $E_0$.
 
-## Hartree-Fock: The Mean-Field Starting Point
+Two properties recur when comparing methods:
 
-Hartree-Fock (HF) approximates the many-electron wavefunction by a **single Slater determinant** — an antisymmetrized product of one-electron spin-orbitals $\chi_i$:
+- **Size consistency**: the energy of two non-interacting fragments computed together equals the sum of their separate energies. A method that fails this cannot describe dissociation correctly.
+- **Size extensivity**: the correlation energy scales linearly with the number of electrons. Without it, the fraction of correlation energy recovered drops as molecules grow.
+
+## Hartree-Fock: the mean-field reference
+
+Hartree-Fock (HF) approximates the wavefunction by a **single Slater determinant** of orthonormal spin-orbitals $\chi_i$:
 
 $$
 \Psi_{\mathrm{HF}}(\mathbf{x}_1, \dots, \mathbf{x}_N) = \frac{1}{\sqrt{N!}}
@@ -60,150 +75,195 @@ $$
 \end{vmatrix}
 $$
 
-The determinant form enforces antisymmetry (the Pauli principle) automatically: swapping two electrons swaps two rows and flips the sign. Minimizing the energy over the orbitals subject to orthonormality yields the **Hartree-Fock equations**, a set of coupled eigenvalue problems for an effective one-electron operator, the **Fock operator** $\hat{F}$:
+The determinant is antisymmetric under exchange of any two electrons, so the Pauli principle is built in. Minimizing the energy with respect to the orbitals gives the **Hartree-Fock equations**, eigenvalue problems for the one-electron **Fock operator**:
 
 $$
 \hat{F}\,\chi_i = \varepsilon_i\,\chi_i, \qquad
-\hat{F} = \hat{h} + \sum_j \left( \hat{J}_j - \hat{K}_j \right)
+\hat{F} = \hat{h} + \sum_{j}^{\mathrm{occ}} \left( \hat{J}_j - \hat{K}_j \right)
 $$
 
-Here $\hat{h}$ is the one-electron (kinetic + nuclear attraction) operator, $\hat{J}_j$ is the **Coulomb operator** (the classical electrostatic repulsion from the charge cloud of orbital $j$), and $\hat{K}_j$ is the **exchange operator**, a purely quantum term with no classical analogue that arises from antisymmetry. Because $\hat{F}$ depends on the occupied orbitals it solves for, HF is a **self-consistent field (SCF)** problem, solved iteratively much like the Kohn-Sham loop in [DFT](quantum-methods.html#density-functional-theory-dft).
+$\hat{h}$ is the one-electron (kinetic plus nuclear attraction) operator, $\hat{J}_j$ the **Coulomb operator** (classical repulsion from the charge density of orbital $j$), and $\hat{K}_j$ the **exchange operator**, a non-classical term that arises from antisymmetry. Because $\hat{F}$ depends on the occupied orbitals, HF is a **self-consistent field (SCF)** problem, solved iteratively like the Kohn-Sham equations of DFT.
 
-In a finite basis of $K$ atomic functions, the HF equations become the matrix **Roothaan-Hall equations**
+Expanding the orbitals in $K$ atom-centred basis functions turns the HF equations into the matrix **Roothaan-Hall equations**
 
 $$
 \mathbf{F}\,\mathbf{C} = \mathbf{S}\,\mathbf{C}\,\boldsymbol{\varepsilon}
 $$
 
-where $\mathbf{F}$ is the Fock matrix, $\mathbf{S}$ the overlap matrix (atomic orbitals are not orthogonal), $\mathbf{C}$ the orbital coefficients, and $\boldsymbol{\varepsilon}$ the orbital energies. This is a generalized eigenvalue problem solved at each SCF iteration.
+where $\mathbf{F}$ is the Fock matrix, $\mathbf{S}$ the overlap matrix (atomic basis functions are not orthogonal), $\mathbf{C}$ the orbital coefficients, and $\boldsymbol{\varepsilon}$ the diagonal matrix of orbital energies. Each SCF iteration solves this generalized eigenvalue problem; convergence is accelerated with DIIS extrapolation. Building $\mathbf{F}$ requires the two-electron integrals, formally $O(K^4)$; integral screening and density fitting reduce the practical cost substantially.
 
-### What Hartree-Fock Captures and Misses
+The **restricted** (RHF) form pairs $\alpha$ and $\beta$ electrons in the same spatial orbitals and suits closed-shell molecules; **unrestricted** HF (UHF) allows different spatial orbitals for each spin and is used for open shells, at the price of spin contamination.
 
-HF accounts for **exchange exactly** but treats electron-electron repulsion only in a **mean-field** way: each electron moves in the *average* field of the others. It misses the instantaneous correlation in their motion — electrons "dodging" one another. The difference between the exact non-relativistic energy (in a complete basis) and the HF energy is, by definition, the **correlation energy**:
+### Correlation energy
+
+HF treats exchange exactly but electron repulsion only on average: each electron moves in the mean field of the others and does not respond to their instantaneous positions. The energy missing from HF defines the **correlation energy**:
 
 $$
 E_{\mathrm{corr}} = E_{\mathrm{exact}} - E_{\mathrm{HF}}
 $$
 
-It is always negative (correlation lowers the energy) and typically only about 1% of the total electronic energy — but that small fraction is decisive for chemistry: bond energies, reaction barriers, and intermolecular interactions all live in the correlation energy. Recovering $E_{\mathrm{corr}}$ efficiently is the entire business of post-HF methods.
+It is negative and typically about 1% of the total energy, but bond energies, reaction barriers, and intermolecular interactions are of the same size, so recovering it accurately is the purpose of every post-HF method. Correlation is often split into **dynamic** correlation (short-range avoidance of electrons, captured well by perturbation theory and coupled cluster) and **static** or **nondynamic** correlation (near-degeneracy of several determinants, which needs a multireference treatment).
 
 ```python
-# Hartree-Fock with PySCF: the canonical starting point
+# Hartree-Fock with PySCF (tested with PySCF 2.14)
 from pyscf import gto, scf
 
-# Define the water molecule (geometry in Angstrom)
 mol = gto.M(
-    atom='''
+    atom="""
         O  0.0000  0.0000  0.1173
         H  0.0000  0.7572 -0.4692
         H  0.0000 -0.7572 -0.4692
-    ''',
-    basis='cc-pVDZ',   # correlation-consistent double-zeta basis
+    """,                 # geometry in Angstrom
+    basis="cc-pVDZ",     # correlation-consistent double-zeta basis
     verbose=0,
 )
 
-# Restricted Hartree-Fock (closed shell)
-mf = scf.RHF(mol)
-e_hf = mf.kernel()
-print(f"Hartree-Fock energy: {e_hf:.6f} Hartree")
-
-# The converged MO coefficients and energies feed every post-HF method
-mo_energies = mf.mo_energy      # orbital energies (eps_i)
-mo_coeff = mf.mo_coeff          # AO -> MO transformation matrix
+mf = scf.RHF(mol).run()  # closed-shell restricted Hartree-Fock
+e_hf = mf.e_tot
 homo = mol.nelectron // 2 - 1
-print(f"HOMO-LUMO gap: {mo_energies[homo+1] - mo_energies[homo]:.4f} Hartree")
+print(f"E(HF)         = {e_hf:.6f} Eh")                       # -76.026772
+print(f"HOMO-LUMO gap = {mf.mo_energy[homo + 1] - mf.mo_energy[homo]:.4f} Eh")
+# mf.mo_coeff and mf.mo_energy are the reference for every post-HF method below
 ```
 
-## MP2: Perturbative Correlation, Cheaply
+## Møller-Plesset perturbation theory (MP2)
 
-The cheapest way to add correlation is **Møller-Plesset perturbation theory**, treating the difference between the true electron repulsion and the HF mean field as a perturbation $\hat{V} = \hat{H} - \hat{F}$. The first nonvanishing correction to the energy appears at **second order (MP2)**:
+The cheapest route to correlation is **Møller-Plesset perturbation theory**: take the sum of Fock operators as the zeroth-order Hamiltonian and treat the remainder as the perturbation. The first correction beyond HF appears at **second order (MP2)**:
 
 $$
 E^{(2)} = \sum_{i<j}^{\mathrm{occ}} \sum_{a<b}^{\mathrm{virt}}
 \frac{\left| \langle ij \,\|\, ab \rangle \right|^2}{\varepsilon_i + \varepsilon_j - \varepsilon_a - \varepsilon_b}
 $$
 
-The sum runs over pairs of occupied orbitals $i,j$ excited into pairs of virtual (unoccupied) orbitals $a,b$. The numerator $\langle ij \| ab \rangle$ is an antisymmetrized two-electron integral coupling the occupied and virtual orbitals; the denominator is the orbital-energy gap for the double excitation. Physically, MP2 sums the leading **double excitations** — the lowest-order way electrons correlate their motion.
+The sum runs over pairs of occupied spin-orbitals $i, j$ promoted to pairs of virtual orbitals $a, b$; $\langle ij \Vert ab \rangle$ is the antisymmetrized two-electron integral and the denominator is the orbital-energy gap of the double excitation (always negative for a well-behaved reference, so $E^{(2)} < 0$).
 
-MP2 scales as $O(N^5)$ and recovers a large fraction (often 80-90%) of the correlation energy for well-behaved closed-shell systems. It is the workhorse for **non-covalent interactions and dispersion**, where standard DFT functionals struggle. Its weaknesses: it can badly overestimate dispersion for large $\pi$ systems, it diverges for systems with small HOMO-LUMO gaps (the denominator approaches zero), and as a non-variational method it does not bound the true energy.
+MP2 scales as $O(N^5)$ — the integral transformation from the atomic to the molecular basis dominates — and with density fitting (RI-MP2) it is routine for molecules with hundreds of atoms. It typically recovers 80–95% of the correlation energy of closed-shell molecules near equilibrium. Its weaknesses:
+
+- It **overbinds dispersion** in extended $\pi$-stacked systems; spin-component-scaled variants (SCS-MP2) partly correct this.
+- It **diverges** when the HOMO-LUMO gap closes, because the denominator approaches zero; metals and stretched bonds are out of reach.
+- The MP series ($\mathrm{MP}n$) does not converge reliably beyond second order, so higher orders are rarely worth their cost.
+
+MP2 also appears inside **double-hybrid functionals** (B2PLYP, DSD-PBEP86, $\omega$B97M(2)), which mix a scaled MP2 correlation term into DFT and are among the most accurate functionals for main-group thermochemistry.
 
 ```python
 from pyscf import mp
 
-# MP2 correlation on top of the converged HF reference
-mp2 = mp.MP2(mf)
-e_corr_mp2, t2 = mp2.kernel()
-print(f"MP2 correlation energy: {e_corr_mp2:.6f} Hartree")
-print(f"Total MP2 energy:       {e_hf + e_corr_mp2:.6f} Hartree")
+mp2 = mp.MP2(mf).run()
+print(f"E_corr(MP2) = {mp2.e_corr:.6f} Eh")   # -0.204004
 ```
 
-## Configuration Interaction
+## Configuration interaction
 
-**Configuration interaction (CI)** abandons the single-determinant picture entirely. It writes the wavefunction as a linear combination of the HF determinant $\Phi_0$ and excited determinants built by promoting electrons from occupied to virtual orbitals:
+**Configuration interaction (CI)** writes the wavefunction as a linear combination of the HF determinant $\Phi_0$ and determinants obtained by exciting electrons into virtual orbitals:
 
 $$
 \Psi_{\mathrm{CI}} = c_0 \Phi_0 + \sum_{ia} c_i^a \Phi_i^a + \sum_{i<j,\,a<b} c_{ij}^{ab}\,\Phi_{ij}^{ab} + \cdots
 $$
 
-The coefficients $c$ are found variationally by diagonalizing the Hamiltonian in the space of determinants — so CI energies are rigorous **upper bounds** to the exact energy.
+The coefficients are found by diagonalizing $\hat{H}$ in the space of determinants, so CI energies are variational upper bounds.
 
-- **CISD** (singles + doubles) truncates the expansion at double excitations. It scales as $O(N^6)$ and recovers much of the correlation energy, but suffers from a critical flaw: it is **not size-consistent**. The energy of two non-interacting fragments computed together does not equal the sum of the fragment energies, so CISD errors grow with system size. This defect is why CISD has largely been superseded by coupled cluster.
+- **CISD** truncates at single and double excitations and scales as $O(N^6)$. It is **not size-consistent**: for $M$ non-interacting molecules the fraction of correlation energy it recovers falls towards zero as $M$ grows, because the product of two fragments' double excitations is a quadruple excitation that CISD omits. Coupled cluster fixes this and has replaced CISD in practice.
+- **Full CI (FCI)** includes every excitation and is exact within the basis. The number of determinants grows combinatorially — for $n$ spatial orbitals with $N_\alpha$ and $N_\beta$ electrons it is $\binom{n}{N_\alpha}\binom{n}{N_\beta}$ — so water in cc-pVDZ (24 orbitals, 5 + 5 electrons) already needs about $1.8 \times 10^9$ determinants. FCI is used to benchmark other methods on very small systems.
 
-- **Full CI (FCI)** includes *every* possible excitation. It gives the **exact** answer within the chosen basis — the gold-standard benchmark — but the number of determinants grows factorially. FCI is feasible only for tiny systems (a handful of electrons in a modest basis) and exists mainly to calibrate cheaper methods.
-
-Modern **selected CI** and **density matrix renormalization group (DMRG)** methods push the FCI frontier much further by including only the most important determinants, making near-exact treatment of strongly correlated, multireference systems (transition-metal complexes, bond dissociation) tractable.
+**Selected CI** methods (CIPSI, heat-bath CI, adaptive sampling CI) iteratively add only determinants with large estimated contributions and then correct perturbatively, reaching near-FCI accuracy for active spaces far beyond conventional FCI. **FCI quantum Monte Carlo** (FCIQMC) samples the CI vector stochastically for the same purpose.
 
 ```python
 from pyscf import fci
 
-# Full CI in an active space (here, all orbitals for a small molecule)
-cisolver = fci.FCI(mf)
-e_fci, fcivec = cisolver.kernel()
-print(f"Full CI energy: {e_fci:.6f} Hartree (exact within the basis)")
-print(f"Correlation recovered vs HF: {e_fci - e_hf:.6f} Hartree")
+# Full CI is feasible only for tiny spaces: use the smaller 6-31G basis (13 orbitals)
+small = gto.M(atom=mol.atom, basis="6-31g", verbose=0)
+mf_small = scf.RHF(small).run()
+e_fci = fci.FCI(mf_small).kernel()[0]
+print(f"E_corr(FCI)/6-31G = {e_fci - mf_small.e_tot:.6f} Eh")   # -0.136900
 ```
 
-## Coupled Cluster: The Gold Standard
+## Coupled cluster
 
-**Coupled cluster (CC)** theory fixes CI's size-consistency problem with an **exponential ansatz**:
+**Coupled cluster (CC)** theory uses an **exponential ansatz**:
 
 $$
 \Psi_{\mathrm{CC}} = e^{\hat{T}}\,\Phi_0, \qquad
-\hat{T} = \hat{T}_1 + \hat{T}_2 + \cdots
+\hat{T} = \hat{T}_1 + \hat{T}_2 + \hat{T}_3 + \cdots
 $$
 
-The cluster operator $\hat{T}$ generates excitations, and the exponential automatically produces *products* of excitations (so-called disconnected terms) that make the method **size-consistent and size-extensive** even when $\hat{T}$ is truncated. Truncating at doubles gives **CCSD** (coupled cluster with singles and doubles), scaling as $O(N^6)$.
+where $\hat{T}_n$ generates all $n$-fold excitations weighted by unknown **amplitudes**. Expanding the exponential produces products such as $\tfrac{1}{2}\hat{T}_2^2$ — simultaneous, independent pair excitations on different parts of the system — even when $\hat{T}$ is truncated. These terms make truncated CC **size-consistent and size-extensive**, which is exactly what CISD lacks.
 
-The defining method of modern quantum chemistry is **CCSD(T)** — CCSD plus a perturbative estimate of connected triple excitations, scaling as $O(N^7)$. It is so reliable for ground-state thermochemistry of single-reference molecules that it is called the **"gold standard"**: with a large basis it routinely reaches **"chemical accuracy"** (errors below 1 kcal/mol ≈ 0.0016 Hartree). The amplitudes in CCSD are found by projecting the Schrödinger equation onto excited determinants, giving coupled nonlinear equations:
+Truncating at doubles gives **CCSD**, which scales as $O(N^6)$. The amplitudes are found by projecting the similarity-transformed Schrödinger equation onto excited determinants, giving coupled nonlinear equations solved iteratively:
 
 $$
+E_{\mathrm{CC}} = \langle \Phi_0 | e^{-\hat{T}}\,\hat{H}\,e^{\hat{T}} | \Phi_0 \rangle, \qquad
 \langle \Phi_{ij}^{ab} | e^{-\hat{T}}\,\hat{H}\,e^{\hat{T}} | \Phi_0 \rangle = 0
 $$
 
-The caveat: CCSD(T) assumes a **single dominant reference determinant**. For strongly correlated systems — stretched bonds, biradicals, many transition metals — multiple determinants matter and CCSD(T) can fail dramatically, sometimes giving nonsensical (even imaginary) triples corrections. There the multireference methods (CASSCF, CASPT2, DMRG, selected CI) take over.
+with an analogous condition for single excitations. Because $e^{-\hat{T}}\hat{H}e^{\hat{T}}$ is not Hermitian, the CC energy is not variational.
+
+**CCSD(T)** adds a non-iterative, perturbative estimate of connected triple excitations at $O(N^7)$ cost. For single-reference molecules near equilibrium it is called the **"gold standard"** of quantum chemistry: at the complete-basis-set limit it typically reaches **chemical accuracy**, errors below 1 kcal/mol ($\approx 4.2$ kJ/mol $\approx 1.6$ mEh), for reaction energies and barrier heights. Higher levels — CCSDT, CCSDT(Q), CCSDTQ — are used in high-accuracy composite schemes (HEAT, W4) that target sub-kJ/mol accuracy for small molecules.
+
+CCSD(T) fails when the reference is poor. For stretched bonds, biradicals, and many transition-metal compounds several determinants carry large weights; the perturbative triples then overshoot, and potential-energy curves can turn over unphysically. Two quick diagnostics from a CCSD calculation are the $T_1$ diagnostic, $T_1 = \lVert \mathbf{t}_1 \rVert / \sqrt{N_{\mathrm{el}}}$ (values above about 0.02 for closed-shell organic molecules warn of multireference character), and unusually large $\hat{T}_2$ amplitudes.
 
 ```python
+import numpy as np
 from pyscf import cc
 
-# CCSD on the HF reference
-mycc = cc.CCSD(mf)
-e_corr_ccsd, t1, t2 = mycc.kernel()
-print(f"CCSD correlation energy:  {e_corr_ccsd:.6f} Hartree")
-print(f"Total CCSD energy:        {e_hf + e_corr_ccsd:.6f} Hartree")
+mycc = cc.CCSD(mf).run()
+e_t = mycc.ccsd_t()                                  # perturbative triples
+print(f"E_corr(CCSD)    = {mycc.e_corr:.6f} Eh")     # -0.213327
+print(f"E_corr(CCSD(T)) = {mycc.e_corr + e_t:.6f} Eh")  # -0.216386
 
-# Perturbative triples -> CCSD(T), the gold standard
-e_t = mycc.ccsd_t()
-print(f"(T) triples correction:   {e_t:.6f} Hartree")
-print(f"Total CCSD(T) energy:     {e_hf + e_corr_ccsd + e_t:.6f} Hartree")
+t1_diag = np.linalg.norm(mycc.t1) / np.sqrt(mol.nelectron)
+print(f"T1 diagnostic   = {t1_diag:.4f}")            # 0.0053: single-reference
 ```
 
-## Excited States: TD-DFT and Beyond
+For water near equilibrium the ladder behaves as expected. In the 6-31G basis, where FCI is affordable, CCSD(T) recovers 99.6% of the exact correlation energy:
 
-Everything above targets the **ground state**. Spectroscopy — UV/Vis absorption, fluorescence, photochemistry — needs **excited states**, which ground-state DFT and ground-state CCSD(T) do not provide directly.
+| Method (water) | $E_{\mathrm{corr}}$, cc-pVDZ (Eh) | $E_{\mathrm{corr}}$, 6-31G (Eh) |
+|---|---|---|
+| MP2 | −0.2040 | — |
+| CCSD | −0.2133 | — |
+| CCSD(T) | −0.2164 | −0.1364 |
+| Full CI | not feasible (~$10^9$ determinants) | −0.1369 |
 
-### Time-Dependent DFT (TD-DFT)
+The larger magnitude in cc-pVDZ is a basis-set effect: correlation energy grows as polarization functions are added, and even cc-pVDZ is far from the basis-set limit.
 
-The most widely used excited-state method is **time-dependent density functional theory (TD-DFT)**. In its standard linear-response formulation, one looks at how the ground-state density responds to a weak oscillating perturbation; the poles of the response function are the excitation energies. In a basis this reduces to the non-Hermitian **Casida eigenvalue equation**:
+## Multireference methods
+
+When static correlation matters, the reference itself must contain several determinants. The standard approach is the **complete active space self-consistent field (CASSCF)** method: choose an active space of $n$ electrons in $m$ orbitals — written CAS($n$e, $m$o) — perform FCI within it, and simultaneously optimize the orbitals. CASSCF captures static correlation but little dynamic correlation, so it is followed by a perturbative correction:
+
+- **CASPT2** — second-order perturbation theory on the CASSCF reference; widely used for photochemistry. Intruder-state problems are handled with level shifts.
+- **NEVPT2** — uses a partially bielectronic zeroth-order Hamiltonian that avoids intruder states and is strictly size-consistent.
+- **MRCI+Q** — multireference CI with a Davidson correction; very accurate but expensive.
+
+The main limitation is the exponential cost of the active space: conventional CASSCF tops out around 18 electrons in 18 orbitals. The **density matrix renormalization group (DMRG)**, which represents the active-space wavefunction as a matrix product state, and **selected CI** extend this to active spaces of 50–100 orbitals, enough for multinuclear transition-metal clusters such as those in nitrogenase and photosystem II. Choosing the active space remains a matter of chemical judgment, although automated schemes based on orbital entanglement or natural-orbital occupations (AVAS, autoCAS) now assist.
+
+```python
+from pyscf import mcscf
+
+# CASSCF with 8 electrons in 6 orbitals around the HOMO/LUMO
+mc = mcscf.CASSCF(mf, 6, 8).run()        # (ncas, nelecas)
+print(f"E(CASSCF) = {mc.e_tot:.6f} Eh")  # -76.079745
+# Dynamic correlation on top: from pyscf import mrpt; mrpt.NEVPT(mc).kernel()
+```
+
+```mermaid
+flowchart TD
+    START["Ground-state energy needed"] --> SIZE{"More than ~100 atoms?"}
+    SIZE -- yes --> DFTL["DFT (hybrid or double hybrid)<br/>spot-check with DLPNO-CCSD(T)"]
+    SIZE -- no --> MR{"Multireference character?<br/>stretched bonds, biradicals,<br/>T1 above ~0.02"}
+    MR -- no --> CC["CCSD(T)/CBS or<br/>DLPNO-CCSD(T)"]
+    MR -- yes --> AS{"Active space<br/>under ~18 orbitals?"}
+    AS -- yes --> CAS["CASSCF + NEVPT2 / CASPT2"]
+    AS -- no --> DM["DMRG or selected CI<br/>+ perturbative correction"]
+```
+
+The decision tree above is a common starting point, not a rule: large systems with strong correlation (for example, extended transition-metal materials) usually require embedding methods that treat a small region at a high level and the rest with DFT.
+
+## Excited states
+
+The methods above target the ground state. Absorption and emission spectra, photochemistry, and band gaps require excited states.
+
+### Time-dependent DFT
+
+**Linear-response time-dependent DFT (TD-DFT)** computes how the ground-state density responds to a weak oscillating field; the poles of the response function are the excitation energies. In an orbital basis this becomes the **Casida equation**:
 
 $$
 \begin{pmatrix} \mathbf{A} & \mathbf{B} \\ \mathbf{B}^{*} & \mathbf{A}^{*} \end{pmatrix}
@@ -213,82 +273,101 @@ $$
 \begin{pmatrix} \mathbf{X} \\ \mathbf{Y} \end{pmatrix}
 $$
 
-where the eigenvalues $\omega$ are the excitation energies and the eigenvectors $(\mathbf{X}, \mathbf{Y})$ give the transition densities (hence oscillator strengths and spectra). The matrices $\mathbf{A}$ and $\mathbf{B}$ are built from orbital-energy differences and exchange-correlation kernel couplings. Setting $\mathbf{B} = 0$ gives the cheaper, often more robust **Tamm-Dancoff approximation (TDA)**.
+The eigenvalues $\omega$ are excitation energies and the eigenvectors $(\mathbf{X}, \mathbf{Y})$ give the transition densities, hence oscillator strengths. $\mathbf{A}$ contains orbital-energy differences plus Coulomb and exchange-correlation kernel couplings; $\mathbf{B}$ couples excitations with de-excitations. Setting $\mathbf{B} = 0$ gives the **Tamm-Dancoff approximation (TDA)**, which is cheaper and often more robust, particularly for triplets and near conical intersections.
 
-TD-DFT scales like ground-state DFT (roughly $O(N^3)$-$O(N^4)$) and is the default for organic chromophores and large molecules. Its failures are well-catalogued and mirror DFT's: standard functionals badly underestimate **charge-transfer** and **Rydberg** excitations (range-separated hybrids like CAM-B3LYP fix much of this), struggle with **double excitations** (absent from the adiabatic approximation), and inherit any functional-dependent error.
+TD-DFT costs about as much as a ground-state hybrid-DFT calculation and is the default for organic chromophores and large molecules, typically with errors of 0.2–0.4 eV for valence excitations. Its known failures:
 
-The real-time alternative — propagating the density under a time-dependent field and Fourier-transforming the dipole response — is covered alongside wavefunction propagation in [Quantum Computational Methods](quantum-methods.html#time-dependent-schrödinger-equation).
+- **Charge-transfer and Rydberg states** are badly underestimated by standard hybrids; range-separated hybrids (CAM-B3LYP, $\omega$B97X-D, LC-$\omega$PBE) with long-range exact exchange correct much of this.
+- **Double excitations** are absent in the adiabatic approximation (frequency-independent kernel).
+- **Conical intersections** between the ground and first excited state are qualitatively wrong in linear response; spin-flip TD-DFT is a common workaround.
+
+Real-time TD-DFT, which propagates the density under an explicit field and Fourier-transforms the dipole response, is discussed with wavefunction propagation in [Quantum Computational Methods](quantum-methods.html).
 
 ```python
 from pyscf import dft, tddft
 
-# Ground-state DFT reference (B3LYP hybrid functional)
-mf_dft = dft.RKS(mol)
-mf_dft.xc = 'b3lyp'
-mf_dft.kernel()
-
-# Linear-response TD-DFT for the lowest excited states
-td = tddft.TDDFT(mf_dft)
+mf_dft = dft.RKS(mol, xc="cam-b3lyp").run()   # range-separated hybrid reference
+td = tddft.TDDFT(mf_dft)                      # tddft.TDA(mf_dft) for Tamm-Dancoff
 td.nstates = 5
-excitation_energies = td.kernel()[0]
+td.kernel()
 
-# Convert Hartree to eV and report with oscillator strengths
-hartree_to_ev = 27.2114
-osc = td.oscillator_strength()
-for i, (e, f) in enumerate(zip(excitation_energies, osc), start=1):
-    print(f"State {i}: {e * hartree_to_ev:6.3f} eV   f = {f:.4f}")
+for n, (e, f) in enumerate(zip(td.e, td.oscillator_strength()), start=1):
+    print(f"S{n}: {e * 27.211386:6.3f} eV   f = {f:.4f}")   # S1: 7.684 eV
 ```
 
-### Wavefunction Excited States: EOM-CC and Friends
+The first singlet of water computed this way (7.68 eV) lies above the experimental absorption onset near 7.4 eV. Part of the gap is the basis: water's low-lying states have Rydberg character, and cc-pVDZ has no diffuse functions. For excited states, augmented sets (aug-cc-pVDZ or larger) are the minimum.
 
-When TD-DFT is not trustworthy, **equation-of-motion coupled cluster (EOM-CCSD)** provides benchmark excited states. It applies an excitation operator to the CCSD ground state and diagonalizes the similarity-transformed Hamiltonian in the space of excited determinants, scaling as $O(N^6)$. Different flavors target different states: **EE-EOM** for neutral excitations, **IP/EA-EOM** for ionization and electron attachment. Multireference perturbation theories (**CASPT2**, **NEVPT2**) built on a **CASSCF** reference handle excited states that are inherently multiconfigurational, such as those in transition-metal photochemistry.
+### Equation-of-motion coupled cluster
 
-## Cost vs. Accuracy: The Whole Picture
+**EOM-CCSD** applies a linear excitation operator to the CCSD ground state and diagonalizes the similarity-transformed Hamiltonian $e^{-\hat{T}}\hat{H}e^{\hat{T}}$ in the space of singly and doubly excited determinants, at $O(N^6)$ cost. Variants target different states: **EE-EOM** for neutral excitations, **IP-** and **EA-EOM** for ionization and electron attachment, and **SF-EOM** (spin-flip) for biradicals. EOM-CCSD is accurate to about 0.1–0.3 eV for singly excited valence states and is the usual benchmark for TD-DFT. The cheaper **CC2** and **ADC(2)** methods scale as $O(N^5)$ and are widely used for larger chromophores. States with strong multiconfigurational character, as in transition-metal photochemistry, need **CASPT2** or **NEVPT2** instead.
 
-The unifying theme is a **cost-accuracy trade-off**. Each step up the hierarchy recovers more correlation energy but raises the formal scaling with system size $N$ (number of basis functions / electrons).
+### GW and the Bethe-Salpeter equation
 
-| Method | Recovers correlation? | Formal scaling | Variational? | Size-consistent? | Typical use |
-|--------|----------------------|----------------|--------------|------------------|-------------|
-| Hartree-Fock | No (mean field only) | $O(N^4)$ | Yes | Yes | Reference for all post-HF methods |
-| DFT (KS) | Approximately | $O(N^3)$ | Yes | Yes | Default for materials & large molecules |
-| MP2 | ~80-90% (single ref) | $O(N^5)$ | No | Yes | Dispersion, non-covalent interactions |
+For solids and for accurate ionization potentials and electron affinities, the standard approach is **many-body perturbation theory**. The **GW approximation** computes quasiparticle energies from a self-energy $\Sigma = iGW$, the product of the one-particle Green's function $G$ and the screened Coulomb interaction $W$. One-shot $G_0W_0$ on top of a DFT reference largely corrects the band-gap underestimate of LDA and GGA functionals, and self-consistent variants reduce the dependence on the starting point. Optical spectra, which involve electron-hole pairs (excitons), are then obtained by solving the **Bethe-Salpeter equation (BSE)** on top of GW. GW/BSE is standard in solid-state codes (BerkeleyGW, Yambo, VASP) and increasingly available in molecular codes, including PySCF.
+
+## Cost and accuracy
+
+| Method | Correlation treated | Formal scaling | Variational | Size-consistent | Typical use |
+|---|---|---|---|---|---|
+| Hartree-Fock | None (mean field) | $O(N^4)$ | Yes | Yes | Reference for post-HF methods |
+| Kohn-Sham DFT | Approximate, via functional | $O(N^3)$–$O(N^4)$ | Yes (for given functional) | Yes | Default for large molecules and materials |
+| MP2 | Dynamic, second order | $O(N^5)$ | No | Yes | Non-covalent interactions, double hybrids |
 | CISD | Partial | $O(N^6)$ | Yes | **No** | Mostly historical |
-| CCSD | Most | $O(N^6)$ | No | Yes | Reliable correlated energies |
-| CCSD(T) | Near-exact (single ref) | $O(N^7)$ | No | Yes | "Gold standard" thermochemistry |
-| Full CI | Exact (in basis) | factorial | Yes | Yes | Benchmark only, tiny systems |
-| TD-DFT | Approximately | $\sim O(N^3$-$N^4)$ | — | — | Excited states, spectra |
-| EOM-CCSD | Most (excited) | $O(N^6)$ | — | Yes | Benchmark excited states |
+| CCSD | Most dynamic | $O(N^6)$ | No | Yes | Correlated energies, EOM reference |
+| CCSD(T) | Near-complete (single reference) | $O(N^7)$ | No | Yes | Thermochemistry benchmark |
+| CASSCF + NEVPT2 | Static + dynamic | Exponential in active space | No | Yes | Bond breaking, multireference states |
+| Full CI | Exact in basis | Exponential | Yes | Yes | Benchmarks for tiny systems |
+| TD-DFT | Approximate | $O(N^3)$–$O(N^4)$ | — | Yes | Excited states of large molecules |
+| EOM-CCSD | Most (excited states) | $O(N^6)$ | — | For excitation energies | Excited-state benchmarks |
 
-Two practical caveats sit beneath this table:
+$N$ measures system size (number of basis functions). The scaling exponents are formal; integral screening, density fitting, and local approximations reduce practical costs substantially.
 
-- **Basis-set convergence.** Correlation energy converges painfully slowly with basis size — roughly as $X^{-3}$ for a correlation-consistent set of cardinal number $X$ (cc-pVDZ, cc-pVTZ, cc-pVQZ, …). Benchmark CCSD(T) numbers almost always involve **complete-basis-set (CBS) extrapolation** from at least two basis sets, often combined with explicitly correlated **F12** methods that converge far faster.
+### Basis-set convergence
 
-- **Single- vs. multireference.** The whole single-reference hierarchy (MP2, CCSD(T)) presumes one determinant dominates. The diagnostic $T_1$ from a CCSD calculation flags trouble: $T_1 > 0.02$ warns that the system is multireference and CCSD(T) may be unreliable, signalling a switch to CASSCF/CASPT2, DMRG, or selected CI.
+Correlation energies converge slowly with basis size because a finite sum of smooth one-electron functions cannot reproduce the **electron-electron cusp**, the kink in the exact wavefunction where two electrons meet. For the correlation-consistent family cc-pV$X$Z with cardinal number $X$ (D = 2, T = 3, Q = 4, 5, …) the error falls roughly as $X^{-3}$, which motivates the two-point **complete-basis-set (CBS) extrapolation**
 
-<div class="notice--success">
-  <p><strong>Rule of thumb.</strong> For a routine ground-state energy of an organic molecule, DFT is the pragmatic default. When DFT is suspect (dispersion complexes, reaction barriers, conformers within a few kcal/mol), validate against MP2 or CCSD(T)/CBS. For excited states, start with TD-DFT and a range-separated hybrid; escalate to EOM-CCSD or CASPT2 only when TD-DFT's known failure modes apply.</p>
-</div>
+$$
+E_{\mathrm{corr}}^{\mathrm{CBS}} \approx \frac{X^3 E_{\mathrm{corr}}^{(X)} - (X-1)^3 E_{\mathrm{corr}}^{(X-1)}}{X^3 - (X-1)^3}
+$$
 
-## The Software Ecosystem
+usually from triple- and quadruple-zeta results. The HF energy converges much faster and is extrapolated separately or taken from the largest basis. **Explicitly correlated F12 methods** add terms depending directly on $r_{12}$ to the wavefunction; CCSD(T)-F12 in a triple-zeta basis typically matches conventional CCSD(T) in a basis two cardinal numbers larger. Anions, Rydberg states, and weak interactions need **diffuse (augmented) functions**, and core-correlation effects need core-valence sets (cc-pCV$X$Z).
 
-The methods above are implemented in a rich ecosystem of quantum-chemistry packages. The major distinction is **Gaussian-type orbital (GTO)** codes — dominant in molecular quantum chemistry — versus **plane-wave / projector-augmented-wave** codes used for periodic solids.
+### Local correlation
 
-| Package | License | Strengths | Notes |
-|---------|---------|-----------|-------|
-| **PySCF** | Open source | HF, DFT, MP2, CC, CASSCF, FCI; Python-native, scriptable | Used in the examples here; excellent for prototyping and research |
-| **Psi4** | Open source | CCSD(T), SAPT, DFT; clean Python API | Strong for non-covalent interaction analysis |
-| **ORCA** | Free (academic) | DLPNO-CCSD(T), multireference, broad method coverage | Local-correlation CC scales to hundreds of atoms |
-| **Gaussian** | Commercial | Long-standing, comprehensive; widely cited | The historical reference implementation |
-| **MOLPRO** | Commercial | High-accuracy CC, explicitly correlated F12, multireference | Benchmark-quality wavefunction methods |
-| **NWChem** | Open source | Massively parallel HF/DFT/CC | Built for HPC and large systems |
-| **Quantum ESPRESSO / VASP** | Open / Commercial | Plane-wave DFT for periodic solids | The materials-science counterpart to the molecular codes |
+Dynamic correlation is short-ranged: two electrons in localized orbitals far apart barely correlate. **Local correlation** methods exploit this by working in localized occupied orbitals and compact, pair-specific virtual spaces. The most widely used is **DLPNO-CCSD(T)** (domain-based local pair natural orbitals, implemented in ORCA), whose cost grows nearly linearly with system size and which reproduces canonical CCSD(T) relative energies to within about 1 kcal/mol with default thresholds. Related approaches include PNO-LCCSD(T) in Molpro and LNO-CCSD(T) in MRCC. These methods have made CCSD(T)-quality energies routine for systems with hundreds of atoms, such as enzyme active-site models and organometallic catalysts. The truncation thresholds introduce an error of their own, so benchmark work reports results at tightened thresholds.
 
-A key modern development is **local-correlation coupled cluster** (DLPNO-CCSD(T) in ORCA, LCCSD in others), which exploits the short range of correlation to reduce the scaling of "gold-standard" CC from $O(N^7)$ toward near-linear for large molecules — bringing CCSD(T)-quality energies to systems of hundreds of atoms that were unthinkable a decade ago. Together with F12 explicitly correlated methods (which slash basis-set error), local CC has dramatically widened the range of chemistry where benchmark accuracy is affordable.
+## Recent developments
 
-## See Also
+Several trends have changed practice in the last few years:
 
-- [Quantum Computational Methods](quantum-methods.html) — DFT, the Kohn-Sham self-consistent field, and real-time wavefunction propagation that this page builds on.
-- [Monte Carlo &amp; Molecular Dynamics](monte-carlo-and-md.html) — variational and diffusion quantum Monte Carlo, an alternative route to correlation energies.
-- [Parallel Computing &amp; Machine Learning](hpc-and-ml.html) — the HPC techniques and ML potentials that scale these methods to large systems.
-- [Quantum Mechanics](../quantum-mechanics/) — the variational principle, perturbation theory, and the many-body Schrödinger equation underpinning these methods.
+- **GPU acceleration.** Density fitting and integral screening map well onto GPUs. [GPU4PySCF](https://github.com/pyscf/gpu4pyscf) runs HF, DFT (including analytic gradients, Hessians, and TD-DFT) on NVIDIA GPUs, with MP2 and CCSD at an experimental stage; an existing PySCF object is moved to the GPU with `.to_gpu()`. GPU-native codes such as TeraChem and QUICK, and GPU ports of coupled cluster in several packages, bring hybrid DFT on thousand-atom systems into the range of minutes to hours.
+- **Machine-learned density functionals.** Functionals trained on large sets of high-level reference energies are beginning to close the gap to wavefunction accuracy. Microsoft Research's **Skala** functional (announced June 2025), trained on about 150,000 coupled-cluster-quality reaction energies, reaches near-chemical accuracy on the W4-17 atomization-energy benchmark at a cost comparable to meta-GGA functionals for large systems.
+- **Neural-network wavefunctions.** Variational Monte Carlo with neural-network ansätze (FermiNet, PauliNet, Psiformer) achieves accuracy competitive with CCSD(T) for small molecules and handles bond breaking without an active space, at high GPU cost.
+- **Large reference datasets.** High-level and large-scale DFT datasets, such as Meta's OMol25 (over 100 million DFT calculations at the $\omega$B97M-V/def2-TZVPD level), are used to train machine-learned interatomic potentials that reproduce DFT accuracy at a small fraction of the cost; see [Machine Learning for Physics](ml-for-physics.html#neural-network-interatomic-potentials).
+- **Quantum computing.** Quantum phase estimation and variational eigensolvers target strongly correlated active spaces, but resource estimates for chemically relevant problems (such as the FeMo cofactor) still call for fault-tolerant hardware. Current demonstrations run on small active spaces that classical methods solve exactly; see [Quantum Algorithms Research](../../advanced/quantum-algorithms-research/).
+
+## Software
+
+Molecular codes use **Gaussian-type orbitals (GTOs)**, which make integrals analytic and suit finite systems. Solid-state codes use **plane waves** with pseudopotentials or the projector-augmented-wave (PAW) method, which suit periodic boundary conditions.
+
+| Package | License | Strengths |
+|---|---|---|
+| **PySCF** | Open source (Apache 2.0) | Python-native HF, DFT, MP2, CC, EOM-CC, CASSCF, NEVPT2, FCI, GW; periodic systems; GPU4PySCF extension |
+| **Psi4** | Open source (LGPL) | CC, SAPT for interaction-energy decomposition, Python API |
+| **ORCA** | Free for academic use | DLPNO-CCSD(T), multireference methods, spectroscopy; Python interface (OPI) |
+| **Molpro** | Commercial | High-accuracy CC, F12, PNO-LCCSD(T), MRCI |
+| **MRCC** | Free for academic use | Arbitrary-order CC, LNO-CCSD(T) |
+| **Q-Chem** | Commercial | Broad DFT and excited-state (EOM, ADC) coverage |
+| **Gaussian** | Commercial | Long-established general-purpose code |
+| **NWChem / NWChemEx** | Open source | Massively parallel CC for HPC systems |
+| **OpenMolcas** | Open source | CASSCF, CASPT2, RASSCF, multireference photochemistry |
+| **Quantum ESPRESSO, VASP, CP2K** | Open / commercial / open | Plane-wave or mixed-basis DFT for condensed phases; VASP and others add GW/BSE and RPA |
+
+## See also
+
+- [Quantum Computational Methods](quantum-methods.html) — DFT, the Kohn-Sham SCF, and real-time wavefunction propagation.
+- [Monte Carlo &amp; Molecular Dynamics](monte-carlo-and-md.html) — variational and diffusion quantum Monte Carlo, an independent route to correlation energies.
+- [Parallel &amp; High-Performance Computing](hpc-and-ml.html) — the parallel linear algebra and GPU techniques behind large electronic-structure calculations.
+- [Machine Learning for Physics](ml-for-physics.html) — neural-network potentials trained on electronic-structure data.
+- [Quantum Mechanics](../quantum-mechanics/) — the variational principle, perturbation theory, and the many-body Schrödinger equation.
 - [Condensed Matter Physics](../condensed-matter/) — electronic structure and correlation in periodic solids.

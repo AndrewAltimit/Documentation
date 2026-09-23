@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "API Design: GraphQL"
+description: "GraphQL schemas, operations, resolver execution, the N+1 problem and DataLoader, federation and composite schemas, pagination, caching, trusted documents, security, and tradeoffs against REST."
 permalink: /docs/api-design/graphql.html
 toc: true
 toc_sticky: true
@@ -9,14 +10,7 @@ hide_title: true
 
 [API Design](./) &raquo; GraphQL
 
-GraphQL inverts the REST contract. Instead of the server defining a fixed set of resources at fixed URLs, the server publishes a single strongly-typed *schema* describing every type and field it can return, and the client sends a query selecting exactly the fields it wants from a single endpoint. This eliminates over-fetching and under-fetching, collapses many round trips into one, and makes the API self-documenting and introspectable. The cost: the server must implement a *resolver* for every field, defend against the N+1 query explosion that field-by-field resolution invites, and give up the free HTTP-layer caching that REST gets from URLs and verbs. The four ideas that recur throughout:
-
-- **One endpoint, one graph.** The schema is a typed graph of your domain; clients traverse it in a single request and get back exactly the shape they asked for.
-- **Every field has a resolver.** The server walks the query tree, calling a resolver per field — the source of GraphQL's flexibility and of the N+1 performance hazard.
-- **Batch, don't loop.** DataLoader coalesces a tree's worth of per-row lookups into one batched query per tick, turning O(N) round trips into O(1).
-- **You trade HTTP caching for flexibility.** POST-to-one-URL kills free CDN/proxy caching; you pay it back with normalized client caches and persisted queries.
-
-This page covers the type system and schema definition language, the three operation types, resolver execution, the N+1 problem and DataLoader, schema federation, cursor/Relay pagination, caching and persisted queries, and the honest tradeoffs against REST.
+**GraphQL** is a query language for APIs and a runtime for executing those queries. The server publishes one strongly typed **schema** describing every type and field it can return. Clients send documents to a single endpoint and select exactly the fields they need, and the response has the same shape as the query. Over-fetching and under-fetching go away, many round trips collapse into one, and the schema documents itself. The server pays for this: it implements a **resolver** per field, has to defend against the N+1 query explosion that field-by-field execution invites, and gives up the HTTP caching REST gets from URLs. This page covers the type system, the three operation types, execution and resolvers, DataLoader, federation, pagination, caching and trusted documents, the HTTP transport, security, and when GraphQL is worth it.
 
 ## Table of contents
 {: .no_toc .text-delta }
@@ -26,65 +20,61 @@ This page covers the type system and schema definition language, the three opera
 
 ---
 
-## What GraphQL Is
+## Overview
 
-GraphQL is a query language for APIs and a runtime for executing those queries against a typed schema. It was created at Facebook in 2012 (open-sourced in 2015) to serve mobile clients that needed many related pieces of data in one round trip over slow networks, where the REST pattern of "one request per resource, fixed response shape" was both too chatty and too wasteful.
+GraphQL was built at Facebook in 2012 for mobile clients that needed many related objects in one round trip over slow networks. It was open-sourced in 2015 and moved to the vendor-neutral **GraphQL Foundation** (Linux Foundation) in 2019. The specification is published in dated editions. The **September 2025 edition** was the first new edition since October 2021. It added **OneOf input objects**, **schema coordinates**, descriptions on operations and fragments, and full Unicode support. The reference implementation, **GraphQL.js v17**, was released in June 2026.
 
 The defining properties:
 
-- **One endpoint.** A GraphQL service exposes a single URL (conventionally `/graphql`). Operations are distinguished by their *body*, not their path or HTTP verb.
-- **Client-specified shape.** The client sends a query naming exactly the fields it wants; the response mirrors that selection precisely — no more, no less. There is no over-fetching (getting fields you ignore) and no under-fetching (needing a second request for related data).
-- **Strong typing.** Every field has a declared type. The server validates each query against the schema *before* executing it, so a malformed query is rejected up front with a precise error rather than failing halfway through.
-- **Introspection.** The schema is queryable at runtime, which is what powers tools like GraphiQL, code generators, and editor autocomplete.
-
-A query and its response are structurally identical, which is the feature that makes GraphQL feel immediate:
+| Property | What it means |
+|----------|---------------|
+| **One endpoint** | A service exposes one URL (conventionally `/graphql`). The request body says which operation to run; the path and verb do not. |
+| **Client-selected shape** | The response contains exactly the requested fields: no over-fetching and no follow-up request for related data. |
+| **Strong typing** | Every field has a declared type. A document is **validated against the schema before execution**, so a malformed query fails up front with a precise error. |
+| **Introspection** | The schema can be queried at runtime, which powers GraphiQL, code generators and editor autocomplete. |
 
 ```graphql
-# Request
 query {
-  user(id: "42") {
+  user(by: { id: "42" }) {
     name
-    email
-    posts(first: 2) {
-      title
-    }
+    posts(first: 2) { nodes { title } }
   }
 }
 ```
 
 ```json
-// Response — same shape as the query
 {
   "data": {
     "user": {
       "name": "Ada Lovelace",
-      "email": "ada@example.com",
-      "posts": [
-        { "title": "On the Analytical Engine" },
-        { "title": "Note G" }
-      ]
+      "posts": {
+        "nodes": [
+          { "title": "On the Analytical Engine" },
+          { "title": "Note G" }
+        ]
+      }
     }
   }
 }
 ```
 
-## The Type System & Schema
+## The Type System
 
-The schema is the contract. It is written in the **Schema Definition Language (SDL)** — a small, language-agnostic syntax — and it is the single source of truth that the server validates against and that clients introspect.
+The schema is the contract. It is written in the **Schema Definition Language (SDL)** and is the source of truth for server validation, client introspection, and code generation.
 
-### Scalar and Object Types
+### Scalars and object types
 
-GraphQL ships five built-in scalars: `Int`, `Float`, `String`, `Boolean`, and `ID` (a serialized-as-string opaque identifier). You define custom scalars (e.g. `DateTime`, `JSON`, `Email`) by supplying serialization logic on the server.
-
-An **object type** is a named collection of fields, each field having its own type. This is how you model your domain:
+There are five built-in scalars: `Int` (32-bit signed), `Float`, `String`, `Boolean`, and `ID` (an opaque identifier serialized as a string). Custom scalars such as `DateTime`, `URL` or `JSON` need server-side serialization and parsing. Use `@specifiedBy(url: ...)` to point at the format they follow.
 
 ```graphql
+scalar DateTime @specifiedBy(url: "https://www.rfc-editor.org/rfc/rfc3339")
+
 type User {
   id: ID!
   name: String!
   email: String
-  posts: [Post!]!
   role: Role!
+  posts(first: Int = 10, after: String): PostConnection!
 }
 
 type Post {
@@ -96,37 +86,46 @@ type Post {
 }
 ```
 
-### Nullability and Lists
+### Nullability and lists
 
-By default **every field is nullable**. A trailing `!` marks it **non-null** — the server guarantees a value and the client may rely on it. This is the opposite default from most languages and is deliberate: networked fields fail, so nullable is the safe baseline.
+**Fields are nullable by default.** A trailing `!` marks a field **non-null**. This is the reverse of most programming languages, and it is deliberate: any field backed by a network call can fail, so nullable is the safe default. The position of `!` in a list type matters:
 
-Nullability composes with lists, and the position of `!` matters precisely:
-
-| Type | `null` list? | `null` element? |
+| Type | List can be `null` | Element can be `null` |
 |------|:---:|:---:|
 | `[Post]`   | yes | yes |
 | `[Post!]`  | yes | no  |
 | `[Post]!`  | no  | yes |
 | `[Post!]!` | no  | no  |
 
-A non-null violation is not silently coerced: if a resolver returns `null` for a non-null field, GraphQL **propagates the null upward** to the nearest nullable parent, nulling that entire subtree and recording an error. This bubbling rule is a frequent source of surprise — one missing required field can blank out a large branch of the response.
+If a resolver fails or returns `null` for a non-null field, the executor records an error and **propagates the null upward** to the nearest nullable ancestor, discarding that whole subtree:
 
-### Enums, Interfaces, and Unions
+```mermaid
+flowchart TD
+    Q["query"] --> U["user (nullable)"]
+    U --> N["name: String!"]
+    U --> P["posts: [Post!]!"]
+    P --> P1["post 1"]
+    P --> P2["post 2: title: String! resolver throws"]
+    P2 -. "null bubbles up past non-null posts" .-> U
+    U -. "user becomes null, error added to errors[]" .-> Q
+```
+
+One failing field can erase a large part of the response. Mark fields non-null only when the server can really guarantee them. Fields that depend on other services should stay nullable. The GraphQL Nullability working group is exploring ways for clients to turn off this propagation, but none of that is in a published spec edition yet.
+
+### Enums, interfaces, and unions
 
 ```graphql
 enum Role { ADMIN EDITOR VIEWER }
 
-# Interface: shared fields, polymorphic implementers
-interface Node { id: ID! }
+interface Node { id: ID! }                  # shared fields
 
 type User implements Node { id: ID!  name: String! }
 type Post implements Node { id: ID!  title: String! }
 
-# Union: a value that is one of several object types (no shared fields)
-union SearchResult = User | Post | Comment
+union SearchResult = User | Post | Comment  # one of several types, no shared fields
 ```
 
-When a field returns an interface or union, the client uses **inline fragments** to select type-specific fields, and the server must implement a `__resolveType` function so the executor knows which concrete type each value is:
+When a field returns an abstract type, the client uses **inline fragments** to select fields specific to each concrete type. The server needs a way to tell which concrete type each value is, for example a `__resolveType` function or an `isTypeOf` check, depending on the library.
 
 ```graphql
 query {
@@ -138,70 +137,71 @@ query {
 }
 ```
 
-### Input Types and Arguments
+### Input types and OneOf
 
-Fields take **arguments**; complex arguments use **input types** (distinct from object types — inputs cannot have resolvers or circular non-null cycles, and are used only as parameters):
+Complex arguments use **input types**. Input types are separate from object types: they have no resolvers and can only appear as arguments. The September 2025 spec added **OneOf input objects**. Marked with `@oneOf`, such a type requires **exactly one** field to be set, which expresses "look up by X *or* Y" in the schema itself instead of in resolver checks:
 
 ```graphql
 input CreatePostInput {
   title: String!
   body: String!
-  authorId: ID!
+}
+
+input UserBy @oneOf {
+  id: ID
+  email: String
+  username: String
+}
+
+type Query {
+  user(by: UserBy!): User       # user(by: { email: "ada@example.com" })
 }
 ```
 
-### The Three Root Types
+### Root operation types
 
-Every schema has up to three special entry-point object types. They are ordinary object types, but the executor treats them as the roots of the three operation kinds:
+A schema has up to three root types. They are ordinary object types, and the executor uses them as the entry points for the three kinds of operation. By convention they are named `Query`, `Mutation` and `Subscription`, in which case no explicit `schema { ... }` block is needed.
 
 ```graphql
-type Query    { ... }   # reads
-type Mutation { ... }   # writes
-type Subscription { ... } # live streams
-
-schema {
-  query: Query
-  mutation: Mutation
-  subscription: Subscription
-}
+type Query        { user(by: UserBy!): User }
+type Mutation     { createPost(input: CreatePostInput!): CreatePostPayload! }
+type Subscription { messageAdded(channelId: ID!): Message! }
 ```
 
-## Queries, Mutations & Subscriptions
+### Schema evolution
 
-The three operation types correspond to read, write, and subscribe. They share syntax but differ in execution semantics.
+GraphQL APIs are usually **versionless**. Because clients choose their fields, adding a field or type breaks no one. Removal is done by deprecation: mark the field `@deprecated(reason: "...")`, measure how much it is still used (field-level usage metrics are the main reason to run a schema registry), and remove it once traffic reaches zero. Breaking changes include removing or renaming a field, making a nullable field non-null in an input, and making a non-null output field nullable. Schema checks in CI (GraphQL Inspector, Apollo GraphOS, Hive) diff the schema against real client operations and fail the build when a change would break one of them.
+
+## Operations: Queries, Mutations, Subscriptions
 
 ### Queries
 
-A **query** is a read. Top-level query fields execute **in parallel** (they are assumed side-effect-free), and the response is shaped by the selection set. Queries support:
+A **query** is a read. Top-level fields may execute **in parallel**, because they are assumed to have no side effects. The main features of the query language:
 
-- **Arguments** — `user(id: "42")`.
-- **Aliases** — request the same field twice under different names: `me: user(id:"1") { name }  you: user(id:"2") { name }`.
-- **Variables** — parameterize a query so the query string stays static (essential for caching and persisted queries, below):
+| Feature | Example | Purpose |
+|---------|---------|---------|
+| Arguments | `user(by: {id: "42"})` | Parameterize a field |
+| Variables | `query GetUser($id: ID!) { ... }` | Keep the document static; values travel separately. Required for caching and trusted documents. |
+| Aliases | `me: user(...) { name } boss: user(...) { name }` | Request the same field twice |
+| Fragments | `fragment UserCard on User { id name }` | Reusable selection sets, usually colocated with UI components |
+| Directives | `@include(if: $x)`, `@skip(if: $x)`, `@deprecated` | Conditional selection; schema metadata |
 
 ```graphql
-query GetUser($id: ID!) {
-  user(id: $id) { name email }
+query GetUser($id: ID!, $withPosts: Boolean = false) {
+  user(by: { id: $id }) {
+    ...UserCard
+    posts(first: 5) @include(if: $withPosts) { edges { node { title } } }
+  }
 }
-```
-```json
-{ "id": "42" }
-```
 
-- **Fragments** — named, reusable selection sets that keep queries DRY:
-
-```graphql
 fragment UserCard on User { id name email }
-
-query { user(id: "42") { ...UserCard } }
 ```
-
-- **Directives** — `@include(if: $x)` and `@skip(if: $x)` conditionally include fields at execution time.
 
 ### Mutations
 
-A **mutation** is a write. The only execution difference from queries is significant: **top-level mutation fields run serially, in the order written**, so that `createUser` then `addToTeam` cannot race. (Nested fields under each mutation still resolve in parallel.)
+A **mutation** is a write. It differs from a query in one important way: **top-level mutation fields run serially, in the order written**, so `createUser` followed by `addToTeam` cannot race. Nested fields still resolve normally.
 
-The strong convention is **one input type in, one payload type out**, where the payload returns the affected object(s) plus error information — so the client can immediately re-read the new state in the same round trip:
+The common convention is **one input type in, one payload type out**. The payload returns the changed objects, so the client cache can update without another request, and it models expected, recoverable failures as data:
 
 ```graphql
 type Mutation {
@@ -210,15 +210,27 @@ type Mutation {
 
 type CreatePostPayload {
   post: Post
-  userErrors: [UserError!]!   # domain errors, modeled as data
+  userErrors: [UserError!]!     # "title already used", "body too long"
+}
+
+type UserError {
+  field: [String!]
+  message: String!
+  code: UserErrorCode!
 }
 ```
 
-Modeling expected, recoverable errors (validation failures, "title taken") as fields in the payload — rather than throwing — lets a single response carry partial success and typed error detail, which is far friendlier to clients than a top-level `errors` array.
+Another option is a **result union** (`union CreatePostResult = CreatePostSuccess | TitleTaken | Forbidden`), which makes clients handle each case explicitly. Either way, keep the top-level `errors` array for *unexpected* failures such as bugs, timeouts and authorization faults, and model *expected* domain outcomes in the schema.
 
 ### Subscriptions
 
-A **subscription** is a long-lived operation that pushes a stream of results to the client whenever an event occurs (a new message, a price tick). Unlike queries/mutations (request/response, typically over HTTP POST), subscriptions need a persistent transport — historically WebSockets (`graphql-ws` protocol), increasingly Server-Sent Events for unidirectional streams.
+A **subscription** is a long-lived operation. The server pushes a new result each time an event occurs. It needs a streaming transport:
+
+| Transport | Protocol | Notes |
+|-----------|----------|-------|
+| WebSocket | `graphql-transport-ws` (the `graphql-ws` library) | The current standard. The older `subscriptions-transport-ws` protocol is unmaintained and should be migrated away from. |
+| Server-Sent Events | `graphql-sse` or GraphQL over SSE | Simpler; works over plain HTTP/2 through proxies |
+| Multipart HTTP | `multipart/mixed` | Used by Apollo Router and by incremental delivery |
 
 ```graphql
 type Subscription {
@@ -226,151 +238,193 @@ type Subscription {
 }
 ```
 
-A subscription resolver returns an **async iterator**; the server `publish`es events to a pub/sub backend (in-memory for one node, Redis/Kafka for many) and each subscriber's iterator yields the events matching its arguments. Subscriptions add real operational weight — you must manage connection state, backpressure, authorization on every pushed event, and horizontal fan-out across server instances — so reach for them only when you genuinely need server-push; polling a query is often simpler and sufficient.
+The subscription resolver returns an **async iterator**. The server publishes events to a pub/sub backend (in memory for one node, Redis, NATS or Kafka for more), and each subscriber's iterator yields the events that match its arguments. Subscriptions are expensive to run. You have to manage connection state, backpressure, **authorization on every pushed event** (the user's permissions may have changed since they subscribed), and fan-out across instances. Use them only when you need server push. Often polling a query, or a plain SSE feed, is enough. See [Async & Event-Driven APIs](async-and-events.html) for the transport tradeoffs.
 
-## Resolvers: How Execution Works
+### Incremental delivery: `@defer` and `@stream`
 
-A **resolver** is a function attached to a single field that produces that field's value. Execution is a depth-first walk of the query tree: GraphQL calls the resolver for each requested field, passes the result as the *parent* to the resolvers of that field's sub-selections, and assembles the response from the leaves up.
-
-Every resolver has the same signature — `(parent, args, context, info)`:
-
-- **`parent`** — the value returned by the resolver one level up (the object this field belongs to).
-- **`args`** — the field's arguments.
-- **`context`** — a per-request object shared by *all* resolvers in one operation; the canonical home for the authenticated user, database connections, and DataLoaders.
-- **`info`** — the AST and runtime info about the current field (rarely needed; used for advanced projection).
-
-```javascript
-const resolvers = {
-  Query: {
-    // parent is the root; fetch the user by id
-    user: (_parent, { id }, ctx) => ctx.db.users.findById(id),
-  },
-  User: {
-    // parent is the User object resolved above
-    posts: (user, _args, ctx) => ctx.db.posts.findByAuthor(user.id),
-  },
-  Post: {
-    author: (post, _args, ctx) => ctx.db.users.findById(post.authorId),
-  },
-};
-```
-
-### Default Resolvers and Trivial Resolvers
-
-You do not write a resolver for every field. If a field has no explicit resolver, GraphQL uses the **default resolver**, which simply reads the property of the same name off `parent` (returning `parent.name` for field `name`). So `User.name` needs no code as long as the user object the database returned already has a `name` property. You only write resolvers for fields that require computation, a fetch, or a transformation.
-
-### Why Resolution Order Creates the N+1 Problem
-
-The field-by-field model is what makes GraphQL flexible, but it has a built-in performance trap. Consider:
+`@defer` lets the server return the fast part of a response right away and send slow fragments later. `@stream` delivers list items as they resolve. The server sends one initial payload followed by incremental payloads that are patched into it:
 
 ```graphql
 query {
-  posts(first: 10) {     # 1 query: fetch 10 posts
-    title
-    author { name }      # resolver runs ONCE PER POST → 10 more queries
+  product(id: "p1") {
+    name price
+    ... @defer(label: "reviews") { reviews(first: 20) { body rating } }
   }
 }
 ```
 
-The `posts` resolver runs once and returns 10 posts. Then GraphQL invokes the `Post.author` resolver **once for each of the 10 posts**, each firing an independent `findById`. That is 1 + 10 = 11 database queries for what should be 2. This is the **N+1 problem**, and it is the single most important performance issue in GraphQL — the subject of the next section.
+**Status as of late 2026.** Incremental delivery is a **draft RFC**. It is *not* in the September 2025 spec edition. GraphQL.js v17 implements it experimentally through a separate `experimentalExecuteIncrementally()` entry point, and Apollo Client, Apollo Router, Relay and several other servers support it. The response format has changed during the RFC process, so pin client and server versions that agree.
 
-## The N+1 Problem & DataLoader
+## Execution and Resolvers
 
-### The Problem, Precisely
+A **resolver** is a function attached to one field that produces the field's value. Execution walks the selection tree. The executor calls the resolver for each requested field, passes its result as the `parent` to the resolvers of the field's sub-selections, and assembles the response from the results.
 
-Because resolvers run per-field-per-parent, any nested field that fetches related data fires once per parent object. A list of N items, each resolving a related entity, produces **1 query for the list + N queries for the relations = N+1 queries**. Nest two levels (posts → authors → their teams) and it multiplies. The query *looks* innocent to the client; the cost is hidden in the resolver tree.
+```mermaid
+flowchart LR
+    Doc["Document"] --> Parse["Parse"] --> Val["Validate<br/>against schema"] --> Exec["Execute<br/>resolver tree"] --> Res["Response<br/>data + errors"]
+    Val -. "invalid: errors, no data" .-> Res
+```
 
-The naive "fix" — eagerly joining everything in the top resolver — defeats GraphQL's purpose: you would over-fetch on every request regardless of what the client selected, and you cannot know the selection in the parent resolver without parsing `info` yourself.
+Every resolver takes `(parent, args, context, info)`:
 
-### DataLoader: Batch + Cache Per Request
-
-The standard solution is the **DataLoader** pattern (a small library, originally from Facebook, ported to most languages). A DataLoader does two things:
-
-1. **Batching.** Instead of fetching immediately, `load(key)` *records* the key and returns a promise. DataLoader waits until the end of the current event-loop tick (after all the per-parent resolvers have called `load`), then invokes your **batch function** *once* with the full array of collected keys. So 10 calls to `load(authorId)` become a single `SELECT * FROM users WHERE id IN (...)`.
-2. **Per-request caching (memoization).** Within one request, `load(k)` for a repeated key `k` returns the cached promise — the same user referenced by ten posts is fetched once.
+| Argument | Contents |
+|----------|----------|
+| `parent` | The value the parent field's resolver returned |
+| `args` | The field's arguments, already coerced to their declared types |
+| `context` | A per-request object shared by every resolver: authenticated user, data sources, DataLoaders |
+| `info` | The field's AST and path; used for lookahead and projection |
 
 ```javascript
-const DataLoader = require('dataloader');
-
-// One loader per request, stored on context
-function buildLoaders(db) {
-  const userLoader = new DataLoader(async (ids) => {
-    // Called once with ALL ids collected this tick
-    const users = await db.users.findByIds(ids);  // single batched query
-    const byId = new Map(users.map(u => [u.id, u]));
-    // MUST return results in the SAME ORDER as `ids`
-    return ids.map(id => byId.get(id) ?? null);
-  });
-  return { userLoader };
-}
-
 const resolvers = {
+  Query: {
+    user: (_parent, { by }, ctx) =>
+      by.id ? ctx.db.users.byId(by.id) : ctx.db.users.byEmail(by.email),
+  },
+  User: {
+    posts: (user, args, ctx) => ctx.db.posts.byAuthor(user.id, args),
+  },
   Post: {
-    // Now batched + cached instead of one query per post
-    author: (post, _args, ctx) => ctx.loaders.userLoader.load(post.authorId),
+    author: (post, _args, ctx) => ctx.db.users.byId(post.authorId),  // N+1 hazard
   },
 };
 ```
 
-The two iron rules of a batch function: it **must return an array the same length and order as the input keys** (DataLoader maps results back positionally), and you **create fresh loaders per request** so the cache cannot leak data between users or serve stale values across the lifetime of the process.
+Fields without an explicit resolver use the **default resolver**, which returns `parent[fieldName]`. You write resolvers only for fields that compute, fetch or transform something.
 
-### Beyond DataLoader
+### The N+1 problem
 
-DataLoader collapses N+1 into a small constant number of batched queries, but those batches can still be deep. Complementary tactics: **query-cost analysis** to reject pathologically expensive queries before execution (assign each field a cost, cap the total), **depth limiting** to forbid deeply nested recursive queries, and **lookahead/projection** (inspecting `info` to fetch only the columns and joins the selection actually needs). For read-heavy fields, a DataLoader can also sit in front of a cache (Redis) rather than the database directly.
-
-## Schema Federation
-
-A single monolithic schema becomes a bottleneck once many teams contribute to it. **Federation** lets independent services each own a slice of the graph, which a **gateway** composes into one unified schema that clients query as if it were monolithic.
-
-The Apollo Federation model is the dominant one. Each **subgraph** is an ordinary GraphQL service that declares which types it owns and which types it *extends* from other subgraphs, using directives:
-
-- `@key(fields: "id")` — declares that a type is an **entity** identifiable by the given fields, so other subgraphs can reference it.
-- `@external`, `@requires`, `@provides` — describe fields owned elsewhere and data dependencies between subgraphs.
+Field-by-field resolution makes GraphQL flexible, and it also creates a performance trap:
 
 ```graphql
-# users subgraph — owns User
+query {
+  posts(first: 10) {           # 1 query: fetch 10 posts
+    nodes {
+      title
+      author { name }          # Post.author runs once per post: 10 more queries
+    }
+  }
+}
+```
+
+A list of *N* items, each resolving a related entity, costs **1 + N** round trips. Each extra level of nesting multiplies it. The client's query looks harmless, and the cost is hidden in the resolver tree. Eagerly joining everything in the top-level resolver over-fetches on every request, which defeats the reason for using GraphQL.
+
+## DataLoader: Batching and Caching per Request
+
+The standard fix is the **DataLoader** pattern: a small library, originally from Facebook, now available in most languages. It does two things:
+
+1. **Batching.** `load(key)` does not fetch right away. It records the key and returns a promise. After the current tick, once every sibling resolver has called `load`, DataLoader calls your **batch function once** with all the collected keys.
+2. **Memoization.** Within one request, loading the same key again returns the same promise, so an author referenced by ten posts is fetched once.
+
+```mermaid
+sequenceDiagram
+    participant E as Executor
+    participant L as userLoader
+    participant DB as Database
+    E->>L: load(7) for post 1
+    E->>L: load(9) for post 2
+    E->>L: load(7) for post 3 (memoized)
+    Note over L: end of tick: flush batch
+    L->>DB: SELECT * FROM users WHERE id IN (7, 9)
+    DB-->>L: 2 rows
+    L-->>E: resolve all 3 promises
+```
+
+```javascript
+import DataLoader from "dataloader";
+
+export function createLoaders(db) {          // call once PER REQUEST
+  return {
+    user: new DataLoader(async (ids) => {
+      const rows = await db.users.byIds(ids);          // one batched query
+      const byId = new Map(rows.map((u) => [u.id, u]));
+      return ids.map((id) => byId.get(id) ?? null);    // same length and order as ids
+    }),
+  };
+}
+
+const resolvers = {
+  Post: {
+    author: (post, _args, ctx) => ctx.loaders.user.load(post.authorId),
+  },
+};
+```
+
+A batch function has two rules. It **must return results in the same order and number as the input keys**, because DataLoader matches them by position. And you must **create fresh loaders for every request**, so memoized values never leak between users or go stale over the life of the process.
+
+DataLoader reduces N+1 to one batched query per nesting level. Related techniques:
+
+- **Lookahead and projection.** Inspect `info` to fetch only the columns and joins the selection needs. Tools that compile GraphQL to SQL, such as Hasura, PostGraphile and Grafast, build one query from the whole document.
+- **Caching behind loaders.** Point the batch function at Redis for hot, read-mostly entities.
+- **Cost limits.** See [Security](#security).
+
+## Schema Federation and Composite Schemas {#schema-federation}
+
+Once many teams contribute to one schema, a monolithic GraphQL server becomes an organizational bottleneck. **Federation** lets independent services each own part of the graph. A **router** (gateway) composes the parts into one *supergraph* that clients query as if it were a single schema.
+
+**Apollo Federation 2** is the most widely used implementation. Each **subgraph** is an ordinary GraphQL service that imports federation directives with `@link`:
+
+| Directive | Meaning |
+|-----------|---------|
+| `@key(fields: "id")` | Declares an **entity**: a type identified by these fields that other subgraphs can reference and extend |
+| `@shareable` | Several subgraphs may resolve this field |
+| `@external`, `@requires`, `@provides` | Fields owned elsewhere, and data dependencies between subgraphs |
+| `@override(from: "...")` | Move a field's ownership between subgraphs gradually |
+
+```graphql
+# users subgraph: owns User
+extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"])
+
 type User @key(fields: "id") {
   id: ID!
   name: String!
 }
+```
 
-# reviews subgraph — extends User with reviews it owns
+```graphql
+# reviews subgraph: contributes User.reviews
+extend schema @link(url: "https://specs.apollo.dev/federation/v2.9", import: ["@key"])
+
 type User @key(fields: "id") {
-  id: ID! @external
+  id: ID!
   reviews: [Review!]!
 }
+
 type Review { id: ID!  body: String!  author: User! }
 ```
 
-The gateway builds a **query plan**: it splits an incoming query into per-subgraph fetches, calls each subgraph (resolving an entity's representation via the special `_entities` field and a `__resolveReference` resolver on the owning service), and stitches the results back into one response.
+The router builds a **query plan**. It splits the incoming operation into fetches for each subgraph, calls the subgraphs (with parallel fetches where possible), resolves entity references through each subgraph's `_entities` field, and merges the results:
 
 ```mermaid
-flowchart TD
-    Client["Client<br/>one query"] --> GW["Gateway<br/>(query planner + composer)"]
-    GW -->|"user { name }"| Users["Users subgraph<br/>owns User"]
-    GW -->|"reviews { body }"| Reviews["Reviews subgraph<br/>extends User"]
-    GW -->|"product { title }"| Products["Products subgraph"]
-    Users --> GW
-    Reviews --> GW
-    Products --> GW
-    GW --> Client
+sequenceDiagram
+    participant C as Client
+    participant R as Router
+    participant U as Users subgraph
+    participant V as Reviews subgraph
+    C->>R: query { user(id: 7) { name reviews { body } } }
+    R->>U: { user(id: 7) { id name } }
+    U-->>R: { id: 7, name: "Ada" }
+    R->>V: _entities(representations: [{__typename: "User", id: 7}]) { reviews { body } }
+    V-->>R: [{ reviews: [...] }]
+    R-->>C: merged response
 ```
 
-Federation is the GraphQL counterpart to microservices: it lets teams deploy and own their part of the graph independently while presenting clients a single, coherent schema. The older alternative, **schema stitching**, merges schemas at the gateway with manually written delegation/resolvers; federation moves that ownership into the subgraphs themselves and is generally preferred for new systems. The cost is real operational complexity — a gateway to run, query-plan latency, and cross-subgraph entity resolution that can reintroduce N+1 at the gateway boundary if not batched.
+**The ecosystem in 2026.** Apollo's runtime is the Rust **Apollo Router**; the older JavaScript `@apollo/gateway` is legacy. Alternatives include WunderGraph Cosmo, The Guild's Hive Gateway, Grafbase, and ChilliCream Fusion. The GraphQL Foundation's **Composite Schemas** working group is writing a vendor-neutral specification for the same problem, using directives such as `@lookup` in place of `_entities`. It is still a draft.
 
-## Pagination: Relay & Cursor-Based
+Federation does for a schema what microservices do for a codebase. Teams deploy their part of the graph independently while clients see one coherent schema. It has real costs: a router to run, query-planning overhead, composition checks in CI, and entity fetches between subgraphs that reintroduce N+1 at the router if a subgraph's reference resolver does not batch. The older **schema stitching** approach puts hand-written delegation in the gateway. Federation moves ownership into the subgraphs and is generally the better choice for new systems.
 
-Returning a whole list (`posts: [Post!]!`) does not scale. The two pagination strategies are offset-based and cursor-based.
+## Pagination
 
-### Offset vs. Cursor
+Returning a whole list (`posts: [Post!]!`) does not scale. There are two strategies:
 
-**Offset pagination** (`posts(limit: 20, offset: 40)`) is simple and allows jumping to an arbitrary page, but it breaks under mutation: if a row is inserted or deleted while the user paginates, offsets shift and items are skipped or duplicated. It is also slow at depth — `OFFSET 100000` still scans and discards 100,000 rows.
+| | Offset (`limit`, `offset`) | Cursor (`first`, `after`) |
+|---|---|---|
+| Jump to page *n* | yes | no, only sequential |
+| Stable when rows are inserted or deleted | no: items get skipped or duplicated | yes: anchored to a value |
+| Cost deep into the list | `OFFSET 100000` scans and discards 100k rows | index seek (`WHERE (published_at, id) < (?, ?)`) |
 
-**Cursor pagination** instead asks for "items after this opaque cursor." The cursor encodes a stable position (typically the sort key of the last item, e.g. `(publishedAt, id)`). The query becomes `WHERE (published_at, id) < (?, ?) ORDER BY ... LIMIT 20` — index-friendly and *stable* under concurrent inserts, because it anchors to a value rather than a count. The tradeoff is you cannot jump to "page 7"; you can only walk forward (and backward) sequentially.
+### The Relay connections specification
 
-### The Relay Connections Spec
-
-Relay standardized cursor pagination into the **Connections** specification, now near-universal in GraphQL. A connection wraps a list in a structure of **edges** (each pairing a node with its cursor) and **pageInfo** (the navigation metadata):
+Relay standardized cursor pagination as **Connections**, and most GraphQL APIs now follow it. A connection wraps a list in **edges**, each pairing a node with its cursor, plus **pageInfo**:
 
 ```graphql
 type Query {
@@ -379,13 +433,14 @@ type Query {
 
 type PostConnection {
   edges: [PostEdge!]!
+  nodes: [Post!]!          # common shortcut when per-edge cursors are not needed
   pageInfo: PageInfo!
-  totalCount: Int        # optional, often expensive
+  totalCount: Int          # optional; often expensive
 }
 
 type PostEdge {
   node: Post!
-  cursor: String!        # opaque, base64-encoded position
+  cursor: String!          # opaque, e.g. base64 of (publishedAt, id)
 }
 
 type PageInfo {
@@ -396,74 +451,123 @@ type PageInfo {
 }
 ```
 
-A forward page is `posts(first: 20, after: $endCursor)`; the client reads `pageInfo.endCursor` from the response and feeds it back to fetch the next page until `hasNextPage` is false. The edge-level cursor (rather than a single page-level offset) is what makes the scheme robust: each item carries its own stable position, so the boundary between pages is anchored to data, not to a count that drifts. The verbosity (edges, nodes, cursors) is the price of that stability and of a uniform shape that tooling can rely on across every list in the schema.
+The client requests `posts(first: 20, after: $endCursor)` and keeps feeding back `pageInfo.endCursor` until `hasNextPage` is false. Cursors must stay **opaque** to clients, so the server can change the encoding later. Relay's companion convention, **global object identification** (a `Node` interface plus `node(id: ID!)` on `Query`), lets a client refetch any object by its globally unique ID. Normalized caches and federation both rely on it.
 
-## Caching & Persisted Queries
+## Caching and Trusted Documents
 
-### Why HTTP Caching Doesn't Come for Free
+### Why HTTP caching is not free
 
-REST gets caching almost for free: a `GET /users/42` is a stable, cacheable URL, and CDNs, browser caches, and reverse proxies all key on it natively. GraphQL forfeits this — every operation is a `POST` to the *same* `/graphql` URL with the query in the body, so URL-based HTTP caches see one opaque endpoint and cache nothing. Caching in GraphQL therefore moves to two other layers.
+REST gets caching almost for free, because `GET /users/42` is a stable URL that browsers, CDNs and reverse proxies can key on. A GraphQL operation sent as a `POST` to one URL looks to those caches like one opaque endpoint. GraphQL caching therefore happens in three other places.
 
-### Client-Side Normalized Caching
+### Client-side normalized caches
 
-GraphQL clients (Apollo Client, Relay, urql) maintain a **normalized cache**. Every object that carries a stable identity (`__typename` + `id`, or a custom key) is stored *once* in a flat cache keyed by that identity, and query results hold references into it. This means:
+Apollo Client, Relay, urql (Graphcache) and similar clients keep a **normalized cache**. Each object with a stable identity (`__typename` plus `id`) is stored **once**, and query results hold references to it:
 
-- If two different queries both return `User:42`, they share one cache entry — update it once and every view reflects the change.
-- After a mutation returns the modified object (the reason mutations return their payloads), the cache auto-updates and dependent components re-render without a refetch.
+- Two queries that both return `User:42` share one cache entry. Update it once and every view that shows it updates.
+- A mutation that returns the changed object updates the cache without a refetch. This is why mutation payloads return the objects they changed.
 
-This normalized store is GraphQL's answer to the loss of HTTP caching: it deduplicates and reuses data across the whole client app, often eliminating more requests than an HTTP cache would have.
+### Server-side and CDN caching
 
-### Server-Side and CDN Caching
+- **Field or entity caching** behind DataLoaders (Redis).
+- **Response caching with cache hints.** Server-specific directives or plugins, such as Apollo's `@cacheControl(maxAge:, scope:)` or GraphQL Yoga's response cache, compute a `Cache-Control` for the whole response from its fields. This only works well for responses that do not vary by user.
+- **`GET` for queries.** The GraphQL-over-HTTP draft allows queries (never mutations) to be sent as `GET` with URL parameters. Combined with persisted documents, that makes them cacheable at a CDN again.
 
-Servers can cache at the resolver/field level (a DataLoader backed by Redis), and the `@cacheControl` directive (or schema-level hints) lets a server declare per-field `maxAge` and `scope`, which a GraphQL-aware CDN (e.g. Apollo's) can use to cache whole responses. Whole-response caching only works well for queries with no per-user variance; per-user data is cached at the field level instead.
+### Persisted queries and trusted documents
 
-### Automatic Persisted Queries (APQ)
+Operation documents are large and repetitive. **Persisted queries** replace the document with its **hash**, which gives two different features:
 
-GraphQL query strings are large and repetitive, and `POST` bodies are not CDN-cacheable. **Persisted queries** fix both. The client and server agree on a query by its **hash** (typically SHA-256 of the query string):
-
-1. The client sends only the hash. If the server already knows it, it executes — a tiny request.
-2. On a cache miss, the server replies "unknown," the client retries sending the *full* query plus its hash once, and the server registers it for all future use.
+| | Automatic persisted queries (APQ) | Trusted documents (persisted-operation allow-list) |
+|---|---|---|
+| How documents get registered | At runtime: on a cache miss, the client resends the full document once | At build time: client code generation extracts every operation and uploads it to the server or registry |
+| Can arbitrary operations run? | Yes | **No.** Only registered hashes execute. |
+| Main benefit | Smaller requests, CDN-cacheable `GET`s | **Security**, plus smaller requests and caching |
+| Suited to | Public APIs used by third parties | First-party clients (your web and mobile apps) |
 
 ```mermaid
 sequenceDiagram
     participant C as Client
     participant S as Server
-    C->>S: GET ?hash=abc123 (no query body)
+    C->>S: GET /graphql?extensions={persistedQuery:{sha256Hash:"abc..."}}
     S-->>C: PersistedQueryNotFound
-    C->>S: GET ?hash=abc123 + full query
-    S-->>C: data (and registers abc123)
-    Note over C,S: All later requests: hash only
-    C->>S: GET ?hash=abc123
-    S-->>C: data
+    C->>S: POST hash + full document
+    S-->>C: data (hash now registered)
+    Note over C,S: later requests send the hash only (APQ)
+    C->>S: GET /graphql?...sha256Hash="abc..."
+    S-->>C: data (CDN-cacheable)
 ```
 
-Because a persisted query is now a small, stable, hashed `GET`, it becomes **CDN-cacheable again** — recovering much of REST's edge-caching benefit. As a bonus, an **allow-list** of pre-registered persisted queries can be enforced in production so the server *only* executes known-good operations, shutting down arbitrary or malicious queries entirely.
+For an API that only your own apps call, **trusted documents are the strongest single GraphQL hardening measure**. Attackers can no longer send arbitrary deep, aliased or batched operations, because anything the server has not seen before is rejected.
+
+## GraphQL over HTTP
+
+For years every server made up its own HTTP conventions. The **GraphQL over HTTP** specification (a GraphQL Foundation draft, widely implemented already) standardizes them:
+
+- **Request.** `POST` with `Content-Type: application/json` and a body of `{"query", "variables", "operationName", "extensions"}`. `GET` with URL parameters is allowed for queries only, never mutations.
+- **Response media type.** Clients should send `Accept: application/graphql-response+json`. With that media type, the status code is meaningful: a request that fails to parse or validate gets **4xx** (typically `400`), and a request that executed returns `2xx` even if some fields errored. With legacy `application/json`, servers return `200` for every well-formed response.
+- **Error format.** Each entry in `errors` has a `message`, `locations`, a `path` to the failed field, and an optional `extensions` object for machine-readable codes. `data` and `errors` can both be present (a **partial success**).
+
+```json
+{
+  "data": { "user": { "name": "Ada", "posts": null } },
+  "errors": [{
+    "message": "posts service timed out",
+    "path": ["user", "posts"],
+    "extensions": { "code": "UPSTREAM_TIMEOUT" }
+  }]
+}
+```
+
+Status codes alone therefore do not tell monitoring whether a GraphQL call succeeded. Monitor the `errors` array, broken down by `path` and `extensions.code`.
+
+## Security
+
+GraphQL lets clients write their own queries, so the server has to decide which queries it will run and what they may cost.
+
+| Risk | Example | Mitigation |
+|------|---------|------------|
+| Deep or recursive queries | `user { friends { friends { friends ... } } }` | **Depth limit**; pagination arguments with capped `first` on every list |
+| Expensive fan-out | `posts(first: 1000) { comments(first: 1000) { ... } }` | **Cost analysis**: assign each field a cost, multiply by list sizes, reject over budget before executing (IBM's GraphQL Cost Directives, `@cost`/`@listSize`) |
+| Alias and batch amplification | 1,000 aliased `login(...)` fields in one request | Count aliases and operations toward rate limits and cost, not HTTP requests |
+| Schema reconnaissance | Introspection maps every field | Disable introspection in production for private APIs (it is only a speed bump), or use trusted documents |
+| Broken authorization | A field reachable through several paths checks auth on only one | Authorize in the **business or data layer** (or per type), not only in top-level resolvers |
+| Information leakage | Stack traces in `errors[].message` | Mask unexpected errors; return stable `extensions.code` values |
+| CSRF | Browser sends a `GET` query or a "simple" `POST` with cookies | Require a non-simple `Content-Type` or a CSRF header; never allow mutations over `GET` |
+
+For first-party APIs, **trusted documents** cover most of the query-shape risks at once. The remaining work is authorization and rate limiting.
 
 ## Tradeoffs vs REST
 
-GraphQL is not a strict upgrade over REST; it relocates complexity. The honest comparison:
+GraphQL moves complexity from the client to the server. It is not a strict upgrade over REST.
 
 | Dimension | REST | GraphQL |
 |---|---|---|
-| Fetching | Fixed response per endpoint; over/under-fetch common | Client selects exact fields; one round trip for nested data |
-| Endpoints | Many URLs, HTTP verbs as semantics | One endpoint, operation in body |
-| Typing/contract | Optional (OpenAPI) | Mandatory, introspectable schema is the contract |
-| HTTP caching | Native, free (GET + URL) | Lost; needs client cache, `@cacheControl`, persisted queries |
-| Versioning | Often `/v2/` URLs | Evolve in place: add fields, `@deprecated` old ones |
-| N+1 / performance | Endpoint controls its own queries | Field resolution invites N+1; needs DataLoader |
-| Error model | HTTP status codes | 200 + typed `errors`/payload errors; status alone insufficient |
-| File upload, simplicity | Native, trivial | Needs multipart spec; more upfront machinery |
-| Tooling for clients | Manual or codegen from OpenAPI | First-class codegen, autocomplete from schema |
+| Fetching | Fixed response per endpoint; over- and under-fetching common | Client selects fields; one round trip for nested data |
+| Contract | Optional (OpenAPI) | Mandatory typed schema, introspectable |
+| HTTP caching | Native (`GET` + URL, ETags) | Needs client caches, cache hints, persisted `GET`s |
+| Versioning | Often `/v2/` URLs | Evolve in place: add fields, deprecate, measure, remove |
+| Server performance | Each endpoint controls its own queries | Field resolution invites N+1; needs DataLoader and cost limits |
+| Errors | HTTP status codes, RFC 9457 problem details | Partial `data` + `errors`; domain errors in the schema |
+| Rate limiting | Per request or endpoint | Per operation cost |
+| File upload | Native multipart | Not in the spec; use a signed-URL upload or a multipart extension |
+| Client tooling | Code generation from OpenAPI | First-class code generation and typed clients from the schema |
 
-**Reach for GraphQL** when you have many heterogeneous clients (web, iOS, Android) with divergent data needs, deeply nested/graph-shaped data, a desire to aggregate several backends behind one typed contract, or rapidly evolving frontend requirements that benefit from clients choosing their own fields.
+**GraphQL fits** when many different clients (web, iOS, Android, partners) need different slices of the same data, when the data is graph-shaped and deeply nested, when several backends must be aggregated behind one typed contract, and when front-end teams change quickly and benefit from choosing their own fields.
 
-**Stay with REST** when your API is simple and resource-oriented, when free HTTP/CDN caching is a major win (public, cacheable, read-mostly data), when you need trivial file handling and broad ecosystem compatibility, or when the team is small and the operational overhead of resolvers, schema governance, and N+1 defense does not pay for itself. Many systems do both: REST (or gRPC) for service-to-service and simple resources, GraphQL as a client-facing aggregation layer (a Backend-for-Frontend) over them.
-
-The throughline: GraphQL trades the server's freedom (it must implement and defend every field) for the client's freedom (it asks for exactly what it needs). Whether that trade is worth it depends entirely on how many clients you have and how varied their data needs are.
+**REST fits** when the API is simple and resource-oriented, when HTTP and CDN caching of public, read-mostly data matters a lot, when broad compatibility and simple file handling matter, or when the team is too small for resolvers, schema governance and cost limits to pay for themselves. Many systems use both. REST or [gRPC](grpc-and-protobuf.html) connects the services, and GraphQL serves as a client-facing aggregation layer (a Backend-for-Frontend) over them.
 
 ## See Also
 
-- **[Microservices & Event-Driven Architecture](../distributed-systems/microservices-and-event-driven.html)** — API gateways, Backend-for-Frontend, and the service decomposition that federation mirrors at the schema layer
-- **[Distributed Systems Hub](../distributed-systems/)** — consistency, caching, and the failure modes a federated gateway must tolerate
-- **[Database Design](../technology/database-design/)** — the data stores and indexes behind resolvers, and the index-friendly keyset queries cursor pagination relies on
-- **[Networking](../technology/networking/)** — HTTP, WebSockets, and the transport beneath queries, mutations, and subscriptions
+- **[API Design Hub](./)** — section overview and the concerns every API style shares
+- **[REST](rest.html)** — resource modeling, HTTP caching, and problem-details errors that GraphQL trades away
+- **[gRPC & Protocol Buffers](grpc-and-protobuf.html)** — schema-first RPC, often the service-to-service layer behind a GraphQL gateway
+- **[Async & Event-Driven APIs](async-and-events.html)** — SSE and WebSockets, the transports beneath subscriptions
+- **[Microservices & Event-Driven Architecture](../distributed-systems/microservices-and-event-driven.html)** — API gateways, Backend-for-Frontend, and the decomposition that federation mirrors
+- **[Database Design](../technology/database-design/)** — indexes and the keyset queries that cursor pagination depends on
+
+### Further Reading
+
+- [GraphQL specification, September 2025 edition](https://spec.graphql.org/September2025/)
+- [GraphQL over HTTP (draft)](https://graphql.github.io/graphql-over-http/draft/)
+- [GraphQL Composite Schemas (draft)](https://graphql.github.io/composite-schemas-spec/draft/)
+- [Relay Cursor Connections specification](https://relay.dev/graphql/connections.htm)
+- [Apollo Federation documentation](https://www.apollographql.com/docs/graphos/schema-design/federated-schemas/federation)

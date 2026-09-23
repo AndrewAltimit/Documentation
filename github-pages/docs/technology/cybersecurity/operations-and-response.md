@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Cybersecurity: Foundations, Operations & Research"
+description: "The formal foundations of security — security games, reductions, and universal composability — and the research frontiers reshaping it: secure multi-party computation, differential privacy, blockchain, the quantum threat, and AI."
 permalink: /docs/technology/cybersecurity/operations-and-response.html
 toc: true
 toc_sticky: true
@@ -85,6 +86,24 @@ The core idea is the **real/ideal paradigm**. We define an *ideal functionality*
 
 - the **real world**, where parties run $\pi$ against a real adversary, and
 - the **ideal world**, where parties just hand inputs to $\mathcal{F}$ and a **simulator** $\mathcal{S}$ tries to fake the adversary's view.
+
+```mermaid
+flowchart TB
+    Z["Environment Z<br/>(chooses inputs, sees outputs)"]
+    subgraph REAL["Real world"]
+        P["Parties run protocol π"]
+        A["Adversary A"]
+    end
+    subgraph IDEAL["Ideal world"]
+        F["Ideal functionality F<br/>(trusted, does the right thing)"]
+        Sim["Simulator S<br/>(fakes A's view)"]
+    end
+    Z --> REAL
+    Z --> IDEAL
+    P <--> A
+    F <--> Sim
+    REAL -. "Z cannot tell which world it is in" .- IDEAL
+```
 
 $$
 \forall \mathcal{A}\ \exists \mathcal{S}\ \forall \mathcal{Z}: \quad
@@ -203,57 +222,24 @@ The security ideas generalize well beyond currency. **Certificate Transparency**
 
 ### The Quantum Threat
 
-Quantum computers threaten to break most current public-key encryption. A classical computer factoring a 2048-bit RSA modulus by trial division needs billions of years; a sufficiently large quantum computer running **Shor's algorithm** could do it in hours or days, because Shor's algorithm factors integers and computes discrete logarithms in polynomial time. That single result undermines RSA, Diffie–Hellman, and elliptic-curve cryptography simultaneously — essentially all of today's public-key infrastructure. Symmetric ciphers fare better: **Grover's algorithm** only gives a quadratic speedup on brute-force search, so doubling the key length (e.g., AES-256) restores the security margin.
+Quantum computers threaten to break most current public-key encryption. A classical computer factoring a 2048-bit RSA modulus needs far longer than the age of the universe; a sufficiently large quantum computer running **Shor's algorithm** could do it in hours or days, because Shor's algorithm factors integers and computes discrete logarithms in polynomial time. That single result undermines RSA, Diffie–Hellman, and elliptic-curve cryptography simultaneously — essentially all of today's public-key infrastructure. Symmetric ciphers fare better: **Grover's algorithm** gives only a quadratic speedup on brute-force search, so doubling the key length (e.g., AES-256) restores the security margin.
 
-The response — **post-quantum cryptography** (lattice-based, hash-based, code-based, and multivariate schemes) — is covered in full in [Cryptography → The Quantum Threat](cryptography.html#the-quantum-threat-why-we-need-new-cryptography). Operationally, two concerns drive action *today*, before large quantum computers exist:
+No machine can run Shor's algorithm at that scale yet, but the resource estimates keep falling. In 2025 Craig Gidney revised his own widely cited 2019 figure of ~20 million noisy qubits down to **under one million qubits, factoring RSA-2048 in under a week** — a reminder that the threat timeline depends on algorithmic and error-correction progress, not just qubit counts, and that it moves in the attacker's favor.
 
-- **"Harvest now, decrypt later."** An adversary can record encrypted traffic now and decrypt it once a quantum computer is available. Any data that must stay confidential for a decade or more is already at risk.
-- **Crypto-agility.** The practical task is inventorying where your systems use RSA/ECC and being ready to swap in NIST's standardized algorithms — **ML-KEM (Kyber)** for key encapsulation, **ML-DSA (Dilithium)** and **FALCON** for signatures, and the hash-based **SPHINCS+** as a conservative backup — without re-architecting everything.
+The response — **post-quantum cryptography** (lattice-based, hash-based, code-based, and multivariate schemes) — is covered in full in [Cryptography → The Quantum Threat](cryptography.html#the-quantum-threat-why-we-need-new-cryptography). NIST finalized its first three standards in August 2024: **ML-KEM (Kyber, FIPS 203)** for key encapsulation, and **ML-DSA (Dilithium, FIPS 204)** plus the hash-based **SLH-DSA (SPHINCS+, FIPS 205)** for signatures, with the lattice signature **FN-DSA (Falcon)** and the code-based **HQC** — chosen in 2025 as a backup KEM built on different math than ML-KEM — following as later standards. Operationally, two concerns drive action *today*, before large quantum computers exist:
+
+- **"Harvest now, decrypt later."** An adversary can record encrypted traffic now and decrypt it once a quantum computer is available. Any data that must stay confidential for a decade or more is already at risk, which is why hybrid post-quantum key exchange (X25519 combined with ML-KEM) is already the default in TLS 1.3 stacks such as Chrome and OpenSSL.
+- **Crypto-agility.** The practical task is inventorying where systems use RSA/ECC and being ready to swap in the standardized algorithms without re-architecting everything.
 
 ### AI: Both Sword and Shield
 
-AI is revolutionizing both attack and defense, and the two are locked in an escalating loop. On defense, machine learning excels at the volume-and-anomaly problems that overwhelm human analysts — establishing behavioral baselines and flagging deviations across billions of events:
+AI is reshaping both attack and defense, and the two are locked in an escalating loop. Three distinct threads are worth separating, because they are often conflated.
 
-```python
-# AI-powered defense
-class AISecurityAnalyst:
-    def detect_anomalies(self, network_traffic):
-        # Learn normal behavior patterns
-        baseline = self.model.learn_baseline(historical_traffic)
+**AI for defense.** Machine learning excels at the volume-and-anomaly problems that overwhelm human analysts: establishing behavioral baselines and flagging deviations across billions of events (the UEBA model), triaging and summarizing alerts, and drafting response steps. Large-language-model "SOC copilots" now sit inside detection platforms, turning natural-language questions into queries and condensing an incident's evidence into a narrative. The gain is speed; the risk is over-trust, since a confident but wrong summary can send an investigation down the wrong path.
 
-        # Detect deviations
-        for packet in network_traffic:
-            anomaly_score = self.model.predict_anomaly(packet)
-            if anomaly_score > threshold:
-                # AI found something human analysts might miss
-                investigate(packet)
+**AI for attack.** AI lowers the cost of *scaling* offense — hyper-personalized phishing at volume, deepfake voice and video for social engineering (increasingly used against IT help desks to bypass MFA), and ML-guided fuzzing that widens automated vulnerability discovery. It compresses the time from a leaked credential to a working intrusion, shrinking defenders' margin.
 
-    def respond_to_threats(self, threat):
-        # AI can respond faster than humans
-        response = self.model.recommend_response(threat)
-        if confidence > 0.95:
-            execute_response(response)  # Automatic mitigation
-        else:
-            alert_human_analyst(threat, response)  # Human decision needed
-
-# But attackers use AI too...
-class AIAttacker:
-    def generate_phishing_email(self, target):
-        # AI creates personalized, convincing phishing emails
-        profile = scrape_social_media(target)
-        email = self.language_model.generate(
-            f"Write email to {target.name} about {target.interests}"
-        )
-        return email
-
-    def evade_detection(self, malware):
-        # AI modifies malware until it bypasses antivirus
-        while detected_by_antivirus(malware):
-            malware = self.model.mutate(malware)
-        return malware
-```
-
-The attacker's side is just as active: AI lowers the cost of *scaling* attacks — hyper-personalized phishing, deepfake voice and video for social engineering, and automated vulnerability discovery via fuzzing guided by ML. There is also a security problem *of* AI itself, distinct from AI *for* security. ML models can be subverted through **adversarial examples** (inputs perturbed to force misclassification), **data-poisoning** (corrupting the training set), **model extraction** (stealing a model through its API), and, for large language models, **prompt injection** (smuggling instructions through untrusted input). These ML-specific attacks are treated in [Attacks & Network Defense → Machine Learning Under Attack](attacks-and-defense.html#machine-learning-under-attack).
+**Attacks on AI.** Distinct from either is the security problem *of* AI systems themselves. Models can be subverted through **adversarial examples** (inputs perturbed to force misclassification), **data poisoning** (corrupting the training set), **model extraction** (reconstructing a model through its API), and, for large language models, **prompt injection** (smuggling instructions through untrusted input) — the top entry in the OWASP Top 10 for LLM Applications. These ML-specific attacks are treated in [Attacks & Network Defense → Machine Learning Under Attack](attacks-and-defense.html#machine-learning-under-attack).
 
 The defensive trajectory bends toward **Zero Trust** — assuming compromise and verifying continuously rather than trusting the perimeter — which pairs naturally with continuous ML-driven monitoring. Its full treatment lives in [Attacks & Network Defense → Zero Trust](attacks-and-defense.html#zero-trust-never-trust-always-verify).
 

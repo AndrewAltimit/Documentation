@@ -9,330 +9,422 @@ hide_title: true
 
 [Observability Hub](./) &raquo; Logging
 
-Structured events, correlation IDs, log pipelines, retention, and PII-safe, alertable logs at scale.
+# Logging
 
-## Logs as a Pillar of Observability
+A **log** is a timestamped record of a discrete event emitted by a program. Logs are the highest-fidelity observability signal — they can carry the exact payload, error, and stack trace of one failing request — and also the most expensive per byte to ship, index, and retain. This page covers structured logging and the OpenTelemetry log data model, severity levels, correlation with traces, the two dominant storage designs (inverted-index search in Elasticsearch/OpenSearch and label-indexed chunks in Loki), collection agents, retention and sampling, sensitive-data handling, and log-based alerting. For how logs fit with metrics and traces, see the [Observability hub](./).
 
-Of the three observability signals — metrics, traces, and logs — **logs are the highest-fidelity and highest-cost**. A metric tells you *that* the error rate rose; a trace tells you *which* span was slow; a log tells you *exactly what happened* in one discrete event, with arbitrary detail: the offending payload, the stack trace, the user's tenant, the SQL that timed out. That richness is also their liability. Logs have the highest cardinality and the worst cost-per-byte of any signal, so the discipline of good logging is mostly about emitting the *right* events, in a *machine-parseable* shape, *joinable* to the rest of your telemetry, and *retained* and *protected* sensibly.
+## Overview
 
-A useful mental model: a log line is a **timestamped, structured event** with a severity, a message, a correlation key, and a bag of typed fields. Everything in this page is about getting each of those four parts right.
+A metric reports *that* the error rate rose and a trace shows *which span* was slow; a log records *exactly what happened* in one event. That richness is also the cost: logs have unbounded cardinality and the highest volume of any signal. Good logging practice is therefore mostly about four things — emitting the right events, in a machine-parseable shape, joinable to the rest of the telemetry by shared IDs, and retained and protected appropriately.
 
 ```mermaid
 flowchart LR
-    App["Application<br/>structured event"] --> Agent["Collector / agent<br/>Fluent Bit · Vector"]
-    Agent --> Proc["Parse · enrich · redact · sample"]
-    Proc --> Store["Index / store<br/>Elasticsearch · Loki · S3"]
-    Store --> Query["Query &amp; dashboards<br/>Kibana · Grafana"]
-    Store --> Alert["Log-based alerts"]
-    App -. trace_id .-> Store
+    App["Application<br/>structured events to stdout"] --> Agent["Node agent<br/>Fluent Bit · Vector · OTel Collector · Alloy"]
+    Agent --> Proc["Parse · enrich with k8s metadata<br/>redact · sample · route"]
+    Proc --> Hot[("Hot store<br/>Elasticsearch/OpenSearch · Loki · ClickHouse")]
+    Proc --> Arch[("Archive<br/>object storage")]
+    Hot --> Query["Search and dashboards<br/>Kibana · Grafana"]
+    Hot --> Rules["Log-based alerts<br/>and derived metrics"]
+    Query -. trace_id .-> Traces["Trace backend"]
 ```
+
+In containerized environments the conventional pattern is that applications write one event per line to **stdout/stderr**; the container runtime writes those lines to files on the node (under `/var/log/containers/` on Kubernetes, in the CRI log format), and a node-level agent tails, enriches, and forwards them. Writing directly from the application to a remote store is possible — for example through an OpenTelemetry SDK log exporter — but couples the application to the pipeline's availability.
 
 ## Structured Logging
 
-The single most important decision in a logging stack is to emit **structured, machine-parseable records** — almost always JSON — rather than free-text prose. An unstructured line like
+The most important decision in a logging stack is to emit **structured records** — typed key/value fields, usually one JSON object per line — rather than prose. An unstructured line:
 
 ```
-2026-06-06 14:02:11 ERROR order 12345 failed for user 789: card declined (latency 612ms)
+2026-09-22 14:02:11 ERROR order 12345 failed for user 789: card declined (latency 612ms)
 ```
 
-forces every consumer to re-parse English with brittle regexes. The structured equivalent is self-describing and indexable:
+can only be queried with brittle regular expressions. The structured equivalent is self-describing and indexable:
 
 ```json
 {
-  "timestamp": "2026-06-06T14:02:11.418Z",
+  "timestamp": "2026-09-22T14:02:11.418Z",
   "level": "error",
-  "service": "order-service",
-  "message": "order failed: card declined",
+  "service.name": "order-service",
+  "message": "order failed",
   "order_id": "12345",
   "user_id": "789",
   "decline_reason": "insufficient_funds",
   "latency_ms": 612,
-  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736"
+  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "span_id": "00f067aa0ba902b7"
 }
 ```
 
-Now your backend can run `service="order-service" AND level="error" AND latency_ms>500` without parsing prose, aggregate `decline_reason`, and chart p99 `latency_ms` — all as first-class typed fields.
+A backend can now filter on `level = error AND latency_ms > 500`, group by `decline_reason`, and chart latency percentiles without parsing text. Rules that keep structured logs useful:
 
-A few rules make structured logs durable:
+- **Stable message, variable fields.** Keep the message a low-cardinality constant ("order failed") so events group cleanly; put identifiers and values in fields rather than interpolating them into the string.
+- **Stable names and types.** If `latency_ms` is sometimes a number and sometimes `"unknown"`, a strictly mapped index rejects or mistypes documents. One type per field name, across all services.
+- **One event per line.** Newline-delimited JSON streams cleanly through agents. Multi-line output — pretty-printed JSON, raw stack traces — needs fragile multiline reassembly; serialize stack traces into a single field instead.
+- **A shared schema.** Use the OpenTelemetry semantic conventions for common attributes (`service.name`, `http.route`, `exception.type`, `exception.stacktrace`). The Elastic Common Schema (ECS) was contributed to OpenTelemetry in 2023 and is being merged into the semantic conventions, so the two are converging.
 
-- **Log key/value fields, not interpolated strings.** Pass `order_id` as a field, not baked into the message. The message should be a stable, low-cardinality string (good for grouping); the variable data lives in fields.
-- **Keep field names and types stable.** If `latency_ms` is sometimes a number and sometimes the string `"unknown"`, a strict index (Elasticsearch) will reject or mistype the document. Pick a type per field and stick to it.
-- **One event per line (JSONL).** Newline-delimited JSON streams cleanly through agents and is trivially splittable; a multi-line pretty-printed object is not.
-- **Use a canonical schema.** Adopt or align with a shared model — the OpenTelemetry Logs data model and the Elastic Common Schema (ECS) both define standard field names (`service.name`, `trace.id`, `log.level`) so logs from many services share vocabulary.
+### Canonical log lines
 
-### A Structured Logger with Auto-Injected Context
+A widely used refinement is to emit one **canonical log line** (also called a *wide event*) per request or unit of work, at the end of processing, containing every attribute of interest: route, status, duration, user and tenant, feature flags, build version, cache hits, downstream call counts, and error details. A single wide record is easier to query and aggregate than a dozen narrow lines scattered through the handler, and many metrics can be derived from it at query time. Narrow lines remain useful for events inside long operations; the canonical line is the summary.
 
-This logger emits JSON, stamps service identity on every record, and — crucially — auto-injects the *current* trace/span IDs from the active OpenTelemetry context, so application code never threads correlation IDs by hand:
+### The OpenTelemetry log data model
+
+OpenTelemetry defines a vendor-neutral **log record** model, used both by its SDK log bridges and by the Collector when it parses files. Its logs specification (bridge API, SDK, and OTLP protocol) is stable.
+
+| Field | Meaning |
+|-------|---------|
+| `Timestamp` | When the event occurred (source clock) |
+| `ObservedTimestamp` | When the collection system first saw it |
+| `SeverityText` / `SeverityNumber` | Original level string, and a normalized number from 1 to 24 |
+| `Body` | The message: a string or structured value |
+| `Attributes` | Event-specific key/value pairs |
+| `Resource` | Identity of the emitter (`service.name`, `k8s.pod.name`, `host.name`) |
+| `TraceId`, `SpanId`, `TraceFlags` | Link to the active span, if any |
+| `EventName` | Identifies a named event type (for structured events) |
+
+Rather than replacing existing logging libraries, OpenTelemetry provides **bridges**: a handler or appender for Python `logging`, Log4j/Logback, `slog`, and others that converts each record to the OTel model, attaches the current trace context, and exports it over OTLP.
+
+### A structured logger with automatic trace context
+
+The following Python logger emits JSON using `python-json-logger`, stamps service identity on every record, and injects the active OpenTelemetry trace and span IDs so application code never passes correlation IDs by hand. (The OpenTelemetry `logging` instrumentation package can inject the same IDs automatically; the filter below shows the mechanism.)
 
 ```python
 import logging
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger.json import JsonFormatter
 from opentelemetry import trace
-
-# Emit JSON so the backend indexes every field
-handler = logging.StreamHandler()
-handler.setFormatter(jsonlogger.JsonFormatter(
-    "%(asctime)s %(levelname)s %(name)s %(message)s",
-    rename_fields={"levelname": "level", "asctime": "timestamp"},
-))
-root = logging.getLogger()
-root.addHandler(handler)
-root.setLevel(logging.INFO)
 
 
 class ContextFilter(logging.Filter):
     """Stamp service identity and the active trace/span IDs on every record."""
-    def __init__(self, service_name, env):
+
+    def __init__(self, service_name: str, env: str):
         super().__init__()
         self.service_name = service_name
         self.env = env
 
-    def filter(self, record):
+    def filter(self, record: logging.LogRecord) -> bool:
         record.service = self.service_name
         record.env = self.env
         ctx = trace.get_current_span().get_span_context()
         if ctx.is_valid:
-            # 32-/16-hex IDs that match exactly what the trace UI shows
+            # Same hex format the tracing UI displays
             record.trace_id = format(ctx.trace_id, "032x")
             record.span_id = format(ctx.span_id, "016x")
         return True
 
 
+handler = logging.StreamHandler()
+handler.setFormatter(JsonFormatter(
+    "%(asctime)s %(levelname)s %(name)s %(message)s",
+    rename_fields={"levelname": "level", "asctime": "timestamp"},
+))
 handler.addFilter(ContextFilter("order-service", env="prod"))
-log = logging.getLogger("order")
 
-# Variable data goes in `extra` as fields; the message stays stable
-log.info("order processed", extra={"order_id": "12345", "user_id": "789", "latency_ms": 612})
-# -> {"timestamp": "...", "level": "INFO", "service": "order-service", "env": "prod",
-#     "message": "order processed", "trace_id": "4bf9...", "span_id": "00f0...",
-#     "order_id": "12345", "user_id": "789", "latency_ms": 612}
+root = logging.getLogger()
+root.addHandler(handler)
+root.setLevel(logging.INFO)
+
+log = logging.getLogger("order")
+log.info("order processed", extra={"order_id": "12345", "latency_ms": 612})
+# {"timestamp": "...", "level": "INFO", "name": "order", "message": "order processed",
+#  "service": "order-service", "env": "prod", "trace_id": "4bf9...", "span_id": "00f0...",
+#  "order_id": "12345", "latency_ms": 612}
 ```
+
+Other ecosystems have equivalent structured loggers built in or as de-facto standards: `log/slog` in the Go standard library, SLF4J with Logback or Log4j 2 JSON layouts in Java, `structlog` in Python, `pino` in Node.js, and `tracing` in Rust.
 
 ## Log Levels
 
-Severity levels are the primary lever for controlling *volume* and *signal*. The widely shared ladder, from quietest to loudest:
+Severity levels are the main control over both volume and signal. The table includes the OpenTelemetry `SeverityNumber` ranges, which give backends a common scale regardless of each language's naming.
 
-| Level | When to use | Typical action |
-|-------|-------------|----------------|
-| **TRACE** | Extremely fine-grained flow (per-iteration, per-byte). Off in production. | Ignore unless deep-debugging |
-| **DEBUG** | Developer-facing detail useful while diagnosing. Off or sampled in prod. | Investigation only |
-| **INFO** | Normal, noteworthy business events ("order placed", "user logged in"). | Baseline narrative |
-| **WARN** | Something unexpected but recoverable; degraded but still serving. | Watch; may precede failure |
-| **ERROR** | A request/operation failed; a human may need to act. | Alert candidate |
-| **FATAL / CRITICAL** | The process cannot continue and is shutting down. | Page immediately |
+| Level | OTel SeverityNumber | Use for | Production default |
+|-------|---------------------|---------|--------------------|
+| **TRACE** | 1–4 | Very fine-grained flow (per iteration, per message) | Off |
+| **DEBUG** | 5–8 | Diagnostic detail for developers | Off, or enabled briefly per service |
+| **INFO** | 9–12 | Normal, noteworthy events ("order placed", "config reloaded") | On |
+| **WARN** | 13–16 | Unexpected but handled: retries, fallbacks, approaching limits | On |
+| **ERROR** | 17–20 | An operation failed and someone may need to act | On |
+| **FATAL** | 21–24 | The process cannot continue | On; usually pages |
 
-Operational discipline around levels:
+Practices:
 
-- **Make the level dynamically configurable** per service (and ideally per logger/module) without a redeploy. The standard pattern is a config value or feature flag that raises a hot service to DEBUG for a few minutes during an incident, then drops it back.
-- **Reserve ERROR for things a human should care about.** If ERROR fires on routine validation failures, the level becomes noise and real errors get lost. A bad client request that you correctly reject with a 400 is usually INFO or WARN, not ERROR — it is the *client's* fault, not your system's.
-- **WARN is a leading indicator.** Retries, fallbacks, near-quota, and slow-path activations belong at WARN; a rising WARN rate often precedes an ERROR spike.
-- **Levels are not free of cost when filtered.** Even a suppressed DEBUG call can evaluate its arguments. Guard expensive interpolation (`if log.isEnabledFor(DEBUG)`), or rely on structured fields that the logger only serializes when the record is actually emitted.
+- **Change levels at runtime.** A configuration value or feature flag that raises one service (or one logger) to DEBUG during an incident, without a redeploy, is far more useful than permanently verbose logging.
+- **Reserve ERROR for failures of this system.** A malformed client request correctly rejected with HTTP 400 is the client's error, not the service's; log it at INFO or WARN. If ERROR fires on routine events it stops meaning anything.
+- **Treat WARN as a leading indicator.** Retries, circuit-breaker trips, and near-quota conditions belong at WARN; a rising WARN rate often precedes an ERROR spike.
+- **Avoid paying for suppressed levels.** Pass values as fields or lazy arguments (`log.debug("x=%s", x)`) rather than pre-formatting strings, and guard genuinely expensive computations with `isEnabledFor(logging.DEBUG)`.
 
 ## Correlation IDs and Trace Context
 
-A single user request fans out across many services; its logs land on many hosts, interleaved with millions of unrelated lines. A **correlation ID** is the join key that reassembles that scatter into one coherent story. Attach the *same* identifier to every log line emitted while handling one request, across every service it touches, and a single query reconstructs the complete, ordered narrative.
+A single user request fans out across many services, and its log lines land on many hosts, interleaved with unrelated traffic. A **correlation ID** — the same identifier stamped on every line emitted while handling one request — lets a single query reassemble the complete story.
 
-Three related identifiers show up in practice:
+| Identifier | Scope | Source |
+|------------|-------|--------|
+| `trace_id` | One distributed request, across all services | Tracing context (W3C `traceparent`) |
+| `span_id` | One operation within the request | Tracing context |
+| `request_id` | One request at the edge; often returned to clients for support | API gateway or load balancer |
+| `session_id`, `user_id`, `tenant_id` | Activity over time | Application |
 
-- **`trace_id`** — the distributed-tracing identifier shared by every span in a request. This is the best correlation ID because it *also* links logs directly to traces (see [Tracing](./tracing.html)).
-- **`request_id`** — a per-request ID minted at the edge (e.g. an API gateway) when no trace exists, often surfaced to clients in a response header for support ("quote me your request ID").
-- **`session_id` / `user_id` / `tenant_id`** — broader correlation keys for grouping a user's or tenant's activity over time.
-
-### How the ID Propagates
-
-The ID flows by exactly the same mechanism as trace context: extracted from inbound headers, held in async-local/thread-local storage for the duration of the request, injected into outbound calls, and stamped onto every log line by a logging filter (as in the logger above). The vendor-neutral standard is **W3C Trace Context**, carried in the `traceparent` header:
+The trace ID is the best correlation key because it also links logs to traces (see [Distributed Tracing](tracing.html)). It propagates by the same mechanism as trace context: extracted from inbound headers, held in context-local storage for the duration of the request, injected into outbound calls, and stamped on each log record by the logging integration. The vendor-neutral format is the **W3C Trace Context** `traceparent` header:
 
 ```
 traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
-             │  └────────── trace-id (16B) ───────┘ └ span-id (8B) ┘ │
-             version                                          trace-flags
+             ^^ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^ ^^
+          version     trace-id (16 bytes)        parent-id (8 B)  flags
 ```
 
-For asynchronous boundaries — message queues, background jobs, scheduled tasks — stamp the same IDs into message headers/metadata so the consumer continues the same correlation chain. **Anywhere a request crosses a boundary without carrying its ID, the story breaks into disconnected fragments.**
+```mermaid
+sequenceDiagram
+    participant GW as API gateway
+    participant O as order-service
+    participant Q as Queue
+    participant P as payment-worker
+    GW->>O: HTTP request<br/>traceparent: 00-4bf9...-a1-01
+    Note over O: log trace_id=4bf9... msg=order received
+    O->>Q: publish message<br/>header traceparent: 00-4bf9...-b2-01
+    Q->>P: deliver message
+    Note over P: log trace_id=4bf9... msg=charge failed
+    Note over GW,P: one query on trace_id returns both lines in order
+```
 
-The payoff is the cross-pillar pivot: because every log line carries `trace_id`, you can jump from a slow span in your tracing UI straight to every log line that span produced, and from an error log back to the full trace — metrics, traces, and logs become one navigable surface.
+Asynchronous boundaries — message queues, background jobs, scheduled tasks — must carry the context in message headers or metadata, or the chain breaks into disconnected fragments. With IDs in place, investigation moves freely between signals: from a slow span to every log line it produced, or from an error log to its full trace.
 
-## The ELK / EFK Stack
+## Storage Backends
 
-The classic open-source logging pipeline is the **ELK stack** — **E**lasticsearch, **L**ogstash, **K**ibana — and its lighter cousin **EFK**, which swaps Logstash for **F**luentd (or Fluent Bit) as the collector.
+Log stores fall into three designs, distinguished by what they index.
+
+| Design | Examples | Indexes | Query strength | Cost profile |
+|--------|----------|---------|----------------|--------------|
+| **Inverted-index search** | Elasticsearch, OpenSearch | Every token of every field | Fast arbitrary full-text and field search | High CPU, memory, and SSD for indexing |
+| **Label index + compressed chunks** | Grafana Loki | Only a small set of stream labels | Fast when labels narrow the search; content is scanned | Low; chunks in object storage |
+| **Columnar database** | ClickHouse (and products built on it) | Sparse primary index plus optional skip indexes | Fast aggregations over structured fields | Low storage via high compression; SQL |
+
+### Elasticsearch and OpenSearch (ELK)
+
+The classic open-source pipeline is the **ELK stack** — Elasticsearch, Logstash, Kibana — or **EFK**, with Fluentd or Fluent Bit as the collector.
 
 | Component | Role |
 |-----------|------|
-| **Beats / Fluentd / Fluent Bit** | Lightweight shippers that tail logs on each host and forward them |
-| **Logstash** | Heavyweight pipeline: parse, transform, enrich, and route (can be the collector *or* sit behind the shippers) |
-| **Elasticsearch** | Distributed, inverted-index search/analytics store — the system of record for log data |
-| **Kibana** | Query UI, dashboards, and visualizations over Elasticsearch |
+| Beats (Filebeat) / Fluent Bit / Elastic Agent | Lightweight shippers that tail logs on each host |
+| Logstash | Heavier pipeline for parsing, enrichment, and routing |
+| Elasticsearch | Distributed search and analytics store built on Lucene inverted indexes |
+| Kibana | Query UI, dashboards, alerting |
+
+Elasticsearch builds an **inverted index** over every field, so arbitrary queries such as `message:"timeout" AND service.name:payment` return in milliseconds across billions of documents. Kibana supports the Lucene/KQL query syntax and **ES\|QL**, a piped query language (generally available since Elasticsearch 8.14) that adds aggregation and transformation steps.
+
+Licensing changed twice: in 2021 Elastic moved from Apache 2.0 to the SSPL and Elastic License, prompting AWS to fork the last Apache version as **OpenSearch** (with OpenSearch Dashboards); in 2024 Elastic added the OSI-approved AGPLv3 as a third license option. OpenSearch moved to the Linux Foundation's OpenSearch Software Foundation in 2024 and remains Apache 2.0. For logging purposes the two are functionally similar, though their APIs and features have diverged.
+
+Operating an Elasticsearch-backed log store:
+
+- **Use data streams with index lifecycle management (ILM).** A data stream writes to a series of time-ordered backing indices that roll over by size or age; ILM moves them through hot, warm, cold, and frozen tiers and finally deletes them. Retention then becomes whole-index deletion instead of per-document expiry. OpenSearch provides the equivalent through Index State Management (ISM).
+- **Control the mapping.** Map known fields explicitly and restrict dynamic mapping, or a single field that takes arbitrary keys can create thousands of fields ("mapping explosion").
+- **Size shards deliberately.** Elastic's guidance is roughly 10–50 GB per shard; too many small shards waste heap and cluster-state overhead, too few large ones slow recovery and limit parallelism.
+
+### Grafana Loki
+
+**Loki** takes the opposite approach: it does not index log content. Each log stream is identified by a small set of **labels** (as with Prometheus metrics — `service`, `namespace`, `env`), and the lines are stored as compressed chunks in object storage. A query first selects streams by label, then scans the matching chunks.
 
 ```mermaid
-flowchart LR
-    subgraph Hosts
-      B1["Beats / Fluent Bit"]
-      B2["Beats / Fluent Bit"]
-    end
-    B1 --> LS["Logstash<br/>parse · enrich · route"]
-    B2 --> LS
-    LS --> ES["Elasticsearch<br/>indexed store"]
-    ES --> K["Kibana<br/>search · dashboards"]
+flowchart TB
+    Line["Incoming line<br/>labels: service=order, env=prod<br/>metadata: trace_id=4bf9...<br/>body: order failed ..."]
+    Line --> Idx["Index<br/>labels only (small)"]
+    Line --> SM["Structured metadata<br/>high-cardinality, not indexed"]
+    Line --> Chunk["Chunks<br/>compressed bodies in S3/GCS"]
+    Q["LogQL query"] -->|"1. select streams by label"| Idx
+    Idx -->|"2. fetch matching chunks"| Chunk
+    Q -->|"3. filter lines and metadata at read time"| Chunk
 ```
 
-**Why it dominates:** Elasticsearch builds an **inverted index** over every field, so arbitrary full-text and field queries (`message: "timeout" AND service: payment`) return in milliseconds even over billions of documents. That power is also the cost driver — indexing every field is CPU-, RAM-, and disk-expensive, which is exactly the tradeoff Loki was built to challenge (next section).
+Consequences of this design:
 
-**OpenSearch** is the Apache-2.0-licensed fork of Elasticsearch/Kibana (renamed OpenSearch / OpenSearch Dashboards) created after Elastic's 2021 license change; for logging purposes it is a drop-in equivalent of the ELK pattern.
+- **Much cheaper ingestion and storage** than full-text indexing, since there is no inverted index to build or hold in memory.
+- **Labels must stay low-cardinality.** Each unique label combination is a separate stream; putting `user_id` or `trace_id` in a label creates millions of tiny streams and degrades the whole cluster. High-cardinality values belong in the line or in **structured metadata** — per-line key/value pairs introduced in Loki 3.0 that are stored alongside the line and filterable at query time without being indexed.
+- **Query speed depends on label selectivity.** Narrow label selectors followed by line filters are fast; broad selectors over large time ranges scan a lot of data. Loki 3 added bloom-filter-based query acceleration for "needle in a haystack" searches on structured metadata.
+- **Native OTLP ingestion.** Loki 3 accepts OpenTelemetry logs directly, mapping selected resource attributes to labels and the rest to structured metadata.
 
-Operational notes for an Elasticsearch-backed stack:
-
-- **Index per time window** (e.g. daily indices `logs-2026.06.06`), managed by **Index Lifecycle Management (ILM)** through hot → warm → cold → delete phases. Time-based indices make retention a cheap whole-index delete rather than per-document expiry.
-- **Control the mapping.** Disable dynamic mapping for free-form fields, or a single rogue high-cardinality field can explode the index. Use ECS field names so dashboards are portable.
-- **Size shards deliberately.** Too many small shards waste heap; too few huge shards hurt parallelism and recovery. Tens of GB per shard is a common target.
-
-## Loki: Logs Indexed Like Metrics
-
-**Grafana Loki** takes the opposite design stance from Elasticsearch: **do not full-text index the log body at all.** Instead, Loki indexes only a small set of **labels** (much like Prometheus metric labels — `service`, `env`, `level`, `namespace`) and stores the raw log lines as compressed chunks in cheap object storage (S3/GCS). Queries filter to a stream by labels, then **grep** the matched chunks at read time.
-
-The consequences are a direct, deliberate tradeoff against ELK:
-
-- **Much cheaper ingestion and storage.** No inverted index to build or hold in RAM; chunks live in object storage. Loki is often an order of magnitude cheaper per byte than Elasticsearch.
-- **Labels must stay low-cardinality.** Every unique label-set is a separate stream; putting `user_id` or `trace_id` in a *label* causes a "cardinality explosion" that wrecks Loki — exactly the same hazard as high-cardinality Prometheus labels. High-cardinality values belong *in the log line*, found by filter expressions, not as labels.
-- **Filter queries do a brute-force scan** of matched streams. Narrow by label first, then `|= "timeout"` to grep. This is fast when labels prune well and slow when they do not, the mirror image of Elasticsearch's profile.
-
-LogQL, Loki's query language, deliberately echoes PromQL:
+**LogQL** echoes PromQL: a stream selector, a pipeline of filters and parsers, and optional metric aggregations.
 
 ```logql
-# Stream selector by labels, then a line filter, then a metric over logs
-sum by (status) (
-  rate({service="order-service", env="prod"} |= "card declined" [5m])
+# Line filter, JSON parser, then a field filter
+{service="order-service", env="prod"} |= "order failed" | json | latency_ms > 500
+
+# Filter on structured metadata without making trace_id a label
+{service="order-service"} | trace_id="4bf92f3577b34da6a3ce929d0e0e4736"
+
+# Metric from logs: failed orders per second by decline reason
+sum by (decline_reason) (
+  rate({service="order-service"} |= "order failed" | json [5m])
 )
 ```
 
-Loki slots naturally into a Grafana-centric stack (Grafana for both metrics and logs, Tempo for traces), and because `trace_id` lives in the log *body*, Grafana can link a log line straight to its trace via a derived field. Choose **Loki** when you want cheap, high-volume log *storage* and mostly query by known labels; choose **Elasticsearch/OpenSearch** when you need rich, ad-hoc full-text analytics across arbitrary fields.
+Loki fits naturally in a Grafana stack (Mimir or Prometheus for metrics, Tempo for traces), where a derived field turns each `trace_id` into a link to the trace. Choose **Loki** for cheap, high-volume retention queried mostly by known labels; choose **Elasticsearch or OpenSearch** for rich ad-hoc full-text search and analytics; consider a **columnar store** when logs are well structured and most questions are aggregations.
 
-## Collection Pipelines: Fluent Bit and Vector
+## Collection Agents
 
-Between your applications and your store sits the **collection pipeline**: an agent that tails logs, parses them, enriches them with metadata, redacts sensitive fields, optionally samples, and forwards to one or more sinks. Two modern collectors dominate.
+Between applications and storage sits the **collection pipeline**: an agent that tails files or receives events, parses them, enriches them with metadata, redacts sensitive fields, optionally samples, and forwards to one or more destinations.
+
+| Agent | Language | Configuration | Notes |
+|-------|----------|---------------|-------|
+| **Fluent Bit** | C | YAML (classic `.conf` format deprecated) | Very small footprint; the most common Kubernetes DaemonSet; logs, metrics, and traces |
+| **Fluentd** | Ruby/C | Custom directive format | CNCF graduated; large plugin ecosystem; heavier, often used as an aggregator |
+| **Vector** | Rust | TOML/YAML with Vector Remap Language (VRL) | High throughput; expressive transforms; maintained by Datadog |
+| **OpenTelemetry Collector** | Go | YAML receivers, processors, exporters | `filelog` receiver for files; one agent for all OTel signals |
+| **Grafana Alloy** | Go | Alloy configuration syntax | Grafana's OTel Collector distribution; replaces Grafana Agent and Promtail |
+| **Logstash** | JVM | Pipeline DSL | Powerful parsing (grok); typically a central aggregator rather than a node agent |
+
+Grafana's **Promtail**, formerly the standard Loki shipper, reached end of life on 2 March 2026; Grafana Alloy is its replacement and includes a converter for Promtail configuration.
+
+All agents share the same core responsibilities: **buffer** locally (in memory or on disk) so a downstream outage does not lose data, **batch and compress** to reduce network cost, **retry with backoff**, and apply **backpressure** so a slow destination cannot exhaust the node's memory. Expensive work — parsing, redaction, sampling — is best done at the edge, so the central store ingests only clean, safe, right-sized data.
 
 ### Fluent Bit
 
-**Fluent Bit** is a lightweight (C, single-binary, low-footprint) log/metric processor from the Fluentd family, ubiquitous as a **Kubernetes DaemonSet** — one instance per node tailing every container's stdout. Its model is a pipeline of pluggable stages: **input → parser → filter → output**, configured declaratively. A typical Kubernetes config tails container logs, enriches them with pod metadata, and ships to Elasticsearch:
+Fluent Bit models a pipeline as **inputs → parsers → filters → outputs**. YAML has been the standard configuration format since v3.2, and the classic format is scheduled for deprecation at the end of 2026. A typical Kubernetes DaemonSet configuration tails container logs, reassembles multi-line CRI/Docker output, enriches each record with pod metadata, and ships to Elasticsearch:
 
-```ini
-[INPUT]
-    Name              tail
-    Path              /var/log/containers/*.log
-    Parser            docker
-    Tag               kube.*
-    Refresh_Interval  5
+```yaml
+service:
+  flush: 1
 
-[FILTER]
-    Name                kubernetes
-    Match               kube.*
-    # Enrich each line with pod/namespace/labels from the K8s API
-    Merge_Log           On
-    Keep_Log            Off
-    K8s-Logging.Parser  On
+pipeline:
+  inputs:
+    - name: tail
+      path: /var/log/containers/*.log
+      multiline.parser: docker, cri     # handle both runtime log formats
+      tag: kube.*
+      mem_buf_limit: 50MB
+      skip_long_lines: on
 
-[OUTPUT]
-    Name            es
-    Match           kube.*
-    Host            elasticsearch
-    Port            9200
-    Logstash_Format On
-    Retry_Limit     5
+  filters:
+    - name: kubernetes                  # join each line to pod name, namespace, labels
+      match: kube.*
+      merge_log: on                     # lift fields out of JSON log bodies
+      keep_log: off
+      k8s-logging.parser: on            # honor per-pod parser annotations
+
+  outputs:
+    - name: es
+      match: kube.*
+      host: elasticsearch
+      port: 9200
+      logstash_format: on
+      suppress_type_name: on            # required for Elasticsearch 8+
+      retry_limit: 5
 ```
 
-The `kubernetes` filter is what makes container logs useful: it joins each raw stdout line to the pod name, namespace, labels, and annotations, so you can later query `kubernetes.namespace_name="payments"`.
+The `kubernetes` filter is what makes container logs useful: without it, a line is only a string from an anonymous file; with it, the record carries `kubernetes.namespace_name`, `kubernetes.pod_name`, and pod labels for filtering.
 
 ### Vector
 
-**Vector** (Rust, by Datadog) is a higher-throughput, more programmable collector built around a **sources → transforms → sinks** graph and the **Vector Remap Language (VRL)** for inline parsing, reshaping, and redaction. It targets logs *and* metrics and is often chosen for its performance and its expressive transform layer. A pipeline that parses JSON, drops debug lines, and redacts a field before fanning out to two sinks:
+Vector builds a graph of **sources → transforms → sinks**. Its `remap` transform runs **VRL**, a small, type-checked language for parsing and reshaping events. The pipeline below parses JSON, drops debug events, removes secrets, masks card and SSN patterns, and fans out to Loki and an S3 archive:
 
 ```toml
 [sources.app_logs]
 type = "file"
 include = ["/var/log/app/*.log"]
 
-[transforms.parse]
+[transforms.clean]
 type = "remap"
 inputs = ["app_logs"]
 source = '''
-  . = parse_json!(.message)
-  # Drop noisy debug events at the edge to cut volume
-  if .level == "debug" { abort }
-  # Redact PII before it ever leaves the node
-  .email = "REDACTED"
+  . = parse_json!(string!(.message))
+  if .level == "debug" { abort }                  # cut volume at the edge
+  del(.password)
+  del(.authorization)
+  if exists(.email) { .email = "[REDACTED]" }
+  if is_string(.message) {
+    .message = redact(.message, filters: ["us_social_security_number", r'\b(?:\d[ -]?){13,19}\b'])
+  }
 '''
 
 [sinks.loki]
 type = "loki"
-inputs = ["parse"]
+inputs = ["clean"]
 endpoint = "http://loki:3100"
+encoding.codec = "json"
 labels = { service = "{% raw %}{{ service }}{% endraw %}", level = "{% raw %}{{ level }}{% endraw %}" }
 
 [sinks.archive]
 type = "aws_s3"
-inputs = ["parse"]
+inputs = ["clean"]
 bucket = "log-archive"
+region = "us-east-1"
 compression = "gzip"
+encoding.codec = "json"
 ```
-
-Both agents share the same responsibilities — **buffer** locally so a downstream outage does not drop logs, **batch and compress** to cut network cost, **retry with backoff**, and apply **backpressure** so a slow sink does not OOM the node. Push expensive work (parsing, redaction, sampling) **to the edge**, in the agent, so your central store only ever ingests clean, safe, right-sized data.
 
 ## Retention and Sampling
 
-Logs grow without bound; controlling volume and lifetime is what keeps a logging bill survivable.
+Log volume grows with traffic and code paths; controlling lifetime and intake is what keeps cost bounded.
 
-### Retention Tiers
+### Retention tiers
 
-Not all logs deserve the same lifetime or storage class. The standard pattern is **tiered retention**, moving data to cheaper, slower storage as it ages and ultimately deleting it:
+Not every log deserves the same lifetime or storage class. **Tiered retention** moves data to cheaper, slower storage as it ages and eventually deletes it.
 
-| Tier | Age | Storage | Query speed | Purpose |
-|------|-----|---------|-------------|---------|
-| **Hot** | 0–7 days | Indexed (SSD) | Instant | Live debugging, incident response |
-| **Warm** | 1–4 weeks | Indexed (HDD) | Slower | Recent investigations, trend analysis |
-| **Cold / archive** | months–years | Object store (S3 Glacier) | Minutes–hours to rehydrate | Compliance, audit, forensics |
-| **Delete** | past policy | — | — | Cost and privacy hygiene |
+| Tier | Typical age | Storage | Query latency | Purpose |
+|------|-------------|---------|---------------|---------|
+| Hot | 0–7 days | Indexed, SSD | Interactive | Incident response, live debugging |
+| Warm | 1–4 weeks | Indexed, cheaper disks or fewer replicas | Seconds | Recent investigations, trends |
+| Cold / frozen | Months | Object storage (e.g. searchable snapshots) | Seconds to minutes | Occasional lookups, audits |
+| Archive | Months to years | Object storage archive classes | Hours to rehydrate | Compliance, forensics |
+| Delete | Beyond policy | — | — | Cost and privacy hygiene |
 
-Drivers of the retention policy:
+Retention is set by three pressures:
 
-- **Cost** — indexed hot storage can be 10–100x the price of compressed object storage; aggressive aging is the biggest lever on spend.
-- **Compliance** — regulations dictate *minimums* (e.g. PCI-DSS commonly requires 1 year of audit logs, 3 months hot) and privacy law dictates *maximums* (don't keep PII longer than justified). Security/audit logs usually have far longer retention than verbose application debug logs.
-- **Utility** — the probability you'll query a log decays fast with age; most queries hit the last few days.
+- **Cost.** Indexed hot storage can cost one to two orders of magnitude more per gigabyte than compressed object storage, so aging data out of the hot tier is the largest cost lever.
+- **Compliance.** Regulations set minimums and maximums. PCI DSS v4.0, for example, requires audit log history to be retained for at least twelve months with the most recent three months immediately available for analysis; privacy law (GDPR, CCPA) requires that personal data not be kept longer than necessary. Security and audit logs therefore usually have much longer retention than application debug logs, and should be stored separately.
+- **Utility.** The probability of querying a log falls quickly with age; most queries target the last few days.
 
-Implement aging with the platform's lifecycle tooling: Elasticsearch **ILM** policies, Loki/S3 **object lifecycle rules**, or a collector that routes archive copies straight to cold storage (as the Vector `aws_s3` sink above does).
+Implement aging with the platform's lifecycle tooling — Elasticsearch ILM or OpenSearch ISM, Loki's retention settings with object-store lifecycle rules — or route an archive copy straight to object storage from the agent, as the Vector `aws_s3` sink above does.
 
-### Sampling and Volume Control
+### Sampling and volume control
 
-When even tiered retention is not enough, **reduce what you ingest** — but never blindly:
+When tiering is not enough, reduce what is ingested — selectively.
 
-- **Level-based filtering** — the coarsest control: drop DEBUG/TRACE in production at the agent; keep INFO and above.
-- **Probabilistic sampling** — keep 1 in N of a high-volume, low-value event class (e.g. successful health-check or access logs). Always record the sample rate so counts can be scaled back up.
-- **Tail/consistency sampling** — keep *all* logs for requests that errored or were slow, and sample the boring successful ones. If you sample by `trace_id`, make the keep/drop decision *consistently per trace* so you never keep half a request's logs.
-- **Deduplication / aggregation** — collapse a tight loop emitting the same line thousands of times into one line with a `count`, rather than flooding the pipeline.
+```mermaid
+flowchart TD
+    E["Log event"] --> L{"Level below<br/>configured minimum?"}
+    L -->|yes| Drop["Drop at agent"]
+    L -->|no| Err{"Error, slow request,<br/>or audit/security event?"}
+    Err -->|yes| Keep["Keep 100%"]
+    Err -->|no| Dup{"Repeated identical<br/>line in short window?"}
+    Dup -->|yes| Agg["Collapse to one line<br/>with a count"]
+    Dup -->|no| Hash{"hash(trace_id) below<br/>sample rate?"}
+    Hash -->|yes| KeepS["Keep, record<br/>sample_rate field"]
+    Hash -->|no| Drop
+```
 
-The guiding principle mirrors tracing: **never sample away your errors.** Sampling exists to cheapen the high-volume, low-information background; the rare failure logs are the ones you most need and must keep at 100%.
+- **Level filtering** — drop DEBUG and TRACE in production at the agent.
+- **Probabilistic sampling** — keep 1 in N of high-volume, low-value events (health checks, successful access logs), recording the sample rate so counts can be scaled back up.
+- **Trace-consistent sampling** — decide per `trace_id` (a hash compared against the rate) so a request's logs are kept or dropped together, and align the decision with trace sampling so kept traces have their logs.
+- **Deduplication** — collapse a tight loop emitting the same line thousands of times into one line with a count.
 
-## PII and Sensitive-Data Handling
+The governing principle is the same as for tracing: **never sample away errors.** Sampling exists to cheapen the high-volume, low-information background; rare failure logs are the ones most needed.
 
-Logs are a notorious data-leak vector: a single `log.info(request_body)` can quietly persist passwords, full card numbers, access tokens, or health records into a long-retained, widely-readable index. Treat sensitive-data handling as a hard requirement, not a nicety.
+## Sensitive Data
 
-- **Never log secrets.** Passwords, API keys, session tokens, full PANs (card numbers), private keys, and authorization headers must never reach a log line. The safest design makes it *impossible* — e.g. wrapping secrets in a type whose `repr`/`toString` prints `***`.
-- **Redact or tokenize PII** as early as possible — ideally in the application, certainly in the agent at the edge — *before* it leaves the node. Mask (`j***@example.com`), hash (a salted hash of `user_id` preserves joinability without exposing it), or drop the field entirely. The Vector and Fluent Bit examples above redact in-pipeline precisely so raw PII never reaches central storage.
-- **Defense in depth.** Combine application-level discipline (don't log the field) with pipeline-level scrubbers (regex/VRL redaction of emails, card-number, SSN patterns) so a careless `log.debug` is still caught downstream.
-- **Encrypt and access-control the store.** Encrypt logs at rest and in transit; restrict who can query, since log search is effectively a query over your most detailed event data. Maintain an **audit log of who queried the logs**.
-- **Honor data-subject rights and retention limits.** Privacy regimes (GDPR/CCPA) grant deletion ("right to be forgotten") and constrain how long PII may be kept. Logs full of un-redacted PII make compliance painful; pseudonymized/tokenized logs with bounded retention make it tractable. Pin data residency where required (region-locked storage).
+Logs are a common data-leak vector: a single `log.info(request_body)` can persist passwords, card numbers, tokens, or health data into a long-retained, widely readable index.
+
+- **Never log secrets.** Passwords, API keys, session tokens, private keys, authorization headers, and full card numbers (PANs) must not reach a log. The most reliable control makes it impossible — for example, wrapping secrets in a type whose string representation is `***`.
+- **Redact or pseudonymize personal data early** — in the application, and again in the agent before data leaves the node. Mask (`j***@example.com`), replace with a keyed hash (which preserves joinability without exposing the value), or drop the field.
+- **Apply defense in depth.** Combine application discipline with pipeline scrubbers for known patterns (emails, card numbers, national ID formats), so a careless debug statement is still caught downstream.
+- **Protect the store.** Encrypt in transit and at rest, restrict query access (log search is effectively access to the most detailed data the organization holds), and audit who queries what.
+- **Respect retention limits and data-subject rights.** Deletion requests are tractable when logs contain pseudonymous IDs with bounded retention and nearly impossible when they contain raw personal data kept indefinitely. Pin data residency where required.
+
+A last-resort redaction filter for Python `logging` that scrubs the rendered message and known sensitive fields, regardless of which code emitted the record:
 
 ```python
-# Belt-and-suspenders redaction filter: scrub known-sensitive patterns
-# from any record before it is emitted, regardless of who logged it.
-import re, logging
+import logging
+import re
 
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
-_CARD  = re.compile(r"\b(?:\d[ -]*?){13,19}\b")
+_CARD = re.compile(r"\b(?:\d[ -]?){13,19}\b")
+_SENSITIVE_FIELDS = ("password", "authorization", "token", "secret")
+
 
 class RedactionFilter(logging.Filter):
-    def filter(self, record):
-        record.msg = _CARD.sub("[REDACTED-CARD]", _EMAIL.sub("[REDACTED-EMAIL]", str(record.msg)))
-        # Drop sensitive fields outright if present
-        for field in ("password", "authorization", "token"):
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()                 # render msg % args first
+        msg = _EMAIL.sub("[REDACTED-EMAIL]", msg)
+        record.msg = _CARD.sub("[REDACTED-CARD]", msg)
+        record.args = None                        # already rendered
+        for field in _SENSITIVE_FIELDS:
             if hasattr(record, field):
                 setattr(record, field, "[REDACTED]")
         return True
@@ -340,45 +432,51 @@ class RedactionFilter(logging.Filter):
 
 ## Log-Based Alerts
 
-Most alerting should ride on **metrics**, which are cheap, low-cardinality, and stable. But some conditions are only *visible in logs* — a specific exception class, a particular error string, a security event, the *absence* of an expected heartbeat line. The standard technique is **logs-to-metrics**: count or extract a value from matching log lines, turn it into a time series, and alert on that series with the same machinery you use for any metric.
+Most alerting should use **metrics**, which are cheap and stable (see [Metrics &amp; Monitoring](metrics.html#alerting-with-alertmanager)). Some conditions, however, are visible only in logs: a specific exception type, a security event, or the absence of an expected line. The standard technique is **logs-to-metrics**: count matching lines or extract a numeric field, turn the result into a time series, and alert on that series with ordinary alerting machinery.
 
-```logql
-# Loki: alert when card-decline errors exceed 5/min over 5 minutes
-sum(
-  rate({service="order-service", level="error"} |= "card declined" [5m])
-) > (5 / 60)
-```
+In Loki, the **ruler** evaluates LogQL alerting and recording rules in Prometheus rule format and sends alerts to Alertmanager; recording rules can `remote_write` their results into Prometheus or Mimir so log-derived metrics live beside the rest:
 
 ```yaml
-# Elasticsearch/OpenSearch alerting (sketch): fire when ERROR count
-# for a service crosses a threshold in a 5-minute window
-trigger:
-  schedule: { interval: 1m }
-  query:
-    bool:
-      filter:
-        - term:   { "service.keyword": "order-service" }
-        - term:   { "level.keyword": "error" }
-        - range:  { "@timestamp": { gte: "now-5m" } }
-  condition: ctx.results[0].hits.total.value > 50
-  action: page_oncall
+groups:
+  - name: order-service-logs
+    rules:
+      - alert: CardDeclineSpike
+        expr: |
+          sum(count_over_time({service="order-service"} |= "card declined" [5m])) > 25
+        for: 5m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "More than 25 card declines in 5 minutes"
+
+      - record: order_service:card_declines:rate5m
+        expr: sum(rate({service="order-service"} |= "card declined" [5m]))
 ```
 
-Practical guidance for log alerts:
+Elasticsearch and OpenSearch provide the same capability through Kibana alerting rules and OpenSearch Alerting monitors; managed platforms offer metric filters (CloudWatch Logs) or log-based metrics.
 
-- **Prefer extracted-metric alerts over raw-text alerts.** Convert "lines matching X per minute" into a counter and alert on its *rate* with hysteresis, instead of paging on every single matching line — otherwise one bad deploy pages you a thousand times.
-- **Alert on rates and ratios, not single events** (except for genuinely critical singletons like FATAL or a specific security signature). A few errors per minute may be normal; a 10x jump is not.
-- **Watch for the absence of logs too.** "No successful-batch line in the last hour" (a *dead-man's-switch*) catches a silently wedged job that emits no errors at all.
-- **Make every alert link back to the logs.** A good log alert deep-links to the exact filtered query (and, via `trace_id`, to the trace) so the on-call engineer lands on the evidence, not a blank dashboard.
-- **Deduplicate and route.** Group related firings, suppress flapping, and route by severity (page for FATAL/security, ticket for elevated WARN) through your alert manager.
+Guidance:
 
-Log alerts complement, not replace, metric-based **SLO/burn-rate** alerting: SLO alerts tell you reliability is at risk; the matching error logs, joined by `trace_id`, tell you *why*.
+- **Alert on rates and ratios, not single lines**, except for genuinely critical singletons such as a FATAL or a specific security signature. Paging on every matching line turns one bad deploy into hundreds of pages.
+- **Alert on absence.** "No `batch completed` line in the last hour" — a dead man's switch — catches a job that hangs silently without logging errors.
+- **Link to evidence.** An alert should deep-link to the exact filtered log query and, through `trace_id`, to representative traces.
+- **Route by severity** through Alertmanager or equivalent, with grouping and deduplication.
+
+Log alerts complement SLO burn-rate alerting: the burn-rate alert says reliability is at risk; the error logs, joined by `trace_id`, explain why.
 
 ## See Also
 
-- **[Observability Hub](./)** — metrics, traces, and logs unified into one debugging surface
-- **[Tracing](./tracing.html)** — distributed traces and the `trace_id` that joins logs to spans
-- **[Metrics](./metrics.html)** — cheap, low-cardinality signals and why most alerts should ride on them
-- **[Distributed Systems: Observability](../distributed-systems/observability.html)** — the three pillars, correlation IDs, and SLOs in a multi-node setting
-- **[Kubernetes](../technology/kubernetes/)** — where Fluent Bit DaemonSets collect container logs
-- **[AWS Monitoring &amp; Messaging](../technology/aws/monitoring.html)** — CloudWatch Logs, metric filters, and log-based alarms
+- **[Observability Hub](./)** — how logs, metrics, and traces combine; SLOs
+- **[Distributed Tracing](tracing.html)** — trace context and the `trace_id` that joins logs to spans
+- **[Metrics &amp; Monitoring](metrics.html)** — cheap, low-cardinality signals for most alerting
+- **[Distributed Systems: Observability](../distributed-systems/observability.html)** — correlation IDs and the signals in a multi-node setting
+- **[Kubernetes Operations](../technology/kubernetes/operations.html)** — cluster operations, where DaemonSet log agents run
+- **[AWS Monitoring](../technology/aws/monitoring.html)** — CloudWatch Logs, metric filters, and log-based alarms
+
+### References
+
+- [OpenTelemetry logs data model](https://opentelemetry.io/docs/specs/otel/logs/data-model/)
+- [Grafana Loki documentation](https://grafana.com/docs/loki/latest/)
+- [Fluent Bit manual](https://docs.fluentbit.io/manual/)
+- [Vector documentation](https://vector.dev/docs/)
+- Stripe Engineering, "Fast and flexible observability with canonical log lines" (2019)

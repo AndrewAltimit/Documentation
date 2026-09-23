@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Git: Conflict Resolution & Recovery"
+description: "Resolving merge, rebase and cherry-pick conflicts; undoing bad rebases and force-pushes; recovering commits, branches and stashes with the reflog and fsck; repairing corrupt repositories."
 permalink: /docs/technology/git/conflict-and-recovery.html
 toc: true
 toc_sticky: true
@@ -8,57 +9,82 @@ toc_sticky: true
 
 [Git Internals](./) ›
 
-Git almost never loses work — but it is easy to *misplace* it. A conflicted rebase, a force-push over a colleague's commits, a `git reset --hard` on the wrong branch, or a deleted branch can all leave a repository that *looks* broken. The good news: as long as the objects still live in the object store, the reflog and `fsck` can almost always get them back. This page is the recovery playbook: how to resolve conflicts methodically, how to undo history rewrites safely, and how to dig commits out of the object database when every visible reference to them is gone.
+Git rarely loses committed work, but it is easy to misplace it. A conflicted rebase, a force-push over a colleague's commits, a `reset --hard` on the wrong branch or a deleted branch can all leave a repository that looks broken while every object is still on disk. This page covers resolving conflicts methodically, undoing history rewrites, finding commits that no reference points to, and repairing a damaged repository. It assumes the [object model](object-model.html) (objects, refs, `HEAD`) and the [merge and rebase algorithms](algorithms-and-operations.html).
 
-This page assumes familiarity with the [object model](object-model.html) (commits, refs, the `HEAD` pointer) and the [three-way merge and rebase algorithms](algorithms-and-operations.html). If a term like "merge base", "dangling object", or "reflog" is unfamiliar, read those pages first.
+## Why committed work is rarely lost
 
-## The Mental Model: Why Almost Nothing Is Ever Lost
+Git is an immutable, content-addressed object store under a thin layer of mutable pointers. Three properties make recovery possible:
 
-Git is a content-addressable object store layered under a thin set of mutable pointers. Three facts make recovery possible:
-
-1. **Commits are immutable and content-addressed.** A commit is named by the SHA-1/SHA-256 hash of its content. "Rewriting history" never edits a commit in place — it creates *new* commits and moves a *pointer* to them. The old commits still exist in `.git/objects`.
-2. **Every pointer move is logged.** Whenever `HEAD` or a branch ref changes, Git appends a line to its **reflog** (`.git/logs/`). The reflog records where a ref *used to point*, even after the branch label is gone from the visible graph.
-3. **Unreferenced objects survive until garbage collection.** A commit with no ref or reflog entry pointing at it becomes **dangling**, but it stays on disk until `git gc` prunes it — by default 90 days for reachable-via-reflog objects and 2 weeks for truly unreachable ones (`gc.reflogExpire`, `gc.pruneExpire`).
+1. **Commits are never edited.** Amending, rebasing or resetting creates new commits and moves a pointer; the old commits stay in `.git/objects`.
+2. **Pointer moves are logged.** Every update to `HEAD` or a branch appends an entry to that ref's **reflog**, recording where it pointed before.
+3. **Unreferenced objects survive until pruned.** An object that nothing references stays on disk until `git gc` (or `git maintenance`) prunes it, and pruning only removes loose objects older than `gc.pruneExpire`.
 
 ```mermaid
 flowchart LR
     subgraph Pointers["Mutable pointers"]
-        HEAD[HEAD] --> main[(main)]
-        reflog[[reflog]]
+        HEAD["HEAD"] --> main["main"]
+        reflog[["reflog: main@{1}"]]
     end
-    subgraph Store["Immutable object store (.git/objects)"]
+    subgraph Store["Object store"]
         c1((C1)) --> c2((C2)) --> c3((C3))
-        c2 --> d1((dangling D1)) --> d2((dangling D2))
+        c2 --> d1((D1)) --> d2((D2))
     end
     main --> c3
-    reflog -.remembers.-> d2
+    reflog -. "still references" .-> d2
 ```
 
-The practical consequence: **recovery is almost always "find the hash of the lost commit, then point a ref at it."** The reflog finds it when a ref recently pointed there; `git fsck` finds it when nothing does.
+In the diagram, `main` was reset from `D2` back to `C2` and then moved on to `C3`. `D1` and `D2` are no longer on any branch, but the reflog still references `D2`, so they are safe until that reflog entry expires.
 
-## Resolving Merge Conflicts
+| Setting | Default | Controls |
+|---------|---------|----------|
+| `gc.reflogExpire` | 90 days | Age at which reflog entries still reachable from the ref's tip are expired |
+| `gc.reflogExpireUnreachable` | 30 days | Age at which reflog entries *not* reachable from the tip (typical after `amend`, `rebase`, `reset`) are expired |
+| `gc.pruneExpire` | 2 weeks | Minimum age before an unreferenced loose object is deleted |
 
-A conflict occurs when the three-way merge cannot reconcile overlapping changes to the same region of a file (see [the merge algorithm](algorithms-and-operations.html#three-way-merge-algorithm)). Git pauses, writes conflict markers into the working tree, and records all three versions in the index.
+So the practical window for a commit abandoned by a rebase is about 30 days via the reflog, plus up to two more weeks during which `fsck` can still find it. Recovery almost always comes down to one step: **find the hash of the lost commit, then point a ref at it.** The reflog finds it if a ref recently pointed there; `git fsck` finds it if nothing did.
 
-### The Conflicted Index
+Uncommitted edits are the exception. Changes that were never staged exist only in the working tree, and `reset --hard`, `checkout -- file` or `restore file` destroy them permanently. Changes that were staged at some point left blobs behind that `fsck` can sometimes find.
 
-During a conflict the index holds up to three *stages* of each conflicted path, instead of the usual single stage 0:
+## Resolving merge conflicts
 
-| Stage | Meaning |
-|-------|---------|
-| 1 | The **base** (merge-base / common ancestor) version |
-| 2 | **Ours** (the current branch, `HEAD`) |
-| 3 | **Theirs** (the branch being merged in) |
+A conflict occurs when a three-way merge cannot reconcile changes to the same region of a file, or when the two sides made incompatible changes to the tree (see the [merge algorithm](algorithms-and-operations.html#three-way-merge-algorithm)). Git stops, writes markers into conflicted files, and records every version of each conflicted path in the index.
+
+### Previewing before merging
+
+`git merge-tree --write-tree` computes a merge in memory without touching the working tree, so you can check for conflicts first:
 
 ```bash
-git ls-files -u            # List unmerged paths with their stages
-git status                 # "Unmerged paths:" section lists conflicts
-git diff --name-only --diff-filter=U   # Just the conflicted file names
+git merge-tree --write-tree --name-only main feature
+# exit status 1 plus a list of conflicted paths means the real merge will stop
 ```
 
-### Conflict Markers
+### The conflicted index
 
-Git rewrites each conflicted hunk with markers. With `merge.conflictStyle = diff3` (or `zdiff3`, recommended) you also get the merge-base section, which makes intent much clearer:
+For a conflicted path the index holds up to three **stages** instead of the usual single stage 0:
+
+| Stage | Contents | Read it with |
+|:-----:|----------|--------------|
+| 1 | Merge base | `git show :1:path` |
+| 2 | Ours (`HEAD`) | `git show :2:path` |
+| 3 | Theirs (the incoming commit) | `git show :3:path` |
+
+A missing stage indicates a structural conflict: no stage 1 means both sides added the path (add/add); a missing stage 2 or 3 means one side deleted it (modify/delete).
+
+```bash
+git status                               # "Unmerged paths" section
+git diff --name-only --diff-filter=U     # just the conflicted paths
+git ls-files -u                          # stages and blob IDs per path
+git diff                                 # combined diff of the conflicts
+git log --merge -p -- path               # commits on either side that touched path
+```
+
+### Conflict markers
+
+Set the `zdiff3` style once; the base section it adds shows what both sides started from, which usually reveals whether a change was a deliberate edit or incidental:
+
+```bash
+git config --global merge.conflictStyle zdiff3
+```
 
 ```
 <<<<<<< HEAD
@@ -70,392 +96,371 @@ timeout = 60
 >>>>>>> feature/raise-timeout
 ```
 
-The base section (`||||||| merge base`) shows what *both* sides started from — invaluable for deciding whether a side's change was additive or a true disagreement. Enable it once:
+Both sides raised the timeout from 10, to different values, so this is a genuine disagreement to settle by hand rather than a case where one side's edit can simply be kept.
+
+### Resolving step by step
 
 ```bash
-git config --global merge.conflictStyle zdiff3
-```
-
-### Resolving Step by Step
-
-```bash
-# 1. See what conflicts
+# 1. List conflicts
 git status
 
-# 2. Edit each file: remove the markers, keep the intended result.
-#    Or accept one side wholesale:
-git checkout --ours   path/to/file     # keep HEAD's version
-git checkout --theirs path/to/file     # keep the incoming version
+# 2. Edit each file into its intended final state and remove the markers,
+#    or take one side for a whole file:
+git restore --ours   path/to/file        # same as: git checkout --ours path/to/file
+git restore --theirs path/to/file
+#    Start over on a file, re-creating the conflict markers:
+git restore --merge  path/to/file        # same as: git checkout -m path/to/file
 
-# 3. Mark each file resolved by staging it
+# 3. Mark it resolved (for a modify/delete conflict, use git rm to accept the deletion)
 git add path/to/file
 
-# 4. Finish the merge (reuses the prepared merge message)
-git commit                             # or: git merge --continue
+# 4. Conclude
+git merge --continue                     # or: git commit
 
-# Abort entirely and return to the pre-merge state
+# Or give up and return to the pre-merge state
 git merge --abort
 ```
 
-> **"ours" and "theirs" flip during rebase.** During a *merge*, `--ours` is your current branch. During a *rebase*, the meaning inverts: `--ours` refers to the branch you are rebasing *onto* (the new base), and `--theirs` is the commit being replayed. This trips up nearly everyone — when in doubt, inspect with `git diff` and resolve by content rather than by side.
+`git diff --check` before committing catches leftover conflict markers and whitespace errors.
 
-### Tools That Reduce Conflict Toil
+### What "ours" and "theirs" mean
 
-```bash
-# Launch a configured 3-way merge tool (vimdiff, meld, kdiff3, vscode, ...)
-git mergetool
+The labels refer to positions in the underlying three-way merge, not to who wrote the code, so they swap depending on the operation:
 
-# rerere: "reuse recorded resolution" — remembers how you resolved a
-# given conflict and replays it automatically next time it recurs.
-git config --global rerere.enabled true
-```
+| Operation | `--ours` / stage 2 | `--theirs` / stage 3 |
+|-----------|--------------------|-----------------------|
+| `git merge feature` | Your current branch | `feature` |
+| `git rebase main` | `main` plus the commits already replayed | The commit of yours being replayed |
+| `git cherry-pick X` | Your current branch | Commit `X` |
+| `git revert X` | Your current branch | The inverse of `X` |
+| `git stash pop` / `apply` | Your current branch | The stashed changes |
 
-`rerere` is especially valuable when a long-lived branch is repeatedly rebased or merged against a moving target: you resolve each unique conflict once, and Git auto-applies the recorded resolution on every subsequent encounter.
+Rebase is the one that surprises people: your own work is "theirs". When in doubt, look at the stages with `git show :2:path` and `:3:path` and resolve by content rather than by label.
 
-## Rebasing Through Conflicts
-
-A rebase replays each of your commits onto a new base, one at a time. Any commit can conflict, so the rebase **pauses mid-replay** and hands you a partially-rebased branch in a detached state.
-
-```bash
-git rebase main                 # replay current branch onto main
-# ... conflict in commit 2 of 5 ...
-
-# Resolve the working tree, then stage the resolution:
-git add path/to/file
-
-git rebase --continue           # replay the next commit
-# (repeat resolve + continue for each conflicting commit)
-
-git rebase --skip               # drop the current commit entirely
-git rebase --abort              # bail out; restore the original branch tip
-```
-
-### What "continue" Actually Does
-
-At each pause, Git has applied commits up to the current one onto the new base, leaving `HEAD` detached on the partial result. `--continue` commits your staged resolution as the replayed version of the current commit, then resumes cherry-picking the remaining todo entries. `--abort` reads `ORIG_HEAD` (saved at the start) and resets the branch back to exactly where it began — the cleanest escape hatch when a rebase has gone wrong.
-
-**Make conflict-heavy rebases survivable:**
-
-- **Enable `rerere`** so a conflict resolved on attempt one is replayed automatically on later attempts.
-- **Rebase in smaller hops.** Rebasing onto an intermediate commit, then onto the final base, can turn one giant conflict into two small ones.
-- **Know the abort.** `git rebase --abort` is always safe; it never loses your original commits because they are still referenced by `ORIG_HEAD` and the reflog.
-
-## Undoing a Pushed Rebase (or Force-Push)
-
-This is the highest-stakes recovery scenario. You rebased a branch, force-pushed it, and now realize the rebase was wrong — or it discarded a collaborator's commits. Because the rebase only *moved a pointer*, the original commits are still recoverable.
-
-### Recover Your Own Bad Rebase Locally
-
-If you are on the machine that did the rebase, the reflog still remembers the pre-rebase tip:
+### Tools that reduce conflict work
 
 ```bash
-git reflog                       # find the line BEFORE the rebase started,
-                                 # e.g. "abc1234 HEAD@{5}: commit: ..."
+git mergetool                             # open each conflict in the configured tool
+git config --global merge.tool vscode     # or meld, kdiff3, vimdiff, ...
 
-# Inspect to confirm it is the right state
-git log --oneline abc1234
-
-# Hard-reset the branch back to the pre-rebase tip...
-git reset --hard abc1234
-# ...or, equivalently, use the saved ORIG_HEAD from the rebase:
-git reset --hard ORIG_HEAD
+git config --global rerere.enabled true   # record and reuse resolutions
+git config --global rerere.autoUpdate true   # also stage reused resolutions
 ```
 
-Then re-publish with a *lease* so you do not clobber anyone else again:
+**rerere** ("reuse recorded resolution") stores each resolved conflict, keyed by its conflicting hunks, under `.git/rr-cache/`. When the identical conflict appears again (the typical case when a long-lived branch is repeatedly rebased or test-merged against a moving `main`) Git applies the recorded resolution automatically. Inspect what it did with `git rerere diff`, and discard a bad recording with `git rerere forget path`.
+
+## Rebasing through conflicts
+
+A rebase replays commits one at a time, so any of them can conflict. The rebase then stops with `HEAD` detached on the partially rebased history.
+
+```mermaid
+sequenceDiagram
+    participant U as You
+    participant G as git rebase
+    U->>G: git rebase main
+    G->>G: replay commit 1 of 5 (clean)
+    G-->>U: CONFLICT in commit 2
+    U->>U: edit files, git add
+    U->>G: git rebase --continue
+    G->>G: commit resolved 2, replay 3 to 5
+    G-->>U: done, branch moved to new tip
+    Note over U,G: at any stop: --skip drops the current commit,<br/>--abort restores the original branch from ORIG_HEAD
+```
 
 ```bash
-git push --force-with-lease
+git rebase main
+# CONFLICT in commit 2 of 5 ...
+git status                      # shows which commit is being replayed
+git add path/to/file            # after resolving
+git rebase --continue           # commit the resolution and keep going
+git rebase --skip               # drop the commit being replayed
+git rebase --abort              # return the branch to where it started
 ```
 
-### Recover From a Force-Push That Erased a Teammate's Work
+`--continue` commits the staged resolution as the rewritten version of the current commit and carries on with the todo list in `.git/rebase-merge/`. `--abort` resets the branch to the tip recorded when the rebase began; your original commits are also still in the reflog, so an abort never loses them.
 
-If someone else's commits were overwritten on the remote and your local reflog does not have them, you can still recover from any clone that has them, or from the remote's own reflog if you control the server:
+Ways to make conflict-heavy rebases manageable:
+
+- **Enable `rerere`**, so a conflict resolved once is reapplied when the same hunk conflicts again, including after an abort and retry.
+- **Squash first, then rebase.** A branch whose commits edit the same lines repeatedly conflicts once per commit; `git rebase -i --keep-base main` to squash those commits in place, followed by a normal rebase, resolves them once.
+- **Rebase in smaller hops** onto an intermediate commit of the target, so each step has fewer upstream changes to absorb.
+- **Consider merging instead.** A single merge resolves the combined conflict once; a rebase may ask you to resolve the same region at every commit that touches it.
+
+## Undoing a pushed rebase or force-push
+
+Because a rebase only moves a branch pointer, the pre-rebase commits still exist after a bad rebase or force-push, even one that has already been pushed.
+
+### On the machine that did the rebase
 
 ```bash
-# On a teammate's machine that fetched the old tip:
-git reflog show origin/feature   # find the old remote tip hash
-git branch rescue <old-tip-sha>  # save it to a ref
-git push origin rescue           # publish the rescued commits
+git reflog show feature          # entries like "feature@{3}: rebase (finish): ..."
+git log --oneline feature@{4}    # inspect the pre-rebase tip before trusting it
 
-# If you run the Git server, the bare repo has its own reflog:
-#   on the server, in the bare repo:
-git reflog refs/heads/feature
+git reset --hard feature@{4}     # put the branch back
+# or, straight after the rebase: git reset --hard ORIG_HEAD
 ```
 
-> **Always prefer `--force-with-lease` over `--force`.** `git push --force` overwrites the remote branch unconditionally, silently discarding any commits pushed since your last fetch. `git push --force-with-lease` refuses the push if the remote tip is not what you last saw — turning a silent data-loss bug into a safe, explicit rejection. Make it the default for any force-push.
-
-## Interactive Rebase &amp; Squashing
-
-Interactive rebase (`git rebase -i <base>`) opens a **todo list** of commits and lets you reorder, edit, combine, or drop them before they are replayed. It is the primary tool for cleaning up a messy feature branch before it merges.
+Then publish the corrected branch without overwriting anything you have not seen:
 
 ```bash
-git rebase -i HEAD~5          # edit the last 5 commits
-git rebase -i main            # edit every commit since main diverged
+git push --force-with-lease --force-if-includes
 ```
 
-The editor presents one line per commit, oldest first:
+### When a teammate's commits were overwritten
+
+If someone force-pushed over commits you or a teammate had fetched, any clone that fetched the old tip still has it:
+
+```bash
+git reflog show origin/feature   # remote-tracking refs have reflogs too
+git branch rescue <old-tip-sha>
+git push origin rescue
+```
+
+A server-side bare repository normally has reflogs disabled (`core.logAllRefUpdates` defaults to false in bare repositories), so the server may not help unless it was configured to keep them. Hosted forges record force-pushes in their audit logs and pull-request timelines; GitHub, for example, shows the before and after SHAs of a force-push on the pull request, and the old commits usually remain fetchable by SHA for a while.
+
+### Force-push safely
+
+| Command | Behaviour |
+|---------|-----------|
+| `git push --force` | Overwrites the remote branch unconditionally |
+| `git push --force-with-lease` | Refuses if the remote tip differs from your remote-tracking ref (`origin/feature`), i.e. someone pushed since your last fetch |
+| `git push --force-with-lease --force-if-includes` | Additionally refuses if the remote tip was fetched but never integrated into your local branch; closes the hole where a background `git fetch` updated `origin/feature` and made the lease pass |
+
+Set `git config --global push.useForceIfIncludes true` (Git 2.30+) so every `--force-with-lease` push gets the extra check.
+
+## Interactive rebase and squashing
+
+Interactive rebase is the usual way to turn a messy feature branch into reviewable commits before merging. The todo commands (`pick`, `reword`, `edit`, `squash`, `fixup`, `drop`, `exec`, `break`) are listed in [Interactive rebase](algorithms-and-operations.html#interactive-rebase).
+
+```bash
+git rebase -i main               # every commit since the branch left main
+git rebase -i --keep-base main   # same commits, but do not move onto newer main
+```
+
+Given this todo list (oldest first):
 
 ```
 pick a1b2c3d Add login form
-pick b2c3d4e Fix typo in login form          # <- squash into previous
+pick b2c3d4e Fix typo in login form
 pick c3d4e5f Add password validation
-pick d4e5f6a WIP debugging                    # <- drop
+pick d4e5f6a WIP debugging
 pick e5f6a7b Wire up auth backend
 ```
 
-### The Todo Commands
-
-| Command | Effect |
-|---------|--------|
-| `pick` | Keep the commit as-is |
-| `reword` | Keep the commit, but stop to edit its message |
-| `edit` | Stop *after* applying it so you can amend the snapshot (`git commit --amend`) |
-| `squash` (`s`) | Combine into the previous commit; **merge both messages** in an editor |
-| `fixup` (`f`) | Like squash, but **discard this commit's message** |
-| `drop` (`d`) | Remove the commit entirely |
-| `exec` (`x`) | Run a shell command (e.g. tests) at this point |
-| `break` | Stop here unconditionally, then `git rebase --continue` to resume |
-
-### Squashing a Cluster of Commits
-
-To fold the four commits above into two clean ones — "Add login form" and "Add auth" — rewrite the todo list:
+rewriting it as
 
 ```
-pick   a1b2c3d Add login form
-fixup  b2c3d4e Fix typo in login form
-pick   c3d4e5f Add password validation
-fixup  e5f6a7b Wire up auth backend
-drop   d4e5f6a WIP debugging
+pick  a1b2c3d Add login form
+fixup b2c3d4e Fix typo in login form
+pick  c3d4e5f Add password validation
+fixup e5f6a7b Wire up auth backend
+drop  d4e5f6a WIP debugging
 ```
 
-`fixup` absorbs the typo fix and the backend wiring into their preceding commits without prompting for a message; `drop` deletes the WIP commit.
+produces two commits. The typo fix and backend wiring are folded into their predecessors without prompting for a message, and the WIP commit disappears. Moving a line reorders commits; if reordered commits touch the same lines, expect conflicts.
 
-### Autosquash: Mark Fixups As You Go
+### Autosquash
 
-You do not have to hand-edit the todo list. Create fixup/squash commits while working, then let `--autosquash` reorder them automatically:
+Rather than editing the todo list by hand, record the target of each fix as you commit it:
 
 ```bash
-# While developing, target an earlier commit by hash:
-git commit --fixup=a1b2c3d        # creates "fixup! Add login form"
-git commit --squash=c3d4e5f       # creates "squash! Add password validation"
+git commit --fixup=a1b2c3d            # "fixup! Add login form"
+git commit --squash=c3d4e5f           # "squash! Add password validation"
+git commit --fixup=reword:a1b2c3d     # amend only the message of a1b2c3d (Git 2.32+)
 
-# Later, autosquash slots them next to their targets and pre-fills
-# the todo list with the right fixup/squash actions:
-git rebase -i --autosquash main
+git rebase -i --autosquash main       # entries are pre-sorted and pre-marked
+git config --global rebase.autoSquash true
 ```
 
-Enable it permanently with `git config --global rebase.autosquash true`. This is the cleanest squashing workflow: keep committing small, mark each commit's target as you go, and let the final rebase assemble a tidy history.
+For a single edit to an older commit on a linear branch, the experimental `git history reword` and `git history fixup` commands do the same without an editor or a working-tree replay; see [`replay` and `history`](algorithms-and-operations.html#rewriting-without-a-working-tree-replay-and-history).
 
-## Cherry-Pick With Conflicts
+## Cherry-pick with conflicts
 
-`git cherry-pick` applies the *diff introduced by a commit* onto your current branch as a new commit. Because the surrounding context may differ, cherry-picks conflict just like merges and rebases.
-
-```bash
-git cherry-pick <sha>            # apply one commit
-git cherry-pick <sha1>^..<sha2>  # apply an inclusive range
-git cherry-pick -x <sha>         # append "(cherry picked from commit ...)"
-git cherry-pick -n <sha>         # apply to working tree, do NOT commit
-```
-
-### Driving a Conflicted Cherry-Pick
+A cherry-pick is a three-way merge of one commit's change, so it conflicts in the same way. For a range, the sequencer stops on each conflicting commit.
 
 ```bash
 git cherry-pick abc1234
 # CONFLICT (content): Merge conflict in src/app.py
-
-# Resolve the file, then stage it:
 git add src/app.py
-
-git cherry-pick --continue       # finish; reuses the original message
-git cherry-pick --skip           # drop this commit, move to the next in a range
+git cherry-pick --continue       # commit with the original message
+git cherry-pick --skip           # drop this commit, continue with the range
 git cherry-pick --abort          # restore the pre-cherry-pick state
 ```
 
-The resolution mechanics are identical to a merge: the index carries stages 1/2/3, `--ours` is your current branch, `--theirs` is the commit being picked. For a *range* of commits, Git pauses on each conflicting commit, and `--continue`/`--skip` advance through the sequence just like a rebase.
+When you find yourself cherry-picking a long contiguous run of commits, `git rebase --onto` is usually the better tool; it computes the range for you and records the original tip in `ORIG_HEAD` and the reflog.
 
-**Cherry-pick vs. rebase:** a cherry-pick is a single commit's worth of the same replay machinery a rebase uses for the whole branch. If you find yourself cherry-picking a long contiguous run of commits, an interactive rebase (or `git rebase --onto`) is usually the better tool — it tracks the original branch point and the reflog for you.
+## Reflog: recovering lost commits
 
-## Reflog: Recovering Lost Commits
-
-The **reflog** is the first place to look whenever a commit "disappears" after a `reset --hard`, a bad `rebase`, an `amend`, a botched `merge`, or an accidental branch deletion. It records every position `HEAD` and each branch has occupied, with timestamps.
+The reflog is the first place to look after a `reset --hard`, a bad rebase, an `amend`, a mistaken merge, or a deleted branch. It records every position `HEAD` and each branch has held, locally.
 
 ```bash
-git reflog                       # HEAD's movement history
-git reflog show <branch>         # a specific branch's history
-git reflog --date=iso           # absolute timestamps instead of "2 hours ago"
+git reflog                       # HEAD's history
+git reflog show feature          # one branch's history
+git reflog --date=iso            # absolute timestamps
+git log -g --oneline --grep=wip  # search reflog entries like a log
 ```
-
-Typical output:
 
 ```
 e5f6a7b HEAD@{0}: reset: moving to HEAD~3
-1a2b3c4 HEAD@{1}: commit: Add password validation   <- the work I want back
+1a2b3c4 HEAD@{1}: commit: Add password validation   <- the work to get back
 b2c3d4e HEAD@{2}: commit: Add login form
 ```
 
-### Recovering a Specific Lost State
+`HEAD@{2}` means "two moves ago". Time-based forms such as `main@{yesterday}` and `HEAD@{2.hours.ago}` resolve a ref to where it pointed at that time.
 
 ```bash
-# Look at the lost commit before committing to it
-git show HEAD@{1}
-git log --oneline 1a2b3c4
+git show HEAD@{1}                # inspect before acting
 
-# Option A: jump back onto it (detached HEAD), inspect, branch off
-git checkout 1a2b3c4
-git switch -c recovered
-
-# Option B: reset the current branch back to it (DESTROYS work after it)
-git reset --hard 1a2b3c4
-
-# Option C: bring just that commit forward without moving the branch
-git cherry-pick 1a2b3c4
+git branch recovered HEAD@{1}    # safest: give it a new branch
+git reset --hard HEAD@{1}        # or move the current branch back (discards later work)
+git cherry-pick HEAD@{1}         # or copy just that commit onto the current branch
 ```
 
-The reflog uses `ref@{n}` and time-based syntax: `HEAD@{2}` is two moves ago; `main@{yesterday}` and `HEAD@{2.days.ago}` resolve a ref to where it pointed at that time — useful for "the repo was fine this morning" recovery.
+The reflog has limits:
 
-> **The reflog is local and expirable.** Reflogs live in `.git/logs/` and are **never pushed or fetched** — a fresh clone has an empty reflog. Entries also expire (90 days for reachable, 30 days for unreachable, by default) and `git gc` can prune the objects afterward. For long-term safety, move recovered commits onto a real branch promptly.
+- It is **local**. Reflogs are never pushed or fetched, and a fresh clone starts with an empty one.
+- Entries **expire** (see the [defaults above](#why-committed-work-is-rarely-lost)), after which `gc` can prune the objects.
+- Deleting a branch with the default `files` ref backend also deletes that branch's own reflog; `HEAD`'s reflog, which usually recorded the same commits, survives.
 
-## fsck: Finding Commits the Reflog Forgot
+Move anything you recover onto a named branch promptly.
 
-When the reflog has been pruned, or the lost commit was never on a ref the reflog tracked (e.g. a stash dropped long ago, or objects salvaged after corruption), `git fsck` walks the entire object database and reports objects that nothing references.
+## fsck: finding commits the reflog forgot
+
+When the reflog has expired, or a commit was never on a ref (a dropped stash, a commit made on a detached `HEAD` long ago), `git fsck` walks the whole object database and reports objects that nothing references.
 
 ```bash
-git fsck --full                  # full integrity check of all objects
-git fsck --lost-found            # write dangling blobs/commits to .git/lost-found/
-git fsck --no-reflogs            # treat reflog-only objects as dangling too
+git fsck --full                  # verify every object
+git fsck --unreachable           # list objects unreachable from any ref or reflog
+git fsck --no-reflogs            # also treat reflog-only objects as unreachable
+git fsck --lost-found            # write dangling objects to .git/lost-found/
 ```
 
-Relevant output lines:
-
 ```
-dangling commit  1a2b3c4d...      <- a commit nothing points to
-dangling blob    9f8e7d6c...      <- file content from a dropped change
-dangling tree    5a4b3c2d...
+dangling commit 1a2b3c4d...      <- a commit nothing points to
+dangling blob   9f8e7d6c...      <- file contents, e.g. from a staged-then-discarded change
 ```
 
-### Salvaging a Dangling Commit
+A *dangling* object has no referrer at all; an *unreachable* object may be referenced only by other unreachable objects. Dangling commits are the tips of lost chains, so they are the ones to look at:
 
 ```bash
-# Inspect candidates — list dangling commits with their subject lines
-git fsck --no-reflogs --unreachable |
-  awk '/commit/ {print $3}' |
-  while read sha; do git log -1 --oneline "$sha"; done
+git fsck --no-reflogs --dangling 2>/dev/null |
+  awk '$2 == "commit" {print $3}' |
+  xargs -r git log --no-walk --format='%h %ci %s'
 
-# Once you have identified the right hash, give it a home:
-git branch recovered <dangling-sha>     # or: git merge / git cherry-pick it
+git branch recovered <sha>       # give the right one a home
 ```
 
-`--lost-found` materializes every dangling object under `.git/lost-found/` (`commit/` and `other/`), which is handy when you need to `grep` through recovered file contents to find the one you want.
+`--lost-found` writes dangling commits to `.git/lost-found/commit/` and other objects (usually blobs) to `.git/lost-found/other/`, where you can `grep` through recovered file contents.
 
-**Recovering a dropped stash:** a stash is a commit (a merge of your index and working tree). `git stash drop` only removes the `refs/stash` entry, leaving the commit dangling. Recover it with `git fsck --no-reflogs`, find the dangling commit whose message starts with `WIP on`, and run `git stash apply <sha>` or `git cherry-pick -m1 <sha>`.
+### Recovering a dropped stash
 
-## Recovering a Deleted Branch
-
-Deleting a branch (`git branch -D feature`) only removes the *ref*; the commits and the branch's reflog entry persist. Recovery is therefore trivial if you act before garbage collection.
+A stash entry is a commit (see [Stash](algorithms-and-operations.html#stash)), and `git stash drop` or `clear` only removes its reflog entry. Dropped stashes show up as dangling commits whose message starts with `WIP on` or `On <branch>:`:
 
 ```bash
-# Fastest path: HEAD's reflog recorded where you last were on the branch
-git reflog
-#   ... a1b2c3d HEAD@{4}: checkout: moving from feature to main
-git branch feature a1b2c3d        # recreate the branch at its old tip
-
-# If you remember the branch name, its own reflog may still exist briefly:
-git reflog show feature           # works until the ref-specific log is gone
-
-# Last resort: fsck for the dangling tip
-git fsck --no-reflogs | grep commit
-git branch feature <dangling-sha>
+git fsck --no-reflogs --dangling 2>/dev/null | awk '$2 == "commit" {print $3}' |
+  xargs -r git log --no-walk --format='%h %s' | grep -E ' (WIP on|On) '
+git stash apply <sha>
 ```
 
-The deletion message Git prints — `Deleted branch feature (was a1b2c3d).` — *is* the recovery hash; if it is still in your terminal scrollback, you can `git branch feature a1b2c3d` immediately.
+## Recovering a deleted branch
 
-## Repairing a Corrupted Repository
+Deleting a branch removes only the ref; its commits remain until pruned.
 
-Corruption — from a crash mid-write, a full disk, or a bad filesystem — typically surfaces as `error: object file ... is empty`, `fatal: loose object ... is corrupt`, or `bad object HEAD`. Work on a **copy** of `.git` before attempting repairs.
+```bash
+# The deletion message itself contains the hash:
+#   Deleted branch feature (was a1b2c3d).
+git branch feature a1b2c3d
+
+# Otherwise, HEAD's reflog recorded time spent on the branch:
+git reflog | grep -m1 'checkout: moving from feature'
+git branch feature <sha>
+
+# Otherwise, look for a dangling tip:
+git fsck --no-reflogs --dangling | grep commit
+```
+
+If the branch was pushed, `git branch feature origin/feature` works as long as `origin/feature` has not been pruned by `git fetch --prune`; its reflog (`git reflog show origin/feature`) may still have the hash even if it has.
+
+## Repairing a corrupted repository
+
+Corruption from a crash mid-write, a full disk, a faulty filesystem or a cloud-sync tool rewriting `.git` typically appears as `error: object file ... is empty`, `fatal: loose object ... is corrupt`, `bad object HEAD` or `fatal: bad index file`. **Copy the repository before attempting any repair.**
 
 ### Diagnose
 
 ```bash
-cp -r .git /tmp/git-backup        # ALWAYS back up first
-git fsck --full                   # identify corrupt/missing objects
-git count-objects -v              # sanity-check object counts
+cp -a .git ../git-backup          # back up first
+git fsck --full                   # which objects are missing or corrupt
+git count-objects -vH             # object and pack counts, garbage
 ```
 
-### Common Repairs
+### Common repairs
+
+| Symptom | Repair |
+|---------|--------|
+| Empty loose object files | `find .git/objects -type f -empty -delete`, then `git fsck --full` again. Empty files contain nothing, so removing them loses nothing; the objects may still exist in a pack or on a remote. |
+| Missing or corrupt objects that a remote has | `git fetch origin` retrieves any objects the remote has. For objects Git believes it already has, fetch from a fresh clone and copy its pack into `.git/objects/pack/`, or add the clone as an alternate. |
+| Corrupt branch ref | `git update-ref refs/heads/main <good-sha>` (works with both the `files` and `reftable` backends; do not write ref files by hand) |
+| Broken `HEAD` | `git symbolic-ref HEAD refs/heads/main` |
+| Corrupt index | `rm .git/index && git reset`; the index is derived data and is rebuilt from `HEAD` without touching the working tree |
+| Corrupt pack file | Move the pack and its `.idx` out of `.git/objects/pack/`, then `git unpack-objects -r < moved.pack` to salvage every readable object, and fetch the rest from a remote |
+
+### Re-clone when a healthy copy exists
+
+If a remote holds everything you have committed, a fresh clone is the most reliable fix. Rescue uncommitted work first:
 
 ```bash
-# 1. Empty/corrupt loose objects: delete them so Git can re-fetch or
-#    rebuild from packs. (They are zero-length, so nothing is lost.)
-find .git/objects -type f -empty -delete
+cd broken-repo
+git diff HEAD > ../uncommitted.patch 2>/dev/null || true   # may fail if HEAD is unreadable
+git ls-files --others --exclude-standard -z | xargs -0 tar czf ../untracked.tgz
 
-# 2. Re-fetch missing objects from a remote that still has them.
-git fetch --all
-#    or rebuild a branch tip from a known-good remote ref:
-git fetch origin main
-git reset --hard origin/main
-
-# 3. Corrupt ref or HEAD: rewrite it from a known-good hash.
-echo <good-sha> > .git/refs/heads/main
-git symbolic-ref HEAD refs/heads/main     # if HEAD itself is broken
-
-# 4. Corrupt index: it is derivable; delete and rebuild from HEAD.
-rm -f .git/index
-git reset                                 # rebuilds index from HEAD
-
-# 5. Corrupt pack: unpack salvageable objects, then drop the bad pack.
-git unpack-objects -r < .git/objects/pack/pack-<good>.pack
-```
-
-### The Nuclear (and Safest) Option: Re-Clone
-
-If a healthy remote exists, the most reliable repair is to re-clone and move your uncommitted work across:
-
-```bash
-# Save anything uncommitted from the broken checkout first
-git diff HEAD > /tmp/uncommitted.patch    # may fail if HEAD is unreadable
-cp -r src /tmp/working-copy               # or just copy the files
-
-# Fresh clone, then re-apply
+cd ..
 git clone <remote-url> repo-fresh
 cd repo-fresh
-git apply /tmp/uncommitted.patch
+git apply ../uncommitted.patch && tar xzf ../untracked.tgz
 ```
 
-> **Object-store corruption can be permanent.** The reflog and `fsck` recover commits that *still exist* as intact objects. If the underlying object files themselves are corrupted and no other copy (remote, clone, backup) holds them, that content is genuinely gone. This is the strongest argument for the distributed model: **every clone is a full backup**. Keep at least one healthy remote, and consider periodic `git bundle create backup.bundle --all` snapshots for repositories without one.
+If `git diff` fails, copy the working-tree files over the fresh clone instead and let `git status` show the differences. Local branches that were never pushed can be recovered from the broken repository with `git bundle create ../rescue.bundle --all` if its objects are still readable, or by fetching from it directly (`git fetch ../broken-repo 'refs/heads/*:refs/remotes/broken/*'`).
 
-## Preventing the Next Disaster
+Recovery tools only work on objects that are still intact. If an object is corrupt and no other copy (remote, clone, backup) exists, its content is gone, which is the strongest practical argument for pushing often and for periodic `git bundle create backup.bundle --all` snapshots of repositories without a remote.
 
-| Practice | Why it helps |
-|----------|--------------|
-| `push.default = simple` and `--force-with-lease` | Force-pushes refuse to silently overwrite others' work |
-| `merge.conflictStyle = zdiff3` | Conflict markers show the merge base, clarifying intent |
-| `rerere.enabled = true` | Repeated conflicts are resolved once and replayed |
-| `fetch.prune = true` | Stale remote-tracking refs do not mislead recovery |
-| Periodic `git bundle --all` backups | A single-file full backup for repos without a remote |
-| Branch before risky operations | A throwaway `git branch safety` makes any reset/rebase trivially reversible |
+## Preventing the next incident
 
-The single most valuable habit: **before any `reset --hard`, `rebase`, or force-push, create a marker** — `git branch wip-backup`. It costs nothing (a 40-byte ref), and it turns "where did my work go?" into "`git reset --hard wip-backup`".
+| Setting or habit | Effect |
+|------------------|--------|
+| `push.useForceIfIncludes=true` and always `--force-with-lease` | Force-pushes refuse to overwrite commits you have not seen or integrated |
+| Protected branches on the forge | Force-push and deletion of `main` and release branches are rejected server-side |
+| `merge.conflictStyle=zdiff3` | Conflict hunks show the merge base |
+| `rerere.enabled=true` | Repeated conflicts are resolved once |
+| `rebase.updateRefs=true` | Rebasing a stack of branches keeps all of them consistent |
+| `transfer.fsckObjects=true` | Objects are checked for corruption and malformed data on fetch and receive |
+| `git maintenance start` | Scheduled background maintenance (commit-graph, prefetch, incremental repack) instead of large synchronous `gc` runs |
+| Never keep `.git` in Dropbox, OneDrive or similar sync folders | Sync tools that rewrite files mid-operation are a common source of corruption |
+| `git branch backup/<name>` before risky operations | Any reset, rebase or filter can be undone with one `reset --hard` |
 
-## Quick-Reference Decision Tree
+The last habit is the cheapest. A branch costs one small ref, and it turns "where did my work go?" into `git reset --hard backup/<name>`.
+
+## Decision guide
 
 ```mermaid
 flowchart TD
-    A[Work seems lost] --> B{Did a ref recently point at it?}
-    B -- "Yes (reset/rebase/amend/branch -D)" --> C[git reflog -> reset/branch/cherry-pick]
-    B -- "No / reflog pruned" --> D[git fsck --lost-found -> branch the dangling commit]
-    A2[History rewritten &amp; pushed] --> E{Have local reflog/ORIG_HEAD?}
-    E -- Yes --> F[reset --hard ORIG_HEAD; push --force-with-lease]
-    E -- No --> G[Recover from a teammate's clone or server reflog]
-    A3[Repo won't open] --> H[Back up .git; git fsck --full]
-    H --> I{Remote available?}
-    I -- Yes --> J[Re-fetch / re-clone, re-apply uncommitted work]
-    I -- No --> K[Delete empty objects; rebuild index/refs; unpack good packs]
+    A["Commits seem lost"] --> B{"Did a local ref point at them<br/>in the last ~30 days?"}
+    B -- "Yes: reset, rebase, amend, branch -D" --> C["git reflog, then git branch rescue SHA"]
+    B -- "No, or reflog expired" --> D["git fsck --no-reflogs --dangling,<br/>then git branch rescue SHA"]
+    E["Bad history was force-pushed"] --> F{"Local reflog or ORIG_HEAD<br/>has the old tip?"}
+    F -- Yes --> G["git reset --hard old-tip,<br/>push --force-with-lease"]
+    F -- No --> H["Take the old tip from a teammate's<br/>origin/branch reflog or the forge's PR history"]
+    I["Repository will not open"] --> J["Back up .git, run git fsck --full"]
+    J --> K{"Healthy remote or clone?"}
+    K -- Yes --> L["Fetch missing objects or re-clone,<br/>re-apply uncommitted work"]
+    K -- No --> M["Remove empty objects, rebuild index and refs,<br/>salvage packs with unpack-objects -r"]
 ```
 
-## See Also
+## See also
 
-- [Algorithms &amp; Advanced Operations](algorithms-and-operations.html) — the three-way merge, rebase, and bisect algorithms these recovery techniques build on.
-- [Object Model &amp; Storage](object-model.html) — commits, refs, the reflog, and the object store that makes recovery possible.
-- [Protocols, Packs &amp; Performance](protocols-and-performance.html) — pack files, `gc`, and pruning, which govern how long dangling objects survive.
-- [Branching Strategies](../branching.html) — workflow choices that reduce how often you face hard conflicts.
-- [Git Command Reference](../git-reference.html) — full syntax for `reflog`, `rebase`, `cherry-pick`, `fsck`, and `reset`.
+- [Algorithms & Advanced Operations](algorithms-and-operations.html): the merge, rebase and stash mechanics behind these procedures
+- [Object Model & Storage](object-model.html): objects, refs and the reflog
+- [Protocols, Packs & Performance](protocols-and-performance.html): packs, `gc` and pruning, which decide how long unreferenced objects survive
+- [Branching Strategies](../branching.html): workflows that reduce hard conflicts
+- [Git Command Reference](../git-reference.html): syntax for `reflog`, `rebase`, `cherry-pick`, `fsck` and `reset`
+
+**Previous:** [Algorithms & Advanced Operations](algorithms-and-operations.html) · **Next:** [Authentication & Access Control](auth-and-access-control.html)

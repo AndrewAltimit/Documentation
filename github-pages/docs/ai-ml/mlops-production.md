@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "AI/ML: MLOps & Production"
+description: "Running ML models in production: data and pipeline versioning, experiment tracking, model registries with aliases, CI/CD and continuous training, serving on Kubernetes, canary and A/B rollouts, drift monitoring, retraining and rollback, and LLM-specific operations."
 permalink: /docs/ai-ml/mlops-production.html
 toc: true
 toc_sticky: true
@@ -11,287 +12,300 @@ hide_title: true
 
 [AI/ML Documentation](./) &raquo; MLOps &amp; Production
 
-Training a model is the easy 10%. The other 90% is shipping it: reproducible data and training pipelines, tracked experiments, versioned models in a registry, automated deployment, traffic-shifting rollouts, drift monitoring, and the triggers that retrain or roll back when reality moves.
-
-MLOps is DevOps for machine learning — but with an extra moving part. A traditional service depends only on code; an ML service depends on **code + data + model artifacts**, and all three drift over time. The discipline below is about making that three-way dependency reproducible, automated, and observable so that a model in production keeps doing what it was trained to do.
-
-- **Reproducible Pipelines.** Version data and code together so any model can be rebuilt bit-for-bit from a commit hash.
-- **Track &amp; Register.** Log every experiment, then promote the winning artifact through a model registry with stages and approvals.
-- **Deploy &amp; Watch.** Canary and A/B rollouts, drift monitoring, automated retraining triggers, and one-click rollback.
-
-> **Read this as a loop, not a line.** Data feeds training, training produces a registered model, the model is deployed and served, serving emits telemetry, telemetry detects drift, drift triggers retraining — and the loop closes. Each section below is one arc of that circle.
+**MLOps** is the practice of building, deploying, and operating machine-learning models reliably. A conventional service depends on code. An ML service depends on **code, data, and model artifacts**, and all three change over time. MLOps keeps that three-way dependency reproducible (any model can be rebuilt), gated (no model ships without passing checks), and observable (degradation is detected and acted on). This page covers the lifecycle end to end: data and pipeline versioning, experiment tracking, the model registry, CI/CD and continuous training, serving, progressive rollout and A/B testing, drift monitoring, retraining and rollback, and the additional concerns of serving large language models. Tool references reflect the ecosystem as of late 2026.
 
 ## The ML Lifecycle
 
-A production ML system is a closed loop. Unlike a one-shot script, every stage produces artifacts and signals that feed the next, and the whole thing runs continuously:
+A production ML system is a loop, not a one-way pipeline. Each stage produces artifacts and signals that feed the next:
 
 ```mermaid
 flowchart LR
-    Data[Data Pipeline<br/>ingest + version] --> Train[Training Pipeline<br/>+ experiment tracking]
-    Train --> Reg[(Model Registry<br/>versioned artifacts)]
-    Reg --> CICD[CI/CD<br/>test + package]
-    CICD --> Serve[Serving<br/>canary / A·B]
-    Serve --> Mon[Monitoring<br/>data + concept drift]
-    Mon -->|retrain trigger| Data
-    Mon -->|rollback| Reg
+    Data["Data pipeline<br/>ingest, validate, version"] --> Train["Training pipeline<br/>+ experiment tracking"]
+    Train --> Reg[("Model registry<br/>versions + aliases")]
+    Reg --> CICD["CI/CD<br/>gates, package"]
+    CICD --> Serve["Serving<br/>canary / A-B"]
+    Serve --> Mon["Monitoring<br/>ops, drift, quality"]
+    Mon -->|"retrain trigger"| Data
+    Mon -->|"rollback"| Reg
 ```
 
-Two feedback edges make this *operations* rather than a script: the **retrain trigger** (monitoring decides the live model is stale and kicks off a new run) and the **rollback** (a bad deploy is reverted to a known-good registry version). Everything else is plumbing that makes those two decisions safe and automatic.
+Two feedback edges make this *operations* rather than a script. The **retrain trigger** fires when monitoring decides the live model is stale, and it starts a new run. The **rollback** fires when a deploy is bad, and it reverts to a known-good version. Everything else exists to make those two decisions safe and, where appropriate, automatic.
 
-### Why ML Ops differs from DevOps
+### How ML operations differ from DevOps
 
-| Concern | Traditional software | Machine learning |
+| Concern | Conventional software | Machine learning |
 |---------|----------------------|------------------|
-| Versioned inputs | Code | Code **and** data **and** hyperparameters |
-| "Correct" output | Deterministic, testable | Statistical — judged by metrics on a held-out set |
-| Failure mode | Crash / exception | Silent degradation as the world drifts |
-| Reproducibility | `git checkout` + build | Same code can give different models without pinned data + seeds |
-| Tests | Unit / integration | Plus data validation, model quality gates, bias checks |
+| Versioned inputs | Code, config | Code, config, **data**, hyperparameters, random seeds |
+| Definition of correct | Deterministic; unit-testable | Statistical; judged by metrics on held-out data and live outcomes |
+| Typical failure | Crash, exception, error rate | **Silent degradation** as inputs or the world drift |
+| Reproducibility | Check out and build | Needs pinned data, environment, and seeds; GPU nondeterminism remains |
+| Tests | Unit, integration | Also data validation, model quality gates, slice and fairness checks |
+| Release | Deploy when tests pass | Deploy, then measure on live traffic before full promotion |
 
-The headline difference is **silent failure**: a model rarely throws an exception when it gets worse. Accuracy just quietly decays as the input distribution shifts away from the training distribution. Monitoring, not exceptions, is how you find out.
+The key difference is silent failure. A model rarely throws an exception when it gets worse. Accuracy decays as the input distribution moves away from the training distribution, and only monitoring reveals it.
 
-## Data &amp; Training Pipelines
+### Maturity levels
 
-Reproducibility starts with the data. If you cannot say exactly *which rows* trained a given model, you cannot debug it, audit it, or rebuild it. The goal is that a single commit hash pins code, data, and configuration together.
+A common way to describe how automated an ML system is, following Google's MLOps levels:
 
-### Data versioning with DVC
+| Level | What is automated | Typical signal |
+|-------|-------------------|----------------|
+| 0 – Manual | Nothing. Notebooks produce a model file that is handed to engineering | Models retrained rarely; nobody can rebuild last quarter's model |
+| 1 – Pipeline automation | The training pipeline itself, with continuous training on triggers | New data produces a new candidate without human steps |
+| 2 – CI/CD for pipelines | The pipeline code is itself tested, built, and deployed | Changing a feature or model architecture ships through CI like any code |
 
-[DVC (Data Version Control)](https://dvc.org/) layers data versioning onto Git. Large files live in remote storage (S3, GCS, Azure, SSH); Git tracks only small `.dvc` pointer files containing the content hash. A `git checkout` of an old commit plus `dvc checkout` restores the exact dataset that commit used.
+Most teams need level 1 for their important models. Level 2 pays off when many models or many engineers share pipelines.
+
+## Data and Training Pipelines
+
+If you cannot say exactly which rows trained a model, you cannot debug, audit, or rebuild it. The goal is for one commit to pin code, data, and configuration together.
+
+### Data versioning
+
+[DVC](https://dvc.org/) layers data versioning onto Git. Large files live in remote storage (S3, GCS, Azure, SSH), and Git tracks small `.dvc` pointer files that hold content hashes. DVC has been maintained under lakeFS since lakeFS acquired it in November 2025, and it remains an independent open-source tool. [lakeFS](https://lakefs.io/) itself versions whole data lakes with Git-like branches over object storage, which suits data too large or too shared for per-repo pointers. Table formats such as Delta Lake and Apache Iceberg provide "time travel" on tables, another way to pin the exact snapshot used for training.
 
 ```bash
-# Track a dataset — DVC moves it to the cache and writes data/raw.csv.dvc
-dvc add data/raw.csv
-git add data/raw.csv.dvc data/.gitignore
+# Track a dataset: DVC caches it and writes a small pointer file
+dvc add data/raw.parquet
+git add data/raw.parquet.dvc data/.gitignore
 git commit -m "Add raw training data v1"
 
-# Push the actual bytes to remote storage (Git stays small)
+# Push the bytes to remote storage; Git stays small
 dvc remote add -d storage s3://my-bucket/dvc-store
 dvc push
 ```
 
-DVC also models the pipeline itself as a DAG in `dvc.yaml`, so stages re-run only when their dependencies change (content-addressed caching):
+DVC also describes the pipeline as a DAG in `dvc.yaml`. Stages re-run only when their dependencies change:
 
 ```yaml
-# dvc.yaml — a reproducible, cached pipeline
 stages:
   prepare:
-    cmd: python src/prepare.py data/raw.csv data/clean.csv
-    deps: [src/prepare.py, data/raw.csv]
-    outs: [data/clean.csv]
+    cmd: python src/prepare.py data/raw.parquet data/clean.parquet
+    deps: [src/prepare.py, data/raw.parquet]
+    outs: [data/clean.parquet]
   train:
-    cmd: python src/train.py data/clean.csv model.pkl
-    deps: [src/train.py, data/clean.csv]
-    params: [train.lr, train.epochs]   # tracked from params.yaml
+    cmd: python src/train.py data/clean.parquet model.pkl
+    deps: [src/train.py, data/clean.parquet]
+    params: [train.lr, train.epochs]   # read from params.yaml
     outs: [model.pkl]
     metrics: [metrics.json]
 ```
 
-`dvc repro` walks this DAG, skips stages whose inputs are unchanged, and reproduces only what's stale. `dvc exp run` sweeps parameters without committing each trial. The payoff: **`git checkout <hash> && dvc repro` rebuilds any historical model exactly.**
+`dvc repro` walks the DAG and rebuilds only what is stale. `dvc exp run -S train.lr=0.05` runs parameter variants without committing each one. The result is that `git checkout <sha> && dvc pull && dvc repro` reconstructs a historical model.
+
+For larger systems, a workflow orchestrator runs the same DAG idea across a cluster with retries, schedules, and lineage. Examples are Airflow, Dagster, Prefect, Kubeflow Pipelines, Flyte, Metaflow, and ZenML.
 
 ### Feature stores
 
-For tabular and recommendation systems, a **feature store** (Feast, Tecton, Databricks) solves the *train/serve skew* problem: the feature `avg_purchase_7d` must be computed the same way during offline training and online inference. The store provides a single definition with two read paths — a batch path for training and a low-latency online path for serving — guaranteeing the two agree.
+Recommendation, fraud, and other tabular systems suffer from **train/serve skew**: a feature such as `avg_purchase_7d` gets computed one way in the offline training SQL and another way in the online service. A feature store (Feast, Tecton, Databricks Feature Store, Hopsworks) defines each feature once and serves it through two paths:
 
 ```mermaid
 flowchart TD
-    Src[Raw events] --> Def[Feature definitions<br/>single source of truth]
-    Def --> Off[(Offline store<br/>training, point-in-time joins)]
-    Def --> On[(Online store<br/>low-latency serving)]
-    Off --> Train[Training pipeline]
-    On --> Infer[Inference service]
+    Src["Raw events / tables"] --> Def["Feature definitions<br/>(single source of truth)"]
+    Def --> Off[("Offline store<br/>history, point-in-time joins")]
+    Def --> On[("Online store<br/>low-latency key-value")]
+    Off --> Train["Training set builder"]
+    On --> Infer["Inference service"]
 ```
 
-**Point-in-time correctness** is the subtle requirement: when building a training row for an event at time *t*, you must use only feature values known *before* *t*. Leaking future information ("label leakage") inflates offline metrics and collapses in production.
+**Point-in-time correctness** is the subtle requirement. A training row for an event at time $t$ may only use feature values known before $t$. Joining on the latest values instead leaks the future into training, which inflates offline metrics and fails in production.
 
 ### Data validation
 
-Before data ever reaches training, validate its *schema* and *distribution*. Tools like [Great Expectations](https://greatexpectations.io/), TensorFlow Data Validation, and Pandera assert invariants and fail the pipeline loudly rather than training on garbage:
+Validate schema and distribution before data reaches training, and fail loudly. Common tools are [Great Expectations](https://greatexpectations.io/) (GX Core), TensorFlow Data Validation, and [Pandera](https://pandera.readthedocs.io/):
 
 ```python
-import pandera as pa
-from pandera import Column, Check
+import pandera.pandas as pa
 
 schema = pa.DataFrameSchema({
-    "age":      Column(int,   Check.in_range(0, 120)),
-    "income":   Column(float, Check.ge(0), nullable=False),
-    "country":  Column(str,   Check.isin(["US", "UK", "DE", "JP"])),
-    "label":    Column(int,   Check.isin([0, 1])),
+    "age":     pa.Column(int,   pa.Check.in_range(0, 120)),
+    "income":  pa.Column(float, pa.Check.ge(0), nullable=False),
+    "country": pa.Column(str,   pa.Check.isin(["US", "UK", "DE", "JP"])),
+    "label":   pa.Column(int,   pa.Check.isin([0, 1])),
 })
 
-# Raises SchemaError on out-of-range values, nulls, or unexpected categories
+# lazy=True collects every violation before raising SchemaErrors
 validated = schema.validate(df, lazy=True)
 ```
 
-These same distributional expectations become the **baseline** that production monitoring later compares against to detect data drift.
+The statistics captured at training time become the **reference baseline** that production drift monitoring later compares against.
 
 ## Experiment Tracking
 
-A single training run has dozens of knobs — learning rate, architecture, data version, seed — and you may run hundreds of them. Experiment tracking records the *inputs, code, and outputs* of every run so results are comparable and reproducible instead of scattered across notebook cells and filenames like `model_final_v2_REAL.pkl`.
+A project can produce hundreds of runs, each with dozens of settings. Experiment tracking records every run's inputs, code version, and outputs, so results can be compared and reproduced instead of living in notebook cells and files named `model_final_v2_REAL.pkl`.
 
-### What to log
+| Log | Examples |
+|-----|----------|
+| Parameters | Learning rate, batch size, architecture, feature set |
+| Lineage | Git SHA, data version or hash, upstream pipeline run |
+| Metrics | Loss curves, AUC or F1 per epoch, slice metrics |
+| Artifacts | Model weights, signature and input example, plots, confusion matrix |
+| Environment | Library versions, container image digest, hardware |
 
-| Category | Examples |
-|----------|----------|
-| Parameters | learning rate, batch size, optimizer, architecture |
-| Code / data version | Git SHA, DVC data hash, dataset name |
-| Metrics | loss curves, accuracy, F1, AUC per epoch |
-| Artifacts | model weights, plots, confusion matrix, sample predictions |
-| Environment | library versions, hardware, container image digest |
-
-### MLflow and Weights &amp; Biases
-
-[MLflow](https://mlflow.org/) (open-source, self-hostable) and [Weights &amp; Biases](https://wandb.ai/) (W&amp;B; hosted, rich dashboards) are the two dominant trackers. Both share the same shape: open a run, log params/metrics/artifacts, close the run.
+[MLflow](https://mlflow.org/) (open source, self-hosted or managed, with major version 3 since mid-2025) and [Weights &amp; Biases](https://wandb.ai/) (hosted, acquired by CoreWeave in 2025) are the dominant trackers. Other options include Comet, ClearML, Aim, and cloud-native trackers in SageMaker, Vertex AI, and Azure ML. Neptune.ai shut down its hosted service in March 2026 after being acquired by OpenAI.
 
 ```python
 import mlflow
+from mlflow.models import infer_signature
 
 mlflow.set_experiment("churn-classifier")
 
 with mlflow.start_run(run_name="xgb-depth8"):
     mlflow.log_params({"max_depth": 8, "lr": 0.1, "n_estimators": 400})
-    mlflow.set_tag("data_version", dvc_hash)   # tie run to exact dataset
+    mlflow.set_tags({"git_sha": git_sha, "data_version": data_hash})
 
-    model = train(X_train, y_train)
+    model, history = train(X_train, y_train, X_val, y_val)
+    for epoch, val_loss in enumerate(history):
+        mlflow.log_metric("val_loss", val_loss, step=epoch)
+    mlflow.log_metric("test_auc", evaluate(model, X_test, y_test))
 
-    for epoch, loss in history:
-        mlflow.log_metric("val_loss", loss, step=epoch)
-
-    mlflow.log_metric("test_auc", auc)
-    mlflow.sklearn.log_model(model, "model")   # artifact + signature
-```
-
-The W&amp;B equivalent uses `wandb.init() / wandb.log()` and adds sweep orchestration for hyperparameter search:
-
-```python
-import wandb
-wandb.init(project="churn", config={"max_depth": 8, "lr": 0.1})
-wandb.log({"val_loss": loss, "epoch": epoch})
-wandb.log({"test_auc": auc})
-```
-
-The decisive practice is **tagging each run with its code SHA and data hash**. That single discipline is what turns "I think this was the good model" into "this model = commit `a1b2c3` + data `f9e8d7`, rebuildable on demand."
-
-### Comparing runs
-
-Trackers shine in their comparison UIs: parallel-coordinate plots reveal which hyperparameters drive a metric, and overlaid loss curves expose overfitting at a glance. The model with the best validation metric becomes a candidate for the registry — the bridge from experimentation to production.
-
-## Model Registry &amp; Versioning
-
-The registry is the **system of record** for models. Experiment tracking answers "what did I try?"; the registry answers "what is approved to run, and where?" It holds named, versioned model artifacts and moves them through promotion stages with metadata, lineage, and approvals.
-
-```mermaid
-flowchart LR
-    Run[Logged run<br/>candidate] --> V1[Version 1<br/>None]
-    V1 -->|validate| Stg[Staging]
-    Stg -->|approve + canary pass| Prod[Production]
-    Prod -->|superseded| Arch[Archived]
-    Stg -->|fails gate| Arch
-```
-
-### Stages and promotion
-
-A model version moves through stages, each gated by a check:
-
-| Stage | Meaning | Gate to enter |
-|-------|---------|---------------|
-| **None / Candidate** | Freshly logged from a run | — |
-| **Staging** | Passing automated quality gates | Metrics beat baseline; data validation passes |
-| **Production** | Serving live traffic | Staging canary healthy; human approval (if required) |
-| **Archived** | Retired / rolled back from | Superseded or failed |
-
-```python
-from mlflow.tracking import MlflowClient
-client = MlflowClient()
-
-# Register the artifact from a tracked run, then promote it
-mv = mlflow.register_model(f"runs:/{run_id}/model", "churn-classifier")
-client.transition_model_version_stage(
-    name="churn-classifier",
-    version=mv.version,
-    stage="Staging",
-)
-```
-
-### Semantic versioning for models
-
-Borrow `MAJOR.MINOR.PATCH` semantics, but interpret them for ML:
-
-- **MAJOR** — breaking change to the input/output contract (new features, changed schema). Consumers must update.
-- **MINOR** — retrained on new data or a better architecture; same contract.
-- **PATCH** — bug fix, repackaging, no behavioral change.
-
-Crucially, a model version must record its **lineage**: the exact training code SHA, data hash, hyperparameters, and metrics. Without lineage the registry is just a file server; with it, every production model is auditable and reproducible.
-
-## CI/CD for Models
-
-Continuous integration and delivery for ML extends the familiar code pipeline with **data and model** stages. The pipeline doesn't just check that code compiles — it checks that the *resulting model is good enough* before letting it near production.
-
-```mermaid
-flowchart TD
-    Commit[Git push] --> CI[CI: lint + unit tests]
-    CI --> DataVal[Validate data schema/distribution]
-    DataVal --> TrainStep[Train + evaluate]
-    TrainStep --> Gate{Quality gate:<br/>beats baseline?}
-    Gate -->|no| Fail[Fail build]
-    Gate -->|yes| RegStep[Register to Staging]
-    RegStep --> Pkg[Build container image]
-    Pkg --> Deploy[Deploy canary]
-```
-
-### Continuous Training (CT)
-
-The ML-specific third "C" is **Continuous Training**: the pipeline can retrain automatically when triggered by a schedule, a data change (new DVC version), or a drift alert from monitoring. This is what lets the lifecycle loop close without a human in the loop.
-
-### Quality gates and tests
-
-CI for ML runs several test classes beyond unit tests:
-
-| Test type | Question it answers |
-|-----------|---------------------|
-| Unit | Does the feature-engineering code behave? |
-| Data validation | Does incoming data match the expected schema/distribution? |
-| Model quality gate | Does the new model beat the current production model (or a fixed baseline) on held-out data? |
-| Behavioral / slice | Does it perform acceptably on key sub-populations (fairness, edge cases)? |
-| Integration | Does the packaged service load the model and return valid responses? |
-
-```python
-# A quality gate that fails the build unless the candidate improves on prod
-def quality_gate(candidate_auc, prod_auc, min_delta=0.005):
-    assert candidate_auc >= prod_auc + min_delta, (
-        f"Candidate AUC {candidate_auc:.4f} does not beat "
-        f"production {prod_auc:.4f} by {min_delta}"
+    mlflow.sklearn.log_model(
+        model,
+        name="model",
+        signature=infer_signature(X_val, model.predict_proba(X_val)),
+        input_example=X_val[:5],
+        registered_model_name="churn-classifier",   # also creates a registry version
     )
 ```
 
-### Packaging for deployment
+The W&amp;B equivalent:
 
-Once a model passes its gates, it's packaged as a deployable artifact — typically a container image with the model weights, inference code, and a pinned environment. Tools like [BentoML](https://www.bentoml.com/) standardize this packaging into a versioned "Bento" with an HTTP/gRPC API:
+```python
+import wandb
+
+with wandb.init(project="churn", config={"max_depth": 8, "lr": 0.1}) as run:
+    for epoch, val_loss in enumerate(history):
+        run.log({"val_loss": val_loss, "epoch": epoch})
+    run.log({"test_auc": auc})
+```
+
+The most important habit is to **tag every run with its code SHA and data version**. That turns "I think this was the good model" into "commit `a1b2c3` plus data `f9e8d7`, rebuildable on demand". Tracker comparison views, such as parallel-coordinate plots and overlaid curves, then show which settings drive the metric. The best run becomes a registry candidate.
+
+## Model Registry
+
+Experiment tracking answers "what did we try?" The registry answers "what is approved to run, and where?" It stores named, versioned model artifacts with lineage (run, code SHA, data version, metrics), and it controls which version each environment uses.
+
+### Aliases instead of stages
+
+Older MLflow registries moved versions through fixed **stages** (Staging, Production, Archived). MLflow deprecated stages in 2.9 in favor of **aliases** and **tags**, and MLflow 3 keeps that model. An alias is a mutable, named pointer to one version, such as `champion` or `challenger`. Serving code loads `models:/churn-classifier@champion`, so promotion and rollback are just a matter of repointing the alias. Other registries (W&amp;B, SageMaker, Vertex AI) follow the same idea under names like "aliases", "tags", or "approval status".
+
+```mermaid
+stateDiagram-v2
+    [*] --> Registered: log_model / register_model
+    Registered --> Challenger: offline gates pass (alias challenger)
+    Challenger --> Rejected: gate or canary fails
+    Challenger --> Champion: canary or A-B passes (alias champion moves)
+    Champion --> Previous: superseded, kept for rollback
+    Previous --> Champion: rollback (repoint champion)
+    Rejected --> [*]
+```
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient()
+name = "churn-classifier"
+
+# Candidate passed offline gates: mark it as the challenger
+client.set_registered_model_alias(name, "challenger", version=candidate_version)
+client.set_model_version_tag(name, candidate_version, "validation", "passed")
+
+# Canary succeeded: promote by moving the champion alias
+client.set_registered_model_alias(name, "champion", version=candidate_version)
+
+# Serving side always resolves the alias at load time
+model = mlflow.pyfunc.load_model(f"models:/{name}@champion")
+```
+
+Organizations that separate environments often use one registered model per environment, such as `churn-classifier-staging` and `churn-classifier-prod`, and promote with `client.copy_model_version(...)`. That lets registry access control mirror environment boundaries.
+
+### Versioning conventions
+
+Registry version numbers increase monotonically. It still helps to record a semantic version in a tag and apply the usual meaning to ML:
+
+- **Major:** a breaking change to the input or output contract, such as a new feature schema or a changed label definition. Consumers must change.
+- **Minor:** retrained on new data or with a better architecture, with the same contract.
+- **Patch:** repackaging or a bug fix with no intended behavior change.
+
+Without lineage the registry is just a file server. With lineage, every production prediction can be traced to the code, data, and parameters that produced the model.
+
+## CI/CD and Continuous Training
+
+CI/CD for ML extends the code pipeline with data and model stages. The build checks that code compiles and passes tests, and also that the **resulting model is good enough**.
+
+```mermaid
+flowchart TD
+    Commit["Push / merge / trigger"] --> CI["Lint + unit tests"]
+    CI --> DV["Validate data<br/>(schema, distribution)"]
+    DV --> Tr["Train + evaluate"]
+    Tr --> Gate{"Quality gates:<br/>beats champion?<br/>slices OK?"}
+    Gate -->|"no"| Fail["Fail; keep champion"]
+    Gate -->|"yes"| Reg["Register;<br/>alias @challenger"]
+    Reg --> Pkg["Build + scan<br/>container image"]
+    Pkg --> Can["Deploy canary"]
+    Can --> Prom{"Canary healthy?"}
+    Prom -->|"yes"| Champ["Move @champion"]
+    Prom -->|"no"| Roll["Roll back"]
+```
+
+**Continuous training (CT)** is the ML-specific addition. The training pipeline runs automatically on a schedule, on new data, or on a drift alert, and it produces a candidate that goes through the same gates. CT is what closes the lifecycle loop without a person running notebooks.
+
+### Test types
+
+| Test | Question it answers |
+|------|---------------------|
+| Unit | Does the feature-engineering code behave correctly on edge cases? |
+| Data validation | Does incoming data match the expected schema and distribution? |
+| Quality gate | Does the candidate beat the champion, or a fixed baseline, on the same held-out set? |
+| Slice / fairness | Is performance acceptable on key sub-populations and edge cases? |
+| Behavioral | Invariance tests (irrelevant perturbations don't flip predictions) and directional tests |
+| Integration / contract | Does the packaged service load the model and honor the API schema and latency budget? |
+
+```python
+def quality_gate(candidate: dict, champion: dict, min_delta: float = 0.005,
+                 max_slice_drop: float = 0.01) -> None:
+    """Fail the build unless the candidate improves overall without hurting any slice."""
+    assert candidate["auc"] >= champion["auc"] + min_delta, (
+        f"AUC {candidate['auc']:.4f} does not beat champion "
+        f"{champion['auc']:.4f} by {min_delta}")
+    for slice_name, champ_auc in champion["slices"].items():
+        cand_auc = candidate["slices"][slice_name]
+        assert cand_auc >= champ_auc - max_slice_drop, (
+            f"slice {slice_name!r} regressed: {cand_auc:.4f} < {champ_auc:.4f}")
+```
+
+Compare candidate and champion on the **same** evaluation set, frozen and versioned. Comparing against a number recorded months ago on different data is meaningless.
+
+### Packaging
+
+A model that passes its gates is packaged as a deployable unit, usually a container image with the weights (or a pointer to them), inference code, and a pinned environment. MLflow can build images directly (`mlflow models build-docker`). [BentoML](https://www.bentoml.com/) packages Python services with a class-based API:
 
 ```python
 import bentoml
-from bentoml.io import JSON
+import numpy as np
 
-runner = bentoml.sklearn.get("churn-classifier:latest").to_runner()
-svc = bentoml.Service("churn", runners=[runner])
+@bentoml.service(resources={"cpu": "2"}, traffic={"timeout": 10})
+class Churn:
+    def __init__(self) -> None:
+        self.model = bentoml.sklearn.load_model("churn-classifier:latest")
 
-@svc.api(input=JSON(), output=JSON())
-async def predict(features: dict) -> dict:
-    proba = await runner.predict_proba.async_run([list(features.values())])
-    return {"churn_probability": float(proba[0][1])}
+    @bentoml.api
+    def predict(self, features: np.ndarray) -> np.ndarray:
+        return self.model.predict_proba(features)[:, 1]
 ```
 
-`bentoml build` then produces a reproducible image that the deployment stage ships.
+`bentoml build` produces a versioned "Bento", and `bentoml containerize` turns it into an OCI image. BentoML 1.2 introduced this `@bentoml.service` style, and it replaced the older `bentoml.Service` / runner / `bentoml.io` API.
 
-## Serving &amp; Deployment
-
-Serving turns a model artifact into a low-latency API. Two patterns dominate:
+## Serving and Deployment
 
 | Pattern | Latency | Use case |
 |---------|---------|----------|
-| **Online (real-time)** | ms | Per-request predictions (fraud, recommendations) |
-| **Batch (offline)** | minutes–hours | Scoring large datasets on a schedule |
+| Online (request/response) | Milliseconds | Fraud checks, ranking, personalization |
+| Streaming | Seconds | Scoring events from Kafka or Kinesis as they arrive |
+| Batch | Minutes to hours | Nightly scoring of whole tables, precomputed recommendations |
+| Edge / on-device | Milliseconds, offline | Mobile, embedded; see [Model Compression](model-compression.html) |
 
-For online serving on Kubernetes, [KServe](https://kserve.github.io/website/) (formerly KFServing) and [Seldon Core](https://www.seldon.io/) provide a standard inference protocol, autoscaling (including **scale-to-zero**), and built-in support for canary traffic splitting. A KServe `InferenceService` is declarative:
+On Kubernetes, [KServe](https://kserve.github.io/website/) is the standard serving layer. It became a CNCF incubating project in 2025. An `InferenceService` declares the model format and storage location, and KServe supplies the runtime (sklearn, XGBoost, PyTorch, ONNX, Triton, Hugging Face, vLLM), autoscaling, and traffic management. Canary traffic splitting uses KServe's Knative-based serverless mode:
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
@@ -300,204 +314,269 @@ metadata:
   name: churn-classifier
 spec:
   predictor:
+    canaryTrafficPercent: 10          # new revision gets 10%, previous keeps 90%
+    minReplicas: 1                    # 0 enables scale-to-zero
     model:
-      modelFormat: { name: sklearn }
-      storageUri: s3://models/churn/v3      # production version
-    minReplicas: 1                          # 0 for scale-to-zero
-  # canary: 10% of traffic to the new revision
-  # KServe shifts traffic automatically as the canary proves healthy
+      modelFormat:
+        name: sklearn
+      storageUri: s3://models/churn/v4
 ```
 
-KServe's **canaryTrafficPercent** lets a new revision receive a small slice of live traffic; if its metrics stay healthy the percentage ramps to 100%, otherwise it's rolled back — connecting serving directly to the rollout strategies below.
+Applying a new `storageUri` with `canaryTrafficPercent: 10` creates a new revision that takes 10% of traffic. Raising the value ramps the rollout. Removing it promotes the new revision to 100%. Setting it to 0 sends all traffic back to the last good revision. Tools like Argo Rollouts or Flagger can automate the ramp based on metrics.
 
-## A/B Testing &amp; Canary Releases
+Other serving options:
 
-Offline metrics predict, but only live traffic *proves*. Progressive delivery shifts real users onto a new model gradually so a regression is caught while its blast radius is tiny.
+| Server | Notes |
+|--------|-------|
+| NVIDIA Triton Inference Server | Multi-framework, dynamic batching, GPU-optimized; common for vision and TensorRT models |
+| BentoML / BentoCloud | Python-native packaging and serving |
+| Ray Serve | Python composition of multi-model pipelines on Ray clusters |
+| Seldon Core 2 / MLServer | Seldon Core moved to the Business Source License in January 2024; MLServer stays Apache 2.0 |
+| Cloud endpoints | SageMaker, Vertex AI, Azure ML managed endpoints |
+| TorchServe | Archived in August 2025 and no longer maintained. Migrate to Triton, KServe, or a custom server |
 
-### Canary vs. blue-green vs. A/B
+Kubernetes fundamentals are covered in the [Kubernetes docs](../technology/kubernetes/). General deployment strategies are in [CI/CD: Deployment Strategies](../technology/ci-cd/deployment.html).
+
+## Canary Releases and A/B Testing
+
+Offline metrics predict. Only live traffic proves. Progressive delivery moves real traffic onto a new model gradually, so a regression is caught while it affects few users.
+
+| Strategy | Question | How it works |
+|----------|----------|--------------|
+| Shadow (dark launch) | Does the new model behave sanely on real inputs? | Copy traffic to v2, discard its responses, compare offline |
+| Canary | Is v2 *healthy*? | Route a small percentage, watch errors, latency, and prediction distribution, then ramp or abort |
+| Blue-green | Can we switch instantly and switch back? | Run v2 beside v1, flip all traffic, keep v1 warm |
+| A/B test | Is v2 *better* for the business? | Randomize users, compare a KPI with a pre-planned statistical test |
+| Multi-armed bandit | Which variant should get more traffic *while* testing? | Shift traffic toward the winner adaptively; less clean inference than A/B |
+
+A canary asks an operational question and watches health metrics for minutes to hours. An A/B test asks a causal question and needs a pre-computed sample size, often days or weeks of traffic.
 
 ```mermaid
-flowchart TD
-    subgraph Canary["Canary — risk control"]
-        C1[100% v1] --> C2[95% v1 / 5% v2] --> C3[50/50] --> C4[100% v2]
-    end
-    subgraph BG["Blue-Green — instant cutover"]
-        B1[All traffic → Blue v1] --> B2[Flip → Green v2<br/>Blue kept warm for rollback]
-    end
+sequenceDiagram
+    participant R as Router
+    participant V1 as v1 (champion)
+    participant V2 as v2 (challenger)
+    participant M as Metrics / analysis
+    R->>V2: shadow copy (responses discarded)
+    V2-->>M: prediction distribution, latency
+    R->>V2: canary 5% then 25%
+    V2-->>M: errors, p99, output drift
+    M-->>R: healthy, so start A/B at 50/50
+    R->>V1: 50% of users (hashed ID)
+    R->>V2: 50% of users (hashed ID)
+    M-->>R: significant KPI lift, so promote v2
 ```
-
-| Strategy | Goal | How |
-|----------|------|-----|
-| **Canary** | Limit blast radius | Route a small %, watch metrics, ramp up or abort |
-| **Blue-green** | Zero-downtime swap | Run v2 alongside v1, flip all traffic at once, keep v1 warm |
-| **Shadow / dark** | Risk-free comparison | Send v2 a copy of traffic, discard its output, compare offline |
-| **A/B test** | Measure *business* impact | Split users by hash, compare a KPI with statistical rigor |
-
-The distinction worth internalizing: **a canary asks "is the new model healthy?" (an operational question), while an A/B test asks "is the new model better?" (a statistical question).** A canary watches error rate and latency; an A/B test watches conversion or revenue and waits for significance.
 
 ### Designing an A/B test
 
-A sound A/B test treats the model as a treatment in an experiment:
+1. **Choose one primary metric** and a minimum detectable effect (MDE) before starting. Also list guardrail metrics, such as latency, complaints, and revenue, that must not regress.
+2. **Compute the sample size in advance.** For comparing two conversion rates $p_A$ and $p_B = p_A + \delta$, each arm needs approximately:
 
-1. **Pick one primary metric** (e.g., click-through rate) and define a minimum detectable effect.
-2. **Compute sample size** up front from the baseline rate, MDE, power (usually 0.8), and significance level (usually α = 0.05).
-3. **Randomize by stable user ID hash** so a user always sees the same variant (no flicker).
-4. **Run for full business cycles** (whole weeks) to absorb day-of-week seasonality.
-5. **Test significance** before declaring a winner — don't peek-and-stop, which inflates false positives.
+   $$n \approx \frac{\left(z_{1-\alpha/2} + z_{1-\beta}\right)^2 \left[p_A(1-p_A) + p_B(1-p_B)\right]}{\delta^2}$$
 
-For two conversion rates the standard two-proportion z-test uses:
+   With $\alpha = 0.05$ and power $0.8$, $z_{1-\alpha/2} = 1.96$ and $z_{1-\beta} = 0.84$. Detecting a lift from 5.0% to 5.5% needs about 31,000 users per arm.
+3. **Randomize by a stable hash of the user ID**, so each user always sees the same variant.
+4. **Run whole business cycles**, meaning complete weeks, to absorb day-of-week effects.
+5. **Do not stop the moment the result looks significant.** Repeatedly checking and stopping early inflates false positives. If you need to check early, use sequential tests designed for it.
+
+At the end, the two-proportion $z$-test compares observed rates with the pooled rate $\hat{p}$:
 
 $$z = \frac{\hat{p}_B - \hat{p}_A}{\sqrt{\hat{p}(1 - \hat{p})\left(\frac{1}{n_A} + \frac{1}{n_B}\right)}}$$
 
-where $\hat{p}_A$ and $\hat{p}_B$ are the observed conversion rates of control and treatment, $\hat{p}$ is the pooled rate, and $n_A, n_B$ are the sample sizes. A result is significant at the 5% level when $|z| > 1.96$.
+The result is significant at the 5% level (two-sided) when $|z| > 1.96$. Variance-reduction methods such as CUPED, which adjusts for each user's pre-experiment behavior, can cut the required sample size substantially.
+
+A canary gate, by contrast, is a simple health rule:
 
 ```python
-def canary_decision(canary, baseline, max_error_delta=0.01):
-    """Operational gate: abort the canary on any health regression."""
+def canary_decision(canary: dict, baseline: dict,
+                    max_error_delta: float = 0.01, max_p99_ratio: float = 1.2) -> str:
+    """Operational gate: abort on any health regression, otherwise continue the ramp."""
     if canary["error_rate"] > baseline["error_rate"] + max_error_delta:
         return "ROLLBACK"
-    if canary["p99_latency_ms"] > baseline["p99_latency_ms"] * 1.2:
+    if canary["p99_latency_ms"] > baseline["p99_latency_ms"] * max_p99_ratio:
         return "ROLLBACK"
+    if canary["prediction_psi"] > 0.25:        # outputs look very different from v1
+        return "HOLD"
     return "PROMOTE"
 ```
 
-## Monitoring: Data &amp; Concept Drift
+## Monitoring and Drift
 
-A deployed model degrades silently. Monitoring is the smoke detector. There are two layers: **operational** (is the service up?) and **model** (is the service still *right*?).
+Monitoring has three layers. The first is **operational**: is the service up and fast? The second is **data**: do the inputs still look like the training data? The third is **model quality**: is the model still right? Operational monitoring reuses standard [observability](../observability/) tooling such as Prometheus, Grafana, and OpenTelemetry. The other two layers are ML-specific.
 
 ```mermaid
 flowchart LR
-    Pred[Live predictions + inputs] --> Ops[Operational<br/>latency, errors, throughput]
-    Pred --> DD[Data drift<br/>input distribution shift]
-    Pred --> Perf[Performance<br/>accuracy when labels arrive]
-    DD --> Alert{Alert?}
-    Perf --> Alert
-    Alert -->|yes| Trigger[Retrain / rollback]
+    Log["Log inputs, outputs,<br/>model version"] --> Ops["Operational:<br/>latency, errors, throughput"]
+    Log --> DD["Data drift:<br/>features vs. reference"]
+    Log --> PD["Prediction drift:<br/>output distribution"]
+    Lab["Delayed ground-truth labels"] --> Perf["Performance:<br/>AUC, error, calibration"]
+    Log --> Perf
+    DD & PD & Perf --> Alert{"Threshold<br/>crossed?"}
+    Alert -->|"yes"| Act["Investigate, then<br/>retrain or roll back"]
 ```
 
-### The three things that change
+### Types of drift
 
-A model's predictions can go wrong because the world moved in one of three ways:
+| Phenomenon | What changes | Example |
+|------------|--------------|---------|
+| Data drift (covariate shift) | $P(X)$ changes; $P(Y \mid X)$ stable | New user demographics after a marketing campaign |
+| Concept drift | $P(Y \mid X)$ changes | Fraudsters change tactics; the same pattern now means something else |
+| Label drift (prior shift) | $P(Y)$ changes | Fraud rate doubles overall |
+| Upstream data bugs | Not the world, the pipeline | A unit changes from dollars to cents; a column silently becomes null |
 
-| Phenomenon | Formal change | Plain English |
-|------------|---------------|---------------|
-| **Data drift (covariate shift)** | $P(X)$ changes, $P(Y \mid X)$ stable | Inputs look different (new user demographics) |
-| **Concept drift** | $P(Y \mid X)$ changes | The *rule* changed (fraud tactics evolve) |
-| **Label drift / prior shift** | $P(Y)$ changes | Class balance shifts (more fraud overall) |
-
-The painful one is **concept drift**: the same input now warrants a different answer, so the model is confidently wrong and no amount of input-distribution monitoring catches it directly. You need actual labels (which often arrive with delay) to see it.
+Upstream bugs are the most common cause of drift alerts in practice, so check the pipeline before retraining. Concept drift is the hardest to detect. Inputs can look identical while the correct answers change, so detecting it requires labels.
 
 ### Detecting data drift
 
-Data drift is detectable *immediately* from inputs alone, no labels required — compare the live feature distribution against the training baseline. Common detectors:
+Data drift can be measured immediately, without labels, by comparing live feature distributions with the training reference:
 
-- **Population Stability Index (PSI)** — bins a feature and compares proportions; >0.25 signals major shift.
-- **Kolmogorov–Smirnov test** — for continuous features, tests whether two samples share a distribution.
-- **Kullback–Leibler / Jensen–Shannon divergence** — distance between probability distributions.
-
-PSI across bins of a feature is:
+- **Population Stability Index (PSI):** binned comparison of proportions. Widely used in credit risk.
+- **Kolmogorov–Smirnov test:** for continuous features. With large samples it flags trivial differences, so use effect size, not only p-values.
+- **Jensen–Shannon distance / Wasserstein distance:** bounded or scale-aware distances between distributions.
+- **Chi-squared test:** for categorical features.
 
 $$\text{PSI} = \sum_{i=1}^{B} (a_i - e_i)\,\ln\!\left(\frac{a_i}{e_i}\right)$$
 
-where $e_i$ is the expected (training-baseline) proportion in bin $i$ and $a_i$ is the actual (live) proportion. Conventional thresholds: < 0.1 stable, 0.1–0.25 moderate shift, > 0.25 significant shift warranting investigation.
+Here $e_i$ is the reference proportion in bin $i$ and $a_i$ is the live proportion. Conventional thresholds are below 0.1 for stable, 0.1 to 0.25 for moderate shift, and above 0.25 for significant shift.
 
 ```python
 import numpy as np
 
-def psi(expected, actual, bins=10):
-    breakpoints = np.percentile(expected, np.linspace(0, 100, bins + 1))
-    breakpoints[0], breakpoints[-1] = -np.inf, np.inf
-    e = np.histogram(expected, breakpoints)[0] / len(expected)
-    a = np.histogram(actual,   breakpoints)[0] / len(actual)
+def psi(expected: np.ndarray, actual: np.ndarray, bins: int = 10) -> float:
+    """Population Stability Index with quantile bins taken from the reference sample."""
+    edges = np.quantile(expected, np.linspace(0, 1, bins + 1))
+    edges[0], edges[-1] = -np.inf, np.inf
+    e = np.histogram(expected, edges)[0] / len(expected)
+    a = np.histogram(actual, edges)[0] / len(actual)
     e, a = np.clip(e, 1e-6, None), np.clip(a, 1e-6, None)   # avoid log(0)
     return float(np.sum((a - e) * np.log(a / e)))
-
-score = psi(train_feature, live_feature)
-if score > 0.25:
-    alert("Significant data drift", feature="income", psi=score)
 ```
 
-Tools like [Evidently](https://www.evidentlyai.com/), [NannyML](https://www.nannyml.com/), and [WhyLogs](https://whylabs.ai/) package these tests, baselines, and dashboards so you don't hand-roll every detector.
+Drift in an unimportant feature may not matter. Weight alerts by feature importance, and treat **prediction drift** (a shift in the model's output distribution) as the higher-signal summary. Libraries such as [Evidently](https://www.evidentlyai.com/) and [NannyML](https://www.nannyml.com/) package these tests, baselines, and reports. Commercial platforms include Arize, Fiddler, and the cloud providers' monitors. WhyLabs discontinued its hosted platform after Apple acquired it in 2025, and released the code as open source. Its `whylogs` profiling library remains available.
 
-### Detecting concept drift
+### Detecting concept drift and performance loss
 
-Concept drift needs ground truth. When labels are available (even delayed), monitor the live metric directly — a sustained drop in rolling AUC/accuracy is the signal. When labels are *delayed*, **proxy signals** help: a rising share of low-confidence predictions, or NannyML-style performance *estimation* that infers likely accuracy from the input distribution and the model's confidence without labels.
+When labels arrive, monitor the live metric directly, such as rolling AUC, error rate, or calibration, broken down by important slices. When labels are delayed by weeks or months (loan defaults, churn), use proxies:
 
-## Retraining Triggers &amp; Rollback
+- a rising share of low-confidence predictions
+- disagreement between the champion and a shadow challenger
+- **performance estimation**, such as NannyML's confidence-based estimation, which infers expected accuracy from a calibrated model's scores
 
-Monitoring is only useful if it *acts*. The two actions that close the loop are retraining (the model is stale — make a new one) and rollback (the live model is broken — revert it).
+## Retraining and Rollback
 
-### When to retrain
+Monitoring is useful only if it leads to action. Retraining addresses a stale model. Rollback addresses a broken deploy.
 
-Retraining strategies, cheapest to most reactive:
+### Retraining triggers
 
 | Trigger | Mechanism | Best when |
 |---------|-----------|-----------|
-| **Scheduled** | Cron (nightly/weekly) | Steady, predictable drift |
-| **Volume-based** | After *N* new labeled rows | Data arrives in bursts |
-| **Drift-triggered** | PSI / metric threshold crossed | Drift is irregular |
-| **Performance-triggered** | Live metric drops below SLA | You have timely labels |
-
-Drift- and performance-triggered retraining are the most efficient — you retrain *because the model needs it*, not on a calendar. The trigger fires the **Continuous Training** pipeline from the CI/CD section, which retrains, runs the quality gate, and registers a new candidate.
+| Scheduled | Cron, nightly to monthly | Drift is steady and predictable |
+| Volume-based | After $N$ new labeled rows | Data arrives in bursts |
+| Drift-triggered | PSI or prediction-drift threshold crossed | Drift is irregular |
+| Performance-triggered | Live metric below its SLO | Labels arrive promptly |
 
 ```python
-def should_retrain(monitor):
-    if monitor["psi_max"] > 0.25:
-        return True, "data drift (PSI > 0.25)"
-    if monitor["rolling_auc"] < monitor["baseline_auc"] - 0.03:
-        return True, "performance below SLA"
-    if monitor["days_since_train"] > 30:
+def should_retrain(m: dict) -> tuple[bool, str]:
+    if m["rolling_auc"] < m["baseline_auc"] - 0.03:
+        return True, "performance below SLO"
+    if m["prediction_psi"] > 0.25 and m["upstream_checks_ok"]:
+        return True, "prediction drift with healthy pipeline"
+    if m["days_since_train"] > 30:
         return True, "scheduled refresh"
     return False, "healthy"
 ```
 
-A subtle but critical rule: a retrained model is a **candidate, not an automatic replacement.** It still passes through the quality gate and a canary. Blindly auto-promoting on drift can make things *worse* if the new data is itself corrupted — which is exactly when drift alerts fire.
+A retrained model is a **candidate**, not an automatic replacement. It still passes the quality gates and a canary. Automatically promoting a model because drift was detected is dangerous, because drift alerts often fire precisely when the new data is corrupted.
 
 ### Rollback
 
-Because the registry keeps every version and serving is versioned, rollback is a stage transition plus a traffic switch — fast and reliable:
+With aliases and versioned serving, rollback is a pointer change plus a traffic switch:
 
 ```python
-# Roll production back to the last known-good version
-client.transition_model_version_stage(
-    name="churn-classifier", version=last_good, stage="Production")
-client.transition_model_version_stage(
-    name="churn-classifier", version=bad_version, stage="Archived")
-# Serving layer (KServe/BentoML) re-pulls the Production version's storageUri
+# Point production back at the last known-good version
+client.set_registered_model_alias("churn-classifier", "champion", version=last_good)
+client.set_model_version_tag("churn-classifier", bad_version, "status", "rolled_back")
+# Serving reloads models:/churn-classifier@champion (restart or hot reload),
+# or KServe traffic is shifted back to the previous revision.
 ```
 
-The reason canary, registry, and monitoring are worth the effort is precisely this: when something goes wrong at 3 a.m., rollback is a single, tested, reversible operation rather than a frantic re-deploy.
+Rehearse rollback. It should be a routine, tested, reversible operation, not an improvised redeploy at 3 a.m. Keep the previous champion's image and weights warm or quickly pullable.
+
+## Operating LLM Applications
+
+Serving large language models (and applications built on them) adds concerns that classic MLOps tooling did not cover. This is sometimes called **LLMOps**. The lifecycle loop still applies, but the artifact often includes a prompt, retrieval configuration, and tool definitions alongside, or instead of, model weights that you trained.
+
+```mermaid
+flowchart LR
+    U["Request"] --> GW["Gateway<br/>auth, rate limits,<br/>routing, caching"]
+    GW --> App["App / agent logic<br/>prompt vN, tools, RAG"]
+    App --> Eng["Inference engine<br/>(vLLM, SGLang, TensorRT-LLM)<br/>or hosted API"]
+    App --> Ret[("Vector / search index")]
+    App --> Guard["Guardrails<br/>input + output checks"]
+    App -. "traces (OpenTelemetry)" .-> Obs["Tracing + eval store"]
+    Obs --> Eval["Offline + online evals"]
+    Eval -->|"regressions block release"| App
+```
+
+| Concern | Classic ML | LLM applications |
+|---------|-----------|------------------|
+| Versioned artifact | Model weights | Model or provider version, **prompt templates**, retrieval index, tool schemas |
+| Quality measurement | Labeled metrics (AUC) | Eval suites: reference answers, rubric-based LLM-as-judge, human review, task success |
+| Serving bottleneck | Compute per request | GPU memory for KV cache; batching; long contexts |
+| Latency metrics | p50 and p99 per request | **Time to first token (TTFT)**, inter-token latency, tokens per second |
+| Cost | Per instance | Per token; varies with prompt length and caching |
+| Failure modes | Drift, silent degradation | Also hallucination, prompt injection, unsafe output, provider model updates |
+
+### Serving engines
+
+Self-hosted LLM serving has consolidated around **vLLM** and **SGLang**, both using paged KV-cache management, continuous batching, prefix caching, and speculative decoding. NVIDIA **TensorRT-LLM** and **Dynamo** target maximum throughput on NVIDIA hardware. Hugging Face's Text Generation Inference (TGI) entered maintenance mode in December 2025, and Hugging Face now points new deployments to vLLM or SGLang. On Kubernetes, **llm-d** (a CNCF Sandbox project started in 2025) and KServe's `LLMInferenceService` add LLM-aware scheduling, prefix-cache-aware routing, and disaggregated prefill/decode serving. Quantization (FP8, INT4 AWQ/GPTQ) and distillation are the main levers for cost. See [Model Compression](model-compression.html).
+
+### Evaluation and observability
+
+- **Versioned eval sets in CI.** Every prompt or model change runs against a fixed evaluation set, graded by exact match, code execution, or rubric-scored LLM-as-judge. A regression blocks the release, the same way a quality gate does for a classic model.
+- **Tracing.** Record each request as a trace of spans (retrieval, model call, tool call) with inputs, outputs, token counts, and latency. The OpenTelemetry GenAI semantic conventions standardize these attributes. MLflow 3 Tracing, Langfuse, Arize Phoenix, and W&amp;B Weave all consume traces.
+- **Online signals.** User feedback, task completion, escalation rates, and sampled LLM-as-judge scoring of live traffic stand in for ground-truth labels.
+- **Pin provider versions.** Hosted model aliases (such as "latest") change behavior without a deploy. Pin dated model versions and re-run evals before moving to a new one.
+- **Guardrails.** Validate inputs (prompt-injection and PII detection) and outputs (schema validation, content policy), and log the decisions for audit.
 
 ## Tooling Landscape
 
-The ecosystem is modular — pick one tool per concern. A common open-source stack:
+The ecosystem is modular. Pick one tool per concern and connect them so the loop runs end to end.
 
-| Concern | Tools |
-|---------|-------|
-| Data &amp; pipeline versioning | DVC, LakeFS, Pachyderm |
-| Feature store | Feast, Tecton, Databricks |
-| Experiment tracking | MLflow, Weights &amp; Biases, Neptune |
-| Model registry | MLflow Registry, W&amp;B Registry, SageMaker |
-| Orchestration | Airflow, Kubeflow Pipelines, Dagster, Prefect |
-| Packaging | BentoML, Docker |
-| Serving | KServe, Seldon Core, BentoML, TorchServe, Triton |
-| Monitoring | Evidently, NannyML, WhyLabs, Arize, Prometheus + Grafana |
+| Concern | Open source / self-hosted | Managed / commercial |
+|---------|---------------------------|----------------------|
+| Data and pipeline versioning | DVC, lakeFS, Delta Lake, Apache Iceberg | Databricks, cloud object-store versioning |
+| Orchestration | Airflow, Dagster, Prefect, Kubeflow Pipelines, Flyte, Metaflow, ZenML | Astronomer, Vertex AI Pipelines, SageMaker Pipelines |
+| Feature store | Feast, Hopsworks | Tecton, Databricks Feature Store, SageMaker / Vertex feature stores |
+| Experiment tracking | MLflow, Aim, ClearML | Weights &amp; Biases, Comet, managed MLflow |
+| Model registry | MLflow Model Registry | W&amp;B Registry, SageMaker, Vertex AI, Azure ML, Unity Catalog |
+| Packaging | BentoML, MLflow Models, Docker | BentoCloud |
+| Serving | KServe, Triton, Ray Serve, vLLM, SGLang, llm-d | SageMaker, Vertex AI, Azure ML endpoints |
+| Rollout automation | Argo Rollouts, Flagger | Cloud-native traffic splitting |
+| Monitoring | Evidently, NannyML, whylogs, Prometheus + Grafana | Arize, Fiddler, Datadog, cloud model monitors |
+| LLM tracing and evals | MLflow Tracing, Langfuse, Arize Phoenix, OpenTelemetry | W&amp;B Weave, LangSmith, Braintrust |
 
-There is no single "MLOps platform" you must adopt; the value is in *connecting* these so the lifecycle loop runs end to end. Managed suites (SageMaker, Vertex AI, Azure ML, Databricks) bundle most of the columns above if you prefer one vendor.
+Several tools that were common in older MLOps stacks have changed status:
 
-## Key Takeaways
+| Tool | Status |
+|------|--------|
+| TorchServe | Archived in August 2025; no further fixes |
+| Neptune.ai | Hosted service shut down in March 2026 |
+| Hugging Face TGI | Maintenance mode since December 2025 |
+| Seldon Core | Business Source License since January 2024 |
+| WhyLabs | Hosted platform discontinued; code released as open source |
+| MLflow registry stages | Deprecated; use aliases |
 
-- **ML depends on code + data + model — version all three.** DVC pins data to a commit; experiment tracking tags runs with code SHA and data hash so any model is rebuildable.
-- **The lifecycle is a closed loop, not a pipeline.** Monitoring feeds two edges back: retraining (model is stale) and rollback (model is broken).
-- **The registry is the system of record.** Versioned artifacts move through staging gates with lineage; promotion is gated by quality checks and canaries.
-- **CI/CD for ML adds Continuous Training and quality gates** — a build fails unless the new model beats the current one on held-out data.
-- **A canary asks "is it healthy?"; an A/B test asks "is it better?"** Use progressive delivery to shrink blast radius and statistics to prove impact.
-- **Models fail silently — monitor for drift.** Data drift (PSI/KS on inputs) is detectable immediately; concept drift needs labels or estimation. Drift triggers retraining; rollback reverts a bad deploy in one reversible step.
+Managed suites such as SageMaker, Vertex AI, Azure ML, and Databricks bundle most of these concerns if a single vendor is acceptable.
 
 ## See Also
 
-- [LoRA Training](lora-training.html) - Training custom models that feed the pipelines above
-- [ComfyUI Guide](comfyui-guide.html) - Node-based generation workflows and API automation
-- [Base Models Comparison](base-models-comparison.html) - Choosing the foundation a production model builds on
-- [Game AI Systems](game-ai.html) - Real-time inference under hard latency budgets
-- [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
+- [Production Pipelines & Automation](production-pipelines.html) – headless, queued image-generation pipelines
+- [Model Compression](model-compression.html) – quantization, pruning, and distillation for cheaper serving
+- [Optimization & Performance](optimization-guide.html) – inference speed and memory tuning
+- [LoRA Training](lora-training.html) – training adapters that feed these pipelines
+- [Fine-Tuning & Transfer Learning](../technology/ai/fine-tuning.html) – adapting pretrained models
+- [CI/CD: Deployment Strategies](../technology/ci-cd/deployment.html) – blue-green, canary, and rollout mechanics in general
+- [Observability](../observability/) – metrics, logs, and traces for the operational layer
+- [Kubernetes](../technology/kubernetes/) – the platform most model serving runs on
+- [AI/ML Documentation Hub](./) – full AI/ML index

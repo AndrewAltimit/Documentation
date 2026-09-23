@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "QFT: Modern Frontiers"
+description: Research frontiers of quantum field theory — on-shell scattering amplitudes and the double copy, the conformal bootstrap, AdS/CFT and holography, black-hole information and islands, anomalies and generalized symmetries, and the connections to quantum gravity.
 permalink: /docs/physics/qft-frontiers.html
 toc: true
 toc_sticky: true
@@ -8,237 +9,304 @@ toc_label: "On This Page"
 toc_icon: "rocket"
 ---
 
-## QFT: Modern Frontiers
+[Physics](./) &raquo; [Quantum Field Theory](quantum-field-theory.html) &raquo; Modern Frontiers
 
-[Quantum Field Theory](quantum-field-theory.html) &raquo; Modern Frontiers
+The textbook formulation of quantum field theory — a Lagrangian, Feynman diagrams, renormalization — is complete enough to compute almost anything measured at colliders, yet much of the research of the past three decades has come from **reformulations that avoid it**. Scattering amplitudes turn out to be far simpler than the diagrams that compute them; conformal field theories can be solved from consistency conditions alone; strongly coupled gauge theories can be equivalent to gravity in one extra dimension; and the notion of symmetry itself has been generalized. This page surveys those frontiers at a level that assumes the [main QFT pages](quantum-field-theory.html): gauge theory, the path integral, renormalization, and spontaneous symmetry breaking.
 
-Standard quantum field theory — Lagrangians, Feynman diagrams, renormalization — is enormously successful but conceals deep structure. Over the last few decades a set of reformulations and discoveries has revealed that scattering amplitudes are far simpler than the diagrams suggest, that strongly coupled gauge theories can be dual to gravity in one higher dimension, that some classical symmetries are unavoidably destroyed by quantization, and that field theory itself carries the seeds of quantum gravity. This page is a companion to the [main QFT page](quantum-field-theory.html); it assumes that material (gauge theory, the path integral, renormalization, spontaneous symmetry breaking) and develops the modern frontier in full.
+The recurring theme is that these programs keep meeting each other. The double copy connects gauge-theory amplitudes to gravity; holography connects conformal field theory to black holes; anomalies constrain every strongly coupled system the other methods study.
 
-The unifying theme is that **physics is simpler than its standard formulation**. Feynman diagrams are a redundant, gauge-dependent bookkeeping of an object — the on-shell amplitude — that is far more compact. Spacetime locality and unitarity may be *emergent* rather than fundamental. And the boundary of a region of spacetime can encode everything inside it. These are not separate curiosities: the amplitudes program, holography, and anomaly inflow keep turning out to be different views of the same mathematics.
-
-- **Amplitudes over diagrams.** On-shell recursion and unitarity reconstruct amplitudes without ever writing a Lagrangian or a loop integral by brute force.
-- **Holography.** A gravitational theory in *d+1* dimensions is equivalent to a field theory living on its *d*-dimensional boundary.
-- **Anomalies.** Symmetries that survive classically but are broken by the quantum measure — fatal when gauged, predictive when global.
-- **Toward quantum gravity.** Effective field theory, asymptotic safety, and holography frame how (and whether) gravity becomes a consistent QFT.
-
-### What You'll Find on This Page
-
-| Section | What it covers |
-|---------|----------------|
-| [The Modern Amplitudes Program](#the-modern-amplitudes-program) | Spinor-helicity, BCFW recursion, generalized unitarity, the amplituhedron |
-| [AdS/CFT and Holography](#adscft-and-holography) | The duality dictionary, the holographic principle, applications |
-| [Anomalies](#anomalies) | Chiral and gauge anomalies, anomaly cancellation, 't Hooft matching |
-| [Connections to Quantum Gravity](#connections-to-quantum-gravity) | Gravity as an EFT, asymptotic safety, holographic entropy, the double copy |
+```mermaid
+graph TD
+    QFT["Lagrangian QFT"] --> AMP["On-shell amplitudes"]
+    QFT --> CFT["Conformal field theory"]
+    QFT --> ANOM["Anomalies and<br/>generalized symmetries"]
+    AMP --> DC["Double copy:<br/>gravity = gauge x gauge"]
+    CFT --> BOOT["Conformal bootstrap"]
+    CFT --> ADS["AdS/CFT"]
+    ADS --> RT["Entanglement and geometry<br/>(Ryu-Takayanagi)"]
+    RT --> ISL["Black-hole information:<br/>islands, Page curve"]
+    DC --> GW["Gravitational-wave<br/>two-body dynamics"]
+    ANOM --> STRONG["Constraints on strongly<br/>coupled phases"]
+    ADS --> QG["Quantum gravity"]
+    DC --> QG
+    ISL --> QG
+```
 
 ## The Modern Amplitudes Program
 
-The textbook recipe for a scattering amplitude — draw all Feynman diagrams, assign propagators and vertices, integrate — is correct but spectacularly inefficient. The number of diagrams grows factorially, individual diagrams are gauge-dependent and littered with unphysical longitudinal polarizations, and yet the final gauge-invariant answer is frequently a single short expression. The amplitudes program asks: can we compute the physical answer *directly*, exploiting only the properties an amplitude must have — Lorentz invariance, locality (poles only where intermediate particles go on shell), and unitarity?
+The Feynman-diagram expansion is correct but inefficient. The number of diagrams grows factorially with the number of external particles, individual diagrams depend on the gauge and contain unphysical polarizations, and yet the gauge-invariant sum is often a short expression. The amplitudes program computes that sum directly from the properties any amplitude must have: Lorentz invariance, **locality** (poles only where an internal particle goes on shell) and **unitarity** (residues factorize into lower-point amplitudes).
 
-<div class="principle-card">
-  <h4>The Parke-Taylor surprise</h4>
-  <p>The cleanest illustration is gluon scattering. The tree-level amplitude for two gluons of negative helicity and any number of positive-helicity gluons (a "maximally helicity-violating", or MHV, amplitude) requires summing hundreds of Feynman diagrams for even a handful of gluons. Parke and Taylor (1986) conjectured — and it was later proven — that the entire answer collapses to <em>one term</em>. For <em>n</em> gluons with negative-helicity legs <em>i</em> and <em>j</em>, the color-ordered amplitude is just a ratio of spinor brackets. Hundreds of diagrams, one line. That gap between the complexity of the method and the simplicity of the answer is what the whole program exists to explain.</p>
-</div>
+The motivating example is gluon scattering. The tree-level amplitude with two negative-helicity gluons and any number of positive-helicity ones — the **maximally helicity-violating (MHV)** configuration — needs hundreds of diagrams at six points, but Parke and Taylor (1986) found that the result is a single term.
 
-### Spinor-Helicity Formalism
+### Spinor-helicity variables
 
-For massless particles the natural variables are not four-momenta but the two-component spinors into which a null momentum factorizes. A null momentum $p_\mu$ (with $p^2 = 0$) can be written as an outer product of a left-handed and a right-handed Weyl spinor:
+A massless momentum factorizes into two-component Weyl spinors:
 
-$$p_{\alpha\dot\alpha} = p_\mu \sigma^\mu_{\alpha\dot\alpha} = \lambda_\alpha \tilde{\lambda}_{\dot\alpha}$$
+$$p_{\alpha\dot\alpha} = p_\mu\,\sigma^\mu_{\alpha\dot\alpha} = \lambda_\alpha\,\tilde\lambda_{\dot\alpha}.$$
 
-The spinors carry the helicity information directly. One defines the antisymmetric Lorentz-invariant brackets
+The little group acts as $\lambda \to t\lambda$, $\tilde\lambda \to t^{-1}\tilde\lambda$, and an amplitude for a particle of helicity $h$ scales as $t^{-2h}$. The Lorentz-invariant brackets
 
-$$\langle i\, j \rangle = \epsilon_{\alpha\beta}\, \lambda_i^\alpha \lambda_j^\beta, \qquad [i\, j] = \epsilon_{\dot\alpha\dot\beta}\, \tilde{\lambda}_i^{\dot\alpha} \tilde{\lambda}_j^{\dot\beta}$$
+$$\langle i\,j\rangle = \epsilon_{\alpha\beta}\,\lambda_i^\alpha\lambda_j^\beta, \qquad [i\,j] = \epsilon_{\dot\alpha\dot\beta}\,\tilde\lambda_i^{\dot\alpha}\tilde\lambda_j^{\dot\beta}$$
 
-so that the Mandelstam invariant is $s_{ij} = (p_i + p_j)^2 = \langle i\, j\rangle [j\, i]$. In these variables the Parke-Taylor MHV amplitude for $n$ gluons with negative-helicity legs $i$ and $j$ is
+satisfy $s_{ij} = (p_i + p_j)^2 = \langle i\,j\rangle[j\,i]$ (up to sign conventions). In these variables the color-ordered **Parke-Taylor** amplitude for $n$ gluons, with $i$ and $j$ of negative helicity, is
 
-$$A_n^{\text{MHV}} = \frac{\langle i\, j\rangle^4}{\langle 1\, 2\rangle \langle 2\, 3\rangle \cdots \langle n\, 1\rangle}$$
+$$A_n^{\text{MHV}}(1^+,\dots,i^-,\dots,j^-,\dots,n^+) = \frac{\langle i\,j\rangle^4}{\langle 1\,2\rangle\langle 2\,3\rangle\cdots\langle n\,1\rangle}.$$
 
-Every Lorentz dot product, every polarization sum, every gauge artifact has vanished. The denominator is simply the cyclic product of the adjacent-leg brackets, and the numerator is fixed by little-group weights (helicity). This compactness is the empirical hint that a Lagrangian is the wrong starting point.
+The numerator is fixed by little-group scaling and the denominator by the cyclic ordering. Three-particle amplitudes are fixed entirely by little-group scaling and dimensional analysis, which is why on-shell methods can dispense with a Lagrangian.
 
-### BCFW On-Shell Recursion
+For four or more gluons, amplitudes with all helicities equal, or with only one different, vanish at tree level for real momenta in Minkowski signature. In 2026 Guevara, Lupsasca, Skinner, Strominger and Weil showed that the single-minus tree amplitudes are nonzero on a special "half-collinear" region of kinematics available in split (Klein) signature or for complex momenta, and gave a closed-form expression consistent with soft theorems — an example of how much structure remains to be found even at tree level.
 
-The Britto-Cachazo-Feng-Witten (BCFW) recursion relations build any tree amplitude from lower-point *on-shell* amplitudes — never an off-shell Feynman vertex. The trick is to deform two of the external momenta by a complex parameter $z$ while keeping them on shell and conserving total momentum:
+### BCFW recursion
 
-$$\hat{\lambda}_i = \lambda_i, \quad \hat{\tilde\lambda}_i = \tilde\lambda_i - z\,\tilde\lambda_j, \qquad \hat{\lambda}_j = \lambda_j + z\,\lambda_i, \quad \hat{\tilde\lambda}_j = \tilde\lambda_j$$
+Britto, Cachazo, Feng and Witten (2005) showed that tree amplitudes are fixed by their poles. Deform two external momenta by a complex parameter $z$, keeping them on shell and preserving momentum conservation:
 
-The deformed amplitude $A_n(z)$ is a rational function of $z$ whose only singularities are simple poles where an internal propagator goes on shell. If $A_n(z) \to 0$ as $z \to \infty$ (true for gluons and gravitons with suitable shifts), Cauchy's theorem gives the physical amplitude $A_n = A_n(0)$ as a sum over the residues:
+$$\hat{\tilde\lambda}_i = \tilde\lambda_i - z\,\tilde\lambda_j, \qquad \hat\lambda_j = \lambda_j + z\,\lambda_i.$$
 
-$$A_n = \sum_{\text{factorizations } I} A_L(z_I)\, \frac{1}{P_I^2}\, A_R(z_I)$$
+The deformed amplitude $A_n(z)$ is rational in $z$ with simple poles where an internal momentum $\hat P_I(z)$ goes on shell. If $A_n(z) \to 0$ as $z \to \infty$ — true for gluons and gravitons with appropriate helicity choices — Cauchy's theorem applied to $A_n(z)/z$ gives
 
-Each term is a product of two strictly on-shell, lower-point amplitudes glued by a single propagator $1/P_I^2$, evaluated at the $z_I$ that puts $P_I$ on shell. Locality (the pole structure) and unitarity (the factorization onto physical sub-amplitudes) are the *only* inputs. The Lagrangian, gauge fixing, and ghost fields never appear.
+$$A_n = \sum_{I}\sum_{h} A_L^{h}\!\left(z_I\right)\,\frac{1}{P_I^2}\,A_R^{-h}\!\left(z_I\right).$$
 
-<div class="theory-card">
-  <h4>Why this works — and what it teaches</h4>
-  <p>BCFW says a tree amplitude is fixed by its singularities: where it blows up (on-shell intermediate particles) and how it factorizes there. Lagrangian locality is downgraded from an input to an <em>output</em>. This is the technical seed of a radical idea pursued in the amplitudes community — that spacetime locality and unitarity might be emergent, derived consequences of a more primitive structure rather than axioms imposed from the start.</p>
-</div>
+Each term glues two on-shell lower-point amplitudes with one propagator, summed over factorization channels $I$ and internal helicity $h$. No off-shell vertex, gauge choice, or ghost appears.
 
-### Generalized Unitarity at Loop Level
+### Generalized unitarity and loops
 
-Tree-level recursion is only half the story; loops carry the quantum corrections. The optical theorem already tells us that the imaginary (absorptive) part of a loop amplitude is a phase-space integral of products of lower amplitudes — unitarity in its original form. *Generalized* unitarity sharpens this by cutting **several** internal lines at once. Putting $k$ propagators on shell ($1/(\ell^2 - m^2) \to -2\pi i\,\delta^+(\ell^2 - m^2)$) isolates a particular coefficient in the decomposition of the loop amplitude onto a basis of scalar master integrals:
+At one loop, any amplitude in four dimensions can be decomposed onto a fixed basis of scalar integrals:
 
-$$A_n^{\text{1-loop}} = \sum_i c_i\, I_i^{\text{box}} + \sum_j d_j\, I_j^{\text{triangle}} + \sum_k e_k\, I_k^{\text{bubble}} + (\text{rational})$$
+$$A_n^{\text{1-loop}} = \sum_i c_i\,I_4^{(i)} + \sum_j d_j\,I_3^{(j)} + \sum_k e_k\,I_2^{(k)} + R_n.$$
 
-In four dimensions a maximal (quadruple) cut freezes the loop momentum completely, reducing the box coefficient $c_i$ to a pure product of four on-shell tree amplitudes — an algebraic operation, no integration required. The integrals $I_i$ themselves are known once and for all. So a one-loop amplitude is reconstructed from trees plus a fixed integral basis, again bypassing the diagrammatic expansion. This is the engine (in tools like the unitarity method and its automation) behind modern next-to-leading-order predictions for LHC processes.
+Putting several propagators on shell ("cutting" them) isolates individual coefficients. A quadruple cut freezes the loop momentum completely, so each box coefficient $c_i$ is a product of four tree amplitudes — algebra, not integration. Triangle and bubble coefficients follow from triple and double cuts, and the rational term $R_n$ from $D$-dimensional cuts. Automated versions of this method (together with integration-by-parts reduction and differential equations for master integrals) produced the next-to-leading-order revolution in LHC predictions and now deliver two-loop amplitudes for five-particle processes.
 
-### Twistors and the Amplituhedron
+### Positive geometry and the amplituhedron
 
-Pushing further, planar amplitudes in maximally supersymmetric $\mathcal{N}=4$ Yang-Mills theory exhibit a hidden geometry. Witten's twistor-string reformulation mapped amplitudes to curves in twistor space; that line led to the **amplituhedron**, a positive geometric region in a Grassmannian whose canonical volume form *is* the amplitude. In this picture there is no Lagrangian, no unitarity sum, and crucially no manifest locality: the amplitude is the volume of a geometric object, and the physical properties emerge as features of that geometry's boundaries.
+In planar $\mathcal{N}=4$ super-Yang-Mills theory, amplitudes have a hidden symmetry (dual superconformal invariance, which combines with ordinary superconformal symmetry into an infinite-dimensional Yangian) and a geometric description. The **amplituhedron** (Arkani-Hamed and Trnka, 2013) is a region in a Grassmannian whose canonical differential form — a form with logarithmic singularities on its boundaries — equals the amplitude. Locality and unitarity are not inputs; they appear as properties of the boundaries.
 
-| Approach | Core idea | What it eliminates |
-|----------|-----------|--------------------|
-| Spinor-helicity | Null momenta as spinor bilinears | Polarization vectors, dot-product clutter |
-| BCFW recursion | Complex momentum shift + Cauchy | Off-shell vertices, gauge artifacts |
+Related "positive geometries" have since been found for other theories and observables: the associahedron for bi-adjoint scalar amplitudes, and a "surfaceology" formalism (2023 onward) that computes all-loop amplitudes in simple colored theories from curves on surfaces and relates scalar, pion, and gluon amplitudes. Amplitudes in these theories exhibit **hidden zeros** — kinematic loci where they vanish — and factorize near them in a new way. A parallel program applies the same ideas to **cosmological correlators**, the boundary correlations of fields in an expanding universe that seed large-scale structure.
+
+| Approach | Core idea | Removes |
+|----------|-----------|---------|
+| Spinor-helicity | Null momenta as spinor products | Polarization vectors, dot-product clutter |
+| BCFW recursion | Complex shift + Cauchy's theorem | Off-shell vertices, gauge artifacts |
 | Generalized unitarity | Multi-line cuts onto an integral basis | Brute-force loop integration |
-| Amplituhedron | Amplitude as a positive geometry's volume | Locality and unitarity as inputs |
+| Amplituhedron / positive geometry | Amplitude as canonical form of a geometry | Locality and unitarity as inputs |
+| Double copy | Gravity numerators = (gauge numerators)$^2$ | Direct perturbative gravity calculations |
 
-The practical payoff is precision collider physics; the conceptual payoff is the growing evidence that the smooth, local spacetime of the Lagrangian is not the most economical description of the physics.
+### The double copy
+
+Bern, Carrasco and Johansson (2008) found that gauge-theory amplitudes can be written so that kinematic numerators $n_i$ obey the same Jacobi identities as the color factors $c_i$ (**color-kinematics duality**). Replacing each color factor by a second copy of the numerators then produces a gravity amplitude:
+
+$$A_n^{\text{gauge}} = g^{n-2}\sum_i \frac{c_i\,n_i}{D_i} \qquad\longrightarrow\qquad M_n^{\text{gravity}} = \left(\frac{\kappa}{2}\right)^{n-2}\sum_i \frac{n_i\,\tilde n_i}{D_i}.$$
+
+At tree level this is the field-theory version of the Kawai-Lewellen-Tye relations between closed and open strings. The double copy extends to loops, where it is the most efficient way to compute supergravity amplitudes, and to classical solutions (the Schwarzschild metric as a double copy of a Coulomb field).
+
+Its most practical output is **gravitational-wave physics**. Treating two black holes as massive particles and computing their scattering amplitude in the post-Minkowskian (weak-field, arbitrary-velocity) expansion yields the conservative and radiative dynamics used to build waveform models. Calculations have reached fifth post-Minkowskian order at first order in the mass ratio (Driesse et al., 2024–2025), where periods of Calabi-Yau manifolds unexpectedly appear in the radiated energy and recoil. Worldline quantum field theory and effective-field-theory methods run in parallel and cross-check these results.
+
+## Conformal Field Theory and the Bootstrap
+
+A **conformal field theory** is a QFT invariant under angle-preserving transformations. CFTs describe the endpoints of renormalization-group flows and hence every continuous phase transition: the liquid-gas critical point, the Curie point of a uniaxial magnet, and the 3D Ising model are all the same CFT.
+
+A CFT is specified by its **CFT data**: the scaling dimensions $\Delta_i$ and spins of its local operators, and the coefficients $\lambda_{ijk}$ of the operator product expansion (OPE)
+
+$$\mathcal{O}_i(x)\,\mathcal{O}_j(0) = \sum_k \lambda_{ijk}\,|x|^{\Delta_k - \Delta_i - \Delta_j}\left[\mathcal{O}_k(0) + \text{descendants}\right].$$
+
+Every correlation function follows from this data. The **conformal bootstrap** asks which data are consistent. Evaluating a four-point function by OPE in two different channels must give the same answer (**crossing symmetry**); combined with **unitarity** (real OPE coefficients and dimensions above unitarity bounds) this becomes a positivity problem that can be solved numerically by semidefinite programming. Rattazzi, Rychkov, Tonni and Vichi (2008) introduced the modern numerical method.
+
+The flagship result is the 3D Ising model. The only inputs are that the theory has a $\mathbb{Z}_2$ symmetry with one relevant odd and one relevant even scalar; the output is an island in parameter space containing the critical point. The 2024 stress-tensor bootstrap (Chang et al.) gives
+
+$$\Delta_\sigma = 0.518148806(24), \qquad \Delta_\epsilon = 1.41262528(29),$$
+
+from which the critical exponents follow as $\eta = 2\Delta_\sigma - 1 \approx 0.0362976$ and $\nu = 1/(3 - \Delta_\epsilon) \approx 0.629971$. These are more precise than Monte Carlo simulations and agree with them and with experiment. Similar methods have determined exponents of the $O(N)$ models (for the $O(2)$ class, bootstrap and Monte Carlo agree with each other but not with the space-shuttle superfluid-helium measurement of $\nu$, a discrepancy still unexplained), and "analytic bootstrap" methods derive large-spin behavior from the lightcone limit of crossing.
 
 ## AdS/CFT and Holography
 
-The most influential idea connecting field theory to gravity is the **AdS/CFT correspondence** (Maldacena, 1997): a conjectured exact equivalence between a quantum gravity theory in an anti-de Sitter (AdS) spacetime and a conformal field theory (CFT) living on its lower-dimensional boundary. It is the sharpest known realization of the **holographic principle** — the proposal that the information content of a region of space is bounded by, and encoded on, its boundary area rather than its volume.
+The **AdS/CFT correspondence** (Maldacena, 1997) is a conjectured exact equivalence between quantum gravity in $(d+1)$-dimensional anti-de Sitter space and a conformal field theory on its $d$-dimensional boundary. It is the best-understood realization of the **holographic principle** ('t Hooft, Susskind): black-hole entropy scales with horizon area, $S_{\text{BH}} = A/4G_N$, which suggests that the number of degrees of freedom in a gravitating region is bounded by its boundary area rather than its volume.
 
-<div class="principle-card">
-  <h4>The holographic principle, from black holes</h4>
-  <p>Ordinary thermodynamic entropy scales with volume — twice the box, twice the entropy. Black holes break this rule. The Bekenstein-Hawking entropy of a black hole scales with the <em>area</em> of its horizon, not the volume it encloses, and a black hole is the most entropic object that can fit in a given region. The conclusion ('t Hooft, Susskind) is that the maximum information in any region is set by its bounding area in Planck units — the world is, in this informational sense, a hologram. AdS/CFT is the concrete model where this is provably true: the "bulk" gravitational degrees of freedom are fully captured by a "boundary" field theory with one fewer dimension.</p>
-</div>
+### The canonical example
 
-### The Statement of the Duality
+Type IIB string theory on $AdS_5 \times S^5$ is dual to $\mathcal{N}=4$ super-Yang-Mills theory with gauge group $SU(N)$ in four dimensions. The parameters are related by
 
-The canonical example relates Type IIB string theory on $AdS_5 \times S^5$ to $\mathcal{N}=4$ supersymmetric Yang-Mills theory with gauge group $SU(N)$ living on the four-dimensional boundary. The dictionary connects parameters on the two sides:
+$$\frac{L^4}{\ell_s^4} = g_{\text{YM}}^2 N \equiv \lambda, \qquad \frac{L^3}{G_5} \propto N^2, \qquad g_{\text{YM}}^2 = 4\pi g_s$$
 
-$$\frac{L^4}{\ell_s^4} = g_{YM}^2 N = \lambda, \qquad g_s = \frac{g_{YM}^2}{4\pi}$$
+(numerical factors in the last relation are convention dependent). Classical supergravity is valid when the curvature radius $L$ is large in string units and Planck units — that is, at large $N$ and large 't Hooft coupling $\lambda$, where the gauge theory is strongly coupled. The duality is therefore a **strong/weak duality**: hard strong-coupling questions in the field theory become classical gravity calculations, and quantum-gravity questions become questions about a well-defined field theory.
 
-Here $L$ is the AdS radius, $\ell_s$ the string length, $g_s$ the string coupling, and $\lambda = g_{YM}^2 N$ the 't Hooft coupling. The structure is a **strong/weak duality**: the gravity description is reliable (weakly curved, classical) precisely when $\lambda$ is large, i.e. when the gauge theory is *strongly* coupled and perturbation theory fails. This is what makes the correspondence so useful — it turns hard strongly-coupled field-theory questions into tractable classical-gravity calculations, and vice versa.
+### The dictionary
 
-### The GKP-Witten Dictionary
+The Gubser-Klebanov-Polyakov-Witten prescription equates the bulk partition function, with boundary values $\phi_0$ of bulk fields, to the CFT generating functional with $\phi_0$ as sources:
 
-The operational heart of the correspondence is the equality of partition functions. Every bulk field $\phi$ approaches a boundary value $\phi_0$ that acts as a source for a dual boundary operator $\mathcal{O}$, and the generating functionals match:
+$$Z_{\text{bulk}}\left[\phi \to \phi_0\right] = \left\langle \exp\left(\int d^dx\;\phi_0(x)\,\mathcal{O}(x)\right)\right\rangle_{\text{CFT}}, \qquad Z_{\text{bulk}} \approx e^{-S_{\text{on-shell}}[\phi_0]}.$$
 
-$$Z_{\text{gravity}}\big[\phi \to \phi_0\big] = \Big\langle \exp\!\Big(\int d^d x\; \phi_0(x)\,\mathcal{O}(x)\Big)\Big\rangle_{\text{CFT}}$$
+In the classical limit, CFT correlators are obtained by solving bulk field equations. A scalar of mass $m$ in $AdS_{d+1}$ is dual to an operator of dimension
 
-In the supergravity limit the left side becomes the classical on-shell action, so boundary correlation functions are computed by solving classical bulk equations of motion:
+$$\Delta(\Delta - d) = m^2L^2,$$
 
-$$Z_{\text{gravity}}\big[\phi \to \phi_0\big] \approx e^{-S_{\text{on-shell}}[\phi_0]}$$
+and stability requires only $m^2L^2 \ge -d^2/4$ (the Breitenlohner-Freedman bound), so tachyonic masses are allowed in AdS.
 
-The conformal dimension $\Delta$ of the boundary operator is fixed by the mass $m$ of the dual bulk field through the relation (for a scalar in $AdS_{d+1}$):
+```mermaid
+graph LR
+    subgraph Boundary["Boundary CFT (d dimensions)"]
+        J["Conserved current J"]
+        T["Stress tensor T"]
+        O["Scalar operator, dimension Delta"]
+        TEMP["Thermal state"]
+        EE["Entanglement entropy of region A"]
+        RG["RG scale"]
+    end
+    subgraph Bulk["Bulk gravity in AdS (d+1 dimensions)"]
+        A["Gauge field"]
+        G["Metric (graviton)"]
+        PHI["Scalar field, mass m"]
+        BH["Black hole / black brane"]
+        RTS["Minimal surface anchored on A"]
+        Z["Radial coordinate"]
+    end
+    J <--> A
+    T <--> G
+    O <--> PHI
+    TEMP <--> BH
+    EE <--> RTS
+    RG <--> Z
+```
 
-$$\Delta(\Delta - d) = m^2 L^2$$
-
-This entry of the dictionary turns the spectrum of bulk excitations into the spectrum of operator dimensions in the CFT.
-
-| Boundary (CFT) | Bulk (gravity in AdS) |
-|----------------|------------------------|
-| Conserved current $J^\mu$ | Gauge field $A_\mu$ |
-| Stress tensor $T^{\mu\nu}$ | Metric $g_{\mu\nu}$ (graviton) |
-| Scalar operator of dimension $\Delta$ | Scalar field of mass $m^2 L^2 = \Delta(\Delta-d)$ |
-| Global symmetry | Gauge symmetry in the bulk |
-| Finite temperature | Black hole / black brane in AdS |
-| Entanglement entropy | Minimal-surface area (Ryu-Takayanagi) |
+A global symmetry of the boundary theory is a gauge symmetry in the bulk; this is one route to the expectation that quantum gravity has no exact global symmetries.
 
 ### Applications
 
-Because the duality maps strong coupling to weak curvature, it has become a calculational tool well beyond its string-theory origins:
+- **Quark-gluon plasma.** Black-brane calculations give the shear viscosity to entropy density ratio $\eta/s = 1/4\pi$ (Kovtun-Son-Starinets) for any gauge theory with a two-derivative Einstein gravity dual. Values extracted from heavy-ion collisions at RHIC and the LHC are of the same order, making the QGP a nearly perfect fluid. The KSS value is not a strict lower bound — higher-derivative bulk corrections can lower it — but it anchors the idea that strongly coupled matter has no quasiparticles.
+- **Condensed matter.** Holographic models of strange metals, non-Fermi liquids, and superconductors capture transport in systems with no quasiparticle description, though no known material is literally holographic.
+- **Quantum information.** Bulk locality emerges from boundary entanglement in a way formally identical to a quantum error-correcting code (Almheiri-Dong-Harlow, 2015).
 
-- **Quark-gluon plasma.** The shear-viscosity-to-entropy-density ratio of a strongly coupled plasma is computed from a black brane in AdS, yielding the famous bound $\eta/s = 1/(4\pi)$ in natural units, remarkably close to what the QGP produced at RHIC and the LHC appears to satisfy.
-- **Condensed matter.** "AdS/CMT" models strange metals, holographic superconductors, and non-Fermi-liquid behavior using charged black holes, capturing physics that has no quasiparticle description and is therefore inaccessible to standard perturbation theory.
-- **Quantum information.** The Ryu-Takayanagi formula identifies boundary entanglement entropy with bulk minimal-surface area (see below), and holographic error-correcting codes have reframed how bulk locality emerges from boundary entanglement.
+The correspondence is unproven, but it has passed a very large number of quantitative checks — in $\mathcal{N}=4$ SYM, integrability computes the spectrum of operator dimensions at every value of $\lambda$ and interpolates exactly between the perturbative gauge theory and the string regime.
 
-The correspondence remains a *conjecture* — there is no proof — but it has passed an enormous number of nontrivial checks and now functions both as a window into quantum gravity and as a practical engine for strongly coupled field theory.
+## Entanglement, Black Holes, and Islands
+
+### Ryu-Takayanagi
+
+The **Ryu-Takayanagi formula** (2006) computes the entanglement entropy of a boundary region $A$ from the area of the minimal bulk surface $\gamma_A$ anchored on $\partial A$:
+
+$$S_A = \frac{\text{Area}(\gamma_A)}{4G_N} + \mathcal{O}(G_N^0).$$
+
+It generalizes the Bekenstein-Hawking formula and implies that bulk geometry is encoded in boundary entanglement ("entanglement builds spacetime"). Quantum corrections replace the minimal surface by a **quantum extremal surface** (Engelhardt-Wall, 2014), which extremizes area plus the entropy of bulk quantum fields.
+
+### The Page curve
+
+Hawking's 1975 calculation implies that radiation from an evaporating black hole is thermal, so its entropy grows monotonically until the black hole is gone — and pure initial states would evolve into mixed ones, violating unitarity. If evaporation is unitary, the radiation entropy must instead follow the **Page curve**: rising at first, then turning over at the Page time (roughly when half the black hole's entropy has been radiated) and falling to zero.
+
+<figure style="margin:1.5rem auto; max-width:600px;">
+<svg viewBox="0 0 600 300" width="100%" role="img" aria-labelledby="page-curve-title" style="color:currentColor; background:transparent;">
+<title id="page-curve-title">Entropy of Hawking radiation versus time: Hawking's rising curve, the decreasing black-hole entropy, and the Page curve following the minimum</title>
+<line x1="60" y1="250" x2="570" y2="250" stroke="currentColor" stroke-width="1.5"/>
+<line x1="60" y1="250" x2="60" y2="20" stroke="currentColor" stroke-width="1.5"/>
+<text x="540" y="275" font-size="13" fill="currentColor">time</text>
+<text x="18" y="30" font-size="13" fill="currentColor">S</text>
+<path d="M60,250 L520,40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
+<path d="M60,40 Q300,70 520,250" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 4"/>
+<path d="M60.0,250.0 L98.3,232.5 L136.3,215.2 L174.0,197.9 L211.6,180.8 L248.8,163.8 L285.8,146.9 L322.5,130.2 L336.2,127.6 L359.0,139.8 L395.2,161.0 L431.2,184.0 L466.9,209.0 L502.4,235.8 L520.0,250.0" fill="none" stroke="currentColor" stroke-width="3"/>
+<line x1="336" y1="128" x2="336" y2="250" stroke="currentColor" stroke-width="0.8" opacity="0.5"/>
+<text x="308" y="268" font-size="12" fill="currentColor">Page time</text>
+<text x="400" y="60" font-size="12" fill="currentColor">Hawking: radiation entropy grows</text>
+<text x="75" y="35" font-size="12" fill="currentColor">black-hole entropy A/4G</text>
+<text x="370" y="200" font-size="12" fill="currentColor">Page curve (unitary)</text>
+</svg>
+<figcaption style="text-align:center; font-size:0.9em;">Schematic entropy of Hawking radiation. Unitarity requires the radiation entropy to follow the lower of the two curves; the island formula reproduces this.</figcaption>
+</figure>
+
+In 2019 Penington and, independently, Almheiri, Engelhardt, Marolf and Maxfield derived the Page curve within semiclassical gravity. The entropy of radiation $R$ is computed by the **island formula**
+
+$$S(R) = \min_I\,\operatorname{ext}_I\left[\frac{\text{Area}(\partial I)}{4G_N} + S_{\text{matter}}(R \cup I)\right],$$
+
+where after the Page time the extremum includes an **island** $I$ inside the black hole that is counted as part of the radiation. The formula follows from the gravitational path integral via **replica wormholes** — saddle points connecting copies of the geometry. The result shows how semiclassical gravity "knows" about unitarity, although the detailed microscopic mechanism of information transfer, and the extension beyond AdS and to realistic black holes, remain open.
 
 ## Anomalies
 
-A **quantum anomaly** is a symmetry of the classical action that fails to survive quantization: the classical Noether current is conserved on the equations of motion, but the conservation law acquires a nonzero right-hand side once the path-integral measure is included. Whether an anomaly is welcome or fatal depends entirely on whether the broken symmetry is *global* or *gauge*.
+A **quantum anomaly** is a classical symmetry that is broken by quantization — in the path integral, by the non-invariance of the fermion measure. Whether an anomaly is harmless or fatal depends on whether the symmetry is global or gauged.
 
-### The Chiral (ABJ) Anomaly
+| Type | Symmetry | Consequence |
+|------|----------|-------------|
+| Chiral (ABJ) anomaly | Global axial $U(1)$ | Physical: fixes $\pi^0 \to \gamma\gamma$; explains why $\eta'$ is heavy (via QCD instantons) |
+| Gauge anomaly | Local gauge symmetry | Fatal: must cancel, constraining the fermion content |
+| Mixed gauge-gravitational | Gauge $\times$ diffeomorphisms | Requires $\sum Y = 0$ in the Standard Model |
+| Global (Witten) $SU(2)$ anomaly | Large gauge transformations | Requires an even number of $SU(2)$ doublets |
+| 't Hooft anomaly | Global symmetry, obstruction to gauging | Matched between UV and IR; constrains phases |
+| Trace (conformal) anomaly | Scale invariance | Running couplings; $a$- and $c$-theorems |
 
-The prototype is the Adler-Bell-Jackiw anomaly. Classically, a massless Dirac fermion coupled to electromagnetism has a conserved axial current $j^\mu_5 = \bar\psi \gamma^\mu \gamma^5 \psi$. But the quantum triangle diagram with one axial and two vector currents does not vanish, and the conservation law is corrected to
+### The chiral anomaly
 
-$$\partial_\mu j^\mu_5 = \frac{e^2}{16\pi^2}\, \epsilon^{\mu\nu\rho\sigma} F_{\mu\nu} F_{\rho\sigma}$$
+For a massless Dirac fermion of charge $e$, the axial current $j^\mu_5 = \bar\psi\gamma^\mu\gamma^5\psi$ is conserved classically but not quantum mechanically. The triangle diagram with one axial and two vector vertices gives
 
-This is not an approximation that higher loops modify — the **Adler-Bardeen theorem** states the one-loop coefficient is exact. Fujikawa gave the deepest interpretation: the anomaly is the non-invariance of the fermionic path-integral measure $\mathcal{D}\psi\,\mathcal{D}\bar\psi$ under a chiral rotation. The Jacobian is not unity, and its logarithm is precisely the anomaly density above.
+$$\partial_\mu j^\mu_5 = \frac{e^2}{16\pi^2}\,\epsilon^{\mu\nu\rho\sigma}F_{\mu\nu}F_{\rho\sigma}$$
 
-<div class="theory-card">
-  <h4>An anomaly that is measured</h4>
-  <p>The chiral anomaly is not a formal subtlety — it makes a sharp prediction. The decay rate of the neutral pion into two photons, $\pi^0 \to \gamma\gamma$, is controlled almost entirely by the anomaly. A naive symmetry argument forbids or strongly suppresses the decay; the anomaly restores it, and the predicted rate (including a factor of the number of quark colors, $N_c = 3$) matches experiment. The agreement is one of the cleanest confirmations that the color quantum number takes three values and that anomalies are physically real.</p>
-</div>
+(the overall sign depends on the convention for $\epsilon^{0123}$). The **Adler-Bardeen theorem** states that this one-loop coefficient receives no higher-order corrections. Fujikawa showed that the anomaly is the Jacobian of the path-integral measure under a chiral rotation, and the Atiyah-Singer index theorem identifies the integrated anomaly with the difference of left- and right-handed zero modes.
 
-### Gauge Anomalies and Their Cancellation
+The anomaly predicts the neutral-pion decay rate:
 
-When the anomalous current is a *global* symmetry, the anomaly is a feature — it encodes real physics like the pion decay. When it is a *gauge* symmetry, the anomaly is a catastrophe: gauge invariance is what removes the unphysical polarizations of the gauge bosons, and an anomaly destroys it, wrecking unitarity and renormalizability. A consistent chiral gauge theory therefore *requires* its gauge anomalies to cancel.
+$$\Gamma(\pi^0 \to \gamma\gamma) = \left(\frac{N_c}{3}\right)^2\frac{\alpha^2 m_\pi^3}{64\pi^3 f_\pi^2} \approx 7.7\ \text{eV},$$
 
-The anomaly of a gauge group is proportional to a group-theoretic factor $A^{abc} = \text{Tr}\big[T^a \{T^b, T^c\}\big]$ summed over all chiral fermions in the theory. Consistency demands
+with $f_\pi \approx 92$ MeV, in agreement with the PrimEx measurement (about 7.8 eV). The factor $N_c^2$ makes this one of the classic confirmations that quarks come in three colors.
 
-$$\sum_{\text{chiral fermions}} \text{Tr}\big[T^a \{T^b, T^c\}\big] = 0$$
+### Gauge anomaly cancellation
 
-In the Standard Model this is a remarkable, nontrivial constraint. The hypercharge and mixed gauge-gravitational anomalies cancel only because the quark and lepton charges within a single generation conspire — summed over color, the contributions of the $(u,d)$ quarks and the $(\nu,e)$ leptons add to zero. This is widely read as evidence that quarks and leptons belong together in complete generations (and motivates grand unification, where they sit in a single representation that is automatically anomaly-free).
+If an anomalous current is coupled to a gauge field, gauge invariance fails, and with it the decoupling of unphysical polarizations — the theory loses unitarity. The condition for cancellation is
 
-### 't Hooft Anomaly Matching
+$$\sum_{\text{left-handed Weyl fermions}} \operatorname{Tr}\left[T^a\left\{T^b, T^c\right\}\right] = 0$$
 
-Global anomalies obey a powerful constraint discovered by 't Hooft. Imagine weakly gauging a global symmetry that has an anomaly. The anomaly coefficient is computed from the fundamental (UV) degrees of freedom — the quarks and gluons, say. But the same coefficient must be reproduced by whatever degrees of freedom describe the theory in the deep infrared, after strong-coupling effects like confinement have set in:
+for every combination of gauge generators. In the Standard Model the cancellation works generation by generation and only when quarks and leptons are combined, with the color factor 3 (see the [explicit check](gauge-and-standard-model.html#anomaly-cancellation)). In string theory, the Green-Schwarz mechanism — cancellation by a classical field's transformation rather than by the fermion content — singled out the gauge groups $SO(32)$ and $E_8 \times E_8$ in 1984 and started the first superstring revolution.
 
-$$\mathcal{A}_{\text{UV}}\big[\text{fundamental fermions}\big] = \mathcal{A}_{\text{IR}}\big[\text{bound states / composites}\big]$$
+### 't Hooft anomaly matching and anomaly inflow
 
-Because the anomaly is renormalization-group invariant, it acts as a bookkeeping device that survives across all scales. In QCD, anomaly matching constrains the spectrum of massless composite states (e.g. it is consistent with, and partly requires, the existence of the pions as Goldstone bosons of chiral symmetry breaking). More generally, 't Hooft matching is one of the very few exact handles on strongly coupled, non-perturbative dynamics — it lets us rule out proposed low-energy descriptions that fail to reproduce the UV anomaly.
+A global symmetry whose anomaly would obstruct coupling it to a background gauge field has a **'t Hooft anomaly**. Because the anomaly is invariant under renormalization-group flow, it must be reproduced by the low-energy degrees of freedom:
 
-| Type | Symmetry broken | Consequence |
-|------|-----------------|-------------|
-| Chiral (ABJ) anomaly | Global axial $U(1)$ | Physical — predicts $\pi^0 \to \gamma\gamma$ |
-| Gauge anomaly | Local gauge symmetry | Fatal — must cancel for consistency |
-| Mixed gauge-gravitational | Gauge $\times$ diffeomorphisms | Constrains charge assignments |
-| 't Hooft anomaly | Weakly gauged global symmetry | Matched UV $\leftrightarrow$ IR, constrains spectra |
+$$\mathcal{A}_{\text{UV}} = \mathcal{A}_{\text{IR}}.$$
+
+An anomalous symmetry therefore cannot flow to a trivially gapped phase; the IR must contain massless particles, a spontaneously broken symmetry, or a topological order. In QCD, matching the anomalies of the chiral flavor symmetry is satisfied by massless pions (spontaneous chiral symmetry breaking) and rules out massless composite baryons in many cases.
+
+The modern understanding is **anomaly inflow**: a $d$-dimensional anomaly is the boundary of a $(d+1)$-dimensional invertible topological field theory, whose gauge variation cancels the boundary's. The surface states of topological insulators and the chiral edge modes of the quantum Hall effect are condensed-matter realizations; the classification of such bulk theories (by cobordism) is now a systematic tool for classifying anomalies.
+
+## Generalized Symmetries
+
+Since Gaiotto, Kapustin, Seiberg and Willett (2014), the notion of global symmetry has been broadened in two directions, and the resulting framework has become one of the most active areas of the field.
+
+**Higher-form symmetries.** An ordinary symmetry acts on local operators and is implemented by a topological operator on a codimension-1 surface. A **$p$-form symmetry** acts on $p$-dimensional extended operators (lines, surfaces) and is implemented on codimension-$(p+1)$ surfaces. Pure $SU(N)$ Yang-Mills theory has a $\mathbb{Z}_N$ 1-form "center" symmetry acting on Wilson lines. Confinement — the area law for Wilson loops — is precisely the statement that this 1-form symmetry is unbroken, turning a notoriously hard dynamical question into a symmetry-breaking question with an order parameter. Free Maxwell theory has electric and magnetic $U(1)$ 1-form symmetries, and the photon is a Goldstone boson of their spontaneous breaking.
+
+**Non-invertible symmetries.** Topological operators need not have inverses; their fusion can produce a sum of operators rather than a single one. The Kramers-Wannier duality defect of the critical Ising model is the classic 2D example. In 2022, Choi, Lam and Shao and, independently, Córdova and Ohmori showed that the ABJ-anomalous axial symmetry of QED is not simply broken but survives, for rational rotation angles, as a non-invertible symmetry — which constrains, for example, the decay of axions and neutral pions.
+
+These symmetries also have anomalies and can be organized by a **symmetry TFT** in one higher dimension, the same structure that underlies anomaly inflow. Applications range from constraining QCD-like phase diagrams to classifying gapped phases of lattice models.
 
 ## Connections to Quantum Gravity
 
-Quantum field theory and gravity famously resist marriage: naive quantization of the metric produces a non-renormalizable theory. Yet field theory supplies several of the most productive frameworks for thinking about quantum gravity — some that tame the problem within QFT, some that reach beyond it.
+### Gravity as an effective field theory
 
-### Gravity as an Effective Field Theory
+General relativity is non-renormalizable, but as an **effective field theory** it is predictive below the Planck scale $M_{\text{Pl}} \approx 1.2\times 10^{19}$ GeV. The action is an expansion in curvature,
 
-The statement "gravity is non-renormalizable" is true but easy to overstate. Treated as an **effective field theory**, general relativity is perfectly predictive at energies far below the Planck scale. One organizes the action as an expansion in curvature with a tower of higher-derivative terms,
+$$S = \int d^4x\,\sqrt{-g}\left(\frac{R}{16\pi G} + c_1R^2 + c_2R_{\mu\nu}R^{\mu\nu} + \cdots\right),$$
 
-$$S = \int d^4x\, \sqrt{-g}\,\Big(\frac{1}{16\pi G} R + c_1 R^2 + c_2 R_{\mu\nu}R^{\mu\nu} + \cdots\Big)$$
+with higher terms suppressed by powers of $E/M_{\text{Pl}}$. Long-distance quantum effects come from massless loops and are independent of the unknown coefficients. The one-loop correction to the potential between two masses (Bjerrum-Bohr, Donoghue and Holstein, 2003) is
 
-and the non-renormalizable couplings are suppressed by powers of $E/M_{\text{Pl}}$. This is enough to compute genuine quantum-gravitational corrections unambiguously — for example the leading quantum correction to the Newtonian potential between two masses,
+$$V(r) = -\frac{Gm_1m_2}{r}\left[1 + 3\,\frac{G(m_1 + m_2)}{rc^2} + \frac{41}{10\pi}\,\frac{G\hbar}{r^2c^3} + \cdots\right],$$
 
-$$V(r) = -\frac{G m_1 m_2}{r}\left(1 + \alpha\,\frac{G(m_1 + m_2)}{r c^2} + \beta\,\frac{G\hbar}{r^2 c^3} + \cdots\right)$$
+where the second term is a classical post-Newtonian correction and the third is a genuine quantum prediction, unobservably small for macroscopic masses (the numerical coefficients depend on how the potential is defined). The EFT framing locates the real problem: gravity needs a **UV completion** near $M_{\text{Pl}}$.
 
-where the last term is the leading *quantum* correction with a universal, calculable coefficient. The EFT viewpoint clarifies that the problem is not that quantum gravity is meaningless at low energy, but that it requires a **UV completion** — new physics or a new framework — near $M_{\text{Pl}}$.
+### Candidate completions and constraints
 
-### Asymptotic Safety
+| Approach | Idea | Status |
+|----------|------|--------|
+| [String theory](string-theory/) | Gravity from closed strings; finite perturbation theory | The most developed; realizes AdS/CFT; landscape of vacua |
+| Asymptotic safety (Weinberg, 1979) | Couplings flow to an interacting UV fixed point with finitely many relevant directions | Functional-RG evidence for a fixed point; not established in the full theory |
+| Holography | Quantum gravity defined by a dual non-gravitational theory | Precise in AdS; de Sitter and flat-space versions under construction |
+| [Loop quantum gravity and others](relativity/quantum-gravity.html) | Non-perturbative quantization of geometry | Separate program; see the relativity pages |
 
-One candidate UV completion stays entirely within quantum field theory. The **asymptotic safety** scenario (Weinberg) proposes that gravity's couplings flow to a nontrivial fixed point of the renormalization group at high energy:
+The **swampland program** asks the converse question: which low-energy EFTs can be coupled consistently to quantum gravity? Conjectured criteria include the absence of exact global symmetries and the **weak gravity conjecture** (Arkani-Hamed, Motl, Nicolis and Vafa, 2006), which requires a state with charge-to-mass ratio at least that of an extremal black hole — gravity must be the weakest force. Some criteria are well supported by black-hole arguments and holography; others, especially those about de Sitter vacua, remain contested. Positivity bounds from unitarity and causality of amplitudes (the "EFT-hedron") give rigorous constraints on the coefficients $c_i$ above.
 
-$$\beta(g_i) = \mu\,\frac{d g_i}{d\mu} \;\xrightarrow{\;\mu \to \infty\;}\; 0 \quad \text{at a non-Gaussian fixed point}$$
+### Flat-space and celestial holography
 
-If such an interacting fixed point exists and only a finite number of directions flow into it, the theory is predictive up to arbitrarily high energies despite being perturbatively non-renormalizable — much as a familiar renormalizable theory is controlled by the *free* (Gaussian) fixed point. Functional renormalization-group calculations provide suggestive evidence for the fixed point, though its existence in the full theory remains unproven.
-
-### Holographic Entanglement Entropy
-
-AdS/CFT supplies the most concrete bridge. The **Ryu-Takayanagi formula** computes the entanglement entropy of a region $A$ of the boundary CFT as the area of a minimal surface $\gamma_A$ in the bulk that is anchored on the boundary of $A$:
-
-$$S_A = \frac{\text{Area}(\gamma_A)}{4 G_N}$$
-
-The structural resemblance to the Bekenstein-Hawking black-hole entropy is not a coincidence — it is the same formula, and it ties the *information* in the boundary theory directly to *geometry* in the bulk. This relation underlies the modern slogan that "entanglement builds spacetime": the connectivity and smoothness of the bulk geometry are encoded in the pattern of entanglement of the boundary degrees of freedom, and severing that entanglement disconnects the bulk. Combined with quantum error correction, it has reshaped how the emergence of a gravitational, gravitating spacetime from a non-gravitational field theory is understood.
-
-### The Double Copy
-
-A striking, almost algebraic connection between gauge theory and gravity is the **double copy** (Bern-Carrasco-Johansson). It builds on color-kinematics duality: gauge-theory amplitudes can be arranged so that the kinematic numerators $n_i$ satisfy the same Jacobi-like identities as the color factors $c_i$. Once in that form, replacing color by a second copy of kinematics turns a gauge-theory amplitude into a *gravity* amplitude:
-
-$$A_n^{\text{gauge}} = g^{n-2} \sum_i \frac{c_i\, n_i}{D_i} \quad\longrightarrow\quad M_n^{\text{gravity}} = \Big(\frac{\kappa}{2}\Big)^{n-2} \sum_i \frac{n_i\, \tilde n_i}{D_i}$$
-
-Schematically, "gravity = gauge $\times$ gauge". This is not just an amplitude curiosity: it has produced state-of-the-art predictions for the gravitational two-body problem relevant to gravitational-wave observatories, deriving classical post-Minkowskian dynamics by squaring gauge-theory amplitudes. It also hints that gravity is, at some deep level, the square of a simpler gauge theory — tying the [amplitudes program](#the-modern-amplitudes-program) back to the quantum-gravity question.
-
-- **Amplitudes are simple.** On-shell recursion and unitarity reconstruct amplitudes from physical data alone; the Lagrangian's complexity is redundant.
-- **Holography is exact (in AdS).** A gravity theory in the bulk equals a CFT on the boundary; strong coupling on one side is weak curvature on the other.
-- **Anomalies are double-edged.** Global anomalies predict real physics ($\pi^0 \to \gamma\gamma$); gauge anomalies must cancel, constraining the particle content.
-- **Gravity is an EFT.** General relativity is predictive below $M_{\text{Pl}}$ and needs only a UV completion — asymptotic safety, strings, or holography.
-- **Entanglement builds geometry.** Ryu-Takayanagi ties boundary entanglement entropy to bulk minimal-surface area — spacetime emerges from information.
-- **Gravity = gauge squared.** The double copy turns gauge amplitudes into gravity amplitudes, powering gravitational-wave two-body predictions.
+Since our universe is not anti-de Sitter, holography for asymptotically flat spacetime is a major goal. Soft theorems for gravitons and photons, gravitational and electromagnetic **memory effects**, and infinite-dimensional **asymptotic symmetries** at null infinity (BMS symmetry) are three faces of one structure — Strominger's "infrared triangle". **Celestial holography** rewrites four-dimensional scattering amplitudes as correlators of a two-dimensional theory on the celestial sphere, where these symmetries act as conformal currents. Whether this yields a complete dual description is an open question.
 
 ## See Also
 
-- [Quantum Field Theory](quantum-field-theory.html) — the foundations: gauge theory, renormalization, the path integral, and spontaneous symmetry breaking that this page builds on.
-- [String Theory](string-theory/) — the framework where AdS/CFT and the double copy originate.
-- [D-Branes, Dualities & M-Theory](string-theory/dualities-and-branes.html) — the brane construction behind the AdS/CFT correspondence.
-- [Relativity](relativity/) — general relativity, black holes, and the Bekenstein-Hawking entropy that motivates holography.
-- [Condensed Matter Physics](condensed-matter/) — where holographic methods (AdS/CMT) model strange metals and superconductors.
-- [Physics Hub](index.html) — browse all physics topics.
+- [Quantum Field Theory](quantum-field-theory.html) — overview and reading order for the QFT pages.
+- [Gauge Theories & the Standard Model](gauge-and-standard-model.html) — the gauge theories whose amplitudes and anomalies are studied here.
+- [Renormalization & the RG](renormalization.html) — fixed points, effective field theory, and running couplings.
+- [Path Integrals & Methods](qft-methods.html) — the functional methods behind anomalies and holographic calculations.
+- [String Theory](string-theory/) and [D-Branes, Dualities & M-Theory](string-theory/dualities-and-branes.html) — the origin of AdS/CFT and the brane construction behind it.
+- [Black Holes](relativity/black-holes.html) and [Toward Quantum Gravity](relativity/quantum-gravity.html) — Hawking radiation, horizon entropy, and other quantum-gravity programs.
+- [Gravitational Waves](relativity/gravitational-waves.html) — the observations that post-Minkowskian amplitude calculations feed.
+- [Phase Transitions](statistical-mechanics/phase-transitions-and-advanced.html) — critical phenomena described by conformal field theory.
+- [Emergent Phases](condensed-matter/emergent-phases.html) — topological phases and anomaly inflow in condensed matter.

@@ -1,7 +1,7 @@
 ---
 layout: docs
 title: Fluid Mechanics
-description: The continuum mechanics of liquids and gases — kinematics, the Euler and Navier-Stokes equations, viscosity and the Reynolds number, Bernoulli, potential flow, boundary layers, and turbulence.
+description: The continuum mechanics of liquids and gases — kinematics, the Euler and Navier-Stokes equations, dimensionless numbers, exact solutions, Bernoulli and potential flow, boundary layers, compressible flow and shocks, turbulence, and the open mathematics of Navier-Stokes.
 permalink: /docs/physics/fluid-mechanics.html
 toc: true
 toc_sticky: true
@@ -11,353 +11,472 @@ toc_icon: "cog"
 
 [Physics](./) &raquo; Fluid Mechanics
 
-Fluid mechanics is classical mechanics applied to matter that has no fixed shape. A fluid cannot resist shear at rest — push it sideways and it keeps deforming forever — so instead of tracking individual molecules we describe a smoothed-out *velocity field* $\mathbf{u}(\mathbf{x}, t)$ filling space. From two conservation laws (mass and momentum) plus a constitutive relation for stress, the entire subject unfolds: the inviscid Euler equations, the Navier-Stokes equations, the lift on a wing, the drag on a sphere, and the still-unsolved problem of turbulence. Four ideas anchor it:
+**Fluid mechanics** is classical mechanics applied to matter that has no fixed shape. A fluid cannot resist a shear stress at rest — push it sideways and it keeps deforming — so rather than tracking molecules we describe smooth fields of density $\rho$, velocity $\mathbf{u}$, and pressure $p$. Two conservation laws (mass and momentum), a constitutive law for the stress, and boundary conditions produce the whole subject: hydrostatics, the Euler and Navier-Stokes equations, lift and drag, shock waves, and turbulence. This page develops the equations, the dimensionless numbers that organize flow regimes, the classical exact and asymptotic solutions, and the state of the open mathematical problems as of 2026.
 
-- **The continuum hypothesis** — replace $10^{23}$ molecules with smooth fields of density, velocity, and pressure.
-- **The material derivative** — Newton's law follows a moving fluid parcel: $D/Dt = \partial_t + \mathbf{u}\cdot\nabla$.
-- **Viscosity sets the regime** — the Reynolds number $Re = UL/\nu$ decides whether flow is smooth or chaotic.
-- **Turbulence is open** — existence and smoothness of 3D Navier-Stokes is a Clay Millennium Prize Problem.
+Numerical methods (finite-volume CFD, RANS/LES/DNS solvers) are covered on [Finite Elements & Fluid Dynamics](computational-physics/fem-and-cfd.html).
 
-### What You'll Find on This Page
-
-| Section | What it covers |
-|---------|----------------|
-| [The Continuum Hypothesis](#the-continuum-hypothesis) | When fluids can be treated as smooth fields |
-| [Kinematics of Flow](#kinematics-of-flow) | Streamlines, the material derivative, vorticity, strain |
-| [Conservation of Mass](#conservation-of-mass-the-continuity-equation) | The continuity equation and incompressibility |
-| [The Euler Equations](#the-euler-equations-inviscid-flow) | Inviscid momentum balance |
-| [Navier-Stokes](#the-navier-stokes-equations) | Adding viscous stress; the full equations |
-| [Viscosity & Reynolds Number](#viscosity-and-the-reynolds-number) | Nondimensionalization and flow regimes |
-| [Bernoulli's Principle](#bernoullis-principle) | Energy along a streamline |
-| [Potential Flow](#potential-flow) | Irrotational, incompressible idealizations |
-| [Boundary Layers](#boundary-layers) | Where viscosity hides, and where drag comes from |
-| [Turbulence](#turbulence) | The energy cascade and statistical description |
-| [The Millennium Problem](#the-clay-millennium-problem) | The open mathematics of Navier-Stokes |
-
-### The Big Picture: From Newton to Navier-Stokes
+## Overview
 
 ```mermaid
 graph TD
-    NEWTON["Newton's 2nd law (per parcel)"] --> MOM["Momentum balance"]
+    NEWTON["Newton's second law per parcel"] --> MOM["Momentum balance"]
     MASS["Conservation of mass"] --> CONT["Continuity equation"]
-    MOM --> EULER["Euler equations (inviscid)"]
-    STRESS["Newtonian stress = pressure + viscous"] --> MOM
-    EULER --> NS["Navier-Stokes equations"]
-    STRESS --> NS
-    NS --> LOWRE["Low Re: Stokes flow (laminar)"]
-    NS --> HIGHRE["High Re: boundary layers + turbulence"]
-    EULER --> POT["Irrotational: potential flow"]
-    POT --> BERN["Bernoulli's principle"]
-    style NEWTON fill:#11998e,color:#fff
-    style NS fill:#38ef7d,color:#222
-    style STRESS fill:#ccf,color:#222
+    STRESS["Constitutive law: pressure + viscous stress"] --> MOM
+    MOM --> EULER["Euler equations (mu = 0)"]
+    MOM --> NS["Navier-Stokes equations"]
+    CONT --> NS
+    EULER --> BERN["Bernoulli (steady, along streamlines)"]
+    EULER --> POT["Potential flow (irrotational)"]
+    NS --> STOKES["Re much less than 1: Stokes flow"]
+    NS --> BL["Re much greater than 1: boundary layers"]
+    NS --> TURB["Re large: turbulence"]
+    POT -. "fails near walls" .-> BL
 ```
+
+The central organizing parameter is the **Reynolds number** $Re = UL/\nu$, the ratio of inertial to viscous forces. At small $Re$ the equations are effectively linear; at large $Re$ viscosity survives only in thin layers and small eddies, and the flow outside is nearly ideal.
 
 ## The Continuum Hypothesis
 
-A milliliter of air contains roughly $2.5 \times 10^{19}$ molecules. Tracking each one is hopeless and, fortunately, unnecessary. Fluid mechanics rests on the **continuum hypothesis**: we associate with every point $\mathbf{x}$ and time $t$ smooth field quantities — density $\rho(\mathbf{x}, t)$, velocity $\mathbf{u}(\mathbf{x}, t)$, pressure $p(\mathbf{x}, t)$, temperature $T(\mathbf{x}, t)$ — defined by averaging over a *fluid element*: a volume large enough to contain enormous numbers of molecules, yet small compared to the scales over which the macroscopic fields vary.
+A milliliter of air holds about $2.5 \times 10^{19}$ molecules. The **continuum hypothesis** assigns to each point $\mathbf{x}$ and time $t$ smooth fields — $\rho(\mathbf{x},t)$, $\mathbf{u}(\mathbf{x},t)$, $p(\mathbf{x},t)$, $T(\mathbf{x},t)$ — defined by averaging over a *fluid element* large enough to contain many molecules but small compared with the scales on which the averages vary.
 
-This separation of scales is quantified by the **Knudsen number**,
+The separation of scales is measured by the **Knudsen number**
 
 $$Kn = \frac{\lambda}{L},$$
 
-the ratio of the molecular mean free path $\lambda$ to the characteristic length $L$ of the flow. The continuum description is valid when $Kn \ll 1$. For air at room conditions $\lambda \approx 70$ nm, so the hypothesis holds superbly for everyday flows but breaks down in rarefied gases (high-altitude reentry, vacuum systems) and microfluidic channels, where kinetic theory or the Boltzmann equation must take over.
+the ratio of the molecular mean free path $\lambda$ to the flow length scale $L$.
 
-**What makes a fluid a fluid.** A solid resists shear: deform it and it pushes back with a stress proportional to the *strain*. A fluid cannot do this — any nonzero shear stress, however small, sets it flowing indefinitely. A fluid therefore resists not strain but the *rate of strain*. This property, encoded in the constitutive law for the stress tensor, is what distinguishes the equations of fluid mechanics from those of elasticity, and what makes flow possible.
+| Regime | $Kn$ | Description |
+|--------|------|-------------|
+| Continuum | $\lesssim 10^{-3}$ | Navier-Stokes with no-slip walls |
+| Slip flow | $10^{-3}$–$10^{-1}$ | Navier-Stokes with velocity-slip and temperature-jump wall conditions |
+| Transitional | $10^{-1}$–$10$ | Boltzmann equation; direct simulation Monte Carlo (DSMC) |
+| Free molecular | $\gtrsim 10$ | Collisionless kinetic theory |
 
-### Lagrangian vs. Eulerian Descriptions
+For air at sea level $\lambda \approx 70$ nm, so the continuum description is excellent for everyday flows. It fails for spacecraft reentry at high altitude, in vacuum systems, and in nanoscale channels.
 
-There are two ways to bookkeep a flow:
+The passage from molecules to continuum equations is itself a theorem-in-progress. In 2025 Deng, Hani and Ma announced a rigorous derivation of the compressible Euler and Navier-Stokes-Fourier equations from hard-sphere particle dynamics, via the Boltzmann equation, over long times — a substantial step on Hilbert's sixth problem (the axiomatization of physics).
 
-- **Lagrangian:** follow individual fluid parcels, labeling each by its initial position $\mathbf{a}$ and tracking its trajectory $\mathbf{x}(\mathbf{a}, t)$. This is Newton's natural viewpoint — it is parcels that obey $\mathbf{F} = m\mathbf{a}$.
-- **Eulerian:** sit at a fixed point in space and record the fields $\mathbf{u}(\mathbf{x}, t)$, $p(\mathbf{x}, t)$ as fluid streams past. This is the practical viewpoint, the one in which the governing PDEs are written.
+**What makes a fluid a fluid.** A solid responds to *strain*: deform it and it pushes back. A fluid responds to the *rate of strain*: any nonzero shear stress, however small, produces continuing deformation. This is encoded in the constitutive law for the stress tensor and is what separates fluid mechanics from elasticity.
 
-The bridge between them is the **material derivative**, derived below, which expresses the rate of change *following a parcel* in terms of the Eulerian fields.
+### Lagrangian and Eulerian descriptions
 
-## Kinematics of Flow
+| Description | Independent variables | Natural for |
+|-------------|----------------------|-------------|
+| **Lagrangian** | Parcel label $\mathbf{a}$ and time: trajectory $\mathbf{x}(\mathbf{a},t)$ | Newton's law (it is parcels that accelerate), particle tracking, mixing |
+| **Eulerian** | Fixed position $\mathbf{x}$ and time: fields $\mathbf{u}(\mathbf{x},t)$, $p(\mathbf{x},t)$ | Writing PDEs, measurements at fixed probes, most CFD |
 
-Kinematics describes motion without reference to its causes. The geometry of a flow field is captured by a handful of derived quantities.
+The **material derivative** (below) translates between them.
 
-### Pathlines, Streamlines, and Streaklines
+## Kinematics
 
-Three families of curves describe a flow, and they coincide only when the flow is steady:
+Kinematics describes the geometry of motion without reference to forces.
 
-- A **pathline** is the trajectory of a single fluid parcel over time — the curve traced by $\mathbf{x}(t)$ with $d\mathbf{x}/dt = \mathbf{u}(\mathbf{x}, t)$.
-- A **streamline** is a curve everywhere tangent to the *instantaneous* velocity field. In 2D it satisfies $dx/u = dy/v$. Streamlines are snapshots; they cannot cross (the velocity would be double-valued).
-- A **streakline** is the locus of all parcels that have passed through a fixed point — what a continuously injected dye filament reveals.
+### Pathlines, streamlines, and streaklines
 
-For **steady flow** ($\partial \mathbf{u}/\partial t = 0$) all three families coincide.
+- A **pathline** is the trajectory of one parcel: $d\mathbf{x}/dt = \mathbf{u}(\mathbf{x}, t)$.
+- A **streamline** is everywhere tangent to the *instantaneous* velocity field; in 2D, $dx/u = dy/v$. Streamlines cannot cross except at stagnation points.
+- A **streakline** is the locus of all parcels that have passed through a fixed point — what continuously injected dye reveals.
 
-### The Material Derivative
+In **steady flow** ($\partial\mathbf{u}/\partial t = 0$) the three coincide. In unsteady flow they generally differ, which is why flow-visualization photographs must be interpreted with care.
 
-Consider any field $f(\mathbf{x}, t)$ — density, a velocity component, temperature — and ask how it changes *as experienced by a moving parcel*. Over time $dt$ the parcel moves $d\mathbf{x} = \mathbf{u}\, dt$, so by the chain rule
+### The material derivative
 
-$$df = \frac{\partial f}{\partial t}\, dt + \nabla f \cdot d\mathbf{x} = \left(\frac{\partial f}{\partial t} + \mathbf{u}\cdot\nabla f\right) dt.$$
-
-Dividing by $dt$ defines the **material (or substantial) derivative**:
+A parcel moves $d\mathbf{x} = \mathbf{u}\,dt$ in time $dt$, so the change of any field $f(\mathbf{x},t)$ it experiences is $df = \partial_t f\,dt + \nabla f\cdot\mathbf{u}\,dt$. The **material derivative** is therefore
 
 $$\frac{Df}{Dt} = \frac{\partial f}{\partial t} + \mathbf{u}\cdot\nabla f.$$
 
-The first term is the *local* rate of change at a fixed point; the second is *advection* — change a parcel feels because it is carried into regions where $f$ differs. Applied to velocity itself, $D\mathbf{u}/Dt$ is the acceleration of a fluid parcel, and the advective term $\mathbf{u}\cdot\nabla\mathbf{u}$ is the source of the nonlinearity that makes fluid mechanics hard.
+The first term is the local rate of change at a fixed point; the second is **advection**, the change a parcel sees because it is carried into regions where $f$ differs. Applied to velocity, $D\mathbf{u}/Dt$ is the parcel's acceleration, and the advective term $(\mathbf{u}\cdot\nabla)\mathbf{u}$ is the nonlinearity responsible for most of the difficulty of the subject.
 
-### The Rate-of-Strain and Vorticity Tensors
+### Strain rate, rotation, and vorticity
 
-The local relative motion of a parcel is governed by the velocity gradient $\nabla\mathbf{u}$, with components $\partial u_i/\partial x_j$. It splits uniquely into symmetric and antisymmetric parts:
+The velocity gradient splits into symmetric and antisymmetric parts:
 
 $$\frac{\partial u_i}{\partial x_j} = \underbrace{\frac{1}{2}\left(\frac{\partial u_i}{\partial x_j} + \frac{\partial u_j}{\partial x_i}\right)}_{S_{ij}\ \text{(rate of strain)}} + \underbrace{\frac{1}{2}\left(\frac{\partial u_i}{\partial x_j} - \frac{\partial u_j}{\partial x_i}\right)}_{\Omega_{ij}\ \text{(rotation)}}.$$
 
-- The symmetric **rate-of-strain tensor** $S_{ij}$ describes how a parcel stretches and shears. Its trace, $\nabla\cdot\mathbf{u}$, is the rate of volume expansion.
-- The antisymmetric part encodes local **rotation** and is equivalent to a vector, the vorticity.
+The symmetric **rate-of-strain tensor** $S_{ij}$ describes stretching and shearing of a parcel; its trace $\nabla\cdot\mathbf{u}$ is the rate of volume change. The antisymmetric part is equivalent to the **vorticity** vector
 
-### Vorticity
+$$\boldsymbol{\omega} = \nabla\times\mathbf{u}, \qquad \Omega_{ij} = -\tfrac{1}{2}\epsilon_{ijk}\,\omega_k,$$
 
-The **vorticity** is the curl of the velocity field:
+which is twice the local angular velocity of the parcel. A flow with $\boldsymbol{\omega} = 0$ everywhere is **irrotational**.
 
-$$\boldsymbol{\omega} = \nabla \times \mathbf{u}.$$
-
-It measures twice the local angular velocity of a fluid parcel — a tiny paddle wheel placed in the flow spins at rate $\tfrac{1}{2}|\boldsymbol{\omega}|$. A flow with $\boldsymbol{\omega} = 0$ everywhere is called **irrotational**; this is the gateway to potential flow.
-
-Taking the curl of the momentum equation (below) eliminates pressure and yields the **vorticity transport equation**. For an incompressible flow with constant viscosity,
+Taking the curl of the incompressible Navier-Stokes equation (derived below) eliminates pressure and gives the **vorticity equation**
 
 $$\frac{D\boldsymbol{\omega}}{Dt} = (\boldsymbol{\omega}\cdot\nabla)\mathbf{u} + \nu\nabla^2\boldsymbol{\omega}.$$
 
-The first term on the right is **vortex stretching** — when a vortex tube is stretched along its axis, conservation of angular momentum spins it faster, intensifying vorticity. This mechanism is unique to three dimensions (it vanishes identically in 2D) and is widely believed to be the engine of the turbulent energy cascade. The second term is viscous diffusion of vorticity.
+The first term is **vortex stretching**: a vortex tube stretched along its axis narrows and spins faster, conserving its circulation. It vanishes identically in two dimensions and is the mechanism behind both the 3D turbulent cascade and the difficulty of the Navier-Stokes regularity problem. The second term is viscous diffusion of vorticity.
 
-## Conservation of Mass: The Continuity Equation
+### Circulation and Kelvin's theorem
 
-Mass is neither created nor destroyed. Apply this to a fixed control volume $V$: the rate at which mass inside changes equals the net flux of mass across its boundary $\partial V$:
+The **circulation** around a closed curve $C$ is $\Gamma = \oint_C \mathbf{u}\cdot d\boldsymbol{\ell} = \int_S \boldsymbol{\omega}\cdot d\mathbf{A}$. **Kelvin's circulation theorem** states that for an inviscid, barotropic fluid ($p = p(\rho)$) under conservative body forces, the circulation around any material curve is constant:
 
-$$\frac{d}{dt}\int_V \rho \, dV = -\oint_{\partial V} \rho\, \mathbf{u}\cdot d\mathbf{A}.$$
+$$\frac{D\Gamma}{Dt} = 0.$$
 
-Converting the surface integral with the divergence theorem and shrinking the volume to a point gives the **continuity equation** in differential form:
+Consequences: vortex lines move with the fluid (Helmholtz's theorems), and a flow that starts irrotational — such as fluid at rest set in motion by a moving body — stays irrotational outside regions where viscosity or baroclinic torque acts. This is the justification for potential flow away from walls and wakes.
 
-$$\frac{\partial \rho}{\partial t} + \nabla\cdot(\rho\mathbf{u}) = 0.$$
+## Conservation of Mass
 
-Expanding the divergence and recognizing the material derivative,
+For a fixed control volume $V$, the rate of change of enclosed mass equals the net inflow across its boundary:
 
-$$\frac{D\rho}{Dt} + \rho\,\nabla\cdot\mathbf{u} = 0.$$
+$$\frac{d}{dt}\int_V \rho\, dV = -\oint_{\partial V} \rho\,\mathbf{u}\cdot d\mathbf{A}.$$
 
-### The Incompressibility Condition
+The divergence theorem and an arbitrary choice of $V$ give the **continuity equation**
 
-If a fluid parcel's density does not change as it moves, $D\rho/Dt = 0$, and continuity collapses to the **incompressibility condition**:
+$$\frac{\partial\rho}{\partial t} + \nabla\cdot(\rho\mathbf{u}) = 0 \qquad\Longleftrightarrow\qquad \frac{D\rho}{Dt} + \rho\,\nabla\cdot\mathbf{u} = 0.$$
+
+### Incompressibility
+
+If parcel density does not change, $D\rho/Dt = 0$, and continuity reduces to
 
 $$\nabla\cdot\mathbf{u} = 0.$$
 
-This is an excellent approximation whenever the flow speed is small compared to the speed of sound, i.e. when the **Mach number** $Ma = U/c$ satisfies $Ma \lesssim 0.3$ (density variations scale as $Ma^2$). Liquids are nearly incompressible under almost all conditions; air is too, as long as it moves well below the speed of sound. Note that incompressibility constrains the *flow* ($\nabla\cdot\mathbf{u}=0$), not necessarily that the fluid has uniform density — a stratified ocean is incompressible but not homogeneous.
+This is accurate when the **Mach number** $Ma = U/c$ is small; density fluctuations scale as $Ma^2$, so $Ma \lesssim 0.3$ keeps them below about 5%. Liquids are nearly incompressible in almost all circumstances, and so is air in low-speed flow. Incompressibility constrains the flow, not the fluid: a stratified ocean has $\nabla\cdot\mathbf{u} \approx 0$ but non-uniform density.
 
-## The Euler Equations: Inviscid Flow
+## The Euler Equations
 
-Before adding the complication of viscosity, consider an **ideal fluid** with no internal friction. Apply Newton's second law to a fluid parcel of density $\rho$. Its acceleration is the material derivative of velocity. The forces are the pressure on its surface and body forces such as gravity $\mathbf{g}$ per unit mass. The surface pressure force per unit volume is $-\nabla p$, so
+For an **ideal (inviscid) fluid** the only surface force is pressure, which exerts $-\nabla p$ per unit volume. Newton's second law for a parcel, with body force $\mathbf{g}$ per unit mass, gives the **Euler equations** (1757):
 
-$$\rho\frac{D\mathbf{u}}{Dt} = -\nabla p + \rho\mathbf{g}.$$
+$$\frac{\partial\mathbf{u}}{\partial t} + (\mathbf{u}\cdot\nabla)\mathbf{u} = -\frac{1}{\rho}\nabla p + \mathbf{g}.$$
 
-Written out in Eulerian form, these are the **Euler equations** (1757):
+With continuity — plus an energy equation and an equation of state for compressible flow — the system is closed. Being first order in space, the Euler equations admit only the **no-penetration** condition $\mathbf{u}\cdot\hat{\mathbf{n}} = 0$ at a wall; they cannot enforce no-slip. That mismatch is repaired by the boundary layer.
 
-$$\frac{\partial \mathbf{u}}{\partial t} + (\mathbf{u}\cdot\nabla)\mathbf{u} = -\frac{1}{\rho}\nabla p + \mathbf{g}.$$
+### Hydrostatics
 
-Together with continuity (and, for compressible flow, an energy equation and an equation of state) this closes the system. The Euler equations are first-order in space, which means they cannot satisfy the **no-slip** boundary condition that a real, viscous fluid obeys at a wall — they can only enforce that fluid does not penetrate a solid surface ($\mathbf{u}\cdot\hat{\mathbf{n}} = 0$). This deficiency is exactly what the boundary layer repairs.
+At rest, $\mathbf{u} = 0$ and the Euler equation reduces to $\nabla p = \rho\mathbf{g}$. With $\mathbf{g} = -g\hat{\mathbf{z}}$ and constant $\rho$,
 
-### Worked Example: Hydrostatics
+$$\frac{dp}{dz} = -\rho g \qquad\Longrightarrow\qquad p(z) = p_0 - \rho g z.$$
 
-For a fluid at rest, $\mathbf{u} = 0$ and the Euler equation reduces to $\nabla p = \rho\mathbf{g}$. With gravity $\mathbf{g} = -g\hat{\mathbf{z}}$ and constant $\rho$,
-
-$$\frac{dp}{dz} = -\rho g \quad\Longrightarrow\quad p(z) = p_0 - \rho g z.$$
-
-This is the familiar result that pressure increases linearly with depth — the hydrostatic balance underlying buoyancy and Archimedes' principle.
+Integrating this pressure over the surface of a submerged body gives a net upward force equal to the weight of displaced fluid — **Archimedes' principle**. For an isothermal ideal-gas atmosphere, $p = \rho R_s T$ gives instead an exponential decay $p \propto e^{-z/H}$ with scale height $H = R_s T/g \approx 8$ km.
 
 ## The Navier-Stokes Equations
 
-Real fluids have **viscosity**: adjacent layers moving at different speeds exert frictional shear on one another. To capture this we return to Newton's second law for a parcel but write the surface force in terms of the full **stress tensor** $\sigma_{ij}$, the $i$-component of force per unit area on a surface with normal in the $j$-direction. The momentum equation, in conservation form, reads
+Real fluids transmit shear stress between layers moving at different speeds. Writing the surface force through the **Cauchy stress tensor** $\sigma_{ij}$ gives the general momentum balance
 
-$$\rho\frac{Du_i}{Dt} = \frac{\partial \sigma_{ij}}{\partial x_j} + \rho g_i.$$
+$$\rho\frac{Du_i}{Dt} = \frac{\partial\sigma_{ij}}{\partial x_j} + \rho g_i.$$
 
-### The Newtonian Constitutive Relation
+### Newtonian constitutive law
 
-We split the stress into an isotropic pressure part and a deviatoric (shear) part:
+Split the stress into pressure and a viscous part, $\sigma_{ij} = -p\,\delta_{ij} + \tau_{ij}$. A **Newtonian fluid** has viscous stress linear in the strain rate. Isotropy restricts the most general such law to
 
-$$\sigma_{ij} = -p\,\delta_{ij} + \tau_{ij}.$$
+$$\tau_{ij} = 2\mu\,S_{ij} + \lambda\,(\nabla\cdot\mathbf{u})\,\delta_{ij},$$
 
-A **Newtonian fluid** is one whose viscous stress $\tau_{ij}$ is *linearly* proportional to the rate of strain — the defining property of fluids like water and air. The most general isotropic linear relation is
+with **dynamic viscosity** $\mu$ and second viscosity coefficient $\lambda$ (the bulk viscosity is $\mu_b = \lambda + \tfrac{2}{3}\mu$; Stokes' hypothesis sets $\mu_b = 0$). Water, air, and most simple liquids and gases are Newtonian. Blood, paints, polymer solutions, and suspensions are **non-Newtonian**: their apparent viscosity depends on shear rate (shear-thinning or shear-thickening), they may have a yield stress (Bingham fluids such as toothpaste), or they carry memory of past deformation (viscoelasticity).
 
-$$\tau_{ij} = 2\mu\, S_{ij} + \lambda\,(\nabla\cdot\mathbf{u})\,\delta_{ij},$$
+### The incompressible equations
 
-where $\mu$ is the **dynamic viscosity** and $\lambda$ the second (bulk) viscosity. The strain rate $S_{ij}$ is the symmetric velocity gradient defined earlier. Non-Newtonian fluids (blood, ketchup, polymer melts, cornstarch suspensions) violate this linear law and require more elaborate constitutive models.
+For incompressible flow with constant $\mu$, the divergence of the viscous stress reduces to $\mu\nabla^2\mathbf{u}$. Dividing by $\rho$ and writing $\nu = \mu/\rho$ for the **kinematic viscosity**:
 
-### Assembling the Equations
+$$\frac{\partial\mathbf{u}}{\partial t} + (\mathbf{u}\cdot\nabla)\mathbf{u} = -\frac{1}{\rho}\nabla p + \nu\nabla^2\mathbf{u} + \mathbf{g}, \qquad \nabla\cdot\mathbf{u} = 0.$$
 
-Substitute the constitutive relation into the momentum balance. For an **incompressible** fluid ($\nabla\cdot\mathbf{u} = 0$) with constant viscosity, the divergence of the viscous stress simplifies dramatically to $\mu\nabla^2\mathbf{u}$, giving the celebrated **incompressible Navier-Stokes equations**:
+| Term | Meaning |
+|------|---------|
+| $\partial_t\mathbf{u}$ | Local (unsteady) acceleration |
+| $(\mathbf{u}\cdot\nabla)\mathbf{u}$ | Convective acceleration — nonlinear, couples scales |
+| $-\rho^{-1}\nabla p$ | Pressure-gradient force; enforces incompressibility |
+| $\nu\nabla^2\mathbf{u}$ | Viscous diffusion of momentum; dissipates kinetic energy as heat |
+| $\mathbf{g}$ | Body forces (gravity; in rotating frames also Coriolis and centrifugal terms) |
 
-$$\rho\left(\frac{\partial \mathbf{u}}{\partial t} + (\mathbf{u}\cdot\nabla)\mathbf{u}\right) = -\nabla p + \mu\nabla^2\mathbf{u} + \rho\mathbf{g},$$
+In incompressible flow the pressure is not a thermodynamic variable but a **Lagrange multiplier** for the constraint $\nabla\cdot\mathbf{u} = 0$. Taking the divergence of the momentum equation gives a Poisson equation that determines it instantaneously from the velocity field:
 
-$$\nabla\cdot\mathbf{u} = 0.$$
+$$\nabla^2 p = -\rho\,\frac{\partial u_i}{\partial x_j}\frac{\partial u_j}{\partial x_i}.$$
 
-Dividing the momentum equation by $\rho$ and introducing the **kinematic viscosity** $\nu = \mu/\rho$ gives the form most often quoted:
+Pressure is therefore nonlocal: a disturbance anywhere is felt everywhere at once, the incompressible limit of sound waves travelling at infinite speed.
 
-$$\frac{\partial \mathbf{u}}{\partial t} + (\mathbf{u}\cdot\nabla)\mathbf{u} = -\frac{1}{\rho}\nabla p + \nu\nabla^2\mathbf{u} + \mathbf{g}.$$
+### Energy balance
 
-**Reading the equation term by term.** Each term is a force per unit mass on a fluid parcel: $\partial_t\mathbf{u}$ is the local (unsteady) acceleration; $(\mathbf{u}\cdot\nabla)\mathbf{u}$ is convective acceleration, the *nonlinear* heart of the equation that couples scales and breeds turbulence; $-\tfrac{1}{\rho}\nabla p$ is the pressure-gradient force that enforces incompressibility; $\nu\nabla^2\mathbf{u}$ is viscous diffusion of momentum that smooths sharp gradients and dissipates energy into heat; and $\mathbf{g}$ collects body forces. The interplay of the nonlinear convective term against the linear viscous term — quantified by the Reynolds number — determines the character of the flow.
+Dotting the momentum equation with $\mathbf{u}$ and integrating over a periodic domain (or all of space, with decay at infinity), in the absence of forcing, gives
 
-The pressure in incompressible flow is not an independent thermodynamic variable: it is a **Lagrange multiplier** that instantaneously adjusts to keep $\nabla\cdot\mathbf{u} = 0$. Taking the divergence of the momentum equation yields a Poisson equation for the pressure, $\nabla^2 p = -\rho\,\nabla\cdot[(\mathbf{u}\cdot\nabla)\mathbf{u}]$, which is solved subject to the velocity field at each instant.
+$$\frac{d}{dt}\int \frac{1}{2}|\mathbf{u}|^2\, dV = -\nu\int |\boldsymbol{\omega}|^2\, dV.$$
 
-### Boundary Conditions
+Kinetic energy only decreases, and the rate of loss is controlled by the total squared vorticity (the *enstrophy*). This energy inequality is the one a-priori bound available for 3D Navier-Stokes and is the starting point of Leray's existence theory.
 
-The defining condition for a viscous fluid is **no-slip**: at a solid wall the fluid velocity equals the wall velocity, $\mathbf{u} = \mathbf{u}_{\text{wall}}$. This is an experimental fact (molecules adhere to the surface) and it is precisely what the inviscid Euler equations cannot accommodate. The second-order viscous term $\nu\nabla^2\mathbf{u}$ raises the spatial order of the equation just enough to permit it.
+### Boundary conditions
 
-## Viscosity and the Reynolds Number
+At a solid wall a viscous fluid satisfies **no-slip**, $\mathbf{u} = \mathbf{u}_{\text{wall}}$ — an empirical fact that holds extremely well for $Kn \ll 1$. The second-order viscous term is what allows this extra condition. At a free surface the conditions are continuity of stress (including surface tension) and a kinematic condition that the surface moves with the fluid.
 
-To compare flows of different size, speed, and fluid we **nondimensionalize**. Choose a characteristic length $L$, speed $U$, and rescale: $\mathbf{x} = L\mathbf{x}^*$, $\mathbf{u} = U\mathbf{u}^*$, $t = (L/U)t^*$, $p = \rho U^2 p^*$. Substituting into the steady incompressible Navier-Stokes equation and dropping stars, the entire equation depends on a *single* dimensionless group:
+## Dimensionless Numbers and Similarity
 
-$$Re = \frac{UL}{\nu} = \frac{\rho U L}{\mu}.$$
+Rescale with a length $L$, speed $U$, time $L/U$, and pressure $\rho U^2$. The incompressible momentum equation without body forces becomes
 
-This is the **Reynolds number**, the ratio of inertial forces ($\sim \rho U^2/L$) to viscous forces ($\sim \mu U/L^2$). The nondimensional momentum equation becomes
+$$\frac{\partial\mathbf{u}}{\partial t} + (\mathbf{u}\cdot\nabla)\mathbf{u} = -\nabla p + \frac{1}{Re}\nabla^2\mathbf{u}, \qquad Re = \frac{UL}{\nu}.$$
 
-$$\frac{\partial \mathbf{u}}{\partial t} + (\mathbf{u}\cdot\nabla)\mathbf{u} = -\nabla p + \frac{1}{Re}\nabla^2\mathbf{u}.$$
+Two geometrically similar flows with the same dimensionless parameters are **dynamically similar** — identical after rescaling. This is why wind-tunnel and towing-tank models predict full-scale behavior, and why matching all relevant numbers simultaneously (for example $Re$ and $Fr$ for a ship model) is often impossible and forces compromises.
 
-Two flows with the same geometry and the same $Re$ are **dynamically similar** — identical up to rescaling. This is the principle that lets wind-tunnel and water-channel models predict the behavior of full-scale aircraft and ships.
+| Number | Definition | Ratio of | Governs |
+|--------|-----------|----------|---------|
+| Reynolds $Re$ | $UL/\nu$ | inertia / viscosity | Laminar vs. turbulent; boundary-layer thickness |
+| Mach $Ma$ | $U/c$ | flow speed / sound speed | Compressibility, shocks |
+| Froude $Fr$ | $U/\sqrt{gL}$ | inertia / gravity | Free-surface waves, ship wave drag, hydraulic jumps |
+| Strouhal $St$ | $fL/U$ | oscillation / advection time | Vortex shedding ($St \approx 0.2$ behind a cylinder over a wide range of $Re$) |
+| Weber $We$ | $\rho U^2 L/\sigma$ | inertia / surface tension | Droplet breakup, sprays |
+| Prandtl $Pr$ | $\nu/\kappa$ | momentum / thermal diffusivity | Thermal vs. velocity boundary layers ($Pr \approx 0.7$ air, $\approx 7$ water) |
+| Rayleigh $Ra$ | $g\beta\Delta T L^3/(\nu\kappa)$ | buoyancy / diffusion | Onset of convection ($Ra_c \approx 1708$ between rigid plates) |
+| Rossby $Ro$ | $U/(fL)$ | inertia / Coriolis | Geophysical flows; $Ro \ll 1$ gives geostrophic balance |
+| Knudsen $Kn$ | $\lambda/L$ | mean free path / length | Validity of the continuum model |
+
+### Flow regimes by Reynolds number
 
 | Regime | Reynolds number | Character | Example |
 |--------|-----------------|-----------|---------|
-| Creeping (Stokes) flow | $Re \ll 1$ | Viscosity dominates; reversible, no inertia | A bacterium swimming; sediment settling |
-| Laminar | $Re \lesssim 2000$ (pipe) | Smooth, ordered, layered flow | Honey pouring; flow in a capillary |
-| Transitional | $Re \sim 10^3$–$10^4$ | Intermittent bursts of disorder | Smoke rising from a candle |
-| Turbulent | $Re \gtrsim 4000$ (pipe) | Chaotic, eddying, well-mixed | River rapids; atmospheric flow; jet exhaust |
+| Creeping (Stokes) | $Re \ll 1$ | Viscosity dominates; linear and time-reversible | Swimming bacteria, sedimenting particles |
+| Laminar | $Re \lesssim 2000$ (pipe, based on diameter) | Smooth, layered | Honey, blood in capillaries |
+| Transitional | $Re \approx 2000$–$4000$ (pipe) | Intermittent turbulent "puffs" and "slugs" | Faucet opened partway |
+| Turbulent | $Re \gtrsim 4000$ (pipe) | Chaotic, strongly mixing | Rivers, atmosphere, jet exhausts |
 
-In the **Stokes limit** $Re \to 0$ the nonlinear term is negligible and Navier-Stokes linearizes to the **Stokes equations** $\nabla p = \mu\nabla^2\mathbf{u}$, $\nabla\cdot\mathbf{u}=0$. These are time-reversible, which produces the famous result that a microorganism cannot swim with a reciprocal (back-and-forth) stroke — the "scallop theorem."
+The pipe thresholds are not sharp. Laminar pipe flow is linearly stable at every $Re$; transition is triggered by finite disturbances. Careful experiments place the onset of *sustained* turbulence at $Re \approx 2040$ (Avila et al., 2011), where the rate at which turbulent puffs split first exceeds the rate at which they decay — a transition in the directed-percolation universality class. With extreme care to suppress disturbances, laminar flow has been maintained above $Re = 10^5$.
+
+## Exact and Limiting Solutions
+
+The nonlinearity rules out general solutions, but several flows are solved exactly and anchor intuition.
+
+### Plane Couette and Poiseuille flow
+
+Between parallel plates with the upper plate sliding at speed $U$ (plane **Couette flow**) the velocity is linear, $u(y) = Uy/h$. Driven instead by a pressure gradient $G = -dp/dx$ between fixed plates at $y = 0, h$ (plane **Poiseuille flow**), the profile is parabolic: $u(y) = \frac{G}{2\mu}\,y(h-y)$.
+
+### Hagen-Poiseuille pipe flow
+
+For steady laminar flow in a circular pipe of radius $R$ with pressure gradient $G = -dp/dx$, the Navier-Stokes equation reduces to $\mu\,r^{-1}\,d(r\,du/dr)/dr = -G$, giving
+
+$$u(r) = \frac{G}{4\mu}\left(R^2 - r^2\right), \qquad Q = \frac{\pi R^4 G}{8\mu}.$$
+
+The $R^4$ dependence of the volume flux is why narrowing an artery by 20% cuts flow by about 60% at fixed pressure drop. In terms of the Darcy friction factor, laminar pipe flow has $f = 64/Re$; turbulent flow has a much larger, roughness-dependent $f$ (the Moody chart, or the Colebrook equation).
+
+### Stokes flow and Stokes drag
+
+As $Re \to 0$ the inertial term drops out and Navier-Stokes becomes the linear **Stokes equations**
+
+$$\nabla p = \mu\nabla^2\mathbf{u}, \qquad \nabla\cdot\mathbf{u} = 0.$$
+
+A sphere of radius $a$ moving at speed $U$ feels the **Stokes drag** $F = 6\pi\mu a U$ (drag coefficient $C_D = 24/Re$ based on diameter), the law behind Millikan's oil-drop experiment and sedimentation rates. Because the equations have no time derivative and are linear, the flow is kinematically reversible: a swimmer using a reciprocal stroke (one that looks the same run backwards) makes no net progress — Purcell's **scallop theorem**. Microorganisms swim with non-reciprocal strokes such as rotating helical flagella or waving cilia.
 
 ## Bernoulli's Principle
 
-For a steady, incompressible, inviscid flow, integrate the Euler equation along a streamline. Using the identity $(\mathbf{u}\cdot\nabla)\mathbf{u} = \nabla(\tfrac{1}{2}u^2) - \mathbf{u}\times\boldsymbol{\omega}$ and projecting onto the streamline direction (along which the rotational term drops out), one finds that the quantity
+For steady, inviscid flow with conservative body forces, use the identity $(\mathbf{u}\cdot\nabla)\mathbf{u} = \nabla(\tfrac{1}{2}|\mathbf{u}|^2) - \mathbf{u}\times\boldsymbol{\omega}$ and project the Euler equation along a streamline, where the $\mathbf{u}\times\boldsymbol{\omega}$ term has no component. For incompressible flow,
 
-$$\frac{1}{2}u^2 + \frac{p}{\rho} + gz = \text{constant along a streamline}$$
+$$\frac{1}{2}\rho u^2 + p + \rho g z = \text{constant along a streamline}.$$
 
-is conserved. This is **Bernoulli's equation**. Multiplying by $\rho$ casts it as a statement of energy density:
+The three terms are dynamic, static, and hydrostatic pressure. If the flow is also irrotational, the constant is the same on every streamline. For compressible isentropic flow of an ideal gas, $p/\rho$ is replaced by the enthalpy $\gamma p/[(\gamma-1)\rho]$.
 
-$$\underbrace{\tfrac{1}{2}\rho u^2}_{\text{dynamic}} + \underbrace{p}_{\text{static}} + \underbrace{\rho g z}_{\text{gravitational}} = \text{const}.$$
+Applications:
 
-Where the flow speeds up, the pressure must drop. This single fact explains a great deal:
+- **Pitot-static tube:** the difference between stagnation pressure $p_0$ (where $u = 0$) and static pressure gives $u = \sqrt{2(p_0 - p)/\rho}$ — the basis of aircraft airspeed indicators.
+- **Venturi meter:** fluid accelerating through a constriction shows a pressure drop that measures the flow rate.
+- **Torricelli's law:** a jet from a hole at depth $h$ below a free surface leaves at $u = \sqrt{2gh}$.
 
-- **Lift on a wing:** faster flow over the curved upper surface means lower pressure there, producing net upward force (the full story also requires circulation and the Kutta condition).
-- **The Venturi effect:** fluid accelerating through a constriction shows a pressure minimum, the basis of carburetors and flow meters.
-- **Pitot tubes:** measuring the difference between stagnation pressure ($u=0$) and static pressure gives the flow speed, $u = \sqrt{2(p_0 - p)/\rho}$.
-
-**Caveat:** Bernoulli holds only along a streamline for inviscid, steady flow. If the flow is irrotational everywhere, the constant is the same for *all* streamlines. Where viscosity matters — inside boundary layers, in pipes with friction — Bernoulli must be augmented by head-loss terms.
+**Common misconception.** Bernoulli's equation relates pressure and speed; it does not by itself explain lift. The popular "equal transit time" argument — that air over the top of a wing must rejoin air from below — is false (upper-surface air arrives at the trailing edge first). Lift is correctly obtained from the circulation fixed by the Kutta condition (next section), or equivalently from the downward momentum imparted to the air; Bernoulli then converts the resulting velocity difference into a pressure difference.
 
 ## Potential Flow
 
-If a flow is both **incompressible** ($\nabla\cdot\mathbf{u}=0$) and **irrotational** ($\boldsymbol{\omega}=\nabla\times\mathbf{u}=0$), the mathematics becomes remarkably clean. Irrotationality means the velocity is the gradient of a scalar **velocity potential** $\phi$:
-
-$$\mathbf{u} = \nabla\phi.$$
-
-Incompressibility then forces $\phi$ to satisfy **Laplace's equation**:
+If a flow is **incompressible and irrotational**, the velocity is the gradient of a **velocity potential**, $\mathbf{u} = \nabla\phi$, and incompressibility gives **Laplace's equation**
 
 $$\nabla^2\phi = 0.$$
 
-The entire theory of harmonic functions — superposition, complex analysis, conformal mapping — now applies to fluids. Because Laplace's equation is linear, elementary solutions can be added to build complex flows.
+The problem is linear: solutions superpose, and the whole theory of harmonic functions applies. Pressure follows afterwards from Bernoulli.
 
-### The Stream Function and Complex Potential
+### Stream function and complex potential
 
-In two dimensions, incompressibility is automatically satisfied by introducing a **stream function** $\psi$ with $u = \partial\psi/\partial y$, $v = -\partial\psi/\partial x$. Lines of constant $\psi$ are streamlines. For irrotational 2D flow, $\phi$ and $\psi$ satisfy the Cauchy-Riemann equations, so they combine into an analytic **complex potential**
+In 2D incompressible flow a **stream function** $\psi$ with $u = \partial\psi/\partial y$, $v = -\partial\psi/\partial x$ satisfies continuity identically; contours of $\psi$ are streamlines, and the difference in $\psi$ between two streamlines is the volume flux between them. In irrotational flow $\phi$ and $\psi$ satisfy the Cauchy-Riemann equations and combine into an analytic **complex potential**
 
-$$w(z) = \phi + i\psi, \qquad z = x + iy,$$
+$$w(z) = \phi + i\psi, \qquad z = x + iy, \qquad \frac{dw}{dz} = u - iv.$$
 
-whose derivative gives the velocity, $dw/dz = u - iv$. The full power of complex analysis — including conformal maps such as the Joukowski transform that turns a circle into an airfoil — becomes available.
+Conformal maps then transport solutions between geometries; the **Joukowski map** $z \mapsto z + c^2/z$ turns flow past a circle into flow past an airfoil.
 
-### Elementary Flows
+| Flow | $w(z)$ | Description |
+|------|--------|-------------|
+| Uniform stream | $Uz$ | Speed $U$ in the $x$-direction |
+| Source / sink | $\dfrac{m}{2\pi}\ln z$ | Radial outflow ($m > 0$) or inflow |
+| Point vortex | $-\dfrac{i\Gamma}{2\pi}\ln z$ | Counterclockwise circulation $\Gamma$ |
+| Doublet | $\dfrac{\kappa}{z}$ | Coalesced source–sink pair |
+| Cylinder in a stream | $U\left(z + \dfrac{a^2}{z}\right)$ | Uniform stream + doublet; $\lvert z\rvert = a$ is a streamline |
 
-| Flow | Complex potential $w(z)$ | Description |
-|------|--------------------------|-------------|
-| Uniform stream | $U z$ | Constant velocity $U$ in the $x$-direction |
-| Source / sink | $\dfrac{m}{2\pi}\ln z$ | Radial outflow ($m>0$) or inflow |
-| Vortex | $-\dfrac{i\Gamma}{2\pi}\ln z$ | Circulation $\Gamma$ about the origin |
-| Doublet | $-\dfrac{\mu}{z}$ | Source+sink in the limit they merge |
+Adding a vortex to the cylinder flow produces a net force perpendicular to the stream, given by the **Kutta-Joukowski theorem**: lift per unit span $L' = \rho U\Gamma$. For a sharp-edged airfoil, the circulation is fixed by the **Kutta condition** — the flow leaves the trailing edge smoothly rather than wrapping around it — which yields thin-airfoil theory's lift coefficient $C_L = 2\pi\alpha$ for small angle of attack $\alpha$.
 
-Superposing a uniform stream with a doublet yields **flow past a cylinder**; adding a vortex produces lift via the **Kutta-Joukowski theorem**, $L = \rho U \Gamma$ per unit span.
+### D'Alembert's paradox
 
-**D'Alembert's paradox.** Potential flow predicts that a body moving steadily through an unbounded ideal fluid experiences *zero drag* — the pressure distribution is fore-aft symmetric and cancels. This contradicts experience: real bodies feel drag. The resolution, supplied by Prandtl a century and a half later, is that viscosity, no matter how small, cannot be neglected in the thin layer next to the body. That boundary layer separates, leaves a low-pressure wake, and breaks the symmetry. Potential flow is the right answer almost everywhere — except exactly where the drag is decided.
+Potential flow predicts that a body moving steadily through an unbounded ideal fluid feels **zero drag**: the pressure distribution is fore-aft symmetric. Real bodies obviously feel drag. The resolution, given by Prandtl in 1904, is that viscosity cannot be neglected in a thin layer next to the body, however small $\nu$ is.
 
 ## Boundary Layers
 
-D'Alembert's paradox is dissolved by Ludwig Prandtl's **boundary-layer theory** (1904), arguably the single most important idea in applied fluid mechanics. The insight: even at very high Reynolds number, viscosity cannot be dropped entirely, because near a solid wall the no-slip condition forces the velocity from zero (at the wall) up to the free-stream value over a very thin layer. Inside this **boundary layer**, velocity gradients are enormous and the viscous term $\nu\nabla^2\mathbf{u}$ is comparable to inertia, no matter how large $Re$ is overall.
+At high $Re$, viscosity matters only in a thin **boundary layer** where the no-slip condition forces the velocity from zero at the wall to the outer (potential-flow) value. Inside it, velocity gradients are large enough that viscous and inertial terms are comparable.
 
-### Boundary-Layer Scaling
+<figure style="margin:1.5rem auto; max-width:640px;">
+<svg viewBox="0 0 640 260" width="100%" role="img" aria-labelledby="bl-title" style="color:currentColor; background:transparent;">
+<title id="bl-title">Laminar boundary layer growing along a flat plate, with velocity profiles</title>
+<defs>
+<marker id="fm-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker>
+</defs>
+<line x1="60" y1="210" x2="610" y2="210" stroke="currentColor" stroke-width="3"/>
+<g stroke="currentColor" stroke-width="0.8" opacity="0.5">
+<line x1="70" y1="210" x2="60" y2="222"/><line x1="110" y1="210" x2="100" y2="222"/><line x1="150" y1="210" x2="140" y2="222"/><line x1="190" y1="210" x2="180" y2="222"/><line x1="230" y1="210" x2="220" y2="222"/><line x1="270" y1="210" x2="260" y2="222"/><line x1="310" y1="210" x2="300" y2="222"/><line x1="350" y1="210" x2="340" y2="222"/><line x1="390" y1="210" x2="380" y2="222"/><line x1="430" y1="210" x2="420" y2="222"/><line x1="470" y1="210" x2="460" y2="222"/><line x1="510" y1="210" x2="500" y2="222"/><line x1="550" y1="210" x2="540" y2="222"/><line x1="590" y1="210" x2="580" y2="222"/>
+</g>
+<g stroke="currentColor" stroke-width="1.5" marker-end="url(#fm-arrow)">
+<line x1="10" y1="60" x2="50" y2="60"/><line x1="10" y1="110" x2="50" y2="110"/><line x1="10" y1="160" x2="50" y2="160"/><line x1="10" y1="200" x2="50" y2="200"/>
+</g>
+<text x="12" y="45" font-size="13" fill="currentColor">U</text>
+<path d="M60,210 Q200,165 330,148 T610,118" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="470" y="108" font-size="13" fill="currentColor">edge of layer, &#948;(x) &#8733; &#8730;x</text>
+<g fill="none" stroke="currentColor" stroke-width="2">
+<path d="M200,210 C215,190 225,178 232,171 L236,165"/>
+<path d="M420,210 C445,180 460,150 470,138 L476,132"/>
+</g>
+<g stroke="currentColor" stroke-width="1" opacity="0.7" marker-end="url(#fm-arrow)">
+<line x1="200" y1="200" x2="212" y2="200"/><line x1="200" y1="188" x2="222" y2="188"/><line x1="200" y1="176" x2="230" y2="176"/><line x1="200" y1="164" x2="236" y2="164"/>
+<line x1="420" y1="200" x2="430" y2="200"/><line x1="420" y1="180" x2="445" y2="180"/><line x1="420" y1="160" x2="460" y2="160"/><line x1="420" y1="140" x2="472" y2="140"/><line x1="420" y1="120" x2="476" y2="120"/>
+</g>
+<line x1="200" y1="210" x2="200" y2="150" stroke="currentColor" stroke-width="0.8" opacity="0.5"/>
+<line x1="420" y1="210" x2="420" y2="110" stroke="currentColor" stroke-width="0.8" opacity="0.5"/>
+<text x="250" y="245" font-size="13" fill="currentColor">no-slip wall: u = 0</text>
+<text x="80" y="95" font-size="13" fill="currentColor">outer flow: nearly inviscid</text>
+<text x="60" y="235" font-size="12" fill="currentColor">x = 0</text>
+</svg>
+<figcaption style="text-align:center; font-size:0.9em;">Flat-plate boundary layer (vertical scale exaggerated). Viscous effects are confined below the dashed line, whose height grows as the square root of distance from the leading edge.</figcaption>
+</figure>
 
-Balancing convection $U\,\partial u/\partial x \sim U^2/L$ against cross-stream viscous diffusion $\nu\,\partial^2 u/\partial y^2 \sim \nu U/\delta^2$ shows the layer thickness $\delta$ grows as
+### Scaling and the boundary-layer equations
 
-$$\frac{\delta}{L} \sim \frac{1}{\sqrt{Re}} \quad\Longrightarrow\quad \delta(x) \sim \sqrt{\frac{\nu x}{U}}.$$
+Balancing streamwise advection $U\,\partial u/\partial x \sim U^2/x$ against cross-stream diffusion $\nu\,\partial^2 u/\partial y^2 \sim \nu U/\delta^2$ gives
 
-The layer is thin (vanishing as $Re\to\infty$) but its consequences are not. Within it, Prandtl's reduced **boundary-layer equations** apply, in which pressure is imposed by the outer potential flow and is constant across the layer:
+$$\delta(x) \sim \sqrt{\frac{\nu x}{U}} \qquad\Longrightarrow\qquad \frac{\delta}{x} \sim Re_x^{-1/2}.$$
+
+Because the layer is thin, the pressure is constant across it and is imposed by the outer flow. Prandtl's 2D **boundary-layer equations** are
 
 $$u\frac{\partial u}{\partial x} + v\frac{\partial u}{\partial y} = -\frac{1}{\rho}\frac{dp}{dx} + \nu\frac{\partial^2 u}{\partial y^2}, \qquad \frac{\partial u}{\partial x} + \frac{\partial v}{\partial y} = 0.$$
 
-For a flat plate with zero pressure gradient, this system admits the self-similar **Blasius solution**, giving a skin-friction drag coefficient $C_f \approx 1.328/\sqrt{Re_L}$.
+For a flat plate with zero pressure gradient these admit the self-similar **Blasius solution**. Its main results:
 
-### Separation and Drag
+| Quantity | Laminar (Blasius) |
+|----------|-------------------|
+| 99% thickness | $\delta_{99} \approx 5.0\,x/\sqrt{Re_x}$ |
+| Local skin-friction coefficient | $c_f \approx 0.664/\sqrt{Re_x}$ |
+| Plate-averaged drag coefficient | $C_D \approx 1.328/\sqrt{Re_L}$ |
 
-When the outer flow decelerates (an **adverse pressure gradient**, $dp/dx > 0$, on the rear of a bluff body), the slow fluid deep in the boundary layer can be brought to rest and pushed backward. The boundary layer then **separates** from the surface, shedding into a turbulent wake. Separation is the origin of **pressure (form) drag**, which dwarfs skin-friction drag for bluff bodies. It is also why dimpled golf balls fly farther: the dimples trip the boundary layer turbulent, and a turbulent layer — carrying more momentum near the wall — resists separation longer, shrinking the wake and the drag.
+On a smooth flat plate the boundary layer typically becomes turbulent around $Re_x \sim 5\times 10^5$; the turbulent layer grows faster (roughly $\delta \propto x^{4/5}$) and has much higher skin friction.
 
-The total drag on a body thus has two contributions:
+### Separation and drag
 
-$$D = \underbrace{D_{\text{friction}}}_{\text{viscous shear at wall}} + \underbrace{D_{\text{pressure}}}_{\text{fore-aft pressure asymmetry from separation}}.$$
+On the rear of a bluff body the outer flow decelerates, so the pressure rises downstream (an **adverse pressure gradient**, $dp/dx > 0$). The slow fluid near the wall cannot climb this pressure hill; the wall shear falls to zero and the flow reverses. The boundary layer **separates**, leaving a broad low-pressure wake. Drag on a body therefore has two parts:
+
+| Component | Origin | Dominates for |
+|-----------|--------|---------------|
+| Skin-friction drag | Viscous shear stress at the wall | Streamlined bodies: airfoils at small angle, ship hulls |
+| Pressure (form) drag | Fore-aft pressure asymmetry caused by separation | Bluff bodies: spheres, cylinders, trucks |
+
+A turbulent boundary layer carries more momentum close to the wall and resists separation longer. On a sphere, the transition moves separation rearward and the drag coefficient falls abruptly from about $0.47$ to about $0.1$ near $Re \approx 3\times 10^5$ — the **drag crisis**. Golf-ball dimples trip the layer to turbulence at lower $Re$ so the ball operates beyond the crisis at typical speeds.
+
+## Compressible Flow
+
+When $Ma$ is not small, density varies significantly and the energy equation couples to momentum. For an ideal gas the speed of sound is $c = \sqrt{\gamma p/\rho} = \sqrt{\gamma R_s T}$ (about 343 m/s in air at 20 °C, with $\gamma = 1.4$).
+
+| Regime | Mach number | Features |
+|--------|-------------|----------|
+| Incompressible | $Ma \lesssim 0.3$ | Density changes negligible |
+| Subsonic | $0.3 \lesssim Ma < 0.8$ | Compressibility corrections (Prandtl-Glauert) |
+| Transonic | $0.8 \lesssim Ma \lesssim 1.2$ | Local supersonic pockets terminated by shocks; drag rise |
+| Supersonic | $1.2 \lesssim Ma < 5$ | Shock and expansion waves; Mach cones with half-angle $\arcsin(1/Ma)$ |
+| Hypersonic | $Ma \gtrsim 5$ | Thin shock layers, strong heating, real-gas chemistry |
+
+For steady isentropic flow the stagnation temperature and pressure relative to local values are
+
+$$\frac{T_0}{T} = 1 + \frac{\gamma-1}{2}Ma^2, \qquad \frac{p_0}{p} = \left(1 + \frac{\gamma-1}{2}Ma^2\right)^{\gamma/(\gamma-1)}.$$
+
+In a duct of slowly varying area $A$, mass conservation combined with the momentum equation gives
+
+$$\frac{dA}{A} = \left(Ma^2 - 1\right)\frac{du}{u}.$$
+
+Subsonic flow speeds up in a converging duct; supersonic flow speeds up in a *diverging* one. To accelerate a gas from rest to supersonic speed requires a **converging-diverging (de Laval) nozzle** with $Ma = 1$ at the throat — the shape of every rocket nozzle.
+
+### Shock waves
+
+Because disturbances travel at $c$ relative to the fluid, supersonic flow cannot signal ahead, and compressions steepen into **shock waves**: layers a few mean free paths thick across which pressure, density, and temperature jump. Mass, momentum, and energy conservation across a normal shock (the Rankine-Hugoniot conditions) give the downstream Mach number
+
+$$Ma_2^2 = \frac{1 + \frac{\gamma-1}{2}Ma_1^2}{\gamma Ma_1^2 - \frac{\gamma-1}{2}}.$$
+
+Flow behind a normal shock is always subsonic, and entropy increases across it — the second law is what forbids "expansion shocks". The mathematical theory of shocks as weak (discontinuous) solutions of hyperbolic conservation laws, and the associated numerical shock-capturing schemes, is a major field in its own right.
+
+## Instability and Transition
+
+Laminar flows lose stability through a small number of recurring mechanisms:
+
+| Instability | Mechanism | Example |
+|-------------|-----------|---------|
+| Kelvin-Helmholtz | Velocity shear across an interface | Billow clouds, mixing layers |
+| Rayleigh-Taylor | Heavy fluid above light fluid in a gravitational (or accelerating) field | Supernova remnants, inertial-confinement fusion capsules |
+| Rayleigh-Bénard | Buoyancy in a fluid heated from below, $Ra > Ra_c$ | Convection cells in pans, mantle, stars |
+| Tollmien-Schlichting | Viscous wave instability of boundary layers | Natural transition on smooth wings |
+| Taylor-Couette | Centrifugal instability between rotating cylinders | Taylor vortices |
+
+Linear stability theory (the Orr-Sommerfeld equation for parallel shear flows) predicts onset for some of these, but pipe flow and plane Couette flow are linearly stable at all $Re$ and still become turbulent. **Subcritical transition** in such flows proceeds through finite-amplitude disturbances, transient (non-normal) energy growth, and exact unstable "coherent state" solutions of Navier-Stokes that organize the turbulent dynamics.
 
 ## Turbulence
 
-At high Reynolds number, laminar flow becomes unstable and gives way to **turbulence**: a three-dimensional, chaotic, rotational, and highly diffusive state of motion spanning an enormous range of scales. Turbulence is deterministic (it obeys Navier-Stokes) yet so sensitive to initial conditions that it is treated statistically. Richard Feynman called it "the most important unsolved problem of classical physics."
+At high $Re$ the flow becomes **turbulent**: three-dimensional, rotational, chaotic, and strongly mixing, with motion across a wide range of scales. It is deterministic but so sensitive to initial conditions that it is described statistically.
 
-### The Energy Cascade
+### The energy cascade
 
-Lewis Fry Richardson captured the essential picture in verse: *"Big whorls have little whorls that feed on their velocity, and little whorls have lesser whorls and so on to viscosity."* Energy is injected at large scales $L$ (the integral scale), then transferred — through the vortex-stretching nonlinearity — to successively smaller eddies in an essentially inviscid **cascade**, until it reaches scales small enough for viscosity to dissipate it into heat.
+Richardson (1922): *"Big whorls have little whorls that feed on their velocity, and little whorls have lesser whorls and so on to viscosity."* Energy is injected at the **integral scale** $L$, transferred by vortex stretching to progressively smaller eddies with negligible loss, and dissipated as heat at the smallest scales.
 
-### Kolmogorov's 1941 Theory
+```mermaid
+graph LR
+    INJ["Energy injection<br/>integral scale L<br/>(stirring, shear, buoyancy)"] --> INR["Inertial range<br/>eta much less than l much less than L<br/>transfer rate = epsilon"]
+    INR --> DIS["Dissipation range<br/>Kolmogorov scale eta<br/>viscous heating"]
+```
 
-Andrey Kolmogorov made this quantitative. Assume that at scales much smaller than $L$ but larger than the dissipation scale (the **inertial range**), the statistics depend only on the energy dissipation rate per unit mass $\varepsilon$ and the scale. Dimensional analysis then fixes everything. The smallest eddies have the **Kolmogorov microscale**
+In 2D the picture changes: vortex stretching is absent, enstrophy is conserved by the nonlinearity, and energy cascades to *larger* scales (an inverse cascade) while enstrophy cascades to smaller ones. Large-scale atmospheric and oceanic flows, and soap-film experiments, show aspects of this behavior.
 
-$$\eta = \left(\frac{\nu^3}{\varepsilon}\right)^{1/4},$$
+### Kolmogorov 1941 theory
 
-and the ratio of largest to smallest scales grows as $L/\eta \sim Re^{3/4}$. The famous **five-thirds law** gives the energy spectrum in the inertial range:
+Kolmogorov assumed that at scales well below $L$ the statistics are universal and depend only on the mean dissipation rate per unit mass $\varepsilon$ and, at the smallest scales, on $\nu$. Dimensional analysis then gives the **Kolmogorov microscale**, the inertial-range **energy spectrum**, and the scale separation:
 
-$$E(k) = C\,\varepsilon^{2/3} k^{-5/3},$$
+$$\eta = \left(\frac{\nu^3}{\varepsilon}\right)^{1/4}, \qquad E(k) = C_K\,\varepsilon^{2/3} k^{-5/3}, \qquad \frac{L}{\eta} \sim Re^{3/4},$$
 
-where $k$ is wavenumber and $C \approx 1.5$ is a universal constant. This spectrum has been confirmed in countless experiments and is one of the triumphs of turbulence theory.
+with $C_K \approx 1.5$. The $-5/3$ spectrum is well confirmed in the atmosphere, oceans, and laboratory flows. Kolmogorov's **four-fifths law**, $\langle(\delta u_\parallel)^3\rangle = -\tfrac{4}{5}\varepsilon r$ for the third-order longitudinal velocity increment, is one of the few exact results in turbulence.
 
-### The Closure Problem and Modeling
+Two refinements matter in practice:
 
-The deep obstacle to a complete theory is the **closure problem**. Averaging Navier-Stokes (the **Reynolds decomposition** $\mathbf{u} = \bar{\mathbf{u}} + \mathbf{u}'$) produces equations for the mean flow that contain a new unknown, the **Reynolds stress tensor**
+- **Intermittency.** Dissipation is concentrated in sparse, intense structures (vortex filaments and sheets), so higher-order structure functions $\langle|\delta u(r)|^p\rangle \sim r^{\zeta_p}$ deviate from the K41 prediction $\zeta_p = p/3$. Multifractal models (for example She-Leveque) fit the measured exponents.
+- **Dissipative anomaly.** Measured $\varepsilon$ becomes independent of $\nu$ as $\nu \to 0$ (the "zeroth law" of turbulence). Onsager conjectured in 1949 that this requires velocity fields rougher than Hölder-$1/3$. Both directions are now theorems: fields smoother than $1/3$ conserve energy (Constantin-E-Titi, 1994), and Isett (2018), building on convex-integration work of De Lellis and Székelyhidi, constructed energy-dissipating Euler solutions with any Hölder exponent below $1/3$.
 
-$$\tau^R_{ij} = -\rho\,\overline{u_i' u_j'},$$
+### The closure problem and turbulence modeling
 
-representing momentum transport by turbulent fluctuations. Writing an equation for this term introduces yet higher-order unknowns, and so on forever — the equations never close. Practical computation therefore relies on *models*:
+The **Reynolds decomposition** $\mathbf{u} = \bar{\mathbf{u}} + \mathbf{u}'$ into mean and fluctuation, averaged, yields equations for $\bar{\mathbf{u}}$ containing the **Reynolds stress**
 
-- **RANS** (Reynolds-Averaged Navier-Stokes): model the Reynolds stress, e.g. via $k$-$\varepsilon$ or $k$-$\omega$ turbulence models. Cheap; the workhorse of engineering.
-- **LES** (Large-Eddy Simulation): resolve the large, energy-containing eddies directly and model only the small subgrid scales.
-- **DNS** (Direct Numerical Simulation): resolve every scale down to $\eta$. Exact but staggeringly expensive — the number of grid points scales as $Re^{9/4}$, putting most engineering Reynolds numbers far out of reach.
+$$\tau^R_{ij} = -\rho\,\overline{u_i' u_j'}.$$
 
-## The Clay Millennium Problem
+An equation for $\tau^R_{ij}$ contains third-order correlations, and so on — the hierarchy never closes. Practical computation relies on models:
 
-The incompressible Navier-Stokes equations describe the world with spectacular accuracy, yet we cannot prove they always have sensible solutions. The **Navier-Stokes existence and smoothness problem** is one of the seven Clay Mathematics Institute Millennium Prize Problems, carrying a US \$1,000,000 award.
+| Approach | What is resolved | What is modeled | Cost scaling | Typical use |
+|----------|------------------|-----------------|--------------|-------------|
+| RANS | Mean flow only | All turbulence (e.g. $k$-$\varepsilon$, $k$-$\omega$ SST, Spalart-Allmaras) | Weak in $Re$ | Industrial design, most commercial CFD |
+| LES | Energy-containing eddies | Subgrid scales (Smagorinsky, dynamic, wall models) | Grid points $\sim Re^{13/7}$ wall-resolved; $\sim Re$ wall-modeled (Choi-Moin, 2012) | Combustion, acoustics, separated flows |
+| DNS | Every scale down to $\eta$ | Nothing | Grid points $\sim Re^{9/4}$ | Research, model development |
 
-**The open question, precisely.** Given smooth, finite-energy initial velocity data in three dimensions, does the incompressible Navier-Stokes equation always possess a smooth solution for all time? Or can the nonlinear vortex-stretching term concentrate energy at ever-smaller scales until the velocity (or its gradients) blows up to infinity in finite time — a *singularity*? No one knows. We cannot prove solutions stay smooth, and we cannot exhibit a counterexample.
+Hybrid RANS-LES methods (detached-eddy simulation and its variants) and wall-modeled LES are the current compromise for high-$Re$ engineering flows. Machine-learned closures and GPU-native solvers are active areas; see [Finite Elements & Fluid Dynamics](computational-physics/fem-and-cfd.html) and [Machine Learning for Physics](computational-physics/ml-for-physics.html).
 
-The state of knowledge is sharply asymmetric:
+## Open Mathematics: The Navier-Stokes Problem
 
-- **Two dimensions:** the problem is solved. Smooth global solutions are known to exist and be unique. The crucial reason is that vortex stretching vanishes in 2D, so vorticity cannot intensify uncontrollably.
-- **Three dimensions:** only partial results exist. Jean Leray (1934) proved the existence of **weak solutions** for all time, but these are not known to be unique or smooth. Local-in-time smooth solutions exist; whether they persist for all time is the open question. Partial regularity theory (Caffarelli-Kohn-Nirenberg, 1982) shows that any singular set must be very small (parabolic Hausdorff dimension at most one), but cannot rule it out.
+The **Navier-Stokes existence and smoothness problem** is one of the seven Clay Mathematics Institute Millennium Prize Problems (prize: one million US dollars). As of 2026 it remains unsolved.
 
-The difficulty is fundamentally the same nonlinearity that produces turbulence: the convective term $(\mathbf{u}\cdot\nabla)\mathbf{u}$ couples all scales and can, in principle, drive energy toward a singularity faster than viscosity can dissipate it. Resolving the problem would not only earn the prize — it would mean genuinely understanding turbulence at the level of the equations themselves.
+**Statement.** For smooth, divergence-free, finite-energy initial data in three dimensions (on $\mathbb{R}^3$ with suitable decay, or on a periodic box), does the incompressible Navier-Stokes system always have a smooth solution for all time — or can a solution develop a singularity, with velocity gradients becoming infinite in finite time? A proof of either global regularity or of a blow-up example would win the prize.
 
-## Key Takeaways
+| Setting | Status |
+|---------|--------|
+| 2D Navier-Stokes and 2D Euler | Global smooth solutions exist and are unique (no vortex stretching) |
+| 3D Navier-Stokes, small data or short times | Smooth solutions exist |
+| 3D Navier-Stokes, weak solutions | Leray (1934): global weak solutions exist; uniqueness and smoothness unknown |
+| Size of possible singular set | Caffarelli-Kohn-Nirenberg (1982): one-dimensional parabolic Hausdorff measure zero |
+| Non-uniqueness | Buckmaster-Vicol (2019): non-unique weak solutions (weaker than Leray's class); Albritton-Brué-Colombo (2022): non-unique Leray-Hopf solutions with a suitable forcing |
+| Model equations | Tao (2016): an averaged Navier-Stokes equation with the same energy identity blows up — so any regularity proof must use finer structure of the nonlinearity |
+| 3D Euler with a boundary | Chen-Hou (2022, computer-assisted proof): finite-time blow-up from smooth data in the Luo-Hou scenario |
 
-- **Fluids are continua.** For $Kn \ll 1$ we replace molecules with smooth fields and write conservation laws as PDEs for $\rho$, $\mathbf{u}$, and $p$.
-- **Follow the parcel.** The material derivative $D/Dt = \partial_t + \mathbf{u}\cdot\nabla$ turns Newton's law into the Euler and Navier-Stokes equations.
-- **Viscosity is the difference.** Adding the Newtonian viscous stress $\mu\nabla^2\mathbf{u}$ to Euler gives Navier-Stokes and enforces no-slip at walls.
-- **One number rules the regime.** The Reynolds number $Re = UL/\nu$ sets dynamic similarity and the laminar-to-turbulent transition.
-- **Viscosity hides in thin layers.** Boundary layers ($\delta/L \sim Re^{-1/2}$) carry the drag and resolve d'Alembert's paradox via separation.
-- **Turbulence is still open.** Kolmogorov's $-5/3$ cascade describes it statistically, but 3D Navier-Stokes smoothness is an unsolved Millennium Problem.
+The Euler results matter because Euler is the $\nu = 0$ limit, and singularity scenarios found there are candidate starting points for Navier-Stokes. In 2025 a collaboration led by Google DeepMind researchers with academic mathematicians (Wang, Buckmaster, Gómez-Serrano and others) used physics-informed neural networks and high-precision optimization to discover families of **unstable** self-similar blow-up solutions for the incompressible porous media equation and the 3D Euler equations with boundary, computed to accuracy approaching machine precision — a level intended to support computer-assisted proofs. Unstable singularities are thought to be the relevant kind for the viscous problem, since generic data would avoid them.
+
+The obstacle in every approach is the same nonlinearity that drives turbulence: the convective term transfers energy to small scales, and the energy inequality alone is not strong enough to rule out concentration at a point faster than viscosity can smooth it.
 
 ## See Also
 
-- [Classical Mechanics](classical-mechanics/) — Newton's laws and the variational principles fluid mechanics is built on.
-- [Thermodynamics](thermodynamics.html) — the energy equation and equation of state for compressible flow.
-- [Statistical Mechanics](statistical-mechanics/) — the kinetic-theory foundation underneath the continuum hypothesis.
-- [Computational Physics](computational-physics/) — numerical methods for PDEs, CFD, and turbulence simulation.
-- [Physics Hub](index.html) — browse all physics topics.
+- [Classical Mechanics](classical-mechanics/) — Newton's laws and variational principles that fluid mechanics builds on.
+- [Oscillations & Waves](classical-mechanics/waves.html) — linear waves, dispersion, and the wave equation.
+- [Chaos & Nonlinear Dynamics](classical-mechanics/chaos-and-computational.html) — sensitive dependence and strange attractors, the dynamical-systems view of turbulence.
+- [Thermodynamics](thermodynamics.html) — equations of state and the energy equation for compressible flow.
+- [Statistical Mechanics](statistical-mechanics/) — kinetic theory beneath the continuum hypothesis.
+- [Finite Elements & Fluid Dynamics](computational-physics/fem-and-cfd.html) — CFD discretizations and turbulence simulation.
 - [Physics Reference](../reference/#physics-formulas--constants) — constants, key equations, and unit conversions.

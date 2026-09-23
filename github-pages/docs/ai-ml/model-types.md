@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Model Types Explained
+description: "The components of a text-to-image pipeline (denoiser, text encoder, VAE) and the add-ons that modify them (LoRA, ControlNet, image adapters, embeddings), with file formats, precision variants, and compatibility rules."
 permalink: /docs/ai-ml/model-types.html
 parent: AI/ML Documentation
 nav_order: 5
@@ -12,440 +13,317 @@ toc_icon: "cog"
 
 [AI/ML Documentation](./) &raquo; Model Types Explained
 
-A practical guide to the building blocks of AI image generation: what each component does, when to use it, and how they work together.
+A diffusion image generator is not one file. It is a pipeline of separately trained networks: a **text encoder** that turns the prompt into embeddings, a **denoiser** (U-Net or diffusion transformer) that generates in a compressed latent space, and a **VAE** that decodes latents into pixels. Around that core sit **add-ons**: LoRAs and other adapters that change the denoiser's behavior, and control models that steer it with images. This page explains what each component is, how the model families differ, which file formats and precisions you will run into, and what is compatible with what.
 
-## Quick Reference: Model Types at a Glance
+## Quick Reference
 
-Start here. This table is the at-a-glance map of every component covered on this page — skim it to find what you need, then jump to the matching section below for detail. The two structural sections that follow ([How Components Work Together](#how-components-work-together) and the per-component reference) explain the *why*; the [decision guide at the end](#choosing-models-a-decision-guide) ties them together into a recommended build order.
+| Component | Role | Required? | Typical size | Details |
+|-----------|------|-----------|--------------|---------|
+| Denoiser (U-Net / DiT) | Generates the image in latent space; the "model" | Yes | 1.7-64 GB | [Base models](#base-models-and-families) |
+| Text encoder | Converts the prompt into conditioning vectors | Yes | 0.25-48 GB | [Text encoders](#text-encoders) |
+| VAE | Encodes pixels to latents and decodes latents to pixels | Yes | 80-350 MB | [VAE](#vae-variational-autoencoder) |
+| LoRA / LyCORIS | Small learned weight delta: style, character, concept | No | 5-500 MB | [LoRA](#lora-and-lycoris) |
+| ControlNet / control LoRA | Conditions on structure (pose, depth, edges) | No | 0.3-3.5 GB | [ControlNet](#controlnet-and-structural-control) |
+| Image adapter / edit model | Uses reference images for style, identity, or edits | No | 0.1-20 GB | [Image prompting](#image-prompting-and-editing) |
+| Embedding (textual inversion) | New "word" vectors for a CLIP text encoder | No | 4-200 KB | [Embeddings](#embeddings-textual-inversion) |
 
-| Component | What It Does | When You Need It | Size | Detail |
-|-----------|-------------|------------------|------|--------|
-| Checkpoint | The complete base model | Always required | 2-12 GB | [Jump](#base-models-checkpoints) |
-| LoRA | Adds styles, characters, or concepts | Custom content | 10-300 MB | [Jump](#lora-low-rank-adaptation) |
-| VAE | Handles image compression/decompression | Usually included, swap for color issues | 300-500 MB | [Jump](#vae-variational-autoencoder) |
-| Text Encoder | Interprets your prompt | Usually included, rarely changed | 500 MB-10 GB | [Jump](#text-encoders-clip-and-t5) |
-| ControlNet | Guides composition with reference images | Precise pose/layout control | 1-2 GB | [Jump](#controlnet) |
-| Embedding | Teaches new words to the text encoder | Simple concepts, quality tags | 10-100 KB | [Jump](#embeddings-textual-inversions) |
-| IP-Adapter | Uses images as prompts | Style transfer, character consistency | 500 MB-1 GB | [Jump](#ip-adapter) |
+A **checkpoint** in the SD 1.5/SDXL sense is a single `.safetensors` file that bundles the denoiser, text encoder(s), and VAE. Newer and larger models are usually distributed as **separate component files** instead, because the text encoder alone can be larger than an entire SDXL checkpoint and is often swapped for a quantized copy.
 
-> **In a hurry?** You only *need* a checkpoint to start. Everything else is optional and additive. Skip to [Choosing Models: A Decision Guide](#choosing-models-a-decision-guide) for a build order, or read on for what each piece does.
-
-### Why Understanding Model Types Matters
-
-When you generate an image, multiple specialized components work together. Understanding what each one does helps you:
-
-- **Troubleshoot problems** - Know which component to adjust when results disappoint
-- **Optimize your setup** - Use the right models for your hardware and goals
-- **Combine models effectively** - Stack LoRAs and choose compatible components
-- **Make informed downloads** - Understand what you are getting from model repositories
-
-You do not need to understand every model type before generating images. Start with a base model (checkpoint) and add components as your needs grow. This guide serves as a reference for when you want to customize your workflow.
-
-## How Components Work Together
-
-The generation pipeline flows through several stages, with optional components plugging into the U-Net:
+## How the Components Fit Together
 
 ```mermaid
-flowchart TD
-    Prompt["Your prompt"] --> TE["Text Encoder<br/>(CLIP / T5)"]
-    Embed["Embeddings<br/>(textual inversion)"] -.-> TE
-    TE --> UNet["U-Net / DiT<br/>(denoiser)"]
-    LoRA["LoRA"] -.modifies.-> UNet
-    CN["ControlNet / IP-Adapter"] -.guides.-> UNet
-    UNet --> Latent["Latent space"]
-    Latent --> VAE["VAE decode"]
-    VAE --> Image["Final image"]
+flowchart LR
+    Prompt["Prompt"] --> TE["Text encoder<br/>CLIP / T5 / LLM"]
+    Emb["Embeddings"] -.-> TE
+    TE -->|conditioning| Den["Denoiser<br/>U-Net or DiT"]
+    Noise["Random latent noise"] --> Den
+    Den -->|"repeat N steps"| Den
+    LoRA["LoRA / LyCORIS"] -.->|"patches weights"| Den
+    Ctrl["ControlNet"] -.->|"adds residuals"| Den
+    IPA["Image adapter /<br/>reference image"] -.->|"extra attention input"| Den
+    Den --> Lat["Clean latent"]
+    Lat --> VAE["VAE decoder"]
+    VAE --> Img["Image"]
 ```
 
-Each component can be swapped or enhanced independently. This modularity is what makes the ecosystem so flexible: the dashed arrows are optional add-ons that steer or augment the base model without retraining it.
+1. The **text encoder** runs once per prompt and produces a sequence of embedding vectors (plus, for some models, a pooled summary vector).
+2. The **denoiser** starts from random noise in latent space and removes noise over a series of steps (roughly 20-50 for standard models, 1-8 for distilled ones). At each step it attends to the text embeddings. Classifier-free guidance (CFG) usually runs it twice per step, once with and once without the prompt.
+3. The **VAE decoder** turns the final latent into pixels. For all current families the latent is 8x smaller than the image in each spatial dimension, so a 1024x1024 image is denoised as a 128x128 latent.
 
----
+The dashed add-ons never replace the base model. A LoRA patches its weights, a ControlNet injects extra features, and an image adapter adds another input for attention. That is why add-ons are tied to one specific base architecture. See [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) for the underlying diffusion process.
 
-## Component Reference
+## Base Models and Families
 
-The sections below cover each component in turn — what it is, when to reach for it, and how to use it well. They follow the pipeline order from the [Quick Reference](#quick-reference-model-types-at-a-glance): the required checkpoint first, then the optional add-ons that plug into it. Skip to whichever one you came for.
+The denoiser defines the **family**, and the family decides which text encoder, VAE, LoRAs, and control models are compatible. The field moved from convolutional U-Nets (SD 1.5, SDXL) to **diffusion transformers** (DiT/MMDiT) trained with flow matching (SD3, FLUX, Qwen-Image, Z-Image), and from CLIP text encoders to T5 and then to full LLM or vision-language encoders.
 
-## Base Models (Checkpoints)
+| Family | Released | Denoiser | Params | Text encoder(s) | Latent channels | License (weights) |
+|--------|----------|----------|--------|-----------------|-----------------|-------------------|
+| SD 1.5 | 2022 | U-Net | ~0.86B | CLIP ViT-L/14 | 4 | CreativeML OpenRAIL-M |
+| SDXL (and Pony, Illustrious, NoobAI) | 2023 | U-Net | ~2.6B | CLIP ViT-L + OpenCLIP ViT-bigG | 4 | OpenRAIL++-M |
+| SD 3.5 Large / Medium | 2024 | MMDiT | 8.1B / 2.5B | CLIP-L + CLIP-G + T5-XXL | 16 | Stability Community |
+| FLUX.1 [dev] / [schnell] | 2024 | MMDiT + single-stream DiT | 12B | CLIP-L + T5-XXL | 16 | Non-commercial / Apache 2.0 |
+| FLUX.2 [dev] | Nov 2025 | DiT | 32B | Mistral Small 3.x (24B) | New FLUX.2 VAE | Non-commercial |
+| FLUX.2 [klein] | Jan 2026 | DiT | 4B / 9B | Qwen3 | FLUX.2 VAE | 4B: Apache 2.0; 9B: non-commercial |
+| Qwen-Image | Aug 2025 | MMDiT | 20B | Qwen2.5-VL 7B | 16 | Apache 2.0 |
+| Z-Image (Turbo) | Late 2025 | Single-stream DiT | 6B | Qwen3-4B | 16 | Apache 2.0 |
 
-Checkpoints are complete models that can generate images on their own. Every other component modifies or enhances what a checkpoint can do.
+Parameter counts are for the denoiser only. Check each model card for exact license terms, which vary between variants. Pony Diffusion V6, Illustrious-XL, and NoobAI-XL are SDXL-architecture fine-tunes: they load anywhere SDXL loads, but their LoRAs work best within their own lineage. See [Pony and Fine-Tunes](pony-and-finetunes.html), [SDXL](sdxl-guide.html), [SD3](sd3-guide.html), [FLUX](flux-guide.html), and [Base Models Comparison](base-models-comparison.html) for per-family guidance.
 
-### Choosing a Checkpoint
+### Choosing a base model by content
 
-Your checkpoint choice fundamentally shapes your results. Different checkpoints excel at different content types:
+| Goal | Good starting points |
+|------|----------------------|
+| General-purpose, prompt adherence | FLUX.1 [dev], FLUX.2, Qwen-Image |
+| Legible text in images, layouts, posters | Qwen-Image, FLUX.2, Z-Image |
+| Photorealism on consumer GPUs | Z-Image Turbo, FLUX.1 fine-tunes, SDXL photo fine-tunes (e.g. Juggernaut XL, RealVisXL) |
+| Anime / illustration | Illustrious-XL and NoobAI-XL derivatives, Pony V6 |
+| Low VRAM (6-8 GB), huge LoRA ecosystem | SDXL fine-tunes; SD 1.5 for very old hardware |
+| Instruction-based editing | FLUX.1 Kontext [dev], Qwen-Image-Edit, FLUX.2 (multi-reference) |
 
-| Checkpoint Type | Best For | Examples |
-|-----------------|----------|----------|
-| General purpose | Wide variety of content | SDXL Base, SD 1.5 |
-| Photorealistic | Photographs, portraits | Juggernaut, RealVisXL |
-| Anime/Illustration | Stylized art, characters | Pony, Anything v5 |
-| Artistic | Paintings, creative styles | Deliberate, DreamShaper |
+## File Formats and Precision Variants
 
-### File Formats Explained
+### Container formats
 
-| Format | Extension | Why Choose It |
-|--------|-----------|---------------|
-| SafeTensors | .safetensors | Preferred - secure and fast loading |
-| CKPT | .ckpt | Legacy - only if SafeTensors unavailable |
-| GGUF | .gguf | Quantized - smaller size, lower VRAM |
-| Diffusers | folder | HuggingFace - for programmatic use |
+| Format | Extension | Notes |
+|--------|-----------|-------|
+| SafeTensors | `.safetensors` | The standard. Stores tensors only, so it cannot run code; memory-mappable and fast to load |
+| Pickle checkpoint | `.ckpt`, `.pt`, `.bin` | Legacy. Python pickle can execute arbitrary code on load; avoid untrusted files |
+| GGUF | `.gguf` | Block-quantized weights (from llama.cpp), loaded in ComfyUI via the ComfyUI-GGUF custom nodes |
+| Diffusers folder | directory with `model_index.json` | Hugging Face layout, one subfolder per component; used from Python |
 
-**When to use quantized models:** If a full checkpoint exceeds your VRAM, look for fp16 or fp8 versions. Quality loss is minimal for most uses.
+### Single-file vs. split components
 
-## LoRA (Low-Rank Adaptation)
+SD 1.5 and SDXL are usually shared as one all-in-one checkpoint. FLUX, SD 3.5, Qwen-Image, Z-Image, and video models such as Wan are usually shared as **separate files**: a diffusion-model file, one or more text-encoder files, and a VAE file. In ComfyUI these go in different folders and use different loader nodes, such as *Load Diffusion Model*, *Load CLIP* / *DualCLIPLoader*, and *Load VAE*.
 
-LoRAs are the most common way to customize base models. They teach existing models new styles, characters, or concepts without replacing the entire checkpoint.
+### Precision variants
 
-### Why Use LoRAs
+The same model is often published at several precisions. Smaller variants need less VRAM. Quality loss is negligible at 8 bits and noticeable in fine detail at 4 bits.
 
-- **Small size** - A 50MB LoRA can add a new art style that would require a 6GB checkpoint otherwise
-- **Combinable** - Stack multiple LoRAs to get character + style + enhancement together
-- **Preserves flexibility** - The base model retains all its capabilities
+| Variant | Bits per weight | Size vs. BF16 | Runs fast on | Notes |
+|---------|-----------------|---------------|--------------|-------|
+| `bf16` / `fp16` | 16 | 1x | Any modern GPU | Reference quality |
+| `fp8_e4m3fn` (and "scaled" fp8) | 8 | ~0.5x | Ada, Hopper, Blackwell (older GPUs upcast) | The most common way to fit FLUX-class models |
+| GGUF `Q8_0` | ~8.5 | ~0.53x | Any GPU (dequantized on the fly) | Close to bf16 quality |
+| GGUF `Q5_K` / `Q4_K` | ~5.5 / ~4.5 | ~0.35x / ~0.3x | Any GPU | Lets 12B-20B models run on 8-12 GB cards |
+| NVFP4 / SVDQuant (Nunchaku) | ~4 | ~0.28x | Blackwell (FP4); SVDQuant INT4 on older GPUs | Also *faster*, not just smaller |
 
-### Types of LoRAs
+For the mechanics of these formats, see [Model Compression](model-compression.html#quantization) and [Optimization & Performance](optimization-guide.html#quantization-for-diffusion-models).
 
-| LoRA Type | What It Adds | Typical Strength | Use Case |
-|-----------|-------------|------------------|----------|
-| Style | Artistic rendering style | 0.6-1.0 | "Watercolor painting", "80s anime" |
-| Character | Specific person/character | 0.7-0.9 | Consistent character across images |
-| Concept | Objects, poses, clothing | 0.5-0.8 | Specific items or compositions |
-| Enhancement | Quality improvements | 0.3-0.6 | Detail boost, hand fixes |
+## Text Encoders
 
-### Using LoRAs Effectively
+The text encoder decides how well a model understands the prompt. Each generation of models has used a more capable encoder:
 
-**Strength settings:** Start at 0.7 and adjust. Too high causes artifacts; too low has no effect.
+| Encoder | Used by | Max tokens | Best prompt style |
+|---------|---------|------------|-------------------|
+| CLIP ViT-L/14 | SD 1.5 (and SDXL, SD3, FLUX.1 as a second encoder) | 77 per chunk | Comma-separated tags and short phrases |
+| OpenCLIP ViT-bigG | SDXL, SD 3.5 (as "CLIP-G") | 77 per chunk | Tags plus short sentences |
+| T5-XXL (encoder only, ~4.7B) | SD 3.5, FLUX.1 | 256 (schnell) / 512 (dev) | Full natural-language descriptions |
+| LLM / VLM encoders | FLUX.2 (Mistral Small), Qwen-Image (Qwen2.5-VL), Z-Image and FLUX.2 [klein] (Qwen3) | Long | Detailed natural language; understands layout, counting, and text to render |
 
-**Trigger words:** Most LoRAs require specific words in your prompt to activate. Check the model page for required triggers.
-
-**Stacking multiple LoRAs:**
-- Reduce strength as you add more (e.g., 0.7, 0.5, 0.3)
-- Watch for conflicts between similar LoRAs
-- Style + Character + Enhancement is a common effective stack
-
-### Compatibility
-
-LoRAs are only compatible with the model architecture they were trained on:
-
-| LoRA Trained On | Works With |
-|-----------------|------------|
-| SD 1.5 | SD 1.5 checkpoints only |
-| SDXL | SDXL checkpoints only |
-| FLUX | FLUX checkpoints only |
-
-Mixing architectures does not work.
-
-## Text Encoders (CLIP and T5)
-
-Text encoders translate your prompt into numbers the model understands. Different model generations use different encoders with different capabilities.
-
-### Text Encoder Comparison
-
-| Model | Text Encoder | Max Words | Prompt Style |
-|-------|--------------|-----------|--------------|
-| SD 1.5 | CLIP ViT-L | ~77 tokens | Tags and keywords |
-| SDXL | CLIP + OpenCLIP | ~77 tokens each | Mixed tags and sentences |
-| FLUX/SD3 | T5-XXL | ~256 tokens | Natural language |
-
-### When Text Encoders Matter
-
-**CLIP Skip** - For anime-style checkpoints, CLIP Skip 2 often produces better results. This setting is found in advanced options.
-
-**Prompt length** - If your prompts exceed token limits, later words get ignored. T5-based models (FLUX, SD3) handle longer prompts better.
-
-**Natural language vs tags** - CLIP understands "a cat, sitting, orange fur" well. T5 understands "An orange cat sitting on a windowsill in the afternoon sun" better.
-
-### Practical Advice
-
-Most users never need to change text encoders. Focus on writing better prompts instead. If you are using an anime checkpoint and results seem off, try CLIP Skip 2.
+- **The 77-token limit** belongs to CLIP. UIs such as ComfyUI and A1111 work around it by splitting long prompts into 77-token chunks and concatenating the embeddings, which works but weakens attention to later chunks.
+- **CLIP skip** takes the embedding from an earlier CLIP layer. Many anime fine-tunes of SD 1.5 were trained with CLIP skip 2 and look worse without it. SDXL fine-tunes vary, so follow the model card. CLIP skip has no meaning for T5 or LLM encoders.
+- **Prompt weighting** syntax such as `(word:1.3)` was designed around CLIP embeddings. Its effect on T5 and LLM encoders is weaker and less predictable.
+- **Encoder size matters for VRAM.** FLUX.1's T5-XXL is ~9.5 GB in bf16, and FLUX.2's 24B text encoder is larger than its entire denoiser was a generation ago. Loading the encoder in fp8 or GGUF, or offloading it after encoding, is often the cheapest VRAM win. The encoder runs only once per prompt, so offloading it costs almost nothing.
 
 ## VAE (Variational Autoencoder)
 
-The VAE handles the final step of converting the model's internal representation into a visible image. Most checkpoints include a VAE, but swapping it can improve colors and details.
+The **VAE** compresses images into the latent space the denoiser works in, and decodes the result back to pixels. Every family has its own VAE, and a latent from one family's denoiser cannot be decoded by another family's VAE.
 
-### When to Swap VAEs
+| VAE | Used by | Latent channels | Notes |
+|-----|---------|-----------------|-------|
+| SD 1.x VAE (`kl-f8`), `vae-ft-mse-840000-ema` | SD 1.5 | 4 | The fine-tuned MSE version gives cleaner faces; baked into most fine-tunes |
+| SDXL VAE, `sdxl-vae-fp16-fix` | SDXL, Pony, Illustrious | 4 | The original produces NaNs (black images) in fp16; use the fp16-fix or run the VAE in fp32/bf16 |
+| SD3 / FLUX.1 VAE | SD 3.5, FLUX.1 | 16 | More channels keep far more fine detail and text |
+| FLUX.2 VAE | FLUX.2 | New design | Retrained autoencoder, Apache 2.0 licensed |
 
-Change your VAE when you notice:
-- Washed-out or dull colors
-- Strange color tints
-- Lack of contrast
-- Poor skin tones in portraits
+More latent channels means less information is lost in compression. That is a large part of why the 16-channel models render small text and textures so much better than SD 1.5/SDXL.
 
-### Recommended VAEs by Use Case
+**When to change the VAE.** Consider it for faded or desaturated colors (common with SD 1.5 fine-tunes that shipped without a baked VAE), for black or NaN images from SDXL in fp16, or for a VAE mismatch after merging models. Otherwise, use the VAE that ships with the model.
 
-| Use Case | VAE Choice | Effect |
-|----------|------------|--------|
-| General SD 1.5 | vae-ft-mse-840000 | Balanced, reliable |
-| Anime/Art | vae-ft-ema-560000 | Brighter, more saturated |
-| SDXL | sdxl_vae | Optimized for SDXL resolution |
-| Photorealism | blessed2.vae | Better color accuracy |
+**Tiled VAE.** Decoding a high-resolution latent is a memory spike of its own. Tiled decoding (ComfyUI *VAE Decode (Tiled)*, diffusers `enable_vae_tiling()`) processes overlapping tiles and uses far less peak memory, at a small speed cost and occasionally faint seams.
 
-### Tiled VAE for Large Images
+## LoRA and LyCORIS
 
-If decoding high-resolution images causes memory errors, enable "Tiled VAE" in your workflow tool. This processes the image in chunks, using less memory at the cost of slightly longer processing time.
+A **LoRA** (Low-Rank Adaptation) stores a learned *difference* to some of the denoiser's weight matrices (and optionally the text encoder's) as the product of two thin matrices. At load time the difference is added to the base weights, scaled by a user-chosen strength. This makes LoRAs small and stackable, and it also means they only fit the architecture they were trained on. How LoRAs are trained is covered in [LoRA Training](lora-training.html).
 
-## ControlNet
+### Using LoRAs
 
-ControlNet gives you precise control over composition by using reference images to guide generation. Instead of hoping your prompt produces the right pose or layout, you can show the model exactly what you want.
+| LoRA purpose | Typical strength | Notes |
+|--------------|------------------|-------|
+| Style | 0.6-1.0 | Can override a base model's look entirely |
+| Character / likeness | 0.7-1.0 | Usually needs a trigger word |
+| Concept (object, pose, clothing) | 0.5-0.9 | Weaker settings blend better with other LoRAs |
+| Detail / quality tweaker | 0.2-0.6 | Some are designed to be used at negative strength too |
 
-### When to Use ControlNet
+- **Trigger words.** Many LoRAs were trained with a specific token or phrase in their captions. Include it in the prompt. It is listed on the model page or in the file's metadata (`ss_tag_frequency`).
+- **Stacking.** Effects add, so two strong LoRAs can over-saturate or distort the image. Lower each strength as you add more, and watch for LoRAs that fight over the same features, such as two faces or two styles.
+- **Model vs. CLIP strength.** ComfyUI's *LoraLoader* has separate strengths for the denoiser and the text encoder. Most modern LoRAs, including nearly all FLUX LoRAs, train only the denoiser.
 
-| Goal | ControlNet Type | How It Works |
-|------|-----------------|--------------|
-| Match a pose | OpenPose or DWPose | Extracts skeleton from reference |
-| Keep architectural structure | Canny or Depth | Preserves edges or spatial layout |
-| Turn sketch to image | Scribble | Follows rough drawn lines |
-| Match lighting/depth | Depth | Maintains 3D spatial relationships |
-| Follow reference composition | Canny | Traces important edges |
+### LyCORIS and other variants
 
-### Practical Usage
+**LyCORIS** is a family of LoRA-like parameterizations with different trade-offs. Current tools (ComfyUI, Forge, diffusers via PEFT) load the common ones directly.
 
-1. **Choose your reference image** - A photo with the pose/composition you want
-2. **Pick the right preprocessor** - Match to your control type (OpenPose for poses, Canny for edges)
-3. **Adjust strength** - Start at 0.7-1.0, lower if results are too rigid
-4. **Write your prompt** - Describe the content, let ControlNet handle composition
+| Variant | Idea | Typical use |
+|---------|------|-------------|
+| LoRA | $\Delta W = BA$, low-rank product | Default for everything |
+| LoCon | LoRA extended to convolution layers | Styles and textures on U-Net models |
+| LoHa | Hadamard product of two low-rank products | More expressive at the same file size |
+| LoKr | Kronecker-product factorization | Very small files; popular for FLUX and SDXL |
+| DoRA | Separates weight *magnitude* and *direction*, applies LoRA to direction | Often closer to full fine-tune quality |
 
-### ControlNet Strength Tips
+### Compatibility
 
-| Strength | Effect | When to Use |
-|----------|--------|-------------|
-| 0.3-0.5 | Light guidance, flexible | Loose inspiration from reference |
-| 0.7-0.9 | Strong guidance, some freedom | Most use cases |
-| 1.0+ | Strict adherence | Exact pose/layout reproduction |
+A LoRA works only with the architecture it was trained for:
 
-**Start/End percent:** For advanced control, you can have ControlNet apply only during certain steps. Early steps affect composition; later steps affect details.
+| LoRA trained on | Works with |
+|-----------------|------------|
+| SD 1.5 | SD 1.5 and its fine-tunes |
+| SDXL | SDXL, Pony, Illustrious, NoobAI (best within the same lineage) |
+| SD 3.5 Large / Medium | The same SD 3.5 size only |
+| FLUX.1 [dev] | FLUX.1 [dev], [schnell], and FLUX.1 fine-tunes (quality varies on schnell) |
+| FLUX.2, Qwen-Image, Z-Image | Only the same model family (and usually the same size) |
 
-## Embeddings (Textual Inversions)
+Loading a LoRA on the wrong architecture fails outright ("keys not found" or shape mismatch) or does nothing. Loading an SDXL LoRA on a *distant* SDXL fine-tune loads fine but can give weak or odd results.
 
-Embeddings are tiny files (usually under 100KB) that teach the text encoder new words. They are simpler and smaller than LoRAs but less powerful.
+## ControlNet and Structural Control
 
-### When Embeddings Make Sense
+A **ControlNet** is a trainable copy of the denoiser's encoder that takes a control image (pose skeleton, depth map, edges, and so on) and adds its features into the base model, so the output follows that structure. Full coverage, including preprocessors, is in [ControlNet](controlnet.html).
 
-| Use Case | Why Embedding | Why Not LoRA |
-|----------|---------------|--------------|
-| Negative prompts | "EasyNegative" captures many bad patterns | Overkill for quality filtering |
-| Simple concepts | Quick to train, easy to share | LoRA needed for complex concepts |
-| Combining many | Dozens can stack with minimal overhead | LoRAs consume more memory |
+| Goal | Control type | Preprocessor output |
+|------|--------------|---------------------|
+| Match a human pose | OpenPose / DWPose | Stick-figure skeleton |
+| Keep spatial layout and depth | Depth (Depth Anything, MiDaS) | Grayscale depth map |
+| Keep outlines precisely | Canny, Lineart | Edge map |
+| Sketch to image | Scribble, Lineart | Rough strokes |
+| Keep composition loosely | Tile, Blur | Downscaled / blurred source |
 
-### Common Negative Embeddings
+- **Union / Pro models.** A single ControlNet that accepts many control types, such as Xinsir's ControlNet Union for SDXL and InstantX/Shakker Union for FLUX.1. One file replaces a folder of single-purpose models.
+- **Lighter alternatives.** T2I-Adapters are small and fast. For FLUX.1, Black Forest Labs' official *FLUX.1 Canny/Depth* came as both full models and control LoRAs.
+- **Strength and timing.** Strength 0.5-0.8 guides the image while leaving the model room to work. 1.0 is strict. Applying control only over the first 30-60% of steps (*start/end percent*) fixes composition and leaves details free.
 
-These popular embeddings improve quality when added to negative prompts:
+## Image Prompting and Editing
 
-- **EasyNegative** - General quality improvement
-- **BadHands** - Reduces hand deformities
-- **NG_DeepNegative** - Alternative quality filter
+Several kinds of model let a *reference image* steer generation. They differ in what they take from the image:
 
-### Using Embeddings
+| Approach | Examples | What it takes from the reference |
+|----------|----------|----------------------------------|
+| Image-prompt adapters | IP-Adapter (Plus, FaceID), FLUX.1 Redux | Style, subject, overall look, via image embeddings in extra cross-attention |
+| Identity adapters | InstantID, PuLID | A specific face, kept consistent across poses |
+| Instruction editing models | FLUX.1 Kontext, Qwen-Image-Edit | Whole image, changed according to a text instruction ("make it night", "replace the text") |
+| Native multi-reference | FLUX.2 | Several reference images combined in one generation |
 
-Add the embedding name to your prompt:
-- Positive: `"photo in xyz_style, portrait"`
-- Negative: `"EasyNegative, blurry, low quality"`
+**Adapters vs. ControlNet.** An image adapter says what the output should *look like* (style, identity, content). A ControlNet says where things should *be* (structure). They combine well: IP-Adapter for style plus OpenPose for pose gives a specific character in a specific pose.
 
-Most workflow tools automatically load embeddings from a designated folder.
+Edit models have taken over much of what inpainting and adapter stacks used to do. See [Inpainting & Editing](inpainting-editing.html).
 
-## Hypernetworks
+## Embeddings (Textual Inversion)
 
-Hypernetworks are an older technology largely superseded by LoRAs. They modify model behavior but are slower and typically produce lower quality results.
+A **textual inversion embedding** is a handful of learned vectors that act as a new "word" in a CLIP text encoder's vocabulary. The model's weights are not changed, which makes the files tiny (kilobytes). The trade-off is that an embedding can only express what the frozen model can already draw.
 
-### Should You Use Hypernetworks?
+- **Main use today:** negative embeddings for SD 1.5 and SDXL, such as *EasyNegative* and *badhandv4* for SD 1.5 and assorted SDXL equivalents. You reference them by filename in the negative prompt, for example `embedding:EasyNegative` in ComfyUI.
+- **Compatibility:** an embedding is tied to its text encoder. SD 1.5 embeddings don't work on SDXL (which needs vectors for both of its CLIP encoders). Embeddings have essentially no role with T5 or LLM encoders, so there is no FLUX, SD 3.5, or Qwen-Image equivalent in common use.
 
-Generally no. LoRAs are better in almost every way. The main reason to use hypernetworks is when you find one trained for a specific style that has no LoRA equivalent.
+## Legacy: Hypernetworks
 
-## Advanced LoRA Variants (LyCORIS)
-
-Several improved LoRA techniques exist, collectively called LyCORIS (LoRA beYond Conventional). These offer better quality for specific use cases but require compatible workflow tools.
-
-### When to Consider Advanced Variants
-
-| Variant | Best For | Trade-off |
-|---------|----------|-----------|
-| LoCon | Style transfer, textures | Slightly larger files |
-| LoHa | Maximum quality | Slower training, larger files |
-| LCM-LoRA | Fast generation (4-8 steps) | Specific to speed optimization |
-| DoRA | Better weight learning | Newer, less tested |
-
-### Practical Recommendation
-
-**Start with standard LoRAs.** They work everywhere and produce good results. Only explore LyCORIS variants when you have specific quality needs that standard LoRAs cannot meet.
-
-LCM-LoRA is the notable exception - it serves a specific purpose (faster generation) and is worth using when speed matters.
+**Hypernetworks** were small networks that modified the cross-attention layers of SD 1.x. LoRAs replaced them in 2023 because LoRAs are smaller, faster, easier to train, and give better results. You will only meet hypernetworks in old SD 1.5 archives.
 
 ## Model Merging
 
-You can combine multiple models to create hybrids that blend their characteristics.
+Merging combines the weights of models *of the same architecture* into a new checkpoint. Many popular community checkpoints are merges.
 
-### Why Merge Models
+| Method | Formula | Use |
+|--------|---------|-----|
+| Weighted sum | $W = (1-\alpha) W_A + \alpha W_B$ | Blend two fine-tunes' looks |
+| Add difference | $W = W_A + \lambda\,(W_B - W_C)$ | Transplant what fine-tune B learned relative to its base C onto model A |
+| Block-weighted | Different $\alpha$ per U-Net/DiT block | Take composition from one model and detail from another |
+| TIES / DARE | Prune and resolve sign conflicts between task vectors before adding | Merge several fine-tunes with less interference |
+| LoRA baking | $W = W_{\text{base}} + s \cdot BA$ | Make a LoRA permanent in a checkpoint |
 
-- **Combine strengths** - Blend a photorealistic model with an artistic one
-- **Reduce LoRA overhead** - Merge frequently-used LoRAs into a checkpoint
-- **Create unique styles** - Experiment with combinations others have not tried
+Merging is empirical. Results are hard to predict, and a merged model's license is bounded by the most restrictive ingredient.
 
-### Basic Merge Concept
+## Speed-Optimized Variants
 
-Most merges blend two models with weights:
-- 70% Model A + 30% Model B = Merged result
-- Adjust ratios to favor one model's characteristics
+**Step-distilled** models generate in 1-8 denoising steps instead of 20-50, trading some diversity and fine detail for speed. They usually need CFG near 1 and a matching sampler and scheduler.
 
-### Practical Advice
+| Variant | Form | Steps | Base |
+|---------|------|-------|------|
+| LCM-LoRA, TCD | LoRA | 4-8 | SD 1.5, SDXL |
+| SDXL-Turbo, SD-Turbo | Checkpoint | 1-4 | SDXL / SD 2.1 |
+| SDXL-Lightning, Hyper-SD, DMD2 | LoRA or checkpoint | 1-8 | SDXL (Hyper-SD also FLUX.1) |
+| FLUX.1 [schnell] | Checkpoint | 1-4 | FLUX.1 |
+| FLUX.2 [klein] (distilled) | Checkpoint | ~4 | FLUX.2 |
+| Z-Image Turbo | Checkpoint | ~8 | Z-Image |
+| Lightning/turbo LoRAs for Qwen-Image, Wan | LoRA | 4-8 | Respective family |
 
-Model merging is experimental. Results are unpredictable. If you find a merged model you like, keep it. If merging a LoRA into a checkpoint simplifies your workflow, do it. Otherwise, simpler setups with LoRAs are usually easier to manage.
+*Guidance-distilled* models such as FLUX.1 [dev] are a separate case. They take guidance as an input and run one pass per step instead of two, but they still need about 20-30 steps. See [Optimization & Performance](optimization-guide.html#fewer-steps-distilled-models-and-caching).
 
-## IP-Adapter
+## Memory Requirements
 
-IP-Adapter lets you use images as part of your prompt. Instead of describing a style in words, you can show an example image and say "generate something in this style."
+Approximate weight sizes. Peak VRAM is higher because activations add to it, and it depends on resolution and batch size.
 
-### When to Use IP-Adapter
+| Model | bf16 / fp16 | fp8 / Q8 | ~4-bit (GGUF Q4 / NVFP4) |
+|-------|-------------|----------|---------------------------|
+| SD 1.5 (all-in-one) | ~2 GB | - | - |
+| SDXL (all-in-one) | ~6.5 GB | ~3.5 GB | - |
+| SD 3.5 Large (denoiser) | ~16 GB | ~8 GB | ~5 GB |
+| FLUX.1 [dev] (denoiser) | ~24 GB | ~12 GB | ~7 GB |
+| T5-XXL encoder | ~9.5 GB | ~4.9 GB | ~3 GB |
+| Qwen-Image (denoiser) | ~41 GB | ~20 GB | ~12 GB |
+| Z-Image (denoiser) | ~12 GB | ~6 GB | ~4 GB |
+| FLUX.2 [dev] (denoiser) | ~64 GB | ~32 GB | ~18 GB |
+| LoRA | 5-500 MB | | |
+| ControlNet (SDXL / FLUX.1) | 1.2-3.5 GB | | |
 
-| Goal | IP-Adapter Variant | How It Helps |
-|------|-------------------|--------------|
-| Match an art style | IP-Adapter or Plus | Captures color palette, brushwork |
-| Keep character consistent | IP-Adapter Face | Maintains facial features across images |
-| Use reference composition | IP-Adapter | Guides layout and arrangement |
-| Blend multiple references | IP-Adapter Plus | Combine multiple image influences |
+The weights don't all need to be on the GPU at once. The text encoder, denoiser, and VAE run one after another, and ComfyUI and diffusers offload whichever component is idle. That is how a 12 GB card runs FLUX.1 [dev] in fp8. See [Optimization & Performance](optimization-guide.html) for offloading and other VRAM tactics.
 
-### IP-Adapter vs ControlNet
+## Organizing Model Files
 
-These serve different purposes:
-
-| Feature | IP-Adapter | ControlNet |
-|---------|------------|------------|
-| Controls | Style, color, general feel | Structure, pose, edges |
-| Reference type | Aesthetic inspiration | Compositional guidance |
-| Flexibility | More creative interpretation | More precise following |
-
-**Use together:** IP-Adapter for style reference + ControlNet for pose = character in specific style doing specific pose.
-
-## Organizing Your Models
-
-As your collection grows, organization becomes important for finding the right model quickly.
-
-### Recommended Folder Structure
+ComfyUI's default layout, which other tools largely mirror:
 
 ```
 models/
-├── checkpoints/     # Base models (2-12 GB each)
-├── loras/           # LoRA models (10-300 MB each)
-├── vae/             # VAE models (~300 MB each)
-├── controlnet/      # Control models (~1 GB each)
-├── embeddings/      # Textual inversions (~100 KB each)
-└── ipadapter/       # IP-Adapter models (~500 MB each)
+├── checkpoints/       # All-in-one SD 1.5 / SDXL checkpoints
+├── diffusion_models/  # Standalone denoisers: FLUX, SD 3.5, Qwen-Image, Z-Image, Wan
+│                      #   (older name: unet/)
+├── text_encoders/     # CLIP-L, CLIP-G, T5-XXL, Qwen, Mistral encoders (older name: clip/)
+├── vae/               # Standalone VAEs
+├── loras/             # LoRA and LyCORIS files
+├── controlnet/        # ControlNets, T2I-Adapters
+├── clip_vision/       # Image encoders used by IP-Adapter / Redux
+├── embeddings/        # Textual inversions
+└── upscale_models/    # ESRGAN-style upscalers
 ```
 
-### Naming Tips
+Put the family and precision in filenames (for example `detailer_lora_sdxl.safetensors` or `flux1-dev_fp8_e4m3fn.safetensors`). Architecture mismatch is the most common cause of silent failures.
 
-- Include the base model compatibility: `style_lora_sdxl.safetensors`
-- Add version numbers for iterations: `character_v2.safetensors`
-- Note the format: `flux_fp8.safetensors`
+## Choosing Components
 
-## Speed-Optimized Models
-
-Recent developments focus on faster generation without sacrificing too much quality.
-
-### LCM and Turbo Models
-
-| Model Type | Steps Needed | Trade-off |
-|------------|--------------|-----------|
-| Standard | 30-50 | Highest quality |
-| LCM | 4-8 | Slight quality loss, much faster |
-| Turbo | 1-4 | Fastest, noticeable quality trade-off |
-
-**When to use:** LCM-LoRAs are useful for rapid iteration. Turbo models work for real-time applications where speed matters more than perfection.
-
-## Memory and Performance
-
-### VRAM Usage Reference
-
-| Component | Approximate VRAM |
-|-----------|-----------------|
-| SD 1.5 checkpoint | 2-4 GB |
-| SDXL checkpoint | 6-8 GB |
-| FLUX (fp8) | 12-16 GB |
-| LoRA | 100-300 MB |
-| ControlNet | 1-2 GB |
-| IP-Adapter | 500 MB-1 GB |
-
-### Reducing Memory Usage
-
-1. Use quantized models (fp16, fp8)
-2. Enable model offloading to CPU
-3. Load fewer simultaneous components
-4. Use LoRAs instead of merged checkpoints
-
-## Compatibility Quick Reference
-
-Before downloading models, verify compatibility:
-
-| Component Type | SD 1.5 | SDXL | FLUX |
-|---------------|--------|------|------|
-| SD 1.5 LoRAs | Yes | No | No |
-| SDXL LoRAs | No | Yes | No |
-| FLUX LoRAs | No | No | Yes |
-| Most ControlNets | Yes | Yes | Yes |
-| Embeddings | Yes | Partial | No |
-
-## Choosing Models: A Decision Guide
-
-This is the capstone that ties the whole [Component Reference](#component-reference) together. Now that you know what each piece does, here is the order to assemble them in — start with the checkpoint and add components only when a concrete need appears.
-
-Start with this flowchart approach:
+Start with a base model that fits your content and hardware, and add components only when a specific need comes up:
 
 ```mermaid
 flowchart TD
-    Start["Pick a base checkpoint<br/>(match your content type)"] --> Q1{Need a specific<br/>aesthetic?}
-    Q1 -->|Yes| LoRA["Add a style LoRA"]
+    Start["Pick a base model<br/>(content + VRAM)"] --> Q1{"Specific style or<br/>character needed?"}
+    Q1 -->|Yes| LoRA["Add LoRA(s)<br/>matching the family"]
     Q1 -->|No| Q2
-    LoRA --> Q2{Need consistent<br/>characters?}
-    Q2 -->|Yes| Char["Add a character LoRA"]
+    LoRA --> Q2{"Exact pose or<br/>layout needed?"}
+    Q2 -->|Yes| CN["Add ControlNet"]
     Q2 -->|No| Q3
-    Char --> Q3{Need precise<br/>composition?}
-    Q3 -->|Yes| CN["Add ControlNet"]
+    CN --> Q3{"Have a reference image<br/>for style / identity?"}
+    Q3 -->|Yes| IP["Image adapter<br/>or edit model"]
     Q3 -->|No| Q4
-    CN --> Q4{Have a style<br/>reference image?}
-    Q4 -->|Yes| IP["Add IP-Adapter"]
-    Q4 -->|No| Done["Generate"]
-    IP --> Done
+    IP --> Q4{"Too slow or<br/>out of memory?"}
+    Q4 -->|Yes| Opt["Quantized variant,<br/>distilled / turbo model,<br/>offloading"]
+    Q4 -->|No| Gen["Generate"]
+    Opt --> Gen
 ```
-
-1. **Choose your base model** based on your content type (see Checkpoints section)
-2. **Add a style LoRA** if you need a specific aesthetic
-3. **Add a character LoRA** if you need consistent characters
-4. **Add ControlNet** if you need precise composition control
-5. **Add IP-Adapter** if you need style reference from images
-
-### Starting Simple
-
-A powerful setup that covers most needs:
-- One SDXL checkpoint for your primary style (photorealistic or artistic)
-- 2-3 versatile LoRAs (style, quality enhancement)
-- One ControlNet (OpenPose or Canny covers most cases)
-- One negative embedding (EasyNegative or similar)
-
-You can add more components as your needs become clearer.
-
-## Conclusion
-
-The Stable Diffusion ecosystem offers many specialized components. Start with just a checkpoint and add pieces as you discover needs. Each component solves a specific problem:
-
-- **LoRAs** for new styles and subjects
-- **VAE** for color improvements
-- **ControlNet** for composition control
-- **IP-Adapter** for style reference
-- **Embeddings** for quality and simple concepts
-
-Understanding what each piece does helps you build workflows that produce exactly what you envision.
-
-## Key Takeaways
-
-- **The checkpoint is the foundation;** everything else (LoRA, VAE, ControlNet, IP-Adapter, embeddings) modifies or steers it without retraining.
-- **Match the family.** SD 1.5 LoRAs, SDXL LoRAs, and FLUX LoRAs are not interchangeable — compatibility is the most common source of broken results.
-- **Pick the right tool for the job:** LoRA for new styles/subjects, VAE for color, ControlNet for structure, IP-Adapter for style-from-image, embeddings for quality/concepts.
-- **Quantization saves VRAM.** fp16/fp8 versions cut memory with minimal quality loss; LCM/Turbo variants cut steps for speed.
-- **Start minimal** (one checkpoint) and add components only as a concrete need appears.
 
 ## See Also
 
-- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Core concepts explained
-- [Base Models Comparison](base-models-comparison.html) - SD 1.5, SDXL, FLUX compared
-- [LoRA Training](lora-training.html) - Train custom models
-- [ControlNet](controlnet.html) - Precise control over generation
-- [ComfyUI Guide](comfyui-guide.html) - Visual workflow creation
-- [Output Formats](output-formats.html) - Exporting and using generated content
+- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - How latent diffusion works
+- [Base Models Comparison](base-models-comparison.html) - Family-by-family comparison
+- [FLUX Guide](flux-guide.html) - FLUX.1 and FLUX.2 in detail
+- [LoRA Training](lora-training.html) - Training your own LoRAs
+- [ControlNet](controlnet.html) - Structural control in depth
+- [ComfyUI Guide](comfyui-guide.html) - Wiring these components together in node workflows
+- [Model Compression](model-compression.html) - How quantized variants are produced
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index

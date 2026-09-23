@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Networking: Wireless & Mobile"
+description: "Radio fundamentals (Shannon capacity, QAM, OFDM/OFDMA, spectrum), Wi-Fi 6/7 and Wi-Fi 8 in development, WPA2/WPA3 security, 4G/5G and 5G-Advanced architecture, mobility management, and IoT radios."
 permalink: /docs/technology/networking/wireless-and-mobile.html
 toc: true
 toc_sticky: true
@@ -8,9 +9,7 @@ toc_sticky: true
 
 [Networking](./) &raquo; Wireless &amp; Mobile
 
-<!-- Custom styles are now loaded via main.scss -->
-
-Most internet traffic now begins or ends on a wireless link. A radio channel is fundamentally different from a copper or fiber link: it is shared, half-duplex by nature, lossy, and its capacity rises and falls with distance, interference, and the number of devices competing for airtime. This page covers the two dominant wireless access technologies — **Wi-Fi (IEEE 802.11)** for local-area access and **cellular (4G LTE and 5G)** for wide-area mobility — plus the physics of spectrum and modulation they share, the security that protects them, and the mobility management that lets a connection survive as you walk, drive, or roam between networks.
+Most internet traffic now begins or ends on a wireless link. A radio channel is fundamentally different from a copper or fiber link: it is shared, half-duplex by nature, lossy, and its capacity rises and falls with distance, interference, and the number of devices competing for airtime. This page covers the two dominant wireless access technologies — **Wi-Fi (IEEE 802.11)** for local-area access and **cellular (4G LTE, 5G, and 5G-Advanced)** for wide-area mobility — plus the physics of spectrum and modulation they share, the security that protects them, the mobility management that lets a connection survive as you walk, drive, or roam between networks, and the low-power radios used by IoT devices.
 
 > Where this fits in the stack: wireless technologies live at the **physical** and **data-link** layers ([Layers & Addressing](fundamentals.html)). They replace the bottom of the stack while TCP/IP, routing, and applications above them ([Transport & Application Protocols](transport-and-protocols.html)) stay unchanged — which is exactly why the same browser works over Wi-Fi, fiber, or 5G.
 
@@ -62,8 +61,9 @@ Modulation encodes bits onto a carrier wave by varying its amplitude and phase. 
 | 64-QAM | 64 | 6 | Good SNR |
 | 256-QAM (Wi-Fi 5) | 256 | 8 | High SNR |
 | 1024-QAM (Wi-Fi 6) | 1024 | 10 | Excellent SNR (close range) |
+| 4096-QAM (Wi-Fi 7) | 4096 | 12 | Near-ideal SNR (a few metres, clear line of sight) |
 
-Denser constellations pack more bits per symbol but place points closer together, so a small amount of noise flips a symbol to its neighbor. This is why your phone *adapts*: near the access point it uses 1024-QAM, and as you walk away and SNR drops it falls back to 64-QAM, then QPSK — trading rate for robustness. This continuous trade-off is **adaptive modulation and coding (AMC)**.
+Each doubling of constellation size adds one bit per symbol but needs roughly 3 dB more SNR, so the gains diminish quickly. Denser constellations pack more bits per symbol but place points closer together, so a small amount of noise flips a symbol to its neighbor. This is why your phone *adapts*: near the access point it uses 1024- or 4096-QAM, and as you walk away and SNR drops it falls back to 64-QAM, then QPSK — trading rate for robustness. This continuous trade-off is **adaptive modulation and coding (AMC)**.
 
 ### OFDM: The Workhorse Waveform
 
@@ -97,7 +97,8 @@ A fundamental physics trade-off governs band choice: lower frequencies travel fa
 | 5 GHz | 5.1–5.9 GHz | More channels, shorter range | Wi-Fi 5/6 |
 | 6 GHz | 5.9–7.1 GHz | Clean spectrum, short range | Wi-Fi 6E/7 |
 | Mid-band | 2.5–4.0 GHz | Balance of coverage and capacity | 5G "C-band" |
-| mmWave | 24–47 GHz | Multi-gigabit, line-of-sight only | 5G mmWave |
+| Upper mid-band ("FR3") | 7–24 GHz | Candidate capacity layer | Studied for 6G |
+| mmWave (FR2) | 24–71 GHz | Multi-gigabit, line-of-sight only | 5G mmWave |
 
 This is why a single tower or AP cannot do everything: carriers layer **low-band for coverage**, **mid-band for the capacity/coverage sweet spot**, and **mmWave for dense hotspots** (stadiums, downtowns).
 
@@ -107,7 +108,7 @@ Wi-Fi is the brand name for the IEEE 802.11 family of wireless-LAN standards. It
 
 ### The 802.11 Standard Generations
 
-The Wi-Fi Alliance rebranded the cryptic IEEE names (802.11ax) as friendly generation numbers (Wi-Fi 6) starting in 2018:
+The Wi-Fi Alliance rebranded the cryptic IEEE names (802.11ax) as generation numbers (Wi-Fi 6) starting in 2018. Years below are the Wi-Fi Alliance certification launch or IEEE approval, whichever came first:
 
 | IEEE name | Wi-Fi gen | Year | Bands | Max PHY rate | Key advance |
 |-----------|-----------|------|-------|--------------|-------------|
@@ -117,8 +118,13 @@ The Wi-Fi Alliance rebranded the cryptic IEEE names (802.11ax) as friendly gener
 | 802.11ac | Wi-Fi 5 | 2013 | 5 GHz | ~3.5 Gbps | 256-QAM, MU-MIMO (down) |
 | 802.11ax | Wi-Fi 6/6E | 2019/2020 | 2.4/5/6 GHz | ~9.6 Gbps | OFDMA, 1024-QAM, uplink MU-MIMO |
 | 802.11be | Wi-Fi 7 | 2024 | 2.4/5/6 GHz | ~46 Gbps | 320 MHz channels, 4096-QAM, MLO |
+| 802.11bn | Wi-Fi 8 | ~2028 (in development) | 2.4/5/6 GHz | Similar to Wi-Fi 7 | Reliability: multi-AP coordination, seamless roaming |
 
-Note that the headline "max PHY rate" is an aggregate across all spatial streams and the widest channel — a real single client sees a fraction of it. The practical advances that users actually feel are **MIMO** (multiple antennas), **OFDMA** (serving many clients at once), and in Wi-Fi 7 **Multi-Link Operation (MLO)** (one connection using 5 GHz and 6 GHz simultaneously for lower latency).
+Note that the headline "max PHY rate" is an aggregate across all spatial streams and the widest channel — a real single client sees a fraction of it. The practical advances that users actually feel are **MIMO** (multiple antennas), **OFDMA** (serving many clients at once), **6 GHz spectrum** (Wi-Fi 6E and later: up to 1,200 MHz of clean spectrum in countries that opened the whole band, free of legacy devices), and in Wi-Fi 7 **Multi-Link Operation (MLO)**, which lets one client associate over several bands at once and send each frame on whichever link is free — cutting latency and jitter more than it raises peak throughput.
+
+Channel width is the other big lever, straight from Shannon: Wi-Fi channels are 20 MHz wide and can be bonded to 40, 80, 160, and (in Wi-Fi 7, 6 GHz only) 320 MHz. Wider channels multiply peak rate but there are fewer of them, so dense deployments (offices, apartment blocks) often get better aggregate performance from narrower channels that neighbouring APs do not share.
+
+**Wi-Fi 8 (802.11bn, "Ultra High Reliability")** changes direction: rather than raising peak rates again, it targets roughly 25% better throughput, latency, and packet loss at the tail, mainly through coordination between neighbouring APs (coordinated spatial reuse and beamforming) and a seamless roaming domain that removes re-association on AP changes. IEEE approval is projected for 2028, with certification expected to begin earlier.
 
 ### How Wi-Fi Shares the Air: CSMA/CA
 
@@ -162,7 +168,7 @@ An open radio link is trivially eavesdropped, so Wi-Fi encryption is mandatory i
 | WEP | 1997 | RC4, 40/104-bit | Catastrophically broken — crackable in minutes |
 | WPA | 2003 | RC4 + TKIP | Interim fix, now deprecated |
 | WPA2 | 2004 | AES-CCMP | Long the standard; KRACK weakness in 4-way handshake |
-| WPA3 | 2018 | AES + SAE | Current best practice |
+| WPA3 | 2018 | AES + SAE (GCMP-256 in some modes) | Current best practice; required for 6 GHz |
 
 ### WPA2 and the 4-Way Handshake
 
@@ -193,6 +199,8 @@ WPA3-Personal replaces the PSK handshake with **Simultaneous Authentication of E
 - **Resistance to offline dictionary attacks.** SAE is a zero-knowledge exchange: a captured handshake reveals nothing useful for brute-forcing. Each password guess requires a fresh, live interaction with the network, so attackers cannot grind millions of guesses offline.
 - **Forward secrecy.** Each session derives an ephemeral key, so compromising the password later does not decrypt previously recorded sessions.
 
+SAE had its own teething problems: the 2019 **Dragonblood** research showed timing and cache side channels in the original password-to-curve-point conversion, and downgrade attacks against **WPA3 transition mode** (which accepts both WPA2 and WPA3 clients on one network, so an attacker can simply offer WPA2). The fix is the **hash-to-element (H2E)** method, which is mandatory on 6 GHz; transition mode should be treated as a migration aid, not a security level. Wi-Fi 6E and Wi-Fi 7 devices on 6 GHz must use WPA3 or OWE — WPA2 is not permitted there at all.
+
 WPA3 also adds **Protected Management Frames (PMF)**, mandatory in WPA3, which authenticate deauthentication/disassociation frames and so block the trivial "deauth" denial-of-service that plagued WPA2. **WPA3-Enterprise** offers an optional 192-bit suite for high-security environments, and **OWE (Opportunistic Wireless Encryption)** brings encryption even to "open" passwordless networks (cafés, airports) so nearby devices cannot passively sniff each other.
 
 > For the broader security context — threat models, VPNs, and zero-trust — see [Cybersecurity](../cybersecurity/) and the security section of [Performance, QoS & Security](performance-and-security.html).
@@ -208,25 +216,48 @@ Cellular networks divide a coverage area into **cells**, each served by a base s
 | 3G (UMTS) | 2000s | Mobile data, video calls | CDMA |
 | 4G (LTE) | 2010s | All-IP broadband, apps | OFDMA, MIMO |
 | 5G (NR) | 2020s | Massive capacity, low latency, IoT | mmWave, massive MIMO, network slicing |
+| 5G-Advanced | 2024 onward | AI/ML in the RAN, better energy efficiency, positioning, satellite integration | 3GPP Releases 18–19 |
+| 6G | ~2030 | ITU IMT-2030 targets; sensing, AI-native air interface | 3GPP studies from Release 20 |
 
 The decisive break came at **4G LTE**, which made the network **all-IP**: even voice became packets (VoLTE — Voice over LTE), eliminating the separate circuit-switched voice network that defined every prior generation. 5G builds on that all-IP foundation rather than replacing it.
+
+Cellular standards are written by **3GPP** in numbered *releases*: Release 15 (2018) was the first 5G specification, and Releases 18 (frozen 2024) and 19 (completed December 2025) form **5G-Advanced**, adding machine learning for beam management and positioning, network energy saving, extended reality support, and improved satellite access. Release 20 begins the formal 6G study work, with the first 6G specifications expected to follow in Release 21 toward commercial service around 2030.
 
 ### The Three 5G Use-Case Pillars
 
 5G is defined less by a single speed number and more by three deliberately different service profiles, standardized by the ITU as IMT-2020:
 
 - **eMBB (enhanced Mobile Broadband):** the obvious one — multi-gigabit peak rates for video, AR/VR, and fixed wireless access.
-- **URLLC (Ultra-Reliable Low-Latency Communication):** sub-millisecond air-interface latency at 99.999% reliability for factory automation, remote surgery, and autonomous vehicles.
+- **URLLC (Ultra-Reliable Low-Latency Communication):** a 1 ms user-plane latency target with 99.999% reliability for factory automation, remote control of machinery, and vehicle coordination.
 - **mMTC (massive Machine-Type Communication):** up to a million low-power devices per square kilometer for IoT sensors.
 
 No single configuration optimizes all three at once — eMBB wants huge throughput, URLLC wants minimal latency and jitter, mMTC wants density and battery life. **Network slicing** (below) is how one physical 5G network serves all three simultaneously.
 
 ### How 5G Achieves Its Gains
 
-- **Wider spectrum, including mmWave.** Channels up to 400 MHz wide (versus 20 MHz in LTE) directly multiply Shannon capacity. mmWave's short range is mitigated by dense small cells.
+- **Wider spectrum, including mmWave.** Carriers up to 100 MHz wide in the sub-7 GHz range (FR1) and 400 MHz in mmWave (FR2), versus 20 MHz in LTE, directly multiply Shannon capacity. mmWave's short range is mitigated by dense small cells.
 - **Massive MIMO.** Base stations with 64–256 antenna elements form many narrow beams, spatially multiplexing dozens of users on the same frequency (**beamforming** + **MU-MIMO** at scale).
 - **Flexible numerology.** Unlike LTE's fixed subcarrier spacing, 5G NR supports multiple subcarrier spacings; wider spacing shortens the symbol time, cutting latency for URLLC.
 - **Cloud-native, disaggregated core.** The 5G core is a set of software functions (below), enabling slicing and edge deployment.
+- **Disaggregated RAN.** The base station (**gNB**) is split into a Radio Unit (RU) at the antenna, a Distributed Unit (DU) handling real-time lower-layer processing, and a Centralized Unit (CU) for higher layers. The **O-RAN** initiative standardises open interfaces between these parts so operators can mix vendors and run the DU/CU as software on general-purpose servers.
+
+### Non-Standalone vs. Standalone 5G
+
+Most early 5G networks were **Non-Standalone (NSA)**: a 5G radio added to an existing LTE network, with the LTE base station as the control anchor and the LTE core (EPC) handling everything behind it (a mode called EN-DC). NSA delivered faster radio links quickly but none of the new core features. **Standalone (SA)** 5G pairs the 5G radio with the 5G core described below, and is what enables network slicing, the lower-latency user plane, and features such as RedCap devices. Operators have been migrating from NSA to SA through the mid-2020s.
+
+```mermaid
+flowchart LR
+    subgraph NSA["Non-Standalone (EN-DC)"]
+        UE1["Device"] --> ENB["LTE eNB<br/>(control anchor)"]
+        UE1 -.->|extra capacity| GNB1["5G gNB"]
+        ENB --> EPC["4G core (EPC)"]
+        GNB1 --> EPC
+    end
+    subgraph SA["Standalone"]
+        UE2["Device"] --> GNB2["5G gNB"]
+        GNB2 --> C5G["5G core (5GC)"]
+    end
+```
 
 ## The 5G Core (5GC) and Service-Based Architecture
 
@@ -295,7 +326,7 @@ sequenceDiagram
     Note over UE,Core: Session continues uninterrupted
 ```
 
-5G primarily uses **hard handover** ("break-before-make": disconnect from source, then connect to target) but minimizes the gap to a few milliseconds. The device continuously measures neighboring cells' signal strength and reports back; the network decides when to trigger the switch, balancing signal quality against the cost of switching too often ("ping-ponging" between two cells of similar strength).
+5G primarily uses **hard handover** ("break-before-make": disconnect from source, then connect to target), keeping the gap to tens of milliseconds. Release 16 added two refinements: **Conditional Handover (CHO)**, where the network prepares target cells in advance and the device switches itself when a condition is met (making handover robust when the source link degrades too fast to deliver a command), and **Dual Active Protocol Stack (DAPS)** handover, which keeps both links alive briefly to achieve near-zero interruption ("make-before-break"). The device continuously measures neighboring cells' signal strength and reports back; the network decides when to trigger the switch, balancing signal quality against the cost of switching too often ("ping-ponging" between two cells of similar strength).
 
 ### Locating an Idle Device: Tracking Areas and Paging
 
@@ -315,6 +346,15 @@ Wi-Fi has its own (simpler) mobility story for moving between APs on the same ne
 
 Together these enable seamless "mesh" and enterprise Wi-Fi where you walk across a building on a continuous call.
 
+## Satellite and Non-Terrestrial Networks
+
+Low-Earth-orbit (LEO) constellations have made satellite a mainstream access technology. Two distinct models exist:
+
+- **Dedicated satellite broadband** (Starlink, Amazon's Project Kuiper, OneWeb) uses its own terminals with phased-array antennas; LEO orbits at roughly 500–1,200 km give round-trip latencies of a few tens of milliseconds, compared with about 600 ms for geostationary satellites.
+- **Direct-to-device (direct-to-cell)** service reaches unmodified phones. 3GPP added **Non-Terrestrial Network (NTN)** support in Release 17, and commercial services launched in the mid-2020s — for example T-Mobile's T-Satellite service with Starlink in the United States (2025), initially for text messaging and a limited set of apps. Capacity per cell is small, so these services fill coverage gaps rather than competing with terrestrial networks.
+
+Satellite links combine long RTTs with variable loss, which is hard on loss-based TCP congestion control ([Transport & Application Protocols](transport-and-protocols.html#congestion-control)); operators commonly use performance-enhancing proxies or rely on QUIC with BBR-style congestion control.
+
 ## Edge & IoT Considerations
 
 Wireless access is the natural front door for two adjacent trends — edge computing and the Internet of Things — and both reshape how the network is designed.
@@ -331,22 +371,15 @@ IoT devices invert the usual priorities: they need *years* of battery life and *
 
 | Technology | Spectrum | Range | Rate | Battery | Use case |
 |------------|----------|-------|------|---------|----------|
-| Bluetooth LE | Unlicensed 2.4 GHz | ~10 m | ~1 Mbps | Months | Wearables, beacons |
-| Zigbee/Thread | Unlicensed 2.4 GHz | ~100 m (mesh) | ~250 kbps | Months–years | Smart home |
+| Bluetooth LE | Unlicensed 2.4 GHz | ~10–100 m | 1–2 Mbps | Months–years | Wearables, beacons, audio (LE Audio) |
+| Zigbee / Thread | Unlicensed 2.4 GHz (802.15.4) | 10–100 m per hop, mesh | 250 kbps | Months–years | Smart home (Thread carries Matter) |
 | Wi-Fi HaLow (802.11ah) | Sub-1 GHz | ~1 km | Kbps–Mbps | Long | IoT over Wi-Fi |
 | LoRaWAN | Unlicensed sub-GHz | 2–15 km | ~0.3–50 kbps | Years | Sensors, asset tracking |
 | NB-IoT / LTE-M | Licensed cellular | Km-scale | Kbps–Mbps | Years | Metering, logistics |
 
-The two cellular options matter for 5G's **mMTC** pillar: **NB-IoT** (narrowband, deep-coverage, ultra-low-power for static meters) and **LTE-M** (higher rate, supports mobility and voice for trackers and wearables) reuse licensed spectrum and existing towers, giving carrier-grade reliability and security that unlicensed LPWANs cannot match. Their design philosophy is the opposite of eMBB: minimize power and signaling, accept low rates, and let a device sleep for hours between brief reports.
+The two cellular options matter for 5G's **mMTC** pillar: **NB-IoT** (narrowband, deep-coverage, ultra-low-power for static meters) and **LTE-M** (higher rate, supports mobility and voice for trackers and wearables) reuse licensed spectrum and existing towers, giving carrier-grade reliability and security that unlicensed LPWANs cannot match. Their design philosophy is the opposite of eMBB: minimize power and signaling, accept low rates, and let a device sleep for hours between brief reports. Between these and full 5G sits **RedCap** (Reduced Capability NR, Release 17, extended as eRedCap in Release 18): 5G devices with fewer antennas and narrower bandwidth for wearables, industrial sensors, and video cameras that need more than LTE-M but far less than a smartphone.
 
-## Key Takeaways
-
-- **The medium is shared.** All wireless boils down to multiple access — contention (Wi-Fi's CSMA/CA), scheduling (OFDMA), or spatial separation (MIMO/beamforming).
-- **Shannon governs everything.** Capacity grows linearly with bandwidth and only logarithmically with SNR — which is why 5G chases wide spectrum and dense cells.
-- **WPA3 fixes WPA2's offline cracking.** SAE turns the key exchange into a live, zero-knowledge negotiation with forward secrecy, and PMF blocks deauth attacks.
-- **4G went all-IP; 5G went cloud-native.** LTE made voice and data both packets; the 5G core is microservices (SBA) with control/user-plane separation enabling edge UPFs.
-- **One network, many slices.** Network slicing serves eMBB, URLLC, and mMTC on the same physical 5G infrastructure with independent, isolated SLAs.
-- **Mobility is find plus handover.** Tracking areas and paging locate idle devices cheaply; fast handover transfers active sessions between cells without a drop.
+In the smart home, **Matter** (an application-layer standard from the Connectivity Standards Alliance, 2022) runs over IP on Wi-Fi, Ethernet, or **Thread** (an IPv6 mesh on 802.15.4 radios), replacing a patchwork of vendor-specific hubs; Bluetooth LE is used only for commissioning new devices.
 
 ## See Also
 

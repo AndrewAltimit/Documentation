@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Unreal Engine
+description: "Reference for Unreal Engine 5 (through 5.8): the Nanite, Lumen, and MegaLights renderer, the gameplay framework, Blueprints and C++, world building, animation, audio, networking, performance, and the road to Unreal Engine 6."
 permalink: /docs/technology/unreal.html
 toc: true
 toc_sticky: true
@@ -8,594 +9,548 @@ toc_label: "On This Page"
 toc_icon: "cog"
 ---
 
-Unreal Engine is a real-time 3D creation platform from Epic Games. Born for games, it now powers film virtual production, architecture, and automotive design. Unreal Engine 5 introduced **Nanite** (film-quality virtualized geometry with no manual LODs) and **Lumen** (fully dynamic global illumination with no lightmap baking), removing two of the oldest technical ceilings in real-time rendering, and pairs **Blueprints** visual scripting with C++. This guide covers UE5 from core editor concepts to advanced systems.
+**Unreal Engine** is Epic Games' real-time 3D engine and editor. It is used for games from indie titles to large open worlds, and outside games for film and television virtual production, architectural visualization, automotive design, and simulation. The current generation, **Unreal Engine 5** (UE5), was released in April 2022; the latest version as of September 2026 is **UE 5.8** (June 2026). UE5's defining technologies are **Nanite** virtualized geometry, **Lumen** dynamic global illumination, **Virtual Shadow Maps**, and **World Partition** streaming. Together they remove the manual level-of-detail authoring and lightmap baking that dominated UE4 production. Gameplay is written in C++ and the **Blueprint** visual scripting language. Epic announced **Unreal Engine 6** in May 2026 and targets early access in late 2027.
+
+This page covers UE5 from the renderer through the gameplay framework, scripting, content tools, networking, and performance.
 
 <div class="notice--info" markdown="1">
-**Scope of this page.** This is an Unreal-specific reference. The engine-agnostic
-foundations of game development — the [game loop and state-machine architecture, ECS-vs-OOP, and core design principles](../gamedev/) — live in the
-[Game Development hub](../gamedev/), interactive [Audio Design](../gamedev/audio-design.html) is covered there, and [AI in Games](../ai-ml/game-ai.html) covers pathfinding, behavior trees, and decision-making independent of engine. Here we focus on how Unreal Engine 5 *implements* and accelerates those ideas: Nanite, Lumen, the editor and gameplay framework, Blueprints, and MetaSounds.
+**Scope.** This is an Unreal-specific reference. Engine-agnostic foundations (the game loop, state machines, ECS versus object-oriented design) are in the [Game Development hub](../gamedev/); [Audio Design](../gamedev/audio-design.html), [Multiplayer Networking](../gamedev/multiplayer-networking.html), and [AI in Games](../ai-ml/game-ai.html) cover their topics independently of any engine; and [3D Graphics & Rendering](../graphics/3d-rendering.html) covers the rendering theory behind Nanite and Lumen. This page describes how Unreal implements those ideas.
 </div>
 
-## Advantages of Unreal Engine 5 over Unreal Engine 4
+## Versions and licensing
 
-Unreal Engine 5, released in 2022 and updated on a roughly quarterly cadence, builds on UE4's architecture while removing several long-standing technical ceilings. The headline shift is that two tasks artists used to spend most of their time on — authoring LODs for geometry and baking lightmaps for static lighting — are now handled automatically by Nanite and Lumen. The table below summarizes where UE5 departs from UE4; each feature is detailed in the sections that follow.
+### Release history
 
-| Area | Unreal Engine 4 | Unreal Engine 5 |
-|------|-----------------|-----------------|
-| Geometry detail | Manual LODs, polygon budgets | Nanite virtualized geometry (millions+ of polys) |
-| Global illumination | Baked lightmaps or limited dynamic GI | Lumen fully dynamic GI and reflections |
-| Large worlds | Manual level streaming volumes | World Partition automatic streaming |
-| Physics | PhysX | Chaos (default, ~3x faster, deterministic) |
-| Upscaling | Vendor-specific (DLSS/FSR) | Temporal Super Resolution (TSR), platform-agnostic |
-| Shadows | Cascaded shadow maps | Virtual Shadow Maps (consistent, high-res) |
+Epic ships roughly two feature releases a year. Features move through three maturity levels: **Experimental** (for evaluation; may change or be removed), **Beta** (stable API, not yet proven in large productions), and **Production-Ready**.
 
-### Nanite Virtualized Geometry
+| Version | Released | Notable additions |
+|---------|----------|-------------------|
+| 5.0 | April 2022 | Nanite, Lumen, Virtual Shadow Maps, World Partition, MetaSounds, Temporal Super Resolution; Chaos replaces PhysX |
+| 5.1 | November 2022 | Nanite support for masked materials and World Position Offset (enables Nanite foliage); Lumen and Nanite at 60 fps on current consoles |
+| 5.2 | May 2023 | Procedural Content Generation (PCG) framework and Substrate materials (both Experimental) |
+| 5.3 | September 2023 | Sparse volume textures, Skeletal Editor, continued PCG and Lumen work |
+| 5.4 | April 2024 | Motion Matching, Nanite Tessellation (Experimental), faster rendering and cooking |
+| 5.5 | November 2024 | MegaLights (Experimental), Substrate to Beta, Path Tracer and Choosers Production-Ready, animation authoring in Sequencer, Mobile Forward renderer improvements |
+| 5.6 | June 2025 | In-editor MetaHuman Creator, faster hardware-ray-traced Lumen for 60 Hz on consoles, Fast Geometry Streaming (Experimental) |
+| 5.7 | November 2025 | Substrate and PCG Production-Ready, Nanite Foliage (Experimental), MegaLights to Beta |
+| 5.8 | June 2026 | MegaLights, Iris replication, Movie Render Graph, Mutable, and Chaos Cloth Production-Ready; Lumen Lite (Beta); Mesh Terrain, Substrate toon shading, and an editor MCP server (Experimental) |
 
-Nanite is a virtualized micropolygon geometry system. Instead of loading a mesh at a fixed level of detail, it streams and renders only the triangles that contribute to the current frame — often clustering them down to roughly pixel-sized detail. This decouples the polygon count of the *source* asset from the cost of *rendering* it.
+Feature status changes between releases, so always check the release notes and the Experimental/Beta feature lists for the exact version a project targets.
 
-- **Source-quality assets, no manual LODs**: Import a multi-million-triangle photogrammetry scan or ZBrush sculpt and use it directly. Nanite generates its own internal hierarchy, so artists stop hand-authoring discrete LOD chains.
-- **Cost scales with screen pixels, not triangles**: Because Nanite renders at roughly one triangle per pixel, a 10-million-triangle statue and a 1-million-triangle one cost about the same on screen when they fill the same area.
-- **Built-in compression and streaming**: Mesh data is stored in a compressed, page-based format and paged in on demand, keeping memory bounded even for dense scenes.
+### Licensing
 
-Nanite has limits worth knowing: as of UE5.x it targets opaque and masked static geometry best. Skeletal meshes, deforming geometry, translucency, and very thin geometry (foliage, hair) gained support gradually across releases and may still fall back to traditional rendering — check the version you target.
+The engine is free to download and its C++ source is available on GitHub to anyone who links a GitHub account to an Epic account.
 
-### Lumen Global Illumination
+| Use | Terms |
+|-----|-------|
+| Games and other interactive products sold to end users | 5% royalty on lifetime gross revenue above US$1 million per product. Revenue through the Epic Games Store is exempt, and since 2025 the rate is 3.5% for games that also launch on the Epic Games Store. |
+| Non-game use (film, visualization, training) by companies with over US$1 million in annual revenue | Per-seat subscription, US$1,850 per seat per year (introduced April 2024) |
+| Students, educators, hobbyists, and companies under US$1 million revenue | Free |
 
-Lumen is a real-time global illumination (GI) and reflections system. Traditional engines either baked indirect light into static lightmaps (accurate but unable to change at runtime) or used limited dynamic approximations. Lumen computes bounce lighting and reflections every frame, so lighting reacts immediately to moving objects, changing materials, and time-of-day shifts.
+Assets are distributed through **Fab**, Epic's unified marketplace, launched in October 2024. It replaced the Unreal Engine Marketplace and absorbed the Sketchfab store, the ArtStation Marketplace, and Quixel's Megascans photogrammetry library.
 
-- **No lightmap bake step**: Artists place lights and see final-quality indirect lighting interactively, removing one of the longest iteration bottlenecks in UE4.
-- **Two tracing paths**: Lumen uses a fast software ray tracing path that runs on a wide range of GPUs, and an optional hardware ray tracing path (RTX/equivalent) for sharper reflections and more accurate results at higher cost.
-- **Reflections included**: The same system produces dynamic reflections, replacing much of the manual reflection-capture workflow.
+### System requirements
 
-Lumen trades some performance and precision for that flexibility, so fixed scenes or low-end and mobile targets may still prefer baked lighting.
+For UE 5.8 on Windows, Epic recommends Windows 11, a quad-core 2.5 GHz or faster CPU, 32 GB of RAM, and a DirectX 12 GPU with 8 GB or more of VRAM. Hardware-accelerated Lumen and ray tracing need a GPU with ray-tracing support and Shader Model 6 (NVIDIA RTX 2000 series, AMD RX 6000 series, Intel Arc A-series, or newer). C++ development on Windows uses Visual Studio 2022 17.14 or later (Visual Studio 2026 is supported) or JetBrains Rider. macOS and Linux are supported as editor hosts with their own toolchain requirements. Plan for well over 100 GB of fast SSD space for the engine, derived data cache, and project.
 
-### World Partition
+Engine versions are installed through the Epic Games Launcher, or built from source for studios that modify the engine.
 
-World Partition replaces UE4's manual level-streaming volumes with an automatic, grid-based streaming system. The world is divided into cells; the engine loads and unloads cells based on what the player can see and reach.
+## Rendering
 
-- **Large worlds without manual streaming setup**: Designers build in a single continuous world rather than stitching sublevels together by hand.
-- **One File Per Actor (OFPA)**: Each actor is saved to its own file, so multiple team members can edit the same region simultaneously without locking or merge-conflicting a monolithic level file.
-- **Data Layers and HLODs**: Data Layers toggle sets of actors (for example, a "destroyed city" variant) at runtime, while automatically generated Hierarchical LODs render distant cells cheaply before they fully stream in.
-
-### Chaos Physics and Chaos Destruction
-
-Unreal Engine 5 features a mature and optimized version of the Chaos Physics system, now the default physics engine. Key improvements include:
-
-1. **Enhanced Performance**: 3x faster simulation performance compared to UE4's PhysX
-2. **Deterministic Simulation**: Reproducible physics across different hardware
-3. **Advanced Destruction**: 
-   - Hierarchical fracturing with multiple destruction levels
-   - Real-time concrete, glass, and wood material simulations
-   - Destruction that affects navigation and AI pathfinding
-4. **Vehicle Physics 2.0**: Complete overhaul with better tire model and suspension
-5. **Cloth Simulation**: GPU-accelerated cloth with self-collision
-6. **Fluid Simulation**: Basic fluid dynamics for water and liquids
-
-### Additional UE5 Innovations (2023-2024)
-
-#### Substrate Material System
-An experimental, layer-based material framework offered alongside the traditional shading models (not yet a wholesale replacement):
-- Composable layers instead of a single fixed shading model
-- Better expression of complex surfaces (clear coat, thin-film iridescence)
-- Adopt deliberately while it remains experimental
-
-#### Temporal Super Resolution (TSR)
-UE5's built-in temporal upscaler:
-- Renders at a lower internal resolution and reconstructs a sharper image
-- Platform-agnostic — runs on any DirectX 12 / Vulkan GPU, unlike vendor-specific DLSS/FSR
-- Helps hit 4K-class output on mid-range hardware
-
-#### Virtual Shadow Maps (VSM)
-Revolutionary shadow rendering:
-- Consistent, high-resolution shadows at any distance
-- No more shadow cascades or LOD popping
-- 16K equivalent shadow resolution
-
-#### Mass Entity System
-For massive crowd simulations:
-- Simulate 100,000+ entities in real-time
-- Used in Matrix Awakens demo
-- Integrated with World Partition
-
-#### MetaSounds
-Procedural audio system:
-- Node-based audio synthesis (a sound-design graph, much like Niagara for VFX)
-- Real-time parameter modulation driven by gameplay
-- Can reduce reliance on large pre-rendered audio files by generating sound at runtime
-
-## Getting Started with Unreal Engine 5
-
-### System Requirements
-
-**Minimum Requirements:**
-- OS: Windows 10/11 64-bit, macOS Big Sur, Ubuntu 22.04
-- Processor: Quad-core Intel or AMD, 2.5 GHz
-- Memory: 16 GB RAM
-- Graphics: DirectX 12 or Vulkan compatible GPU with 4GB VRAM
-- Storage: 100 GB available space (SSD recommended)
-
-**Recommended for UE5:**
-- Processor: 6+ core CPU (Intel i7/i9, AMD Ryzen 7/9)
-- Memory: 32-64 GB RAM
-- Graphics: NVIDIA RTX 3070 or better / AMD RX 6700 XT or better
-- Storage: NVMe SSD with 500 GB available
-
-### Installation and Setup
-
-1. Download the [Epic Games Launcher](https://www.unrealengine.com/download)
-2. Sign in with your Epic Games account (free)
-3. Navigate to the Unreal Engine tab
-4. Click "Install Engine" and select UE5.3 or later
-5. Choose components:
-   - **Starter Content**: Recommended for beginners
-   - **Templates**: Game, Film, Architecture templates
-   - **Target Platforms**: Select your deployment platforms
-
-### Creating Your First UE5 Project
-
-When you launch the editor, the **Project Browser** lets you start from a template and a small set of choices. The table below summarizes what to pick and why:
-
-| Choice | Options | Guidance |
-|--------|---------|----------|
-| Template | First Person, Third Person, Top Down, Vehicle, VR | Pick the camera/control scheme closest to your game; you can change later |
-| Project type | Blueprint or C++ | Start in Blueprint to learn; choose C++ if you already plan custom systems (you can add C++ to a Blueprint project anytime) |
-| Target platform | Desktop, Mobile, Console | Sets default scalability and feature defaults (mobile disables some Nanite/Lumen features) |
-| Quality preset | Scalable or Maximum | "Maximum" enables Nanite/Lumen by default; "Scalable" targets lower-end hardware |
-| Starter Content | On / Off | Handy meshes and materials for prototyping; leave off for a clean shipping project |
-
-After choosing, name the project and click **Create**. The editor opens directly into the template level.
-
-## Unreal Editor Overview
-
-The Unreal Editor is where you build levels, manage assets, and wire up game logic. Four panels do most of the work, and they are linked: select an actor in the Viewport or Outliner, and the Details panel updates to show its properties.
+UE5's renderer is built around a few cooperating systems. Nanite decides which triangles to draw; Virtual Shadow Maps and Lumen use Nanite's output for shadows and indirect light; MegaLights handles many shadowed local lights; and Temporal Super Resolution reconstructs a full-resolution image from a lower-resolution render.
 
 ```mermaid
 flowchart LR
-    CB["Content Browser<br/>(your assets:<br/>meshes, materials,<br/>Blueprints, audio)"]
-    VP["Viewport<br/>(the live 3D level)"]
-    WO["World Outliner<br/>(list of actors<br/>in the level)"]
-    DP["Details Panel<br/>(properties of the<br/>selected actor)"]
-    CB -->|drag asset into| VP
-    VP -->|select| DP
-    WO -->|select| DP
-    WO -.mirrors.- VP
-    style CB fill:#e3f2fd,stroke:#1565c0
-    style VP fill:#e8f5e9,stroke:#2e7d32
-    style WO fill:#fff3e0,stroke:#e65100
-    style DP fill:#f3e5f5,stroke:#6a1b9a
+    G["Scene geometry<br/>(Nanite clusters +<br/>traditional meshes)"] --> N["Nanite culling and<br/>rasterization<br/>(visibility buffer)"]
+    N --> B["Material evaluation<br/>(GBuffer / Substrate)"]
+    N --> V["Virtual Shadow Maps"]
+    B --> L["Lumen<br/>GI and reflections"]
+    V --> D["Direct lighting<br/>(+ MegaLights)"]
+    L --> C["Composite, translucency,<br/>post-processing"]
+    D --> C
+    C --> T["TSR / DLSS / FSR / XeSS<br/>upscale to output"]
 ```
 
-| Panel | What it shows | What you do there |
-|-------|---------------|-------------------|
-| **Viewport** | The live 3D level | Navigate, place and transform actors, preview lighting and gameplay |
-| **Content Browser** | Every asset in the project | Import, organize, and drag assets into the level |
-| **World Outliner** | A searchable list of actors in the current level | Select, group, and filter objects — invaluable in dense scenes |
-| **Details** | Properties of the selected actor | Edit transforms, components, and exposed Blueprint variables |
+### Nanite virtualized geometry
 
-### Actors, Components, and the Level
+Nanite renders very dense meshes without hand-made level-of-detail (LOD) models. At import it splits a mesh into clusters of up to 128 triangles and builds a hierarchy in which groups of detailed clusters are replaced by simplified parent clusters. Each frame a GPU compute pass traverses this hierarchy, culls clusters that are off-screen or occluded, and selects detail so that triangles are roughly pixel-sized. Adjacent clusters at different detail levels are stitched without cracks. Small triangles are rasterized in a compute shader, which is faster than the hardware rasterizer for pixel-sized triangles; large ones go through the hardware path. Compressed geometry streams from disk on demand, so memory stays bounded.
 
-Everything you place in a level is an **Actor**. An actor by itself does little; its behavior and appearance come from the **Components** attached to it (a Static Mesh Component to render geometry, a Collision Component for physics, an Audio Component for sound). A character, for example, is an actor composed of a skeletal mesh component, a capsule collision component, a camera, and a movement component. Understanding this actor-plus-components model is the key to reading any Unreal project.
+The practical results:
 
-## Level Design in UE5
+- **Source-quality assets.** Photogrammetry scans, ZBrush sculpts, and CAD data can be used directly, without a manual LOD chain or baked normal maps for detail.
+- **Cost tracks screen resolution, not triangle count.** Two versions of a statue with 1 million and 10 million triangles cost about the same when they cover the same pixels.
+- **Instancing at scale.** Many instances of Nanite meshes are cheap, which suits kitbashed environments.
 
-Level design in Unreal Engine 5 has been revolutionized with new tools and workflows that streamline the creative process.
+Nanite initially supported only rigid, opaque static meshes. Later releases added masked materials and World Position Offset (5.1), displacement through **Nanite Tessellation** (5.4, Experimental), skinned (skeletal) meshes, and dense foliage through **Nanite Foliage** (5.7, Experimental). Translucent materials still render through the traditional path. Nanite also expects a GPU with modern features; mobile platforms use traditional meshes.
 
-### Modeling Mode
-UE5 includes built-in modeling tools, eliminating the need to switch between external 3D applications:
-- **PolyEdit**: Direct mesh manipulation
-- **TriEdit**: Triangle-level editing
-- **Deform**: Soft selection and deformation
-- **Transform**: Advanced pivot editing
-- **Bake**: Convert instances to static mesh
+### Lumen global illumination and reflections
 
-### Static Meshes with Nanite
-Enabling Nanite on a Static Mesh is a short workflow:
+Lumen computes diffuse indirect lighting (bounce light) and reflections every frame, so lighting responds immediately to moving objects, opening doors, and time-of-day changes without a lightmap bake.
 
-1. Import the high-poly mesh (millions of triangles is fine)
-2. Enable **Nanite** in the mesh's settings (right-click the asset → *Nanite* → *Enable*)
-3. No LODs to author — Nanite builds and streams detail automatically
-4. Use the original ZBrush sculpt or photogrammetry scan directly, without a separate optimization pass
+- **Software ray tracing** traces against signed distance fields of the scene's meshes. It runs on any GPU that meets UE5's requirements, at lower precision.
+- **Hardware ray tracing** traces against the triangle geometry using the GPU's ray-tracing units. It is more accurate, supports skinned meshes, and gives sharper reflections; since 5.6 it is efficient enough for 60 Hz targets on current consoles.
+- A **surface cache** stores lighting on simplified cards around each mesh so that rays can look up lighting instead of re-evaluating materials.
+- **Lumen Lite** (5.8, Beta) is a medium-quality mode based on irradiance fields with probe occlusion. Epic reports it as about twice as fast as Lumen's high-quality mode, and it is the default on current-generation handheld consoles.
 
-### Enhanced Landscape System
-The Landscape system now features:
-- **Non-destructive layers**: Paint and blend multiple materials
-- **Landscape splines**: Create roads and rivers that deform terrain
-- **Water system integration**: Automatic ocean and river generation
-- **Runtime Virtual Texturing**: Massive texture resolution
-- **World Partition integration**: Infinite landscape sizes
+Lumen's cost is significant. Projects targeting mobile or low-end PCs, or with fully static scenes, often still use baked lighting through **GPU Lightmass**.
 
-### PCG (Procedural Content Generation)
-The PCG framework (stable from UE5.2 onward) builds content from rules rather than hand placement. A typical forest-scattering graph chains nodes together inside a PCG Volume:
+### Shadows and many-light rendering
 
-1. **Surface Sampler** — generate candidate points across the landscape inside the volume
-2. **Density Filter / noise** — thin the points so distribution looks natural rather than uniform
-3. **Transform nodes** — randomize scale and rotation per point
-4. **Static Mesh Spawner** — instance trees (or any mesh) at the surviving points
+**Virtual Shadow Maps (VSM)** give each light a very large virtual shadow map (16k × 16k texels) that is allocated and rendered only where visible surfaces need it. This replaces cascaded shadow maps, removing cascade transitions and giving consistent detail for Nanite geometry. VSMs cache pages between frames, so static geometry is not re-rendered every frame.
 
-Because the graph is rule-based, changing one parameter (density, mesh set, slope cutoff) regenerates the whole forest instantly, and the same graph can populate any landscape.
+**MegaLights** (Experimental in 5.5, Beta in 5.7, Production-Ready in 5.8) makes the cost of shadowed local lights roughly independent of their number. Instead of evaluating every light at every pixel, it stochastically samples a small number of important lights per pixel, traces shadow rays for them, and denoises the result. This allows hundreds of shadow-casting point, spot, and textured area lights in a scene.
 
-### Foliage 2.0
-Enhanced foliage system with:
-- **Nanite foliage**: Extremely detailed vegetation
-- **Procedural placement rules**: Biome-aware distribution
-- **LOD-free rendering**: Consistent quality at any distance
-- **Interactive foliage**: Physics-enabled grass and bushes
+### Upscaling and anti-aliasing
 
-## Materials and Textures
+**Temporal Super Resolution (TSR)** is Unreal's built-in temporal upscaler and the default anti-aliasing method. It renders at a lower internal resolution, reprojects previous frames using motion vectors, and reconstructs a full-resolution image. TSR runs on any supported GPU. Vendor upscalers and frame generation (NVIDIA DLSS, AMD FSR, Intel XeSS) are available as plugins. Temporal methods can soften fine detail and produce ghosting on fast motion; this is one of the most common criticisms of UE5 image quality and should be tuned per project.
 
-A **material** is a shader that tells the renderer how a surface responds to light. In Unreal you author materials visually in the **Material Editor** by wiring nodes into the inputs of the main material node. Unreal uses a physically based rendering (PBR) model, so the core inputs map to real-world surface properties.
+### Materials
 
-| Material input | Controls | Typical texture |
-|----------------|----------|-----------------|
-| **Base Color** | The surface's albedo (its "flat" color) | Color/diffuse map |
-| **Metallic** | Whether the surface behaves like metal (0 = dielectric, 1 = metal) | Metallic mask |
-| **Roughness** | How sharp or blurred reflections are (0 = mirror, 1 = matte) | Roughness map |
-| **Normal** | Fine surface detail without extra geometry | Normal map |
-| **Emissive** | Light the surface emits on its own | Emissive map |
-| **Ambient Occlusion** | Soft contact shadows baked into crevices | AO map |
+A **material** defines how a surface responds to light. Materials are authored as node graphs in the **Material Editor** and compiled to shaders for each platform and feature combination. Unreal uses a physically based rendering (PBR) model:
 
-### Textures
+| Input | Controls | Typical source |
+|-------|----------|----------------|
+| Base Color | Albedo (surface color without lighting) | Color texture |
+| Metallic | Metal (1) or dielectric (0) | Mask channel |
+| Roughness | Microsurface roughness: 0 is a mirror, 1 is fully diffuse | Mask channel |
+| Normal | Fine surface detail without extra geometry | Normal map |
+| Emissive | Light emitted by the surface | Emissive texture |
+| Ambient Occlusion | Small-scale occlusion in crevices | Mask channel |
 
-Textures are the 2D images feeding those inputs. Beyond color maps, the workhorses are **normal maps** (encode surface bumps in RGB), **packed masks** (roughness, metallic, and AO stored in separate channels of one texture to save memory), and **height/displacement maps**. Keeping channels packed and resolutions appropriate is one of the simplest performance wins in a project.
+Common practice is to pack single-channel masks (for example roughness, metallic, and ambient occlusion) into the channels of one texture, and to create a **parent material** with exposed parameters from which many **Material Instances** are derived. Instances change parameter values without creating new shaders, which keeps both iteration time and shader count down. Uncontrolled static switches and material permutations are a leading cause of long shader compile times and large shader caches.
 
-### Material Instances
+**Substrate** (Experimental in 5.2, Beta in 5.5, Production-Ready in 5.7) replaces the fixed list of shading models (Default Lit, Clear Coat, Subsurface, and so on) with composable material layers called slabs. It can express surfaces the legacy models cannot, such as coated metal with thin-film iridescence or layered car paint, and 5.8 adds measured-material import (X-Rite AxF) and experimental toon shading. New projects should evaluate Substrate; existing projects can convert legacy materials automatically but should budget time to check cost and appearance.
 
-Authoring one material per variation is wasteful. Instead, expose parameters on a **parent material** (a color, a roughness scalar, a texture slot) and create lightweight **Material Instances** that only override those values. A single "painted metal" parent can spawn red, blue, and rusted instances with no extra shader compilation — instances change parameters, not the shader graph. This is the standard way to keep both iteration speed and runtime cost low.
+### Lighting
 
-### Substrate (Experimental)
+Light types describe the shape of emission; **mobility** determines how the light is computed.
 
-UE5 is introducing **Substrate**, a more flexible material framework that replaces the fixed shading-model dropdown with composable layers (for example, a clear coat over metal, or thin-film iridescence). It is powerful for complex surfaces but remains experimental across recent releases — adopt it deliberately, not by default.
+| Light | Emission | Typical use |
+|-------|----------|-------------|
+| Directional | Parallel rays from infinitely far away | Sun or moon; usually one per scene |
+| Sky Light | Captured or HDRI environment | Ambient fill and sky contribution to GI |
+| Point | All directions from a point | Bulbs, torches |
+| Spot | A cone | Flashlights, stage lights |
+| Rect | A rectangular area | Windows, screens, softboxes |
 
-## Lighting
+| Mobility | Behavior | Cost |
+|----------|----------|------|
+| Static | Fully baked into lightmaps; cannot change at runtime | Cheapest at runtime; needs a bake |
+| Stationary | Indirect light baked; direct light and shadows dynamic | Medium |
+| Movable | Fully dynamic; with Lumen, indirect light is dynamic too | Highest; the default workflow with Lumen |
 
-Lighting is an essential aspect of any game, as it helps set the mood, atmosphere, and visual quality. Unreal Engine provides several lighting types, such as **Directional Lights**, **Point Lights**, **Spot Lights**, and **Sky Lights**. Each describes *where* light comes from; how that light bounces and fills a scene is handled by the global illumination system.
+With Lumen, the usual setup is a directional light, a sky light, and a Sky Atmosphere with volumetric clouds for exteriors, with local lights left movable.
 
-**Lumen changes the lighting workflow.** In UE4, indirect light from these sources was typically *baked* into lightmaps — accurate, but static and slow to iterate on. With Lumen enabled (the UE5 default), the same lights produce real-time bounce lighting and reflections that update instantly as you move objects or change the time of day. The practical consequence: you place lights and immediately see the final result, with no bake step. Baked lighting still exists for fixed scenes or low-end hardware where the runtime cost of Lumen is too high.
+## Editor and project structure
 
-### Light Types
+### The editor
 
-Each light type describes a different shape of emission. You combine them to build a believable scene — typically one directional "sun," a sky light for fill, and point/spot lights for local sources.
+The **Level Editor** is organized around four linked panels: selecting an actor in the viewport or Outliner shows its properties in the Details panel.
 
-| Light type | Emission shape | Typical use | Notes |
-|------------|----------------|-------------|-------|
-| **Directional** | Parallel rays from infinity | The sun or moon | One per scene usually; drives the main shadows |
-| **Point** | All directions from a point | Bulbs, torches, lamps | Cost scales with radius and shadow casting |
-| **Spot** | A cone | Flashlights, stage spots, headlights | Inner/outer cone angles control falloff |
-| **Rect (Area)** | A rectangular surface | Softboxes, windows, screens | Soft, area-shaped highlights and shadows |
-| **Sky** | Ambient from the surrounding sky/HDRI | Outdoor fill, bounced ambient | Captures the environment for indirect lighting |
+| Panel | Shows | Used to |
+|-------|-------|---------|
+| Viewport | The level in 3D | Navigate; place, transform, and preview actors; play in editor |
+| Content Browser | Every asset in the project | Import, organize, and drag assets into the level |
+| Outliner | The actors in the current level, hierarchically | Select, group, and filter actors; manage Data Layers |
+| Details | Properties of the selected actor and its components | Edit transforms, components, and exposed variables |
 
-**Mobility matters as much as type.** A light set to *Static* is baked into lightmaps (cheapest, but cannot move), *Stationary* bakes indirect light while keeping dynamic shadows, and *Movable* is fully dynamic (most flexible, most expensive). With Lumen enabled, Movable lights produce real-time indirect bounce without any bake.
+Other editors open for specific asset types: the Blueprint Editor, Material Editor, Niagara editor, Animation and Control Rig editors, the Sequencer cinematic timeline, and the MetaSound editor. **Modeling Mode** provides in-editor polygon modeling, UV, and mesh-repair tools for blockouts and fixes that would otherwise need a round trip to a DCC tool.
 
-## Animation and Characters
+### Project templates
 
-Animating a character in Unreal flows through a small chain of assets, each building on the last:
+New projects start from a template (First Person, Third Person, Top Down, Vehicle, Virtual Reality, or film, architecture, and automotive templates) as either a **Blueprint** or **C++** project. C++ can be added to a Blueprint project at any time, so the choice is not permanent. The target platform and quality preset set default scalability: the Maximum preset enables Lumen, Nanite, and Virtual Shadow Maps, and the Scalable preset targets lower-end hardware. **Lyra** is Epic's sample project demonstrating current practice for a full game (modular gameplay features, the Gameplay Ability System, Common UI, and Enhanced Input).
 
-1. **Skeletal Mesh** — a model bound to a **Skeleton** (a hierarchy of bones). Deforming the bones deforms the mesh.
-2. **Animation Sequences** — individual recorded clips (idle, walk, jump) authored in a DCC tool or captured from motion data.
-3. **Animation Blueprint** — the runtime brain. A **state machine** decides which animation should play (idle → walk → run → jump), and a **blend space** smoothly mixes clips based on inputs like speed and direction.
-4. **Physics Asset** — collision capsules around the bones, enabling ragdoll physics and physical hit reactions.
+### Modules, plugins, and builds
+
+A project consists of **modules** (units of C++ code with a `.Build.cs` file listing dependencies) and **plugins** (packages of modules and content that can be enabled per project). **Unreal Build Tool** compiles modules and **Unreal Header Tool** generates the reflection code for `UCLASS`, `UPROPERTY`, and `UFUNCTION` declarations. Assets are converted to platform formats by **cooking** and packaged into IoStore container files. The **Zen** storage server (production-ready as a shared derived-data cache since 5.5) and **Unreal Build Accelerator** speed up builds for teams, and **Incremental Cooking** (Beta) recooks only changed assets. **Horde** is Epic's continuous-integration and remote-execution system.
+
+## The gameplay framework
+
+### Actors and components
+
+Everything placed in a level is an **Actor** (`AActor`). An actor's behavior and appearance come from **components** (`UActorComponent`, or `USceneComponent` when it has a transform): a Static Mesh Component renders geometry, a Capsule Component provides collision, a Camera Component provides a view, a Character Movement Component implements walking, swimming, and flying. Scene components form an attachment hierarchy under the actor's root component. Composition, rather than deep inheritance, is the main way behavior is reused.
+
+All engine objects derive from `UObject`, which provides reflection, serialization, garbage collection, and Blueprint exposure. Objects are referenced through `TObjectPtr` or `UPROPERTY` members so that the garbage collector can see them.
+
+### Framework classes
+
+The engine defines a fixed set of classes that give each gameplay responsibility a home. Where each class exists matters in multiplayer:
+
+```mermaid
+flowchart TB
+    subgraph S["Server only"]
+        GM["GameMode<br/>rules, spawning, match flow"]
+    end
+    subgraph R["Server and all clients (replicated)"]
+        GS["GameState<br/>match-wide state"]
+        PS["PlayerState<br/>per-player data: name, score"]
+        P["Pawn / Character<br/>the body being controlled"]
+    end
+    subgraph O["Server and owning client"]
+        PC["PlayerController<br/>input, camera, UI ownership"]
+    end
+    subgraph L["Local to each machine"]
+        GI["GameInstance<br/>persists across level loads"]
+        HUD["HUD / UMG widgets"]
+    end
+    GM -- creates --> GS
+    GM -- spawns --> PC
+    PC -- possesses --> P
+    PC -- owns --> PS
+    PC -- owns --> HUD
+```
+
+| Class | Responsibility | Exists on |
+|-------|----------------|-----------|
+| GameMode | Rules of the match: spawning, scoring, win conditions | Server only |
+| GameState | Match-wide state that clients need (time remaining, team scores) | Server and all clients |
+| PlayerController | A player's will: input handling, camera, possession | Server and owning client |
+| PlayerState | Per-player state visible to everyone (name, score, team) | Server and all clients |
+| Pawn / Character | The possessed body in the world; Character adds a capsule, skeletal mesh, and movement | Server and relevant clients |
+| GameInstance | State that survives level changes (settings, session info) | Each machine |
+| Subsystems | Auto-instanced singletons scoped to the engine, editor, game instance, world, or local player | Depends on scope |
+
+**Subsystems** (`UGameInstanceSubsystem`, `UWorldSubsystem`, and so on) are the recommended place for global services such as save management, analytics, or quest tracking, instead of global variables or bloated GameInstance classes.
+
+### Actor lifecycle
+
+```mermaid
+flowchart LR
+    A["Spawn / level load"] --> B["Constructor<br/>(create default<br/>components)"]
+    B --> C["OnConstruction<br/>(Construction Script)"]
+    C --> D["PostInitializeComponents"]
+    D --> E["BeginPlay"]
+    E --> F["Tick<br/>(if enabled)"]
+    F --> F
+    F --> G["EndPlay<br/>(destroyed, level unloaded,<br/>or game ended)"]
+    G --> H["Garbage collected"]
+```
+
+The constructor runs for the class default object as well as for each instance, so it should only set defaults and create components. Gameplay logic that touches other actors belongs in `BeginPlay`.
+
+### Input
+
+**Enhanced Input** is the input system in UE5; the legacy action and axis mappings are deprecated. Input Actions describe what the player can do (Jump, Move, Look), Input Mapping Contexts bind keys and controller buttons to those actions, and contexts can be added or removed at runtime (for example, a vehicle context while driving). Modifiers and triggers handle dead zones, axis swizzling, hold, tap, and chorded inputs. UE 5.8 unifies Enhanced Input with Common UI's input handling.
+
+### Gameplay Ability System
+
+The **Gameplay Ability System (GAS)** is a framework for abilities, attributes, and effects, used in Fortnite and Lyra. Abilities are replicated, predicted actions (a dash, a spell); attributes are numeric stats (health, stamina); gameplay effects modify attributes instantly, over time, or permanently; and gameplay tags label state (`State.Stunned`, `Ability.Cooldown.Dash`). GAS has a steep learning curve but provides client prediction and replication that would otherwise have to be written by hand.
+
+## Scripting: Blueprints, C++, and Verse
+
+### Choosing a language
+
+| | Blueprints | C++ | Verse |
+|---|-----------|-----|-------|
+| Form | Visual node graphs | Native code compiled with the engine | Text language with functional-logic semantics |
+| Where | All of Unreal Engine | All of Unreal Engine | Unreal Editor for Fortnite today; planned for UE6 |
+| Strengths | Fast iteration, accessible to designers, tight editor integration | Performance, full engine access, source control and code review, complex systems | Transactional semantics, concurrency primitives, designed for large shared codebases |
+| Weaknesses | VM overhead per node; binary assets are hard to diff and merge; large graphs become unreadable | Slower iteration (compiles, restarts); steeper learning curve | Not available for standalone UE5 projects |
+
+The standard architecture is **C++ for systems, Blueprints for content**: foundational classes, performance-critical code, and data structures are written in C++ and exposed through `UPROPERTY` and `UFUNCTION`, and designers subclass them in Blueprint to wire up specific behavior, tune values, and assign assets. **Blueprint Nativization**, which converted Blueprints to C++ at cook time in UE4, was removed in UE5; move hot paths to C++ by hand instead. **Live Coding** (Ctrl+Alt+F11) patches C++ changes into a running editor for fast iteration on function bodies, though changes to class layouts still need an editor restart.
+
+### A C++ actor exposed to Blueprint
+
+This pickup actor shows the usual pattern: components created in the constructor, properties and events exposed to the editor and Blueprints, and gameplay logic that runs only on the server.
+
+```cpp
+// Pickup.h
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/Actor.h"
+#include "Pickup.generated.h"
+
+class USphereComponent;
+class UStaticMeshComponent;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPickedUp, AActor*, Collector);
+
+UCLASS()
+class MYGAME_API APickup : public AActor
+{
+    GENERATED_BODY()
+
+public:
+    APickup();
+
+    // Editable per instance in the Details panel, readable from Blueprints.
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pickup")
+    float Value = 10.f;
+
+    // An event dispatcher that Blueprints can bind to.
+    UPROPERTY(BlueprintAssignable, Category = "Pickup")
+    FOnPickedUp OnPickedUp;
+
+protected:
+    virtual void BeginPlay() override;
+
+    UPROPERTY(VisibleAnywhere, Category = "Components")
+    TObjectPtr<USphereComponent> Trigger;
+
+    UPROPERTY(VisibleAnywhere, Category = "Components")
+    TObjectPtr<UStaticMeshComponent> Mesh;
+
+    UFUNCTION()
+    void HandleOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
+                       UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
+                       bool bFromSweep, const FHitResult& SweepResult);
+};
+```
+
+```cpp
+// Pickup.cpp
+#include "Pickup.h"
+#include "Components/SphereComponent.h"
+#include "Components/StaticMeshComponent.h"
+
+APickup::APickup()
+{
+    PrimaryActorTick.bCanEverTick = false;  // event-driven, so no per-frame cost
+    bReplicates = true;
+
+    Trigger = CreateDefaultSubobject<USphereComponent>(TEXT("Trigger"));
+    Trigger->InitSphereRadius(64.f);
+    RootComponent = Trigger;
+
+    Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
+    Mesh->SetupAttachment(Trigger);
+    Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+}
+
+void APickup::BeginPlay()
+{
+    Super::BeginPlay();
+    Trigger->OnComponentBeginOverlap.AddDynamic(this, &APickup::HandleOverlap);
+}
+
+void APickup::HandleOverlap(UPrimitiveComponent*, AActor* OtherActor,
+                            UPrimitiveComponent*, int32, bool, const FHitResult&)
+{
+    if (!HasAuthority() || OtherActor == nullptr)
+    {
+        return;  // gameplay state changes only on the server
+    }
+    OnPickedUp.Broadcast(OtherActor);
+    Destroy();  // destruction replicates to clients
+}
+```
+
+A designer can then create a Blueprint subclass of `APickup`, assign a mesh, set `Value`, and bind `OnPickedUp` to play a sound or update the UI, without touching C++.
+
+### Blueprint types
+
+| Type | Purpose |
+|------|---------|
+| Blueprint Class | A reusable actor or object type (character, weapon, door), usually subclassing a C++ class |
+| Level Blueprint | Logic specific to one level (scripted events, triggers). Hard to reuse; prefer actors or level instances |
+| Animation Blueprint | Per-character animation logic: state machines, blend spaces, IK |
+| Widget Blueprint | User interface built with UMG (Unreal Motion Graphics) |
+| Blueprint Interface | A set of function signatures that unrelated Blueprints can implement |
+| Blueprint Function Library | Static utility functions callable from any Blueprint |
+| Data-only Blueprint | A subclass that only overrides default values |
+
+### Communication between objects
+
+| Mechanism | Coupling | Use when |
+|-----------|----------|----------|
+| Direct reference and cast | Tight; casting loads the target class | The relationship is fixed (a weapon talking to its owning character) |
+| Blueprint Interface | Loose | Many unrelated classes respond to the same message ("Interact", "TakeDamage") |
+| Event Dispatcher (multicast delegate) | Loose, one-to-many | Listeners subscribe to an event (a door opened, health changed) |
+| Subsystem | Global service | Game-wide managers accessed from anywhere |
+| Gameplay Tags and Gameplay Messages | Very loose | Large projects where systems should not know about each other |
+
+A common performance and memory mistake is casting to large Blueprint classes everywhere: each cast creates a hard reference, so loading one asset loads everything it references. Interfaces, soft object references (`TSoftObjectPtr`), and C++ base classes break these chains.
+
+### Blueprint practice
+
+- **Avoid Tick where possible.** Use events, timers, and dispatchers; if a Blueprint must tick, lower its tick interval.
+- **Keep graphs small.** Collapse logic into functions and macros; move loops over large arrays and heavy math into C++.
+- **Use data assets and tables for content.** Data Tables (imported from CSV or JSON), Primary Data Assets, and Curve Tables keep tunable values out of graphs.
+- **Debug with the built-in tools.** Breakpoints and step-through in the Blueprint debugger, watch values, Print String, the **Visual Logger** (records gameplay state for scrubbing afterwards), and the **Gameplay Debugger** (an in-game overlay of AI and ability state).
+- **Plan for source control.** Blueprints are binary assets that cannot be merged; use Perforce or Git LFS with file locking, and use the editor's Blueprint diff tool to review changes.
+
+### Verse and the Scene Graph
+
+**Verse** is Epic's programming language, created with Unreal Editor for Fortnite (UEFN) and first shipped there in March 2023. It is a statically typed functional-logic language with built-in concurrency and transactional semantics (failure rolls back effects). Its design team includes Simon Peyton Jones and Lennart Augustsson. The **Scene Graph** is a new entity-and-component model developed alongside it in UEFN. Verse is not available in standalone UE5; Epic has said that Verse and the Scene Graph will eventually replace Blueprints and Actors in Unreal Engine 6, with Blueprints and Actors retained in early UE6 versions.
+
+## World building
+
+### World Partition
+
+**World Partition** replaces UE4's manual sublevel streaming with a single persistent world divided into a grid. At runtime the engine loads cells near streaming sources (usually the player) and unloads distant ones.
+
+```mermaid
+flowchart LR
+    W["One persistent world<br/>(actors saved as<br/>One File Per Actor)"] --> G["Runtime grid<br/>of cells"]
+    G -->|near streaming source| Load["Cells loaded:<br/>full actors"]
+    G -->|far away| H["Cells unloaded:<br/>HLOD proxies drawn"]
+    DL["Data Layers"] -.->|toggle sets of actors| G
+```
+
+- **One File Per Actor (OFPA)** saves each actor in its own file, so several people can edit the same area and source control conflicts are per actor, not per level.
+- **Data Layers** group actors that can be loaded or unloaded together, in the editor or at runtime (for example, a quest-dependent version of a village).
+- **Hierarchical LODs (HLODs)** are generated proxy meshes that stand in for unloaded cells at a distance.
+- **Level Instances** and **Packed Level Actors** let a group of actors be authored once and placed many times.
+
+Large open worlds must also manage **traversal stutter**, frame-time spikes caused by loading and initializing actors as the player moves; see [Performance and profiling](#performance-and-profiling).
+
+### Landscape and terrain
+
+The **Landscape** system provides heightmap terrain with non-destructive edit layers, sculpting and painting tools, landscape splines for roads and rivers, and runtime virtual texturing to blend terrain materials efficiently. The **Water** plugin adds oceans, lakes, and rivers that shape the landscape and interact with buoyancy. **Mesh Terrain** (5.8, Experimental) is a next-generation mesh-based terrain system intended to support overhangs, caves, and other shapes a heightmap cannot represent.
+
+### Procedural Content Generation (PCG)
+
+The **PCG framework** (Experimental in 5.2, Production-Ready in 5.7) generates content from rule graphs rather than manual placement. A typical scattering graph samples points on a surface, filters them by density, slope, height, or distance to splines, randomizes transforms, and spawns meshes or actors at the surviving points:
+
+```mermaid
+flowchart LR
+    S["Surface Sampler<br/>(points on landscape)"] --> F["Filters<br/>density, slope,<br/>exclusion splines"]
+    F --> T["Transform Points<br/>random scale,<br/>rotation, offset"]
+    T --> M["Static Mesh Spawner<br/>(instanced meshes)"]
+```
+
+Graphs can be regenerated in the editor when their inputs change or executed at runtime around the player (**PCG runtime generation**), and can use GPU execution for large point counts. Graphs are reusable across levels, and subgraphs package common steps. UE 5.8 adds non-destructive manual edits on top of generated results. The **Procedural Vegetation Editor** (Experimental) generates tree and plant meshes, including Nanite foliage, inside the engine.
+
+## Animation and characters
+
+Character animation flows through a chain of assets:
 
 ```mermaid
 flowchart LR
     Skel["Skeleton<br/>(bone hierarchy)"] --> Mesh["Skeletal Mesh"]
-    Anims["Animation<br/>Sequences"] --> ABP["Animation Blueprint<br/>(state machine + blends)"]
+    Anims["Animation Sequences,<br/>Montages, Blend Spaces"] --> ABP["Animation Blueprint<br/>(state machines,<br/>motion matching, IK)"]
     Mesh --> ABP
-    ABP --> Pose["Final per-frame pose"]
-    style Skel fill:#e3f2fd,stroke:#1565c0
-    style Mesh fill:#e8f5e9,stroke:#2e7d32
-    style Anims fill:#fff3e0,stroke:#e65100
-    style ABP fill:#f3e5f5,stroke:#6a1b9a
-    style Pose fill:#e8f5e9,stroke:#2e7d32
+    CR["Control Rig<br/>(procedural rigging)"] --> ABP
+    ABP --> Pose["Final pose<br/>each frame"]
+    PA["Physics Asset"] --> Pose
 ```
 
-UE5 also ships **Control Rig** (build rigs and procedural animation directly in-engine) and **Motion Matching** (UE5.4+), which picks the best-fitting pose from an animation database each frame instead of relying on hand-built state machines — yielding more natural movement with less manual transition wiring.
+| Asset or system | Role |
+|-----------------|------|
+| Skeleton and Skeletal Mesh | The bone hierarchy and the mesh skinned to it |
+| Animation Sequence | A single clip (idle, run, jump) |
+| Animation Montage | A clip with sections and notifies, triggered from gameplay (attacks, reloads) |
+| Blend Space | Blends clips over one or two parameters, such as speed and direction |
+| Animation Blueprint | Runtime logic that selects and blends animations each frame |
+| Control Rig | Node-based rigging and procedural animation in engine; also used to animate in Sequencer |
+| IK Rig and IK Retargeter | Retarget animations between skeletons with different proportions |
+| Physics Asset | Collision bodies per bone for ragdolls and physical reactions |
 
-## Particles and Effects
+**Motion Matching** (introduced in 5.4) replaces much of a hand-built state machine with a search: each frame it finds the pose in an animation database whose pose and future trajectory best match the character's current state and desired movement, producing natural transitions without authoring every blend. **Choosers** (Production-Ready in 5.5) select assets from tables of conditions. Animators can also keyframe directly in the editor using Control Rig and Sequencer's animation mode, reducing round trips to external DCC tools.
 
-Visual effects — fire, smoke, sparks, magic — are built in **Niagara**, UE5's node-based particle system (it superseded the older Cascade system). Niagara is organized as a hierarchy you can mix and reuse:
+**MetaHuman** creates realistic digital humans with facial rigs. Since 5.6, **MetaHuman Creator** runs inside the editor, and **MetaHuman Animator** captures facial performance from video, including from a single camera. **Mutable** (Production-Ready in 5.8) generates customizable skeletal meshes, materials, and textures at runtime for character creators.
+
+## Visual effects: Niagara
+
+**Niagara** is Unreal's particle and simulation system; it replaced the older Cascade system.
 
 | Concept | Role |
 |---------|------|
-| **System** | The complete effect (for example, an explosion) |
-| **Emitter** | One source of particles within the system (debris, smoke, sparks) |
-| **Module** | A stackable behavior on an emitter (spawn rate, initial velocity, gravity, color over life, collision) |
+| System | A complete effect placed in the world (an explosion) |
+| Emitter | One particle source within a system (debris, smoke, sparks) |
+| Module | A stackable script on an emitter (spawn rate, initial velocity, gravity, color over life, collision) |
+| Parameter | A value passed in from gameplay or between emitters |
 
-Two features make Niagara flexible: it can run particle simulation on the **GPU** for huge counts (millions of particles), and emitters can read data from the world or from each other, so effects can react to gameplay (sparks that bounce off real geometry, smoke that follows wind). Reusable behavior is packaged into **Niagara Modules** so an effects team builds a library once and reuses it across systems.
+Emitters can simulate on the CPU or GPU; GPU simulation handles millions of particles. Effects can sample scene depth, collide with geometry, read skeletal meshes, and receive events from gameplay through **Niagara Data Channels**. **Niagara Fluids** provides grid-based 2D and 3D fluid simulation for smoke, fire, and water effects.
 
 ## Audio: MetaSounds
 
-The general theory of game audio — mixing buses, distance attenuation, occlusion, the listener model, and adaptive/interactive scoring — is engine-agnostic and covered in [Audio Design](../gamedev/audio-design.html). This section focuses on what is **specific to Unreal**, where that theory is implemented through imported **Sound Waves**, attenuation/spatialization settings, and the **Sound Cue** and **MetaSound** graphs that drive them. MetaSounds are UE5's headline audio feature and the reason to reach for Unreal over a hand-rolled pipeline.
+The general theory of game audio (buses, attenuation, occlusion, the listener model, adaptive music) is covered in [Audio Design](../gamedev/audio-design.html). In Unreal, that theory is implemented through **Sound Waves** (imported audio), **Sound Cues** (legacy node graphs for simple randomization and mixing), and **MetaSounds**.
 
-### MetaSounds
+**MetaSounds** are node-based digital signal processing graphs that run on the audio render thread with sample-accurate timing. A MetaSound can synthesize sound (oscillators, filters, envelopes) and manipulate samples, driven by parameters set from Blueprint or C++:
 
-**MetaSounds** are UE5's node-based **procedural audio** system — a programmable digital signal processing graph that runs per-voice at audio rate. Rather than playing back a fixed `.wav`, a MetaSound *synthesizes and modulates* audio at runtime, so it can react continuously to gameplay:
+- An engine sound whose pitch and timbre follow RPM continuously, instead of crossfading recorded loops.
+- Footsteps and weapon sounds that vary procedurally from a few samples, reducing the memory budget.
+- Presets that inherit a MetaSound graph and override only exposed parameters, in the same way as Material Instances.
 
-- **Sample-accurate, audio-rate graphs**: Oscillators, filters, envelopes, and samplers wired together, evaluated on the audio thread with no buffer-boundary glitches — the same conceptual leap Niagara brought to VFX.
-- **Gameplay-driven inputs**: Expose parameters (engine RPM, wind speed, health) as graph inputs and set them from Blueprint or C++. The classic example is an engine sound whose pitch and timbre track RPM rather than crossfading between recorded loops.
-- **Generative content**: Procedural ambience, footstep variation, and weapon layers can be built from a handful of samples plus synthesis, shrinking the audio memory budget versus shipping many pre-rendered files.
-- **Presets and inheritance**: A MetaSound Source can be subclassed into presets that only override exposed parameters, mirroring the Material Instance pattern.
+MetaSounds are the recommended choice for new audio work; Sound Cues remain adequate for basic playback. Related systems include **Quartz** (a sample-accurate musical clock for quantizing gameplay events to the beat), **Audio Modulation** (control buses for mixing and ducking), **Submixes** for bus routing and effects, and **Audio Insights** (Production-Ready in 5.8) for profiling and debugging audio.
 
-MetaSounds are the modern successor to most of what **Sound Cues** did. Sound Cues still exist and remain fine for simple randomize-and-attenuate playback, but new procedural and adaptive audio work in UE5 belongs in MetaSounds.
+Sounds are placed in the world through an **Audio Component** on an actor, with an **Attenuation** asset defining distance falloff, spatialization (including HRTF binaural plugins), occlusion, and reverb sends.
 
-### Spatialization and attenuation in Unreal
+## Physics: Chaos
 
-Attach a **Sound Wave**, **Sound Cue**, or **MetaSound** to an actor via an **Audio Component** to give it a world position, then drive 3D falloff with an **Attenuation** asset (distance curve, spread, optional binaural/HRTF spatialization plugin). These are Unreal's concrete handles on the general spatial-audio concepts described in the [Audio Design](../gamedev/audio-design.html) page.
+**Chaos** is Unreal's physics engine and has been the default since UE 5.0, replacing NVIDIA PhysX.
 
-## Blueprints in UE5
+| Feature | Description |
+|---------|-------------|
+| Rigid bodies and collision | Core simulation for physics-driven actors and ragdolls |
+| Chaos Destruction | Geometry Collections pre-fractured into hierarchical pieces that break under strain, with caching for cinematic destruction |
+| Chaos Vehicles | Wheeled vehicle simulation with suspension, tire, and drivetrain models; 5.8 adds a Modular Vehicle system built from components |
+| Chaos Cloth | Cloth simulation for characters; Production-Ready in 5.8, with the Panel Cloth editor for authoring garments |
+| Chaos Flesh | Finite-element simulation of soft tissue deformation |
+| Physics Control | Physically driven animation that blends simulation with animated targets |
+| Networked physics | Replication modes for physics objects, including predictive interpolation and resimulation |
 
-Blueprints remain the cornerstone of Unreal Engine's accessibility, but UE5 has significantly enhanced the visual scripting system with new features and optimizations that rival traditional code performance.
+## Networking and multiplayer
 
-### Enhanced Blueprint Features
+Unreal uses an **authoritative server** model. The server owns the game state, and **replication** sends changes to clients.
 
-#### Blueprint Interfaces and Inheritance
-- **Multiple inheritance support**: Blueprints can now implement multiple interfaces
-- **Abstract Blueprint classes**: Define base functionality for child Blueprints
-- **Blueprint subsystems**: Create modular, reusable systems
+- **Actor replication** sends actors and their replicated properties (`UPROPERTY(Replicated)` or `ReplicatedUsing` to trigger a callback on change) to clients for which the actor is relevant.
+- **Remote procedure calls** (`UFUNCTION(Server)`, `Client`, `NetMulticast`) send function calls across the network, reliably or unreliably.
+- **Ownership and roles** (`HasAuthority()`, local role and remote role) determine which machine may run which logic.
+- **Relevancy and priority** limit what each client receives, and **dormancy** stops checking actors that rarely change.
+- **Character Movement Component** and the newer **Mover** plugin provide client-side movement prediction with server correction.
 
-#### Performance and the Blueprint–C++ Tradeoff
+**Iris** is the new replication system, designed for higher player and object counts with less CPU cost per connection. It is Production-Ready in 5.8 and integrates with the Scene Graph. The engine-agnostic techniques behind all of this (prediction, reconciliation, lag compensation, interest management) are covered in [Multiplayer Networking](../gamedev/multiplayer-networking.html).
 
-Blueprint runs on a virtual machine, so per-node execution carries overhead that compiled C++ does not. The practical rule is unchanged: keep gameplay flow and rapid iteration in Blueprint, and move tight loops or math-heavy code to C++.
+## Performance and profiling
 
-Note that **Blueprint Nativization** (the UE4 feature that auto-converted Blueprints to C++ at cook time) was deprecated and **removed in UE5** — it caused build and maintenance problems. The modern approach is to author hot paths as C++ functions and call them from Blueprint, rather than relying on automatic conversion.
+UE5 games are frequently criticized for two kinds of hitching: **shader compilation stutter** (a pipeline state object is compiled the first time a material and mesh combination is drawn) and **traversal stutter** (actors are loaded and initialized as the player moves through a streamed world). Both are addressable but need deliberate work.
 
-#### New Node Categories in UE5
+| Tool or technique | Purpose |
+|-------------------|---------|
+| `stat unit`, `stat fps`, `stat gpu` | Quick on-screen frame, game thread, render thread, and GPU timings |
+| Unreal Insights | Timeline profiler for CPU, GPU, memory, loading, and networking; the main profiling tool |
+| GPU Visualizer (`ProfileGPU`) and RenderDoc or PIX | Per-pass GPU cost and draw inspection |
+| Nanite, Lumen, and VSM visualization modes | Show overdraw, cluster counts, cache misses, and shadow page use |
+| PSO precaching and bundled PSO caches | Compile shader pipelines ahead of first use to reduce stutter |
+| Scalability settings and device profiles | Quality tiers per platform and user setting |
+| Significance Manager, tick intervals, and object pooling | Reduce game-thread cost for many actors |
+| Mass Entity | Data-oriented framework for simulating thousands of agents (crowds, traffic) |
+| Size Map and Reference Viewer | Find hard references that inflate memory and load times |
 
-UE5 added node families for its new systems:
+Profile on target hardware in packaged (Test or Shipping) builds; editor timings are not representative. General techniques are covered in [Performance Optimization](../optimization/) and [GPU Optimization](../optimization/gpu-optimization.html).
 
-- **Smart Object Interaction** — declarative interaction points actors can claim and use
-- **State Tree** — a hierarchical alternative to Behavior Trees for AI and general logic
-- **Geometry Script** — procedural mesh generation and editing in Blueprint
-- **PCG** — procedural content generation graphs
-- **Mass Entity** — data-oriented nodes for large crowd/agent simulations
+## Platforms and industries
 
-### Types of Blueprints
+Unreal targets Windows, macOS, Linux, iOS, Android, PlayStation 5, Xbox Series X|S, Nintendo platforms, and XR headsets through OpenXR. Mobile and standalone VR typically use the forward renderer without Nanite and Lumen; the **Mobile Forward** renderer is being brought to feature parity with the desktop forward renderer for PC VR.
 
-There are several types of Blueprints available in Unreal Engine, each with its specific use case and functionality:
+| Industry | Unreal features used |
+|----------|---------------------|
+| Film and television | In-camera VFX on LED volumes with nDisplay, Live Link camera tracking, Sequencer, Movie Render Graph (Production-Ready in 5.8), Path Tracer (Production-Ready in 5.5), USD interchange |
+| Architecture and design | Datasmith and Interchange import from CAD and BIM tools, Twinmotion, path-traced stills, VR reviews |
+| Automotive | Real-time configurators with hardware ray tracing, HMI prototyping, driving simulation |
+| Simulation and training | Geospatial data through Cesium, Pixel Streaming for browser delivery, Learning Agents for reinforcement-learning-based AI |
 
-1. **Blueprint Class**: A reusable template that defines the behavior and appearance of an object in your game, such as a character, weapon, or pickup item.
-2. **Level Blueprint**: A unique Blueprint that's specific to a level and contains level-specific logic, such as scripted events or triggers.
-3. **Animation Blueprint**: A special type of Blueprint that manages character animations and transitions between different animation states.
-4. **Widget Blueprint**: A type of Blueprint used to create and manage user interface (UI) elements, such as menus, HUDs, and in-game UIs.
+### AI tooling in the editor
 
-### Blueprint Editor
+UE 5.8 adds an experimental **Unreal MCP** plugin, a Model Context Protocol server that lets agentic AI tools inspect a project and create assets or systems in the editor. The **Neural Network Engine (NNE)** runs trained models (for example, ML deformers for muscle and cloth deformation) at runtime, and **Learning Agents** trains game agents with reinforcement and imitation learning.
 
-The Blueprint Editor is the primary tool used to create and edit Blueprint scripts. It consists of several panels and windows, including the **Graph Editor**, **My Blueprint**, **Viewport**, and **Details** panel.
+## Unreal Engine 6
 
-#### Graph Editor
+Epic announced **Unreal Engine 6** on May 24, 2026, with *Rocket League* as the first announced title to move to it. Details given at the State of Unreal 2026:
 
-The Graph Editor is the main workspace where you'll create and edit Blueprint scripts using nodes connected by wires. It provides a visual representation of your game logic, making it easy to understand and modify.
+- UE6 merges Unreal Engine and Unreal Editor for Fortnite into one toolchain.
+- **Verse** and the **Scene Graph** are intended to eventually replace Blueprints and Actors; early UE6 versions retain both.
+- Early access is targeted for "late 2027-ish", with a full release roughly 12 to 18 months after that.
 
-### Nodes
+UE5 remains the engine for projects shipping before then. Designing gameplay around components, data assets, and clean C++ interfaces, rather than large monolithic Blueprints, is the most practical way to prepare a UE5 codebase for the transition.
 
-Nodes are the building blocks of a Blueprint script, representing functions, variables, events, and flow control structures. There are several types of nodes available in Unreal Engine, including:
+## Resources
 
-1. **Function Nodes**: Perform specific operations or tasks, such as spawning an actor, applying damage, or calculating the distance between two points.
-2. **Variable Nodes**: Store and retrieve data, such as numbers, text, or references to other objects.
-3. **Event Nodes**: Respond to specific events in your game, such as button presses, collisions, or timers.
-4. **Flow Control Nodes**: Control the flow of execution in your script, such as branching, looping, or delaying execution.
+- [Unreal Engine documentation](https://dev.epicgames.com/documentation/en-us/unreal-engine) — reference, release notes, and feature status lists for each version
+- [Epic Developer Community](https://dev.epicgames.com/community/) — tutorials, courses, and learning paths
+- [Unreal Engine public roadmap](https://portal.productboard.com/epicgames/) — planned and in-progress features
+- *Nanite: A Deep Dive* (Brian Karis, SIGGRAPH 2021 Advances in Real-Time Rendering course) — the design of Nanite in detail
 
-### Creating Blueprint Scripts
+## See also
 
-To create a Blueprint script, you'll need to follow these steps:
-
-1. **Add Nodes**: Drag and drop nodes from the context menu or My Blueprint panel onto the Graph Editor.
-2. **Connect Nodes**: Connect the output pin of one node to the input pin of another node using wires. This defines the order of execution and the flow of data between nodes.
-3. **Set Properties**: Customize the properties of your nodes using the Details panel, such as setting default values for variables or adjusting function parameters.
-4. **Test Your Blueprint**: Compile your Blueprint to check for errors, and then test it in the game using the Play button.
-
-### Debugging Blueprints
-
-Blueprints provide several tools for debugging and testing your scripts, including breakpoints, step-by-step execution, and real-time visualization of variable values.
-
-1. **Breakpoints**: Set breakpoints on nodes to pause execution and inspect the current state of your script.
-2. **Step-by-Step Execution**: Use the step-by-step execution controls to advance through your script one node at a time, observing the flow of execution and data between nodes.
-3. **Real-Time Visualization**: Enable real-time visualization of variable values in the Graph Editor, allowing you to see how data changes during script execution.
-4. **Print String**: Use the Print String node to output messages to the screen or log, which can be helpful for tracking the execution of your script and verifying the values of variables.
-
-### Blueprint Communication
-
-Communication between Blueprints is a critical aspect of creating complex and interactive game logic. Unreal Engine provides several methods for Blueprint communication, including:
-
-1. **Direct Function Calls**: Call functions or access variables directly from one Blueprint to another if you have a reference to the target Blueprint.
-2. **Blueprint Interfaces**: Define a set of functions that can be implemented by multiple Blueprints, allowing you to create standardized communication without relying on specific Blueprint types.
-3. **Event Dispatchers**: Create custom events that can be bound to multiple listeners, allowing you to create a flexible and decoupled communication system.
-4. **Global Variables**: Store data in global variables accessible from any Blueprint in your project, useful for sharing data between multiple Blueprints.
-
-### Best Practices for UE5 Blueprints
-
-#### Performance Optimization
-1. **Use C++ for Heavy Computation**: Blueprints for logic flow, C++ for math-heavy operations
-2. **Event-Driven Architecture**: Use event dispatchers instead of tick events
-3. **Object Pooling**: Reuse actors instead of spawning/destroying
-4. **Async Loading**: Use soft object references for large assets
-5. **Profile First**: Use Unreal Insights and Blueprint profiler
-
-#### Code Architecture
-
-Unreal's gameplay framework gives each responsibility a home. Knowing where logic belongs keeps projects maintainable as they grow:
-
-```text
-GameMode (server-authoritative rules; exists only on the server)
-├── PlayerController  → handles a player's input and possession
-├── GameState         → replicates match-wide state to all clients
-├── PlayerState       → replicates per-player data (score, name)
-└── GameInstance      → persists across level loads (settings, sessions)
-    └── SaveGame       → serialized progress written to disk
-```
-
-#### Blueprint Communication Patterns
-1. **Direct Communication**: Use cast only when relationship is guaranteed
-2. **Interface Communication**: Decouple Blueprints with interfaces
-3. **Event Dispatchers**: One-to-many communication
-4. **Blueprint Function Libraries**: Shared utility functions
-5. **Subsystems**: Game-wide services and managers
-
-#### Version Control Best Practices
-- Use **Blueprint Diff Tool** for comparing versions
-- Enable **One File Per Actor** for better merging
-- Avoid circular dependencies
-- Use **Redirectors** when renaming assets
-
-### Advanced Blueprint Techniques
-
-#### Async Gameplay Programming
-
-Long-running gameplay (an ability that charges over several frames, a load-and-then-act sequence) should not block the game thread. The async toolkit:
-
-- **Latent action nodes** (Delay, Move To, Timelines) yield control and resume later without freezing the frame
-- **Gameplay Tasks** wrap multi-frame operations into cancellable units, used heavily by the Gameplay Ability System
-- **Async asset loading** via soft references streams large assets in the background
-- **Event Dispatchers** deliver the result back when the work completes, keeping callers decoupled
-
-#### Data-Driven Design
-- **Data Tables**: CSV/JSON imported game data
-- **Data Assets**: Scriptable object patterns
-- **Curve Tables**: Animation and gameplay curves
-- **Composite Data Tables**: Inherited data structures
-
-#### Debugging Tools
-- **Visual Logger**: Record and playback gameplay
-- **Gameplay Debugger**: Real-time state inspection
-- **Blueprint Debugger**: Step through execution
-- **Console Commands**: Custom debug commands
-
-By mastering these advanced Blueprint techniques and following modern best practices, you can create professional-quality games that perform well and are maintainable by teams. The improvements in UE5 make Blueprints more powerful than ever, blurring the line between visual scripting and traditional programming.
-
-## Unreal Engine 5.4 and Beyond
-
-This guide targets UE5.3/5.4. Later releases (UE5.5 and UE5.6) continue to advance these systems, with further Nanite and Lumen improvements and the introduction of **MegaLights** for handling large numbers of dynamic, shadow-casting lights at lower cost. Confirm feature status against the release notes for the version you target.
-
-### Latest Features in UE5.4
-
-#### Motion Matching
-A data-driven animation approach that reduces reliance on hand-built state machines:
-- Selects the best-fitting pose from an animation database each frame
-- Produces smoother transitions with far less manual blend wiring
-- Shipped as a production-ready sample in UE5.4
-
-#### Nanite Tessellation
-Adds displacement to Nanite surfaces, so geometry can carry fine, dynamic detail (cracks, terrain deformation) driven by a height map rather than baked into the mesh. As with any added detail, it has a runtime cost — budget it like any other rendering feature.
-
-#### Neural Network Compression
-Machine-learning-assisted compression for assets such as textures, aiming to shrink download and memory footprint while preserving quality. It is an evolving area — measure quality and size on your own content rather than assuming a fixed ratio.
-
-#### Procedural Content Generation Framework
-The PCG framework can scale from scattering foliage to generating whole environments. A city-generation graph, for instance, chains rules together:
-
-1. Define building Blueprints and a palette of block types
-2. Lay out a road network from spline or grid rules
-3. Drive building density and height from sampled maps
-4. Spawn buildings procedurally along the blocks
-5. Re-run the graph at runtime when inputs change
-
-Because the output is rule-driven, designers tune parameters instead of placing thousands of meshes by hand.
-
-### Platform-Specific Optimizations
-
-#### PlayStation 5
-- Kraken texture compression integration
-- Tempest 3D audio support
-- DualSense haptic feedback blueprints
-- Hardware ray tracing optimizations
-
-#### Xbox Series X/S
-- DirectStorage 1.2 support
-- Velocity Architecture integration
-- Smart Delivery automation
-- Variable Rate Shading 2.0
-
-#### PC Gaming
-- NVIDIA DLSS 4 with Ray Reconstruction
-- AMD FSR 3.1+ integration
-- Intel XeSS support
-- DirectX 12 Ultimate features
-
-#### Mobile and AR/VR
-- Vulkan mobile renderer improvements
-- Apple Vision Pro support
-- Meta Quest 3 optimization presets
-- Mobile Lumen (simplified GI for mobile)
-
-### Industry Applications Beyond Gaming
-
-#### Virtual Production
-- LED volume calibration tools
-- Real-time camera tracking
-- Color management pipeline
-- Remote collaboration features
-
-#### Architecture and Design
-- Path tracing for photorealistic renders
-- IFC file import for BIM workflows
-- Datasmith updates for CAD software
-- VR presentation templates
-
-#### Automotive
-- ADAS visualization tools
-- Real-time ray tracing for car configurators
-- Physics-accurate material library
-- HMI prototyping framework
-
-#### Film and Animation
-- USD (Universal Scene Description) support
-- Motion capture retargeting
-- Facial animation improvements
-- Sequencer timeline enhancements
-
-### Resources and Community
-
-#### Official Resources
-- **Unreal Learning Platform**: Free courses with certificates
-- **Unreal Engine Documentation**: Comprehensive guides
-- **Epic Dev Community**: Forums and discussion boards
-- **Unreal Marketplace**: Free monthly assets
-
-#### YouTube Channels
-- Unreal Sensei (Blueprints mastery)
-- William Faucher (Cinematics)
-- Virtus Learning Hub (Complete courses)
-- Epic Games official channel
-
-#### Books and Courses
-- "Unreal Engine 5 Game Development" (2024 Edition)
-- "Blueprints Visual Scripting Mastery"
-- "Real-Time Rendering with UE5"
-- Udemy/Coursera specialized tracks
-
-### Direction of Travel
-
-Epic has signaled several directions for the engine, though exact timing shifts release to release — treat these as trends rather than promises:
-
-- **Verse programming language**: Epic's new language, first shipped in Fortnite/UEFN, is being extended toward broader Unreal use as a complement to Blueprints and C++.
-- **UEFN (Unreal Editor for Fortnite)**: A cloud-backed, collaborative authoring environment that previews where Unreal's editing and publishing workflows are heading.
-- **Continued Nanite and Lumen maturation**: Each release widens what Nanite supports (skeletal meshes, foliage, tessellation) and improves Lumen quality and cost.
-- **ML-assisted tooling**: Neural network texture/asset compression and ML-driven animation (such as Motion Matching) point toward more data-driven content pipelines.
-
-<div class="notice--info" markdown="1">
-Always confirm feature status against the [official roadmap](https://portal.productboard.com/epicgames/) and release notes for the specific UE version you target — experimental features can change or be deprecated between releases.
-</div>
-
-### Conclusion
-
-Unreal Engine 5 represents not just an incremental upgrade but a paradigm shift in real-time 3D creation. With technologies like Nanite and Lumen removing traditional technical barriers, creators can focus on their vision rather than optimization. The engine's expansion beyond gaming into film, architecture, automotive, and other industries demonstrates its versatility and power.
-
-Unreal Engine continues to push the boundaries of what's possible in real-time rendering, making previously impossible creative visions achievable on consumer hardware. Whether you're an indie developer, a AAA studio, or a professional in another industry, UE5 provides the tools to bring your ideas to life with unprecedented fidelity and performance.
-
-## Key Takeaways
-
-- **Nanite removes the polygon ceiling** — virtualized geometry streams only the detail each frame needs, so film-quality source assets render directly with no manual LODs.
-- **Lumen makes lighting fully dynamic** — real-time global illumination and reflections react to scene changes instantly, eliminating lightmap baking.
-- **World Partition scales open worlds** — automatic streaming and One File Per Actor let large teams build vast worlds and merge changes without manual level volumes.
-- **Blueprints and C++ are complementary** — use Blueprints for logic flow and rapid iteration, C++ for heavy computation; move hot paths to C++ (Blueprint nativization was removed in UE5).
-- **UE5 reaches far beyond games** — virtual production, architecture, automotive, and film all rely on the same real-time pipeline and USD/Datasmith interchange.
-- **Profile before optimizing** — Unreal Insights and the Blueprint profiler reveal real bottlenecks; event-driven design and object pooling beat guesswork.
-
-## See Also
-
-- [Game Development hub](../gamedev/) — engine-agnostic foundations: game loop, ECS-vs-OOP, state machines, and design principles that underpin any engine, including Unreal
-- [Audio Design](../gamedev/audio-design.html) — the general theory behind MetaSounds: mixing, attenuation, occlusion, and adaptive scoring
-- [AI in Games](../ai-ml/game-ai.html) — pathfinding, behavior trees, and decision-making that Unreal's State Tree and Smart Objects build on
-- [3D Graphics](../graphics/3d-rendering.html) — the rendering pipeline behind Nanite and Lumen
-- [Virtual Reality](../vr-ar/) — VR development with Unreal
+- [Game Development hub](../gamedev/) — engine-agnostic foundations: the game loop, ECS versus object-oriented design, state machines
+- [Multiplayer Networking](../gamedev/multiplayer-networking.html) — prediction, reconciliation, and lag compensation behind Unreal's replication
+- [Audio Design](../gamedev/audio-design.html) — the theory behind MetaSounds: mixing, attenuation, occlusion, adaptive music
+- [AI in Games](../ai-ml/game-ai.html) — pathfinding, behavior trees, and decision-making that Unreal's Behavior Trees, State Tree, and Smart Objects implement
+- [3D Graphics & Rendering](../graphics/3d-rendering.html) — the rendering pipeline, global illumination, and virtual shadow maps in general terms
+- [Shaders](../graphics/shaders.html) — how material graphs become GPU programs
+- [Virtual Reality](../vr-ar/) — VR and AR development
 - [Performance Optimization](../optimization/) — profiling and optimization techniques
-

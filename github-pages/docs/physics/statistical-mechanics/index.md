@@ -1,375 +1,147 @@
 ---
 layout: docs
 title: Statistical Mechanics
+description: "Hub for statistical mechanics: microstates and macrostates, the fundamental postulate, the statistical ensembles, and how the partition function generates thermodynamics."
 permalink: /docs/physics/statistical-mechanics/
 toc: false
 hide_title: true
 ---
-
-<!-- Custom styles are now loaded via main.scss -->
 
 <div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">Statistical Mechanics</h1>
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Bridging the Microscopic and Macroscopic Worlds</p>
 </div>
 
-Statistical mechanics provides the microscopic foundation for thermodynamics, connecting the behavior of individual particles to macroscopic observables. It explains how the laws of thermodynamics emerge from the statistical behavior of large ensembles. Three ideas anchor the subject: macroscopic properties are **statistical averages** over microstates; **ensembles** give different statistical descriptions for different constraints; and **phase transitions** are collective phenomena governed by critical exponents and universality.
+**Statistical mechanics** derives the macroscopic behaviour of matter — temperature, pressure, heat capacity, phase transitions — from the laws obeyed by its microscopic constituents. It does so without solving the equations of motion for $10^{23}$ particles: instead it assigns probabilities to microscopic states and computes averages. This page sets out the foundations (microstates, the fundamental postulate, entropy, the ensembles and the partition function). The two sub-pages build on them.
 
-## Explore Statistical Mechanics
+| Page | Covers |
+|---|---|
+| [Classical & Quantum Statistical Mechanics](classical-and-quantum.html) | Phase space and Liouville's theorem, equipartition, the density operator, Fermi–Dirac and Bose–Einstein statistics, ideal classical/Fermi/Bose gases, blackbody radiation, virial expansion, mean-field theory |
+| [Phase Transitions & Graduate Formalism](phase-transitions-and-advanced.html) | Classification of transitions, Landau theory, critical exponents and universality, the renormalization group, exact solutions, fluctuation–dissipation, stochastic thermodynamics, quantum thermalization, computational methods, and a field-theory reference block |
 
-<div class="command-grid">
-  <a href="classical-and-quantum.html" class="nav-card">
-    <h4><i class="fas fa-atom"></i> Classical &amp; Quantum Statistical Mechanics</h4>
-    <p>Phase space and Liouville's theorem, the classical and quantum partition functions, Fermi-Dirac and Bose-Einstein statistics, ideal Fermi and Bose gases, and interacting systems (virial expansion, mean field theory).</p>
-  </a>
-  <a href="phase-transitions-and-advanced.html" class="nav-card">
-    <h4><i class="fas fa-superscript"></i> Phase Transitions &amp; Graduate Formalism</h4>
-    <p>First- and second-order transitions, critical phenomena and universality, fluctuations, non-equilibrium statistical mechanics, and a graduate-level reference block (Keldysh, replica, bosonization, BCS, tensor networks).</p>
-  </a>
-</div>
+## Microstates and macrostates
 
-## From Microstates to Ensembles
+A **microstate** is a complete specification of the system: the positions and momenta of every classical particle, or the quantum state (for example, the occupation of every single-particle level) of the whole system. A **macrostate** is specified by a handful of measurable quantities: energy $E$, volume $V$, particle number $N$, and derived quantities such as temperature $T$ and pressure $P$.
 
-The whole subject rests on a single, almost embarrassingly simple idea, and everything else is bookkeeping built on top of it. A **microstate** is a complete answer to the question "what is every degree of freedom doing right now?" — the position and momentum of every classical particle, or the occupation of every quantum level. A **macrostate** is the handful of numbers a thermometer or pressure gauge can actually read: energy $E$, volume $V$, particle number $N$, temperature $T$, pressure $P$. The defining feature of a many-body system is that a single macrostate is consistent with an astronomical number of microstates, and we have no way (and no need) to know which one the system currently occupies.
+A single macrostate corresponds to an enormous number $\Omega$ of microstates. The simplest example is $N$ spin-$\tfrac12$ particles, where the macrostate is fixed by the number of up spins $n_\uparrow$ and the number of microstates is the binomial coefficient:
 
-### The fundamental postulate
+| $N = 4$: up spins $n_\uparrow$ | 0 | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|---|
+| Microstates $\Omega = \binom{4}{n_\uparrow}$ | 1 | 4 | 6 | 4 | 1 |
 
-Statistical mechanics resolves this ignorance with one assumption, the **postulate of equal a priori probabilities**:
+For $N = 4$ the distribution is broad. For large $N$, $\binom{N}{n}$ is sharply peaked at $n = N/2$ with relative width $\sim 1/\sqrt{N}$; for $N \sim 10^{23}$ essentially every microstate looks macroscopically identical. This concentration of measure is why thermodynamic quantities are sharp even though they are averages, and why the Second Law is overwhelmingly probable rather than merely likely: an isolated system evolves toward the macrostate compatible with the most microstates, because almost all microstates belong to it.
 
-> For an isolated system in equilibrium, every microstate compatible with the imposed constraints (fixed $E$, $V$, $N$) is equally likely.
+## The fundamental postulate and entropy
 
-There is no preferred microstate; the system has no memory of how it got where it is, and over time its dynamics carries it democratically through all the states it is allowed to visit (the *ergodic hypothesis* makes this precise). Equal weighting is the least-biased choice — it assumes nothing beyond the constraints themselves — and from it every probability distribution in the theory is derived. If $\Omega$ accessible microstates are all equally probable, each carries probability $1/\Omega$, and the entropy that counts them is Boltzmann's
+Statistical mechanics rests on the **postulate of equal a priori probabilities**:
 
-$$S = k_B \ln \Omega.$$
+> For an isolated system in equilibrium, every accessible microstate — every microstate consistent with the fixed $E$, $V$ and $N$ — is equally probable.
 
-### Constraints select the ensemble
+The postulate is usually motivated by the **ergodic hypothesis** (a trajectory eventually explores the whole energy surface, so time averages equal ensemble averages) or, following Jaynes, as the least-biased probability assignment consistent with the known constraints. Neither motivation is a proof for realistic systems, but the predictions it produces are among the best-tested in physics. For quantum many-body systems the modern justification is the eigenstate thermalization hypothesis, discussed on the [advanced page](phase-transitions-and-advanced.html#quantum-thermalization).
 
-An **ensemble** is a conceptual collection of a huge number of imaginary copies of the system, each in a different microstate, distributed according to the probabilities the postulate dictates. Which ensemble we use is decided entirely by *what the system is allowed to exchange with its surroundings* — that is, by the physical boundary conditions:
+With $\Omega$ equally likely microstates, the entropy is given by **Boltzmann's formula**
 
-<div class="ensemble-mapping" markdown="1">
+$$S = k_B \ln \Omega .$$
 
-| Physical situation | What's held fixed | What fluctuates | Ensemble | Natural variables |
-|---|---|---|---|---|
-| **Isolated** — insulated, rigid, sealed | $E$, $V$, $N$ | nothing | Microcanonical | $N, V, E$ |
-| **Closed, in a heat bath** — diathermal walls | $T$, $V$, $N$ | energy $E$ | Canonical | $N, V, T$ |
-| **Open, in a reservoir** — permeable walls | $T$, $V$, $\mu$ | energy $E$ and number $N$ | Grand canonical | $\mu, V, T$ |
+For a general probability distribution $p_i$ over microstates, it becomes the **Gibbs entropy**
 
-</div>
-
-The logic is uniform. Start from a large isolated "system + reservoir" whose total $(E, V, N)$ is fixed, and apply the fundamental postulate to the *combined* system. Then ask only about the small subsystem of interest. Summing over the reservoir's many microstates trades a fixed conserved quantity for the intensive variable conjugate to it:
+$$S = -k_B \sum_i p_i \ln p_i ,$$
 
-- Open the walls to **energy flow** and the subsystem's energy is no longer fixed; the reservoir's vast heat capacity pins the shared **temperature** $T$ instead. Counting reservoir states produces the Boltzmann weight $e^{-\beta E_i}$ with $\beta = 1/(k_B T)$, and the microcanonical $\Omega$ becomes the canonical partition function $Z$.
-- Open the walls to **particle flow** as well and $N$ also floats; the reservoir now fixes the **chemical potential** $\mu$, attaching a factor $e^{\beta \mu N}$ to each state and turning $Z$ into the grand partition function $\mathcal{Z}$.
-
-Each relaxation swaps a *held-fixed extensive* variable ($E$, then $N$) for its *conjugate intensive* partner ($T$, then $\mu$) — exactly the Legendre-transform structure that takes the entropy $S(E,V,N)$ to the Helmholtz free energy $F(T,V,N)$ to the grand potential $\Omega(T,V,\mu)$ in thermodynamics. The microstates are always counted the same way; only the constraint, and hence the statistical weight, changes.
-
-### Why it doesn't matter which one you pick
-
-These three descriptions are not competing theories — they are the same physics viewed through different boundary conditions, and in the **thermodynamic limit** ($N \to \infty$ at fixed densities) they give identical predictions for every macroscopic observable. The reason is that relative fluctuations shrink as $1/\sqrt{N}$: in the canonical ensemble the energy is technically allowed to vary, but for $N \sim 10^{23}$ it is overwhelmingly likely to sit within a part in $10^{11}$ of its mean, so "fixed $E$" and "fixed $T$" describe the same equilibrium. **Ensemble equivalence** means you are free to choose whichever ensemble makes the mathematics easiest — almost always the canonical one, because summing the unconstrained $e^{-\beta E_i}$ over all states is far simpler than counting only those states with one exact energy. The sections below build out each ensemble in turn and then put the partition function to work.
-
-## Fundamental Principles
-
-### Microstates and Macrostates
-
-A **microstate** is a complete specification of the quantum state of every particle; a **macrostate** is a specification of the macroscopic variables ($T, P, V, N, E$). The two diagrams below contrast them.
-
-<div class="visual-example">
-        <svg viewBox="0 0 420 180" style="max-width: 500px; width: 100%;">
-          <!-- Background container -->
-          <rect x="10" y="10" width="400" height="130" rx="8" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
-
-          <!-- Title -->
-          <text x="210" y="35" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">Spin Configuration of 5 Particles</text>
-
-          <!-- Particles with individual spin states -->
-          <g transform="translate(50, 80)">
-            <!-- Particle 1: Spin Up -->
-            <circle cx="0" cy="0" r="18" fill="#2980b9" stroke="#1a5276" stroke-width="2"/>
-            <text x="0" y="6" text-anchor="middle" font-size="20" fill="white" font-weight="bold">+1/2</text>
-            <text x="0" y="-28" text-anchor="middle" font-size="16" fill="#1a5276" font-weight="bold">s=+1/2</text>
-            <text x="0" y="45" text-anchor="middle" font-size="14" fill="#555">n=1</text>
-          </g>
-
-          <g transform="translate(130, 80)">
-            <!-- Particle 2: Spin Down -->
-            <circle cx="0" cy="0" r="18" fill="#c0392b" stroke="#922b21" stroke-width="2"/>
-            <text x="0" y="6" text-anchor="middle" font-size="20" fill="white" font-weight="bold">-1/2</text>
-            <text x="0" y="-28" text-anchor="middle" font-size="16" fill="#922b21" font-weight="bold">s=-1/2</text>
-            <text x="0" y="45" text-anchor="middle" font-size="14" fill="#555">n=2</text>
-          </g>
-
-          <g transform="translate(210, 80)">
-            <!-- Particle 3: Spin Up -->
-            <circle cx="0" cy="0" r="18" fill="#2980b9" stroke="#1a5276" stroke-width="2"/>
-            <text x="0" y="6" text-anchor="middle" font-size="20" fill="white" font-weight="bold">+1/2</text>
-            <text x="0" y="-28" text-anchor="middle" font-size="16" fill="#1a5276" font-weight="bold">s=+1/2</text>
-            <text x="0" y="45" text-anchor="middle" font-size="14" fill="#555">n=3</text>
-          </g>
-
-          <g transform="translate(290, 80)">
-            <!-- Particle 4: Spin Down -->
-            <circle cx="0" cy="0" r="18" fill="#c0392b" stroke="#922b21" stroke-width="2"/>
-            <text x="0" y="6" text-anchor="middle" font-size="20" fill="white" font-weight="bold">-1/2</text>
-            <text x="0" y="-28" text-anchor="middle" font-size="16" fill="#922b21" font-weight="bold">s=-1/2</text>
-            <text x="0" y="45" text-anchor="middle" font-size="14" fill="#555">n=4</text>
-          </g>
-
-          <g transform="translate(370, 80)">
-            <!-- Particle 5: Spin Up -->
-            <circle cx="0" cy="0" r="18" fill="#2980b9" stroke="#1a5276" stroke-width="2"/>
-            <text x="0" y="6" text-anchor="middle" font-size="20" fill="white" font-weight="bold">+1/2</text>
-            <text x="0" y="-28" text-anchor="middle" font-size="16" fill="#1a5276" font-weight="bold">s=+1/2</text>
-            <text x="0" y="45" text-anchor="middle" font-size="14" fill="#555">n=5</text>
-          </g>
-
-          <!-- Caption -->
-          <text x="210" y="165" text-anchor="middle" font-size="15" fill="#555" font-style="italic">Each particle has a definite quantum state (complete microscopic specification)</text>
-        </svg>
-      </div>
-
-<div class="visual-example">
-        <svg viewBox="0 0 420 200" style="max-width: 500px; width: 100%;">
-          <!-- Background -->
-          <rect x="10" y="10" width="400" height="180" rx="8" fill="#f8f9fa" stroke="#dee2e6" stroke-width="2"/>
-
-          <!-- Title -->
-          <text x="210" y="35" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">Thermodynamic State Variables</text>
-
-          <!-- Container box representing the system -->
-          <rect x="60" y="55" width="180" height="100" rx="5" fill="#e8f4f8" stroke="#2c3e50" stroke-width="3"/>
-
-          <!-- Random particles inside (suggesting many particles without specifying states) -->
-          <circle cx="90" cy="85" r="4" fill="#7f8c8d" opacity="0.5"/>
-          <circle cx="120" cy="100" r="4" fill="#7f8c8d" opacity="0.5"/>
-          <circle cx="150" cy="80" r="4" fill="#7f8c8d" opacity="0.5"/>
-          <circle cx="180" cy="110" r="4" fill="#7f8c8d" opacity="0.5"/>
-          <circle cx="100" cy="130" r="4" fill="#7f8c8d" opacity="0.5"/>
-          <circle cx="160" cy="125" r="4" fill="#7f8c8d" opacity="0.5"/>
-          <circle cx="200" cy="90" r="4" fill="#7f8c8d" opacity="0.5"/>
-          <circle cx="140" cy="140" r="4" fill="#7f8c8d" opacity="0.5"/>
-
-          <!-- Macroscopic properties panel -->
-          <rect x="260" y="55" width="140" height="100" rx="5" fill="#2c3e50" stroke="#1a252f" stroke-width="2"/>
-          <text x="330" y="78" text-anchor="middle" font-size="15" fill="white" font-weight="bold">Macroscopic</text>
-          <text x="330" y="95" text-anchor="middle" font-size="15" fill="white" font-weight="bold">Properties</text>
-          <line x1="275" y1="102" x2="385" y2="102" stroke="#5d6d7e" stroke-width="1"/>
-          <text x="330" y="120" text-anchor="middle" font-size="16" fill="#3498db" font-weight="bold">T = 300 K</text>
-          <text x="330" y="140" text-anchor="middle" font-size="16" fill="#e74c3c" font-weight="bold">P = 1 atm</text>
-
-          <!-- Arrow connecting system to properties -->
-          <path d="M 240 105 L 255 105" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrowMacro)"/>
-          <defs>
-            <marker id="arrowMacro" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-              <polygon points="0 0, 10 5, 0 10" fill="#2c3e50"/>
-            </marker>
-          </defs>
-
-          <!-- Caption -->
-          <text x="210" y="175" text-anchor="middle" font-size="14" fill="#555" font-style="italic">Only bulk properties matter - individual particle states unknown</text>
-        </svg>
-      </div>
-
-**Why counting microstates yields thermodynamics.** Imagine flipping 100 coins. Every specific sequence is equally likely, yet you almost always see close to 50 heads — there are astronomically more ways to arrange "about half heads" than "all heads." A gas of $10^{23}$ particles takes this to the extreme: the overwhelming majority of microstates look macroscopically identical (uniform density, a single temperature), so the system is found in that macrostate with near-certainty. Entropy $S = k_B \ln \Omega$ is just the logarithm of how many microstates wear a given macroscopic face, and the Second Law becomes a near-tautology — systems drift toward macrostates that more microstates correspond to. Thermodynamics is what statistics looks like when the numbers are enormous. The tool that makes the counting tractable is the *partition function*, introduced next through the ensembles.
-
-### Statistical Ensembles
-
-<div class="ensemble-container">
-  <div class="ensemble-card microcanonical">
-    <h4><i class="fas fa-lock"></i> Microcanonical Ensemble (NVE)</h4>
-    <p class="ensemble-desc">Isolated system with fixed energy, volume, and particle number</p>
-    
-    <div class="ensemble-visual">
-      <svg viewBox="0 0 420 220" style="max-width: 500px; width: 100%;">
-        <!-- Background -->
-        <rect x="5" y="5" width="410" height="210" rx="8" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
-
-        <!-- Title -->
-        <text x="210" y="30" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">Microcanonical Ensemble: Isolated System</text>
-
-        <!-- Outer insulating walls (thick barriers) -->
-        <rect x="80" y="50" width="260" height="120" rx="5" fill="none" stroke="#c0392b" stroke-width="12"/>
-
-        <!-- Inner system container -->
-        <rect x="100" y="70" width="220" height="80" rx="3" fill="#ecf0f1" stroke="#34495e" stroke-width="2"/>
-
-        <!-- Particles inside -->
-        <circle cx="140" cy="100" r="8" fill="#3498db" opacity="0.8"/>
-        <circle cx="180" cy="120" r="8" fill="#3498db" opacity="0.8"/>
-        <circle cx="220" cy="95" r="8" fill="#3498db" opacity="0.8"/>
-        <circle cx="260" cy="115" r="8" fill="#3498db" opacity="0.8"/>
-        <circle cx="160" cy="130" r="8" fill="#3498db" opacity="0.8"/>
-        <circle cx="280" cy="100" r="8" fill="#3498db" opacity="0.8"/>
-
-        <!-- Fixed quantities labels -->
-        <text x="210" y="92" text-anchor="middle" font-size="18" font-weight="bold" fill="#2c3e50">E = constant</text>
-        <text x="210" y="115" text-anchor="middle" font-size="16" fill="#555">V = fixed, N = fixed</text>
-
-        <!-- Wall labels -->
-        <text x="50" y="115" text-anchor="middle" font-size="14" fill="#c0392b" font-weight="bold" transform="rotate(-90, 50, 115)">Insulated Wall</text>
-        <text x="370" y="115" text-anchor="middle" font-size="14" fill="#c0392b" font-weight="bold" transform="rotate(90, 370, 115)">Insulated Wall</text>
-
-        <!-- No exchange indicators -->
-        <g transform="translate(45, 60)">
-          <line x1="0" y1="0" x2="20" y2="20" stroke="#c0392b" stroke-width="3"/>
-          <line x1="20" y1="0" x2="0" y2="20" stroke="#c0392b" stroke-width="3"/>
-        </g>
-        <g transform="translate(355, 60)">
-          <line x1="0" y1="0" x2="20" y2="20" stroke="#c0392b" stroke-width="3"/>
-          <line x1="20" y1="0" x2="0" y2="20" stroke="#c0392b" stroke-width="3"/>
-        </g>
-
-        <!-- Caption -->
-        <text x="210" y="195" text-anchor="middle" font-size="15" fill="#555">No energy or particle exchange with surroundings</text>
-      </svg>
-    </div>
-    
-    <div class="ensemble-equations">
-      <p><strong>Partition function:</strong> $\Omega(E,V,N)$ = number of microstates</p>
-      <p><strong>Entropy:</strong> $S = k_B \ln \Omega$</p>
-    </div>
-  </div>
-  
-  <div class="ensemble-card canonical">
-    <h4><i class="fas fa-thermometer-half"></i> Canonical Ensemble (NVT)</h4>
-    <p class="ensemble-desc">System in thermal equilibrium with heat bath at temperature T</p>
-    
-    <div class="ensemble-visual">
-      <svg viewBox="0 0 420 260" style="max-width: 500px; width: 100%;">
-        <!-- Define arrow marker -->
-        <defs>
-          <marker id="arrowCanon" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-            <polygon points="0 0, 10 5, 0 10" fill="#e67e22"/>
-          </marker>
-        </defs>
-
-        <!-- Background -->
-        <rect x="5" y="5" width="410" height="250" rx="8" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
-
-        <!-- Title -->
-        <text x="210" y="30" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">Canonical Ensemble: Thermal Contact</text>
-
-        <!-- Heat bath (outer reservoir) -->
-        <rect x="40" y="50" width="340" height="160" rx="8" fill="#fadbd8" stroke="#e74c3c" stroke-width="3"/>
-        <text x="210" y="75" text-anchor="middle" font-size="15" fill="#c0392b" font-weight="bold">Heat Bath at Temperature T</text>
-
-        <!-- System (inner) -->
-        <rect x="120" y="95" width="180" height="80" rx="5" fill="#3498db" stroke="#2980b9" stroke-width="3"/>
-        <text x="210" y="125" text-anchor="middle" font-size="18" font-weight="bold" fill="white">System</text>
-        <text x="210" y="148" text-anchor="middle" font-size="15" fill="#d6eaf8">N, V fixed</text>
-        <text x="210" y="165" text-anchor="middle" font-size="14" fill="#d6eaf8">E fluctuates</text>
-
-        <!-- Energy exchange arrows (bidirectional) -->
-        <g transform="translate(140, 175)">
-          <!-- Arrow down (heat out) -->
-          <path d="M 0 0 L 0 25" stroke="#e67e22" stroke-width="4" marker-end="url(#arrowCanon)"/>
-          <text x="-5" y="40" text-anchor="middle" font-size="14" fill="#e67e22" font-weight="bold">Q</text>
-        </g>
-        <g transform="translate(280, 200)">
-          <!-- Arrow up (heat in) -->
-          <path d="M 0 0 L 0 -25" stroke="#e67e22" stroke-width="4" marker-end="url(#arrowCanon)"/>
-          <text x="5" y="15" text-anchor="middle" font-size="14" fill="#e67e22" font-weight="bold">Q</text>
-        </g>
-
-        <!-- Diathermal wall label -->
-        <text x="210" y="88" text-anchor="middle" font-size="12" fill="#555" font-style="italic">(diathermal wall allows heat exchange)</text>
-
-        <!-- Caption -->
-        <text x="210" y="235" text-anchor="middle" font-size="15" fill="#555">Energy can be exchanged; temperature is fixed by the bath</text>
-      </svg>
-    </div>
-    
-    <div class="ensemble-equations">
-      <p><strong>Partition function:</strong></p>
-      <div class="equation-box" markdown="1">
-$$Z = \sum_i e^{-\beta E_i} = \text{Tr}(e^{-\beta H})$$
-</div>
-      <p>Where $\beta = \frac{1}{k_B T}$</p>
-      <p><strong>Helmholtz free energy:</strong> $F = -k_B T \ln Z$</p>
-    </div>
-  </div>
-  
-  <div class="ensemble-card grand-canonical">
-    <h4><i class="fas fa-exchange-alt"></i> Grand Canonical Ensemble (μVT)</h4>
-    <p class="ensemble-desc">System can exchange particles and energy with reservoir</p>
-    
-    <div class="ensemble-visual">
-      <svg viewBox="0 0 420 280" style="max-width: 500px; width: 100%;">
-        <!-- Define arrow markers -->
-        <defs>
-          <marker id="arrowGrand" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-            <polygon points="0 0, 10 5, 0 10" fill="#27ae60"/>
-          </marker>
-          <marker id="arrowHeat" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-            <polygon points="0 0, 10 5, 0 10" fill="#e67e22"/>
-          </marker>
-        </defs>
-
-        <!-- Background -->
-        <rect x="5" y="5" width="410" height="270" rx="8" fill="#fafafa" stroke="#e0e0e0" stroke-width="1"/>
-
-        <!-- Title -->
-        <text x="210" y="30" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">Grand Canonical Ensemble: Open System</text>
-
-        <!-- Reservoir (outer) -->
-        <rect x="40" y="50" width="340" height="175" rx="8" fill="#fef9e7" stroke="#f39c12" stroke-width="3"/>
-        <text x="210" y="75" text-anchor="middle" font-size="15" fill="#d68910" font-weight="bold">Reservoir at Temperature T, Chemical Potential mu</text>
-
-        <!-- System (inner) -->
-        <rect x="120" y="95" width="180" height="90" rx="5" fill="#9b59b6" stroke="#7d3c98" stroke-width="3"/>
-        <text x="210" y="125" text-anchor="middle" font-size="18" font-weight="bold" fill="white">System</text>
-        <text x="210" y="148" text-anchor="middle" font-size="15" fill="#e8daef">V fixed</text>
-        <text x="210" y="168" text-anchor="middle" font-size="14" fill="#e8daef">E, N fluctuate</text>
-
-        <!-- Particle exchange (left side) -->
-        <g transform="translate(85, 130)">
-          <circle cx="0" cy="0" r="8" fill="#27ae60" stroke="#1e8449" stroke-width="2"/>
-          <circle cx="0" cy="25" r="8" fill="#27ae60" stroke="#1e8449" stroke-width="2"/>
-          <path d="M 15 12 L 35 12" stroke="#27ae60" stroke-width="3" marker-end="url(#arrowGrand)"/>
-          <text x="25" y="-8" text-anchor="middle" font-size="12" fill="#27ae60" font-weight="bold">particles</text>
-        </g>
-
-        <!-- Energy exchange (right side) -->
-        <g transform="translate(300, 130)">
-          <path d="M 0 12 L 25 12" stroke="#e67e22" stroke-width="4" marker-end="url(#arrowHeat)"/>
-          <text x="12" y="-8" text-anchor="middle" font-size="12" fill="#e67e22" font-weight="bold">heat Q</text>
-          <!-- Wavy line for heat -->
-          <path d="M 5 30 Q 10 25, 15 30 T 25 30" stroke="#e67e22" stroke-width="2" fill="none"/>
-        </g>
-
-        <!-- Semipermeable membrane label -->
-        <text x="210" y="200" text-anchor="middle" font-size="12" fill="#555" font-style="italic">(permeable boundary: particles and energy can cross)</text>
-
-        <!-- Caption -->
-        <text x="210" y="250" text-anchor="middle" font-size="15" fill="#555">Both energy and particles exchanged; T and mu fixed</text>
-      </svg>
-    </div>
-    
-    <div class="ensemble-equations">
-      <p><strong>Grand partition function:</strong></p>
-      <div class="equation-box" markdown="1">
-$$\mathcal{Z} = \sum_{N=0}^{\infty} \sum_i e^{-\beta(E_i - \mu N)}$$
-</div>
-      <p><strong>Grand potential:</strong> $\Omega = -k_B T \ln \mathcal{Z}$</p>
-    </div>
-  </div>
-</div>
-
-## Key Takeaways
-
-- **Entropy counts microstates.** Boltzmann's $S = k_B \ln \Omega$ links microscopic configurations to macroscopic thermodynamics.
-- **The partition function is everything.** From $Z$ you derive all thermodynamics: free energy, entropy, energy, and response functions.
-- **Ensembles agree at large $N$.** Microcanonical, canonical, and grand canonical descriptions become equivalent in the thermodynamic limit.
-- **Quantum statistics matter.** Bosons (Bose-Einstein) and fermions (Fermi-Dirac) behave radically differently at low temperature.
-- **Phase transitions are collective.** Singularities in $Z$ emerge only in the thermodynamic limit; universality groups them by symmetry and dimension.
-- **Fluctuations encode response.** The fluctuation-dissipation theorem connects equilibrium fluctuations to how a system responds to perturbation.
-
-## See Also
-
-- [Classical &amp; Quantum Statistical Mechanics](classical-and-quantum.html) — partition functions, quantum statistics, and ideal and interacting gases.
-- [Phase Transitions &amp; Graduate Formalism](phase-transitions-and-advanced.html) — critical phenomena, fluctuations, non-equilibrium dynamics, and the advanced reference block.
-- [Thermodynamics](../thermodynamics.html) — the macroscopic laws that statistical mechanics derives from microstate counting.
-- [Quantum Mechanics](../quantum-mechanics/) — the quantum foundation behind Bose-Einstein and Fermi-Dirac statistics.
-- [Condensed Matter Physics](../condensed-matter/) — many-body applications to solids and phase transitions.
+which reduces to Boltzmann's form when $p_i = 1/\Omega$. Its quantum counterpart is the von Neumann entropy $S = -k_B\,\mathrm{Tr}(\hat\rho \ln \hat\rho)$. Temperature, pressure and chemical potential then follow from derivatives of $S(E, V, N)$:
+
+$$\frac{1}{T} = \left(\frac{\partial S}{\partial E}\right)_{V,N}, \qquad \frac{P}{T} = \left(\frac{\partial S}{\partial V}\right)_{E,N}, \qquad \frac{\mu}{T} = -\left(\frac{\partial S}{\partial N}\right)_{E,V}.$$
+
+## Statistical ensembles
+
+An **ensemble** is a probability distribution over microstates. The ensemble is chosen by the physical boundary conditions: which conserved quantities the system can exchange with its surroundings.
+
+| Ensemble | Physical situation | Fixed | Fluctuates | Weight of microstate $i$ | Normalization | Thermodynamic potential |
+|---|---|---|---|---|---|---|
+| Microcanonical | Isolated | $N, V, E$ | — | $1/\Omega$ | $\Omega(N,V,E)$ | $S = k_B \ln \Omega$ |
+| Canonical | Closed, in a heat bath | $N, V, T$ | $E$ | $e^{-\beta E_i}/Z$ | $Z = \sum_i e^{-\beta E_i}$ | $F = -k_B T \ln Z$ |
+| Grand canonical | Open to a particle reservoir | $\mu, V, T$ | $E, N$ | $e^{-\beta(E_i - \mu N_i)}/\mathcal{Z}$ | $\mathcal{Z} = \sum_{N}\sum_i e^{-\beta(E_i - \mu N)}$ | $\Omega_G = -k_B T \ln \mathcal{Z} = -PV$ |
+| Isothermal–isobaric | Heat bath and movable piston | $N, P, T$ | $E, V$ | $e^{-\beta(E_i + PV)}/\Delta$ | $\Delta = \int dV\, e^{-\beta P V} Z(N,V,T)$ | $G = -k_B T \ln \Delta$ |
+
+Here $\beta = 1/(k_B T)$. (The grand potential is written $\Omega_G$ to avoid a clash with the microstate count $\Omega$.)
+
+```mermaid
+flowchart LR
+    MC["Microcanonical<br/>fixed N, V, E<br/>S = k_B ln Ω"]
+    C["Canonical<br/>fixed N, V, T<br/>F = −k_B T ln Z"]
+    GC["Grand canonical<br/>fixed μ, V, T<br/>Ω_G = −k_B T ln 𝒵"]
+    NPT["Isothermal–isobaric<br/>fixed N, P, T<br/>G = −k_B T ln Δ"]
+    MC -- "exchange energy<br/>E → T" --> C
+    C -- "exchange particles<br/>N → μ" --> GC
+    C -- "exchange volume<br/>V → P" --> NPT
+```
+
+Each arrow relaxes a constraint: a conserved extensive quantity ($E$, $N$ or $V$) is allowed to fluctuate and is replaced by its conjugate intensive variable ($T$, $\mu$ or $P$) set by a reservoir. In thermodynamics the same step is a Legendre transform: $S(E) \to F(T) = E - TS$, $F(N) \to \Omega_G(\mu) = F - \mu N$, $F(V) \to G(P) = F + PV$.
+
+### Deriving the Boltzmann factor
+
+The canonical weight follows from the fundamental postulate applied to a system $S$ in contact with a much larger reservoir $R$, the pair being isolated with total energy $E_{\text{tot}}$. The probability of finding $S$ in a particular microstate $i$ is proportional to the number of reservoir microstates compatible with it:
+
+$$p_i \propto \Omega_R(E_{\text{tot}} - E_i) = \exp\!\left[\frac{S_R(E_{\text{tot}} - E_i)}{k_B}\right] \approx \exp\!\left[\frac{S_R(E_{\text{tot}})}{k_B} - \frac{E_i}{k_B}\frac{\partial S_R}{\partial E}\right] \propto e^{-E_i / k_B T}.$$
+
+The expansion is justified because $E_i \ll E_{\text{tot}}$, and $\partial S_R / \partial E = 1/T$ defines the reservoir temperature. Letting particles cross the boundary as well adds the term $+\mu N_i / k_B T$ in the exponent, giving the grand canonical weight.
+
+## The partition function generates thermodynamics
+
+Once $Z(N, V, T)$ is known, every equilibrium property follows by differentiation:
+
+| Quantity | Expression |
+|---|---|
+| Helmholtz free energy | $F = -k_B T \ln Z$ |
+| Mean energy | $U = \langle E \rangle = -\dfrac{\partial \ln Z}{\partial \beta}$ |
+| Entropy | $S = -\left(\dfrac{\partial F}{\partial T}\right)_{V,N} = k_B(\ln Z + \beta U)$ |
+| Pressure | $P = -\left(\dfrac{\partial F}{\partial V}\right)_{T,N} = k_B T \dfrac{\partial \ln Z}{\partial V}$ |
+| Chemical potential | $\mu = \left(\dfrac{\partial F}{\partial N}\right)_{T,V}$ |
+| Heat capacity | $C_V = \dfrac{\partial U}{\partial T} = k_B \beta^2 \dfrac{\partial^2 \ln Z}{\partial \beta^2}$ |
+
+Two structural facts make $Z$ practical. For **independent subsystems** the partition function factorizes, $Z = Z_1 Z_2$, so $F$ is additive. For $N$ non-interacting **identical particles** in the classical limit, $Z = z^N / N!$, where $z$ is the single-particle partition function and $1/N!$ is the Gibbs correction for indistinguishability.
+
+### Worked example: the two-level system
+
+$N$ independent particles, each with levels $0$ and $\varepsilon$, have $z = 1 + e^{-\beta\varepsilon}$ and therefore
+
+$$U = \frac{N\varepsilon}{e^{\beta\varepsilon} + 1}, \qquad C_V = N k_B \,(\beta\varepsilon)^2 \frac{e^{\beta\varepsilon}}{\left(e^{\beta\varepsilon} + 1\right)^2}.$$
+
+The heat capacity has a peak at $k_B T \approx 0.42\,\varepsilon$, the **Schottky anomaly**. It is seen experimentally in paramagnetic salts and in materials with low-lying crystal-field levels. It illustrates a general rule: a degree of freedom contributes to the heat capacity only when $k_B T$ is comparable to its level spacing.
+
+## Fluctuations and ensemble equivalence
+
+The ensembles are different probability distributions, but in the **thermodynamic limit** ($N \to \infty$ at fixed density) they give the same predictions for macroscopic observables. In the canonical ensemble the energy fluctuates with variance
+
+$$\langle (\Delta E)^2 \rangle = \langle E^2 \rangle - \langle E \rangle^2 = \frac{\partial^2 \ln Z}{\partial \beta^2} = k_B T^2 C_V .$$
+
+Because both $\langle E \rangle$ and $C_V$ are extensive, the relative fluctuation $\sqrt{\langle (\Delta E)^2 \rangle}/\langle E \rangle$ scales as $N^{-1/2}$, about $10^{-11}$ for a macroscopic sample. Fixing $T$ is then effectively the same as fixing $E$. In practice this lets you pick whichever ensemble is easiest to compute with: usually the canonical ensemble for classical systems, and the grand canonical ensemble for quantum gases, where the constraint of fixed $N$ is awkward.
+
+Equivalence can fail. Near a first-order transition, fluctuations are not small. In systems with **long-range interactions**, such as self-gravitating systems, energy is not additive and the microcanonical heat capacity can be negative, which the canonical ensemble cannot reproduce. Small systems, such as single molecules and nanoscale devices, also sit outside the limit. They are the domain of [stochastic thermodynamics](phase-transitions-and-advanced.html#stochastic-thermodynamics-and-fluctuation-theorems).
+
+## Historical milestones
+
+| Year | Development |
+|---|---|
+| 1860s–1870s | Maxwell's velocity distribution; Boltzmann's transport equation and H-theorem (1872) |
+| 1877 | Boltzmann relates entropy to the number of microstates |
+| 1902 | Gibbs, *Elementary Principles in Statistical Mechanics*: ensembles and the partition function |
+| 1924–1926 | Bose–Einstein and Fermi–Dirac statistics |
+| 1944 | Onsager's exact solution of the 2D Ising model |
+| 1957 | BCS theory of superconductivity; Jaynes' maximum-entropy formulation; Kubo's linear-response formulas |
+| 1971–1972 | Wilson's renormalization group and the $\varepsilon$ expansion (Nobel Prize 1982) |
+| 1973 | Berezinskii–Kosterlitz–Thouless transition (Nobel Prize 2016) |
+| 1995 | Bose–Einstein condensation in dilute atomic gases (Nobel Prize 2001) |
+| 1997–1999 | Jarzynski equality and Crooks fluctuation theorem |
+| 2010s–2020s | Conformal bootstrap determination of 3D critical exponents; eigenstate thermalization and many-body localization in quantum simulators |
+
+## See also
+
+- [Thermodynamics](../thermodynamics.html) — the macroscopic laws that statistical mechanics derives.
+- [Advanced Thermodynamics](../thermodynamics-advanced.html) — potentials, stability and non-equilibrium thermodynamics.
+- [Quantum Mechanics](../quantum-mechanics/) — the foundation behind quantum statistics.
+- [Condensed Matter Physics](../condensed-matter/) — many-body applications to solids, magnets and superconductors.
+- [Renormalization](../renormalization.html) — the renormalization group in field theory.
 - [Quantum Field Theory](../quantum-field-theory.html) — finite-temperature field theory and the path-integral link.
-- [Classical Mechanics](../classical-mechanics/) — the microscopic dynamics that ensembles average over.
+- [Classical Mechanics](../classical-mechanics/) — the Hamiltonian dynamics that ensembles average over.
+- [Computational Physics: Monte Carlo and MD](../computational-physics/monte-carlo-and-md.html) — simulation methods for statistical systems.
 - [Physics Hub](../) — browse all physics topics.

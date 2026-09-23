@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Container Runtimes & Alternatives"
+description: "The layers beneath Docker: OCI specifications, runc, crun, containerd and CRI-O, sandboxed runtimes (gVisor, Kata), Firecracker microVMs, and WebAssembly, with guidance on choosing an isolation boundary."
 permalink: /docs/technology/container-runtimes.html
 toc: true
 toc_sticky: true
@@ -9,525 +10,534 @@ hide_title: true
 
 [Technology](./) &raquo; Container Runtimes &amp; Alternatives
 
-"Docker" is a brand, not a runtime. Underneath the friendly CLI sits a **stack of standardized components** — an image format, a high-level daemon, and a low-level runtime that actually talks to the kernel. Once you understand that stack, you can swap pieces in and out: replace the daemon with containerd or CRI-O, replace the low-level runtime with a sandbox like gVisor or a microVM like Kata/Firecracker, or step outside containers entirely with WebAssembly. This page maps the landscape and gives a decision framework for picking the right isolation boundary for a workload.
+A **container runtime** is the software that turns a container image into a running, isolated process. "Docker" is a product built from several such components, and since 2015 the industry has standardized the interfaces between them: an image format, a runtime specification, and a Kubernetes-facing API. Because of those standards, each layer can be replaced independently. This page describes the layers (OCI specifications, low-level runtimes such as runc and crun, high-level runtimes such as containerd and CRI-O), the sandboxed alternatives that add a stronger isolation boundary (gVisor, Kata Containers, Firecracker microVMs), and WebAssembly as a different kind of workload altogether. It closes with a guide to choosing an isolation boundary.
 
-<div class="tip-card">
-  <h4>Where this fits</h4>
-  <ul>
-    <li><strong>This page</strong> — the runtime layer beneath Docker and its alternatives; how containers actually start, and what to use when a plain container is too much or too little isolation.</li>
-    <li><a href="docker/">Docker section</a> — building images, Dockerfiles, storage, and security for the common case.</li>
-    <li><a href="kubernetes/">Kubernetes</a> — orchestrating whichever runtime you choose, via the Container Runtime Interface (CRI).</li>
-  </ul>
-</div>
+For building images and everyday use, see the [Docker section](docker/). For scheduling containers across machines, see [Kubernetes](kubernetes/), which talks to any of the runtimes below through the Container Runtime Interface.
 
-## The Container Stack: It Isn't One Program
+*Versions cited are current as of September 2026.*
 
-The first thing to internalize is that the word "Docker" hides three distinct layers that the industry has since standardized and decoupled. When you run `docker run nginx`, the request flows down through them:
+## The container stack
+
+Running `docker run nginx` passes through several independent programs:
 
 ```mermaid
 flowchart TD
-    CLI["docker / podman / nerdctl CLI"]
-    DAEMON["High-level runtime / daemon<br/>(dockerd, containerd, CRI-O)"]
-    SHIM["Container shim<br/>(containerd-shim)"]
-    LOW["Low-level OCI runtime<br/>(runc, crun, gVisor, Kata)"]
-    KERNEL["Linux kernel<br/>namespaces, cgroups, seccomp"]
-    CLI --> DAEMON
-    DAEMON --> SHIM
-    SHIM --> LOW
-    LOW --> KERNEL
+    subgraph Clients
+        CLI["docker / nerdctl / podman CLI"]
+        KUBELET["kubelet"]
+    end
+    CLI -->|"Docker Engine API"| DOCKERD["dockerd"]
+    DOCKERD -->|"gRPC"| CTRD["containerd"]
+    KUBELET -->|"CRI (gRPC)"| CTRD
+    KUBELET -->|"CRI (gRPC)"| CRIO["CRI-O"]
+    CTRD --> SHIM["shim process<br/>(one per container or pod)"]
+    CRIO --> CONMON["conmon / conmon-rs<br/>(monitor process)"]
+    SHIM -->|"OCI runtime CLI"| LOW["Low-level OCI runtime<br/>runc, crun, youki, runsc (gVisor), Kata"]
+    CONMON --> LOW
+    LOW --> KERNEL["Linux kernel<br/>namespaces, cgroups, seccomp, LSMs"]
 ```
 
-| Layer | Job | Examples |
-|-------|-----|----------|
-| **CLI / client** | User-facing commands, build orchestration | `docker`, `podman`, `nerdctl` |
-| **High-level runtime** | Pull/manage images, manage container lifecycle, expose an API | `dockerd`, **containerd**, **CRI-O** |
-| **Low-level (OCI) runtime** | Set up namespaces/cgroups and `exec` the process | **runc**, **crun**, **gVisor**, **Kata** |
+| Layer | Responsibility | Examples |
+|-------|----------------|----------|
+| Client | User-facing commands, image builds, Compose | `docker`, `podman`, `nerdctl`, `kubectl` (via the kubelet) |
+| High-level runtime | Pull and store images, manage snapshots, networking setup, container lifecycle, API | `dockerd`, **containerd**, **CRI-O**, Podman (as a library, no daemon) |
+| Shim or monitor | Parent of the container process; holds its stdio and exit status so the daemon can restart without killing containers | `containerd-shim-runc-v2`, `conmon` |
+| Low-level (OCI) runtime | Create namespaces and cgroups, apply security policy, start the process | **runc**, **crun**, **youki**, **runsc**, **Kata** |
 
-The boundary between the high-level and low-level runtime is governed by the **OCI Runtime Specification**, which is what makes the whole thing swappable. Any runtime that speaks OCI is a drop-in replacement at the bottom of the stack — that is the single most important fact for everything below.
+Two standard boundaries make the stack modular:
+
+- **The OCI runtime specification** sits between the high-level and low-level runtime. Any OCI-compliant runtime can be substituted at the bottom.
+- **The Kubernetes Container Runtime Interface (CRI)** sits between the kubelet and the high-level runtime. Kubernetes removed its built-in Docker integration (dockershim) in v1.24 (2022); it now talks to containerd or CRI-O directly, and images built with Docker run unchanged because they are OCI images.
+
+Docker Engine itself delegates to containerd and runc. Since Docker Engine 29, new installations also use containerd's image store rather than Docker's older storage drivers, so Docker and containerd share one set of images.
+
+### What happens on `docker run`
+
+```mermaid
+sequenceDiagram
+    participant CLI as docker CLI
+    participant D as dockerd
+    participant C as containerd
+    participant S as shim
+    participant R as runc
+    participant P as container process
+    CLI->>D: POST /containers/create, /start
+    D->>C: pull and unpack image (if missing), create container
+    C->>C: prepare rootfs snapshot (overlayfs), write config.json
+    C->>S: start shim for this container
+    S->>R: runc create (bundle path)
+    R->>P: clone into new namespaces, apply cgroups, seccomp, capabilities
+    R-->>S: container created (process paused at exec)
+    S->>R: runc start
+    R->>P: exec the entrypoint
+    R-->>S: runc exits
+    Note over S,P: The shim stays as the parent,<br/>collecting stdio and the exit code
+```
+
+The low-level runtime does not stay running. It sets the process up, starts it and exits. The shim remains, which is why containerd or dockerd can be upgraded or restarted without stopping running containers.
+
+## Kernel primitives
+
+On Linux, a "container" is an ordinary process with a restricted view of the system. The runtime assembles it from kernel features:
+
+| Primitive | What it isolates or limits |
+|-----------|---------------------------|
+| **Namespaces** | What the process can see: `pid` (process IDs), `net` (interfaces, routes, ports), `mnt` (mount table), `uts` (hostname), `ipc`, `user` (UID/GID mapping), `cgroup`, `time` |
+| **cgroups (v2)** | How much it can use: CPU weight and quota, memory limit, I/O bandwidth, number of processes |
+| **Capabilities** | Which fragments of root privilege it holds (for example `CAP_NET_BIND_SERVICE` without full root) |
+| **seccomp** | Which system calls it may make; Docker's default profile blocks several dozen rarely needed, high-risk calls |
+| **LSMs** (AppArmor, SELinux) | Mandatory access control on files, mounts and other resources |
+| **Root filesystem** | An overlay of read-only image layers plus a writable layer, entered with `pivot_root` |
+
+All containers on a host share one kernel. That is the source of their speed and density, and also their main security weakness: a kernel vulnerability reachable from inside a container can compromise the host. Every sandboxed runtime later on this page exists to change that.
+
+**cgroup v1 is being retired.** Kubernetes deprecated cgroup v1 in v1.35, where the kubelet refuses to start on a cgroup v1 node unless `failCgroupV1: false` is set. Docker Engine 29 also deprecates cgroup v1. Current distributions use cgroup v2 by default.
 
 ## The Open Container Initiative (OCI)
 
-The **Open Container Initiative**, formed in 2015 under the Linux Foundation, publishes three vendor-neutral specifications that turned "a Docker image" into "a portable, standard artifact":
+The **Open Container Initiative**, founded in 2015 under the Linux Foundation, maintains three specifications:
 
-- **Image Specification** — the on-disk/registry format: a layered filesystem (content-addressable tarballs), plus a JSON config describing layers, env, entrypoint, and architecture. This is why an image built by Docker runs under containerd, Podman, or Kubernetes unchanged.
-- **Runtime Specification** — how to run a **filesystem bundle**: a root filesystem directory plus a `config.json`. It defines the lifecycle (`create` → `start` → `kill` → `delete`) and the configuration the runtime must honor.
-- **Distribution Specification** — the registry HTTP API for pushing and pulling images (standardizing what the Docker Registry v2 protocol started).
+| Specification | Defines | Current version |
+|---------------|---------|-----------------|
+| **Image** | Image layout: a manifest listing content-addressed layer tarballs and a JSON config (entrypoint, environment, architecture); multi-architecture index | 1.1 (2024) |
+| **Runtime** | The filesystem bundle (a root filesystem plus `config.json`) and the lifecycle operations a runtime must implement | 1.3 |
+| **Distribution** | The registry HTTP API for pushing and pulling, derived from the Docker Registry v2 protocol | 1.1 (2024) |
+
+Version 1.1 of the image and distribution specifications standardized **artifacts** and the **referrers API**. Registries can now store arbitrary content (Helm charts, SBOMs, signatures, WebAssembly modules, ML model weights) and link it to an image, which is how tools such as Sigstore cosign and Notation attach signatures and attestations.
 
 ### The runtime bundle
 
-A low-level OCI runtime does not know about registries or layers. It is handed a directory containing an already-extracted root filesystem and a `config.json`, and its only job is to turn that into a running, isolated process:
+A low-level runtime knows nothing about registries or layers. It receives a directory containing an extracted root filesystem and a `config.json`, and starts a process as described. You can build a bundle by hand:
+
+```bash
+mkdir -p mybundle/rootfs && cd mybundle
+docker export "$(docker create alpine)" | tar -C rootfs -xf -   # flatten an image into rootfs/
+runc spec                                                       # write a default config.json
+sudo runc run demo                                              # create and start in one step
+```
+
+An abridged `config.json`:
 
 ```json
 {
-  "ociVersion": "1.1.0",
+  "ociVersion": "1.2.0",
   "process": {
-    "terminal": false,
     "user": { "uid": 1000, "gid": 1000 },
     "args": ["/usr/bin/myapp", "--serve"],
-    "env": ["PATH=/usr/local/bin:/usr/bin:/bin", "TERM=xterm"],
+    "env": ["PATH=/usr/local/bin:/usr/bin:/bin"],
     "cwd": "/",
     "capabilities": {
       "bounding": ["CAP_NET_BIND_SERVICE"],
-      "effective": ["CAP_NET_BIND_SERVICE"]
+      "effective": ["CAP_NET_BIND_SERVICE"],
+      "permitted": ["CAP_NET_BIND_SERVICE"]
     },
     "noNewPrivileges": true
   },
   "root": { "path": "rootfs", "readonly": true },
   "linux": {
     "namespaces": [
-      { "type": "pid" },
-      { "type": "network" },
-      { "type": "ipc" },
-      { "type": "uts" },
-      { "type": "mount" }
+      { "type": "pid" }, { "type": "network" }, { "type": "ipc" },
+      { "type": "uts" }, { "type": "mount" }, { "type": "cgroup" }
     ],
     "resources": {
       "memory": { "limit": 536870912 },
-      "cpu": { "shares": 1024 }
+      "cpu": { "quota": 50000, "period": 100000 },
+      "pids": { "limit": 256 }
     },
-    "seccomp": { "defaultAction": "SCP_ACT_ERRNO" }
+    "seccomp": {
+      "defaultAction": "SCMP_ACT_ERRNO",
+      "architectures": ["SCMP_ARCH_X86_64"],
+      "syscalls": [
+        { "names": ["read", "write", "openat", "close", "..."], "action": "SCMP_ACT_ALLOW" }
+      ]
+    }
   }
 }
 ```
 
-Two things are worth noticing. First, the entire isolation policy — which **namespaces** to create, which **cgroup** limits to apply, which Linux **capabilities** to grant, and the **seccomp** filter — lives in this one file. Second, nothing here says *how* isolation is implemented. A standard runtime creates real kernel namespaces; a sandboxed runtime can read the same config and implement the equivalent isolation a completely different way. That is the seam every alternative below exploits.
+The whole isolation policy is in this file: which namespaces to create, the cgroup limits (here 512 MiB of memory and half a CPU), the capability set, and a seccomp allowlist. The file says *what* isolation to provide, not *how*. runc implements it with kernel namespaces; gVisor and Kata read the same file and implement equivalent isolation with a user-space kernel or a virtual machine. That separation is what lets sandboxed runtimes slot in unnoticed.
 
-## Standard Runtimes: runc, containerd, CRI-O
+The runtime specification defines a small lifecycle that every runtime implements:
 
-### runc — the reference low-level runtime
-
-**runc** is the original OCI runtime, donated by Docker, written in Go, and still the default almost everywhere. It is a small command-line tool: given a bundle, it creates Linux namespaces, configures cgroups, applies the seccomp/capabilities/AppArmor policy, pivots into the root filesystem, and `exec`s the container's process. There is no daemon — runc starts the process and gets out of the way.
-
-```bash
-# runc operates directly on a bundle, no daemon involved
-runc run mycontainer        # create + start in one step
-runc list                   # show running containers
-runc exec mycontainer sh    # exec into a running container
-runc kill mycontainer TERM
-runc delete mycontainer
+```mermaid
+stateDiagram-v2
+    [*] --> creating: create
+    creating --> created: environment ready
+    created --> running: start
+    running --> stopped: process exits or kill
+    created --> stopped: kill
+    stopped --> [*]: delete
 ```
 
-Because it shares the host kernel directly, runc is the **fastest, lightest** option — and the one with the **largest attack surface**, since a kernel exploit from inside the container is a host compromise.
+## Low-level runtimes
 
-### crun — the C reimplementation
+### runc
 
-**crun** is a functionally equivalent OCI runtime written in C rather than Go. It starts containers faster and uses less memory (no Go runtime), which matters at high container density, and it has first-class support for cgroups v2. It is the default in Podman/CRI-O on many distributions and is a transparent swap for runc. (crun is also the entry point for some WASM workflows, covered later.)
-
-### containerd — the high-level runtime
-
-**containerd** is the daemon that sits *above* runc and handles everything runc deliberately ignores: pulling and unpacking images, managing snapshots/storage, networking, and the full container lifecycle over a gRPC API. Docker itself uses containerd internally; Kubernetes talks to it directly. For each container, containerd launches a small **shim** process that owns the container's lifetime, so the containerd daemon can be restarted or upgraded without killing running containers.
+**runc** is the reference OCI runtime, extracted from Docker in 2015 and written in Go. It is the default in Docker, containerd and most Kubernetes distributions. It is a command-line tool with no daemon: given a bundle, it creates namespaces, configures cgroups, applies capabilities, seccomp and LSM policy, pivots into the root filesystem and executes the process.
 
 ```bash
-# nerdctl is a Docker-compatible CLI for containerd
-nerdctl run -d --name web -p 8080:80 nginx
+runc list                    # containers known to this runc state directory
+runc exec demo sh            # run another process inside a container
+runc kill demo TERM
+runc delete demo
+```
+
+The current release series is 1.5 (June 2026). runc has a history of container-escape vulnerabilities in the narrow window when it prepares the container's filesystem, from CVE-2019-5736 (overwriting the host runc binary) to CVE-2024-21626 ("Leaky Vessels", a leaked file descriptor) and a group of mount-race issues disclosed in November 2025 (including CVE-2025-31133 and CVE-2025-52565). Keeping runc patched is a routine but important part of host maintenance.
+
+### crun and youki
+
+**crun** (Red Hat) implements the same specification in C. It starts containers faster and uses less memory than runc because it has no Go runtime to initialize, which matters at high density. It is the default in Podman on Fedora and RHEL and a drop-in replacement for runc elsewhere. crun can also run WebAssembly modules through an embedded Wasm engine (see [Running Wasm in container infrastructure](#running-wasm-in-container-infrastructure)).
+
+**youki** is a Rust implementation and a CNCF sandbox project, motivated by Rust's memory safety for code that manipulates namespaces and file descriptors.
+
+| | runc | crun | youki |
+|---|---|---|---|
+| Language | Go | C | Rust |
+| Maintainer | OCI | Red Hat / containers project | CNCF sandbox |
+| Default in | Docker, containerd, most Kubernetes | Podman (Fedora, RHEL) | (opt-in) |
+| Relative start-up time | Baseline | Fastest | Between the two |
+| Wasm support | No | Yes (compile-time option) | Experimental |
+
+## High-level runtimes
+
+### containerd
+
+**containerd** is a daemon that handles everything the low-level runtime ignores: pulling and verifying images, storing content, managing filesystem snapshots, and the container lifecycle, exposed over a gRPC API. It graduated from the CNCF in 2019 and is the most widely deployed Kubernetes runtime; Docker uses it internally.
+
+For each container (or each Kubernetes pod), containerd starts a **shim** that becomes the container's parent. The shim interface is also the main extension point: alternative runtimes such as Kata, gVisor and the Wasm shims plug in as containerd shims (for example `io.containerd.kata.v2` or `io.containerd.wasmtime.v1`).
+
+containerd 2.0 (November 2024) removed long-deprecated APIs and introduced a new configuration format (version 3). The project now designates long-term-support releases: as of September 2026, 2.3 is the LTS line and 2.4 the latest feature release.
+
+```bash
+nerdctl run -d --name web -p 8080:80 nginx   # Docker-compatible CLI for containerd
 nerdctl ps
-ctr -n k8s.io containers list   # low-level containerd client
+ctr -n k8s.io containers list                # low-level debugging client
+crictl ps                                    # talks CRI, works with containerd or CRI-O
 ```
 
-### CRI-O — purpose-built for Kubernetes
+### CRI-O
 
-**CRI-O** is a high-level runtime built for one job: implementing Kubernetes' **Container Runtime Interface (CRI)** and nothing else. Where containerd is a general-purpose runtime that *also* speaks CRI, CRI-O is intentionally minimal — it pulls images, manages pods, and delegates to an OCI runtime (runc or crun), with no extra surface for `docker build`-style features. It is the default in OpenShift and a common choice for security-conscious clusters.
+**CRI-O** implements the Kubernetes CRI and nothing else. It pulls images, manages pod sandboxes and delegates to an OCI runtime (runc or crun), with no build tooling or general-purpose API. Its minor versions track Kubernetes minor versions one to one. It is the runtime in Red Hat OpenShift and a common choice for clusters that want the smallest possible node runtime.
+
+### Podman
+
+**Podman** offers a Docker-compatible CLI without a central daemon. Each `podman run` forks a small `conmon` monitor and invokes the OCI runtime directly, so containers are ordinary child processes of the user who started them. This makes **rootless** operation natural and integrates well with systemd (through Quadlet unit files). Podman can also serve the Docker API over a socket for tools that expect it.
 
 ```mermaid
 flowchart LR
-    KUBELET[kubelet] -->|CRI gRPC| RT
-    subgraph RT["High-level runtime"]
-        CD[containerd] --- CRIO[CRI-O]
+    K["kubelet"] -->|CRI| RT
+    subgraph RT["CRI implementation (choose one)"]
+        CD["containerd"]
+        CRIO["CRI-O"]
     end
-    RT -->|OCI| OCI["runc / crun"]
-    OCI --> K[Linux kernel]
+    RT -->|"OCI runtime (choose per RuntimeClass)"| OCI
+    subgraph OCI["OCI runtimes"]
+        R["runc / crun"]
+        G["runsc (gVisor)"]
+        KA["Kata"]
+    end
 ```
 
-The takeaway: **containerd and CRI-O are interchangeable at the CRI boundary; runc and crun are interchangeable at the OCI boundary.** This is why "Docker vs containerd vs CRI-O" is rarely a real either/or — they live at different layers.
+containerd and CRI-O are interchangeable at the CRI boundary; runc, crun, gVisor and Kata are interchangeable at the OCI boundary. "Docker versus containerd versus CRI-O" is therefore rarely an either-or choice: the products sit at different layers.
 
-## When a Shared Kernel Isn't Enough: Sandboxed Runtimes
+## User namespaces and rootless containers
 
-Standard containers share the host kernel. That sharing is the source of their speed *and* their central security weakness: every container is one kernel vulnerability away from the host. Sandboxed runtimes keep the OCI interface (so orchestrators don't notice) but interpose a stronger isolation boundary between the container and the host kernel. The two leading approaches take opposite routes to the same goal.
+By default, root inside a container is root on the host (UID 0), constrained only by capabilities, seccomp and LSMs. **User namespaces** map container UIDs to an unprivileged range on the host, so a process that escapes the container arrives as an unprivileged user.
 
-### gVisor — a user-space kernel
-
-**gVisor** (Google) inserts a user-space "guest kernel" called **runsc** between the container and the host. Instead of forwarding the container's system calls to the host kernel, runsc *intercepts* them and reimplements the Linux syscall API in a sandboxed Go process. The container thinks it is talking to Linux; it is actually talking to gVisor, which makes a much smaller, tightly controlled set of calls to the real kernel.
-
-```mermaid
-flowchart TD
-    APP["Container process"] -->|syscalls| SENTRY["runsc 'Sentry'<br/>(user-space kernel in Go)"]
-    SENTRY -->|small, filtered<br/>syscall set| HOST["Host Linux kernel"]
-    GOFER["Gofer<br/>(filesystem proxy)"] --- SENTRY
-```
-
-- **Isolation model:** the host kernel's syscall surface (hundreds of calls, the usual source of container escapes) is hidden behind gVisor's much smaller surface.
-- **Cost:** the syscall interception and reimplementation add CPU overhead, and gVisor does not implement every obscure syscall, so some workloads (heavy I/O, certain `/proc` usage) underperform or fail.
-- **Use it for:** multi-tenant platforms running untrusted code where you want strong isolation without spinning up a full VM. It is the runtime behind Google Cloud Run and parts of App Engine.
-
-```bash
-# gVisor registers as an OCI runtime named runsc
-docker run --runtime=runsc hello-world
-# In Kubernetes, a RuntimeClass selects it per-pod:
-#   runtimeClassName: gvisor
-```
-
-### Kata Containers — a lightweight VM per container
-
-**Kata Containers** takes the opposite approach: instead of emulating the kernel, give each container (or pod) its *own real kernel* inside a lightweight virtual machine. A hardware-virtualization boundary (Intel VT-x / AMD-V) separates the container from the host, so a kernel exploit inside the container compromises only that throwaway VM, not the host.
-
-- **Isolation model:** hardware-enforced VM boundary — the strongest of the container-compatible options, equivalent to a VM but with container ergonomics.
-- **Cost:** higher memory and a slower (~hundreds of ms) cold start than runc, because a kernel and minimal guest must boot. Kata uses minimized kernels and memory ballooning to keep this as low as possible.
-- **Use it for:** running genuinely untrusted tenants side by side, or meeting compliance requirements that mandate VM-level isolation, while keeping Kubernetes/OCI tooling.
-
-| Property | runc (standard) | gVisor | Kata Containers |
-|----------|-----------------|--------|-----------------|
-| Isolation boundary | Shared host kernel | User-space kernel (Go) | Per-container VM (hardware) |
-| Kernel attack surface | Full host kernel | Small, filtered | Guest kernel only |
-| Startup | Fastest (~ms) | Fast (slight overhead) | Slower (~100s of ms) |
-| Syscall compatibility | 100% (native) | Most, not all | 100% (real kernel) |
-| Memory overhead | Minimal | Low–moderate | Higher (kernel per VM) |
-| Best for | Trusted workloads | Untrusted code, density | Untrusted multi-tenant, compliance |
-
-## Firecracker — MicroVMs for Serverless Scale
-
-**Firecracker** (AWS) is the **virtual machine monitor (VMM)** that powers AWS Lambda and Fargate. It is not itself an OCI runtime; it is a minimalist replacement for QEMU, purpose-built to launch **microVMs** — stripped-down virtual machines with only the devices a serverless workload needs (a network interface, a block device, a serial console) and nothing else.
-
-Its design goals are the inverse of a general-purpose hypervisor:
-
-- **Minimal device model** → tiny attack surface and a memory footprint of only a few MB per microVM.
-- **Sub-150 ms boot** → fast enough to start a fresh VM *per function invocation*, the property AWS Lambda needs to give every customer request hardware-level isolation cheaply.
-- **Rust + jailer** → the VMM runs as a small Rust process inside its own seccomp/cgroup jail, so even a compromised VMM is contained.
-
-```text
-Lambda invocation  ──►  Firecracker VMM  ──►  microVM (guest kernel + your function)
-                          (one per invocation, booted in <150 ms,
-                           torn down after, isolated by VT-x/AMD-V)
-```
-
-Firecracker connects back to the container world through **Kata** (which can use Firecracker as its VMM) and through **firecracker-containerd**, letting containerd launch OCI containers inside Firecracker microVMs. In other words, Firecracker is the *isolation engine*; Kata and firecracker-containerd are the adapters that make it speak OCI.
-
-**Choose Firecracker (directly or via Kata) when** you need VM-grade isolation at extreme density and per-request startup — the serverless/FaaS sweet spot. **Don't** reach for it for long-running stateful services where a standard container or a normal VM is simpler.
-
-## WebAssembly and WASI: A Next-Generation Runtime
-
-WebAssembly (WASM) and the WebAssembly System Interface (WASI) are a potential paradigm shift in container technology: a lightweight, secure, portable alternative that runs anywhere — browsers, servers, edge devices. Unlike traditional containers, which share the host kernel, WebAssembly provides a fully sandboxed execution environment.
-
-### WASM/WASI as Container Runtime Alternative
-
-Crucially, WASM is a *different kind of isolation* than everything above. runc, gVisor, and Kata all isolate an OS process — they differ only in how strong the boundary around that process is. WebAssembly does not run an OS process at all: it runs a **bytecode module inside a virtual machine** that has no inherent access to the host. The boundary is the VM itself.
-
-#### Understanding WebAssembly
-
-The characteristics that make WebAssembly viable as a container runtime:
-
-**Core Characteristics:**
-- **Binary Instruction Format**: Designed for stack-based virtual machines
-- **Near-Native Performance**: Compiles to machine code (JIT/AOT) with minimal overhead
-- **Language Agnostic**: Supports C/C++, Rust, Go, and many other languages
-- **Sandboxed Execution**: Strong security guarantees through capability-based security
-- **Platform Independent**: True write-once, run-anywhere portability — the *same* `.wasm` binary runs on any CPU architecture, with no per-arch images
-
-That last point is a real differentiator from OCI images, which are built and distributed per architecture (`amd64`, `arm64`, …). A WASM module is architecture-neutral by construction.
-
-#### WASI (WebAssembly System Interface)
-
-Pure WebAssembly can compute but cannot, by itself, open a file or a socket — it has no syscalls. **WASI** provides a standardized, capability-based system interface so WASM modules can interact with the outside world in a portable, sandboxed way:
-
-```rust
-// Example WASI application in Rust
-use std::env;
-use std::fs;
-
-fn main() {
-    // WASI provides standard file system access
-    let args: Vec<String> = env::args().collect();
-
-    if args.len() > 1 {
-        match fs::read_to_string(&args[1]) {
-            Ok(contents) => println!("File contents: {}", contents),
-            Err(e) => eprintln!("Error reading file: {}", e),
-        }
-    }
-}
-```
-
-**WASI Capabilities:**
-- **File System Access**: Sandboxed file operations
-- **Network Access**: Controlled socket operations
-- **Environment Variables**: Secure environment access
-- **Random Number Generation**: Cryptographically secure randomness
-- **Clock Access**: Time and timer functionality
-
-While WASI provides essential system interfaces, some applications require more extensive POSIX compatibility. This is where WASIX comes in.
-
-#### WASIX: Extended WASI
-
-WASIX extends WASI with additional POSIX compatibility:
-
-- **Threading Support**: Full POSIX threads
-- **Process Forking**: Fork/exec capabilities
-- **Signals**: POSIX signal handling
-- **Sockets**: Extended networking support
-- **Shared Memory**: Inter-process communication
-
-```c
-// WASIX example with threading
-#include <pthread.h>
-#include <stdio.h>
-
-void* worker(void* arg) {
-    printf("Worker thread: %ld\n", (long)arg);
-    return NULL;
-}
-
-int main() {
-    pthread_t thread;
-    pthread_create(&thread, NULL, worker, (void*)42);
-    pthread_join(thread, NULL);
-    return 0;
-}
-```
-
-These extended capabilities widen WASM's reach. Running a WASM module *as a container* involves two camps: standalone runtimes and OCI-integrated runtimes.
-
-#### The runtimes: Wasmtime, WasmEdge, Wasmer, and crun
-
-Several engines execute `.wasm` modules. The dominant standalone runtimes are:
-
-- **Wasmtime** — the Bytecode Alliance reference runtime, the leading implementation of WASI and the Component Model.
-- **WasmEdge** — a CNCF runtime tuned for edge/cloud and AI inference, with deep containerd integration.
-- **Wasmer** — a runtime emphasizing broad language support and WASIX.
-
-To run WASM *as a container*, an OCI-compliant runtime embeds one of these engines. **crun** does exactly this — it can detect a WASM workload and execute it via an embedded WasmEdge instead of `exec`ing a native binary:
-
-```bash
-# Running WASM containers with crun (built with WASM support)
-sudo crun --runtime=/usr/bin/crun-wasm run wasm-container
-
-# Container configuration for WASM — the annotation flags the module as WASM
-{
-  "ociVersion": "1.0.2",
-  "process": {
-    "args": ["app.wasm"],
-    "env": ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"],
-    "cwd": "/"
-  },
-  "root": {
-    "path": "rootfs"
-  },
-  "annotations": {
-    "module.wasm.image/variant": "compat"
-  }
-}
-```
-
-The other integration path is **runwasi**, a containerd shim that runs WASM modules directly as containerd-managed workloads — this is the mechanism behind the Kubernetes `RuntimeClass` examples below. Either way, the orchestrator sees an ordinary OCI workload; the runtime quietly executes bytecode instead of a Linux process.
-
-### Advantages of WASM Containers
-
-WebAssembly's appeal as a runtime comes down to three properties: it starts almost instantly, it isolates by *capability* rather than by kernel namespace, and its modules are tiny. The figures below are representative order-of-magnitude comparisons (exact numbers vary by workload and host); treat them as relative, not absolute.
-
-#### Startup time and footprint
-
-| Metric | Docker container | Firecracker microVM | WASM module |
-|--------|------------------|---------------------|-------------|
-| Cold start | ~1 s | ~125 ms | ~1 ms |
-| Memory overhead | ~50 MB | ~150 MB | ~1-5 MB |
-| Disk footprint | 100 MB - 1 GB | 100 MB - 1 GB | 1-10 MB |
-| CPU overhead | 5-10% | 5-15% | under 1% |
-
-The sub-millisecond cold start is the headline number: it makes WASM attractive for serverless and edge workloads where a traditional container's ~1 second startup dominates request latency.
-
-#### Capability-based security
-
-A container restricts a process *after* it has full access to a shared kernel — you drop capabilities and add seccomp profiles to claw privileges back. WebAssembly inverts this: a module starts with **no** access to the host and can only touch resources its host explicitly hands it (a pre-opened directory, a socket, a clock). There is no ambient authority to escape from.
-
-```rust
-// A WASI module can only open files under a directory the host pre-opened.
-// Without that grant, path_open simply fails — the module never had access.
-use wasi::{Errno, Fd};
-
-fn open_under_preopened(dir_fd: Fd, path: &str) -> Result<Fd, Errno> {
-    unsafe {
-        wasi::path_open(
-            dir_fd, // a directory FD the host chose to expose
-            0,      // dirflags
-            path,
-            0,      // open flags
-            0,      // rights base
-            0,      // rights inheriting
-            0,      // fd flags
-        )
-    }
-}
-```
-
-Managing WASM containers at scale reuses the existing orchestration platforms.
-
-### WASM Container Orchestration
-
-#### Kubernetes Integration
+- **Rootless Docker and Podman** run the whole engine as a normal user inside a user namespace.
+- **Kubernetes** supports user namespaces per pod with `hostUsers: false`. The feature reached stable in v1.36. It requires Linux 6.3 or later, containerd 2.0+ or CRI-O 1.25+, and runc 1.2+ or crun 1.9+.
 
 ```yaml
 apiVersion: v1
 kind: Pod
 metadata:
-  name: wasm-app
-  annotations:
-    module.wasm.image/variant: "compat-smart"
+  name: userns-demo
 spec:
-  runtimeClassName: wasmtime
+  hostUsers: false          # root in the pod maps to an unprivileged host UID
   containers:
   - name: app
-    image: myregistry/wasm-app:latest
-    resources:
-      limits:
-        memory: "10Mi"
-        cpu: "100m"
+    image: nginx
 ```
 
-The `runtimeClassName` selects a WASM-capable runtime (via a runwasi shim) exactly the way `gvisor` or `kata` would select those runtimes — the orchestration plane is unchanged.
+User namespaces are the cheapest large security improvement available for ordinary containers, and they mitigate several of the runc escapes listed above.
 
-#### Krustlet: Kubernetes Kubelet for WASM
+## Sandboxed runtimes
 
-```rust
-// Krustlet provider implementation
-use kubelet::Provider;
+Sandboxed runtimes keep the OCI interface, so orchestrators and image tooling do not change, but put a stronger boundary between the workload and the host kernel. The two main designs take opposite routes.
 
-struct WasmProvider {
-    runtime: wasmtime::Engine,
-}
-
-impl Provider for WasmProvider {
-    async fn add(&self, pod: Pod) -> Result<()> {
-        let module = self.fetch_wasm_module(&pod)?;
-        let instance = self.runtime.instantiate(&module)?;
-        instance.run().await
-    }
-}
+```mermaid
+flowchart TB
+    subgraph S1["runc"]
+        A1["Container process"] -->|"hundreds of syscalls,<br/>seccomp-filtered"| K1["Host kernel"]
+    end
+    subgraph S2["gVisor"]
+        A2["Container process"] -->|"syscalls intercepted"| SE["Sentry<br/>(user-space kernel, Go)"]
+        SE -->|"small allowlisted set"| K2["Host kernel"]
+    end
+    subgraph S3["Kata Containers"]
+        A3["Container process"] --> GK["Guest kernel"]
+        GK -->|"virtio devices"| VMM["VMM<br/>(QEMU, Cloud Hypervisor,<br/>Firecracker, Dragonball)"]
+        VMM -->|"hardware virtualization"| K3["Host kernel / KVM"]
+    end
 ```
 
-### Use Cases and Limitations
+### gVisor
 
-**Ideal Use Cases:**
-- **Edge Computing**: Ultra-low latency requirements
-- **Serverless Functions**: Fast cold starts
-- **Plugin Systems**: Secure, sandboxed extensions
-- **IoT Devices**: Minimal resource footprint
-- **Multi-tenant Platforms**: Strong isolation guarantees
+**gVisor** (Google) runs as the OCI runtime `runsc`. Its **Sentry** component is an application kernel written in Go that implements the Linux system-call interface in user space. The container's system calls are intercepted (by the default *systrap* platform, or with hardware virtualization on the *KVM* platform) and handled by the Sentry, which itself makes only a small, seccomp-restricted set of calls to the host kernel. File access goes through a separate **Gofer** process or a directly mounted filesystem.
 
-**Current Limitations:**
-- **Ecosystem Maturity**: Tooling still evolving
-- **Language Support**: Not all languages compile efficiently to WASM
-- **System Calls**: Limited compared to native containers
-- **Debugging**: More challenging than traditional containers
+- **Isolation:** the host kernel's large system-call surface is replaced by gVisor's much smaller one, written in a memory-safe language.
+- **Cost:** system-call-heavy and I/O-heavy workloads pay a noticeable overhead; a small number of system calls and `/proc` or `/sys` behaviors are not implemented.
+- **Use for:** running untrusted code at high density without a VM per workload. It underpins GKE Sandbox and Google's serverless platforms.
 
-### Migration Path
-
-```python
-# Gradual migration strategy
-class ContainerMigrationStrategy:
-    def assess_workload(self, app):
-        """Determine if app is suitable for WASM"""
-        criteria = {
-            "stateless": app.is_stateless(),
-            "cpu_bound": app.is_cpu_intensive(),
-            "small_footprint": app.size < 50 * 1024 * 1024,  # 50MB
-            "supported_language": app.language in ["rust", "c", "go"],
-        }
-
-        score = sum(criteria.values()) / len(criteria)
-        return score > 0.7  # 70% criteria met
-
-    def migrate_to_wasm(self, app):
-        """Step-by-step migration"""
-        steps = [
-            self.compile_to_wasm,
-            self.add_wasi_bindings,
-            self.test_functionality,
-            self.optimize_performance,
-            self.deploy_hybrid,
-            self.monitor_and_validate,
-            self.complete_migration
-        ]
-
-        for step in steps:
-            if not step(app):
-                return self.rollback(app)
+```bash
+# Docker: register runsc in /etc/docker/daemon.json, then select it per container
+docker run --rm --runtime=runsc hello-world
 ```
 
-### Performance Characteristics
+### Kata Containers
 
-The table below sketches how the two runtimes compare across a few common workload shapes. Startup and memory are reported in the same units across rows so the trend is visible; per-request latency is roughly comparable once warm, which is the key takeaway — **WASM's win is in cold start and footprint, not steady-state throughput.**
+**Kata Containers** runs each pod inside a lightweight virtual machine with its own guest kernel. A hardware-virtualization boundary (Intel VT-x, AMD-V, Arm virtualization extensions) separates the workload from the host; a kernel exploit inside the pod compromises only that disposable VM. Kata 3.x added a Rust runtime and a built-in VMM (Dragonball) alongside support for QEMU, Cloud Hypervisor and Firecracker.
 
-| Workload | Runtime | Cold start | Per-request latency | Memory |
-|----------|---------|-----------|---------------------|--------|
-| HTTP request handler | Docker | ~1200 ms | ~0.5 ms | ~50 MB |
-| HTTP request handler | WASM | ~1 ms | ~0.6 ms | ~2 MB |
-| Image processing | Docker | ~1500 ms | ~10 ms | ~200 MB |
-| Image processing | WASM | ~2 ms | ~12 ms | ~20 MB |
-| API gateway | Docker | ~1000 ms | ~0.2 ms | ~100 MB |
-| API gateway | WASM | ~0.5 ms | ~0.25 ms | ~5 MB |
+- **Isolation:** VM-grade, with container ergonomics and full Linux compatibility, since the guest runs a real kernel.
+- **Cost:** a guest kernel per pod means more memory and slower start-up than runc (typically hundreds of milliseconds). Nested virtualization is needed to run it inside cloud VMs that do not expose bare-metal virtualization.
+- **Use for:** hostile multi-tenancy, compliance regimes that require VM isolation, and confidential computing (Kata is the basis of the CNCF Confidential Containers project, which runs pods inside hardware-encrypted VMs such as AMD SEV-SNP and Intel TDX).
 
-Two patterns stand out. First, cold start collapses from roughly a second to single-digit milliseconds — decisive for serverless and scale-to-zero. Second, steady-state per-request latency is essentially a wash; WASM does not make a warm handler meaningfully faster, so it is not a drop-in throughput upgrade for long-running services.
+### Selecting a runtime in Kubernetes
 
-### Future Developments
+A **RuntimeClass** names a handler configured in the node's containerd or CRI-O. Pods opt in by name, and the optional `overhead` field lets the scheduler account for the sandbox's own memory and CPU:
 
-**Component Model:**
+```yaml
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: kata
+handler: kata              # must match a runtime configured on the node
+overhead:
+  podFixed:
+    memory: "160Mi"
+    cpu: "250m"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: untrusted-job
+spec:
+  runtimeClassName: kata
+  containers:
+  - name: job
+    image: registry.example.com/untrusted:1.0
+```
+
+### Comparison
+
+| Property | runc / crun | gVisor | Kata Containers |
+|----------|-------------|--------|-----------------|
+| Isolation boundary | Shared host kernel | User-space application kernel | Per-pod VM with guest kernel |
+| Host kernel exposure | Full syscall surface (filtered by seccomp) | Small allowlisted set | Via the VMM and virtio devices |
+| Start-up | Fastest | Fast | Slower (hundreds of ms) |
+| Linux compatibility | Native | Most, not all | Native (real kernel) |
+| Memory overhead | Minimal | Low to moderate | Highest (guest kernel per pod) |
+| Needs hardware virtualization | No | No (optional KVM platform) | Yes |
+| Typical use | Trusted workloads | Untrusted code at density | Hostile tenants, compliance, confidential computing |
+
+## Firecracker microVMs
+
+**Firecracker** (AWS, open source since 2018) is a **virtual machine monitor**, a minimal replacement for QEMU, written in Rust and built on Linux KVM. It powers AWS Lambda and AWS Fargate. It is not an OCI runtime itself; it launches **microVMs** with only the devices a serverless workload needs: virtio network and block devices, a serial console, and a minimal keyboard controller used only to reset the VM.
+
+Its published specification (enforced in CI) sets these limits:
+
+- The VMM starts within 8 ms of CPU time (6 to 60 ms wall clock) to API readiness.
+- A guest reaches `/sbin/init` within **125 ms** of the start instruction.
+- The VMM's own memory overhead is **5 MiB or less** for a 1 vCPU, 128 MiB microVM.
+
+Each Firecracker process runs inside a **jailer** that applies namespaces, cgroups, a seccomp filter and a chroot, so a compromised VMM is itself contained.
+
+```mermaid
+flowchart LR
+    REQ["Function invocation"] --> SCHED["Placement service"]
+    SCHED --> J["jailer<br/>(namespaces, cgroups,<br/>seccomp, chroot)"]
+    J --> FC["Firecracker VMM<br/>(one process per microVM)"]
+    FC -->|KVM| VM["microVM<br/>guest kernel + runtime + function"]
+```
+
+Firecracker connects to the container world through **Kata Containers**, which can use it as its VMM, and through **firecracker-containerd**, which lets containerd run OCI containers inside microVMs. Firecracker is the isolation engine; those projects make it speak OCI.
+
+Choose Firecracker (usually through Kata or a platform built on it) when you need VM-grade isolation with fast start-up at high density, the serverless and sandboxed-code-execution case. For long-running services, an ordinary container or an ordinary VM is simpler.
+
+The VM-per-container pattern has spread beyond servers. Apple's open-source `container` tool for macOS 26 on Apple silicon runs each Linux container in its own lightweight VM rather than placing all containers in one shared Linux VM as Docker Desktop does.
+
+## WebAssembly
+
+WebAssembly (Wasm) is a different kind of workload rather than a stronger wall around a Linux process. runc, gVisor and Kata all run an ordinary Linux binary and differ in how strongly they isolate it. A Wasm runtime executes a portable **bytecode module** inside a virtual machine that starts with no access to anything outside its own linear memory.
+
+### Properties
+
+- **Portable.** The same `.wasm` file runs on x86-64, Arm64 or any other architecture with a runtime, so there is no per-architecture image build.
+- **Sandboxed by construction.** A module can only call functions its host explicitly provides. There is no ambient access to files, network or environment to take away.
+- **Fast to start.** A precompiled module instantiates in microseconds to a few milliseconds, with no kernel, init process or filesystem setup.
+- **Small.** Modules are typically kilobytes to a few megabytes.
+- **Language support varies.** Rust, C and C++ compile to Wasm well; Go (including TinyGo), C#/.NET, Kotlin and others have working toolchains; languages that rely on a large dynamic runtime or native extensions (much of Python's scientific stack, for example) are harder.
+
+### WASI
+
+Core Wasm can compute but cannot open a file or a socket. The **WebAssembly System Interface (WASI)**, developed in the W3C WebAssembly Community Group, defines standard interfaces for doing so, based on capabilities the host grants.
+
+| Version | Released | Model |
+|---------|----------|-------|
+| WASI 0.1 ("preview 1") | 2019 onward | POSIX-like functions on a single module; still widely supported |
+| WASI 0.2 ("preview 2") | January 2024 | Rebuilt on the **Component Model**; interfaces defined in WIT, including `wasi:cli`, `wasi:filesystem`, `wasi:sockets`, `wasi:http` |
+| WASI 0.3 | June 2026 | Native async in the Component Model (`async func`, `stream<T>`, `future<T>`); `wasi:io` folded into the canonical ABI |
+
+Capabilities are granted at launch. A module sees only the directories and resources the host pre-opens:
+
+```bash
+# Build a Rust program for WASI 0.2
+cargo build --release --target wasm32-wasip2
+
+# Run it with Wasmtime, granting access to ./data only (visible to the guest as /data)
+wasmtime run --dir ./data::/data target/wasm32-wasip2/release/app.wasm /data/input.txt
+```
+
+Without `--dir`, the same program's attempt to open the file fails, because the module was never given a handle to any directory.
+
+**WASIX** is a separate set of POSIX extensions (threads, `fork`, signals, full sockets) defined by Wasmer. It eases porting existing POSIX software but is not part of the WASI standard and is supported mainly by Wasmer's runtime.
+
+### The Component Model
+
+The Component Model lets modules written in different languages call each other through typed interfaces described in **WIT** (Wasm Interface Type), with the runtime handling data conversion. No shared memory layout or foreign-function glue is needed.
+
 ```wit
-// WebAssembly Interface Types (WIT)
-interface http-handler {
-  use types.{request, response}
+package example:service@0.1.0;
 
-  handle: func(req: request) -> response
+interface handler {
+  record request {
+    path: string,
+    body: list<u8>,
+  }
+  record response {
+    status: u16,
+    body: list<u8>,
+  }
+  handle: func(req: request) -> response;
 }
 
 world service {
-  import wasi:filesystem/types
-  import wasi:sockets/tcp
-
-  export http-handler
+  export handler;
 }
 ```
 
-The **Component Model** is the most consequential development here: it lets WASM modules written in *different languages* describe and call each other's interfaces (via WIT, the WebAssembly Interface Types) with no shared memory layout or FFI glue. It is what will make WASM a true polyglot composition format rather than a single-module sandbox.
+A component that exports `handler` can be written in Rust and called from a host or another component written in Go or JavaScript. For HTTP services, the standard `wasi:http/proxy` world plays this role, and frameworks such as Fermyon Spin and wasmCloud build on it.
 
-**WASM-native Development:**
-```rust
-// Future: Direct WASM targeting without WASI
-#[no_std]
-#[wasm_module]
-pub mod app {
-    #[wasm_export]
-    pub fn handle_request(ptr: *const u8, len: usize) -> Vec<u8> {
-        // Direct memory manipulation
-        // No system calls needed
-    }
-}
+### Runtimes
+
+| Runtime | Maintainer | Notes |
+|---------|------------|-------|
+| **Wasmtime** | Bytecode Alliance | Reference implementation of WASI 0.2/0.3 and the Component Model; Cranelift compiler |
+| **WasmEdge** | CNCF | Edge and AI-inference focus; embedded by crun |
+| **Wasmer** | Wasmer Inc. | WASIX, package registry |
+| **WAMR** | Bytecode Alliance | Interpreter and AOT modes for microcontrollers and embedded devices |
+
+### Running Wasm in container infrastructure
+
+Wasm modules can be packaged as OCI images or artifacts, stored in ordinary registries, and scheduled by Kubernetes. Two integration points exist:
+
+- **crun** built with a Wasm handler detects Wasm images (flagged with the annotation `module.wasm.image/variant=compat-smart`) and runs the module in an embedded engine such as WasmEdge or Wasmtime instead of executing a Linux binary.
+- **runwasi** is a containerd project that provides shims running modules directly under containerd (for example `io.containerd.wasmtime.v1`). The Spin shim used by **SpinKube** builds on it.
+
+```toml
+# /etc/containerd/config.toml (containerd 2.x, config version 3)
+[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.wasmtime]
+  runtime_type = "io.containerd.wasmtime.v1"
 ```
 
-## Choosing a Runtime
+```yaml
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: wasmtime
+handler: wasmtime
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wasm-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: wasm-app }
+  template:
+    metadata:
+      labels: { app: wasm-app }
+    spec:
+      runtimeClassName: wasmtime
+      containers:
+      - name: app
+        image: registry.example.com/wasm-app:1.0
+        resources:
+          limits: { memory: "32Mi", cpu: "100m" }
+```
 
-There is no single "best" runtime — there is the lightest isolation boundary that satisfies your trust and compatibility requirements. Work down this list and stop at the first row that fits:
+The orchestrator treats the pod like any other; only the node's runtime knows it is executing bytecode. An earlier approach, **Krustlet** (a replacement kubelet written in Rust for Wasm workloads), is no longer maintained; the shim-based approach replaced it.
 
-| If you need… | Choose | Why |
-|--------------|--------|-----|
-| The default for trusted internal workloads | **runc / crun** (Docker, containerd) | Fastest, lightest, 100% compatible, ubiquitous tooling |
-| Kubernetes-native, minimal runtime | **containerd** or **CRI-O** | Purpose-built CRI implementations; delegate to runc/crun |
-| Stronger isolation for untrusted code, high density | **gVisor** | Shrinks kernel attack surface without a full VM |
-| VM-grade isolation with container ergonomics | **Kata Containers** | Real per-container kernel via hardware virtualization |
-| VM isolation at serverless scale and startup | **Firecracker** (often via Kata) | MicroVMs that boot in <150 ms, one per invocation |
-| Instant cold start, tiny footprint, polyglot plugins | **WebAssembly / WASI** | Sub-ms start, MB-scale modules, capability-based sandbox |
+### Where Wasm fits
 
-A few rules of thumb to anchor the decision:
+Wasm's advantage is start-up time, footprint and a capability-based sandbox, not steady-state speed: compiled Wasm usually runs somewhat slower than equivalent native code. It suits:
 
-- **Trust is the first axis.** If you run only your own code, a standard container (runc) is almost always right; reach for a sandbox only when something untrusted runs *next to* something it must not reach.
-- **Startup is the second axis.** Scale-to-zero and per-request isolation push you toward Firecracker (VM-grade) or WASM (process-grade-but-tiny), depending on how strong a boundary you need.
-- **Compatibility is the constraint.** runc and Kata run *any* Linux binary unchanged. gVisor runs *most*. WASM runs only code compiled to WASM — the biggest adoption hurdle, and why it complements rather than replaces containers today.
+- Serverless and edge functions where cold start dominates latency (Fastly Compute, Cloudflare Workers, Fermyon, Akamai).
+- Plugin systems that must run third-party code safely inside a host application (Envoy and proxy filters, databases, editors, games).
+- Small, stateless request handlers in scale-to-zero platforms.
 
-The durable principle does not change with the tooling: build for **consistency, isolation, and portability**, and choose the lightest runtime that meets your isolation needs.
+It is a poor fit for existing applications with large native dependencies, heavy threading, or reliance on Linux-specific behavior. Wasm complements containers rather than replacing them.
 
-## See Also
+## Choosing a runtime
 
-- [Docker](docker/) — Building images and the common-case container workflow
-- [Docker: Advanced Patterns](docker/advanced.html) — Production architectures, design patterns, and case studies
-- [Docker Essentials](docker-essentials.html) — Command cheat sheet
-- [Kubernetes](kubernetes/) — Orchestrating any OCI runtime via the CRI
-- [AWS](aws/) — Fargate and Lambda, which run on Firecracker microVMs
-- [Cybersecurity](cybersecurity/) — Isolation, sandboxing, and threat models
-- [Distributed Systems](../distributed-systems/) — Distributed computing principles
+Choose the lightest isolation boundary that meets your trust and compatibility requirements.
+
+```mermaid
+flowchart TD
+    T{"Does untrusted or<br/>third-party code run<br/>next to other tenants?"}
+    T -- No --> STD["Standard runtime<br/>runc or crun, via containerd or CRI-O<br/>+ user namespaces, seccomp"]
+    T -- Yes --> C{"Is the code compiled<br/>to WebAssembly,<br/>or can it be?"}
+    C -- Yes --> WASM["Wasm runtime<br/>(Wasmtime, WasmEdge, Spin)"]
+    C -- No --> V{"Need VM-grade isolation,<br/>full syscall compatibility,<br/>or confidential computing?"}
+    V -- Yes --> KATA["Kata Containers<br/>or Firecracker microVMs"]
+    V -- No --> GV["gVisor"]
+```
+
+| Requirement | Choice | Reason |
+|-------------|--------|--------|
+| Trusted internal workloads | **runc** or **crun** via containerd, CRI-O, Docker or Podman | Fastest, fully compatible, universal tooling |
+| Hardened ordinary containers | The above plus **user namespaces**, rootless mode, a tight seccomp profile | Large security gain with no compatibility cost |
+| Kubernetes node runtime | **containerd** or **CRI-O** | Both implement the CRI and delegate to any OCI runtime |
+| Untrusted code at high density | **gVisor** | Small host-kernel exposure without a VM per workload |
+| Hostile multi-tenancy or compliance | **Kata Containers** | Hardware-virtualization boundary with container tooling |
+| Per-request isolation at serverless scale | **Firecracker** (directly or via Kata) | Guest boot within 125 ms, a few MiB of VMM overhead |
+| Instant start, tiny footprint, safe plugins | **WebAssembly / WASI** | Capability sandbox, microsecond-to-millisecond instantiation |
+
+Three axes decide most cases:
+
+1. **Trust.** If only your own code runs on the host, a standard container is almost always right. Add a sandbox when something untrusted shares a host with something it must not reach.
+2. **Start-up and density.** Scale-to-zero and per-request isolation push toward Firecracker (VM-grade) or Wasm (lightweight sandbox).
+3. **Compatibility.** runc and Kata run any Linux binary unchanged; gVisor runs most; Wasm runs only code compiled for it.
+
+## See also
+
+- [Docker](docker/): building images and the everyday container workflow
+- [Docker: Advanced Patterns](docker/advanced.html): production architectures and case studies
+- [Docker Essentials](docker-essentials.html): command cheat sheet
+- [Kubernetes](kubernetes/): orchestrating any OCI runtime through the CRI
+- [Cloud and Container Security](cybersecurity/cloud-and-container-security.html): threat models and hardening for containers
+- [AWS](aws/): Lambda and Fargate, which run on Firecracker
+- [Distributed Systems](../distributed-systems/): distributed computing principles
+
+## References
+
+- [OCI Runtime Specification](https://github.com/opencontainers/runtime-spec), [Image Specification](https://github.com/opencontainers/image-spec), [Distribution Specification](https://github.com/opencontainers/distribution-spec)
+- [runc](https://github.com/opencontainers/runc), [crun](https://github.com/containers/crun), [youki](https://github.com/containers/youki)
+- [containerd](https://containerd.io/), [CRI-O](https://cri-o.io/), [Podman](https://podman.io/)
+- Kubernetes documentation: [Runtime Class](https://kubernetes.io/docs/concepts/containers/runtime-class/), [User Namespaces](https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/), [About cgroup v2](https://kubernetes.io/docs/concepts/architecture/cgroups/)
+- [gVisor documentation](https://gvisor.dev/docs/)
+- [Kata Containers](https://katacontainers.io/)
+- [Firecracker specification](https://github.com/firecracker-microvm/firecracker/blob/main/SPECIFICATION.md); Agache et al., [Firecracker: Lightweight Virtualization for Serverless Applications](https://www.usenix.org/conference/nsdi20/presentation/agache) (NSDI 2020)
+- [WASI roadmap](https://wasi.dev/roadmap), [Component Model](https://component-model.bytecodealliance.org/), [runwasi](https://github.com/containerd/runwasi), [SpinKube](https://www.spinkube.dev/)
+- [Apple container](https://github.com/apple/container)

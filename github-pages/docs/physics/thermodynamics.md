@@ -1,7 +1,7 @@
 ---
 layout: docs
 title: Thermodynamics
-description: The fundamentals of thermodynamics — the four laws, state functions and processes, heat engines and the Carnot bound, entropy, and the free energies.
+description: Classical thermodynamics — systems and state variables, the four laws, entropy, ideal-gas processes, the thermodynamic potentials and Maxwell relations, phase equilibrium, and heat-engine, refrigerator, and heat-pump cycles.
 permalink: /docs/physics/thermodynamics.html
 hide_title: true
 toc: true
@@ -12,439 +12,427 @@ toc_icon: "cog"
 
 [Physics](./) &raquo; Thermodynamics
 
-Thermodynamics is the physics of energy in transit. It does not care what a system is made of — atoms, photons, or black holes obey the same four laws. Born from the practical question "how much work can I get from heat?", it grew into one of the most universal frameworks in science, constraining everything from chemical reactions to the arrow of time itself. Four results summarize it:
+**Thermodynamics** is the theory of energy, heat, and work in macroscopic systems. It describes a system with a handful of bulk variables (pressure, volume, temperature, energy, entropy) and a few universal laws that constrain how those variables can change, without reference to what the system is made of. The same laws govern steam, magnets, chemical reactions, radiation, and black holes. This page covers the classical, equilibrium theory: systems and state variables, the four laws, entropy, ideal-gas processes, the thermodynamic potentials, phase equilibrium, and the engine and refrigeration cycles bounded by the Carnot limit. The formal and modern extensions (Legendre structure, critical phenomena, non-equilibrium, stochastic, and quantum thermodynamics) are on [Thermodynamics: Advanced Topics](thermodynamics-advanced.html); the microscopic derivation is in [Statistical Mechanics](statistical-mechanics/).
 
-- **Energy is conserved** (First Law) — energy only changes form; you can't get something for nothing.
-- **Entropy increases** (Second Law) — isolated systems run downhill toward disorder, defining time's direction.
-- **Absolute zero is unreachable** (Third Law) — entropy approaches a constant as $T \to 0$, and you can never quite get there.
-- **Efficiency has a ceiling** — no engine beats Carnot: $\eta_{\max} = 1 - T_C/T_H$, set purely by the two temperatures.
+## Overview
 
-## Why Thermodynamics?
+A gas contains roughly $10^{23}$ molecules obeying reversible mechanical laws, yet experiments measure only a few averaged quantities and find relations among them that hold regardless of microscopic detail. Thermodynamics is the framework for those relations. It replaces $10^{23}$ coordinates with a few **state variables** and adds one ingredient that mechanics lacks: a direction for spontaneous change. Newton's and Schrödinger's equations run equally well backwards, but heat never flows unaided from cold to hot and a broken glass never reassembles. That asymmetry is captured by entropy and the Second Law.
 
-In principle, a gas is just $10^{23}$ molecules obeying Newton's laws, so why not simply integrate the equations of motion? Because that program is hopeless and, more deeply, beside the point. No experiment ever measures the position of an individual molecule; what we measure are a handful of bulk quantities — pressure, temperature, volume, energy — and what we want to predict are *relations* between them. Thermodynamics is the framework that delivers those relations directly, without ever solving the microscopic dynamics, by replacing $10^{23}$ coordinates with a few **state variables** and a small set of universal laws constraining them.
+The subject grew out of engineering. In 1824 Sadi Carnot asked what fraction of the heat drawn from a furnace any engine could turn into work, and found that the ceiling depends only on the reservoir temperatures:
 
-The subject was not invented by philosophers contemplating the universe — it was forced into existence by engineers trying to build better steam engines. In 1824 Sadi Carnot asked a sharply practical question: given a furnace and a cold river, what is the *maximum* fraction of the heat that any engine, no matter how cleverly designed, can turn into useful work? His answer was startling. The ceiling depends only on the two temperatures,
+$$\eta_{\max} = 1 - \frac{T_C}{T_H}.$$
 
-$$\eta_{\max} = 1 - \frac{T_C}{T_H},$$
+The working fluid and the mechanism do not enter. Work can be converted entirely into heat (friction does it), but heat can never be converted entirely into work in a cycle. Clausius (1850s–1865) turned this into the Second Law and defined entropy; Kelvin fixed the absolute temperature scale; Gibbs (1870s) built the theory of potentials and phase equilibrium; Boltzmann connected entropy to the counting of microstates.
 
-and on nothing else — not the working fluid, not the mechanism, not the engineer's ingenuity. This was the first hint that heat obeys a law of its own, one that *forbids* certain processes that energy conservation alone would happily allow. You can build a machine that turns work entirely into heat (friction does it for free), but you can never build one that turns heat entirely into work. That asymmetry is invisible at the level of Newton's reversible equations and only emerges from statistics — there are simply overwhelmingly more disordered microstates than ordered ones.
+| Law | Statement | Consequence | Key relation |
+|-----|-----------|-------------|--------------|
+| Zeroth | Thermal equilibrium is transitive | Temperature exists and can be measured | $A \sim C,\ B \sim C \Rightarrow A \sim B$ |
+| First | Energy is conserved; heat is a form of energy transfer | No perpetual motion of the first kind | $dU = \delta Q - \delta W$ |
+| Second | Entropy of an isolated system never decreases | No perpetual motion of the second kind; Carnot bound | $dS \geq \delta Q / T$ |
+| Third | Entropy tends to a constant as $T \to 0$ | Absolute zero is unattainable in finitely many steps | $\lim_{T \to 0} \Delta S = 0$ |
 
-**Why microscopic mechanics alone is not enough.** Newton's laws are perfectly time-reversible: run a film of two colliding billiard balls backward and it still looks physical. Yet a dropped glass never spontaneously reassembles, and heat never flows on its own from cold to hot. Nothing in the microscopic equations singles out a direction for time — that arrow is a *thermodynamic* statement about entropy, a property of the ensemble of microstates, not of any single trajectory. Thermodynamics adds exactly the ingredient mechanics lacks: a direction for spontaneous change and a hard ceiling on energy conversions. Its laws hold whether the working substance is steam, a magnet, light, or a black hole, which is why it is called the most portable theory in physics.
+## Systems, States, and Variables
 
-The rest of this page builds that framework from the ground up: the four laws that fix the rules, the state functions that summarize a system's condition, the idealized processes that connect states, the engine cycles that turn the Carnot bound into hardware, and the free energies that predict which way a process will run. For the graduate-level machinery built on top of these foundations — the Legendre structure of the potentials, critical phenomena and the renormalization group, and non-equilibrium, stochastic, and quantum thermodynamics — see [Thermodynamics: Advanced Topics](thermodynamics-advanced.html).
+### Types of system
 
-## Fundamental Concepts
+| System | Exchanges energy? | Exchanges matter? | Example |
+|--------|-------------------|-------------------|---------|
+| Isolated | No | No | Gas in a sealed, insulated rigid box |
+| Closed | Yes (heat and work) | No | Gas in a piston–cylinder |
+| Open | Yes | Yes | Turbine, compressor, living cell |
 
-### The Laws of Thermodynamics
+Walls are classified by what they transmit: **adiabatic** walls block heat, **diathermal** walls pass it, **rigid** walls block work by volume change, and **permeable** walls pass particles.
+
+### State variables and equilibrium
+
+A system is in **thermodynamic equilibrium** when its macroscopic variables do not change in time and there are no net internal flows of heat, matter, or momentum. In equilibrium a small set of variables fixes the state completely; for a simple one-component fluid, any two of $(P, V, T)$ plus the amount $n$ suffice.
+
+- **Extensive** variables scale with system size: $V$, $U$, $S$, $N$, $H$, $F$, $G$.
+- **Intensive** variables do not: $T$, $P$, $\mu$, density. The ratio of two extensive variables is intensive.
+- **State functions** ($U$, $S$, $H$, $F$, $G$) depend only on the current state; their change between two states is path-independent, and $\oint dU = 0$ around any cycle.
+- **Path functions** — heat $Q$ and work $W$ — are not properties of a state but amounts transferred along a process. Their infinitesimal forms are written $\delta Q$, $\delta W$ (inexact differentials).
+
+A **quasi-static** process passes through a continuous sequence of equilibrium states, so it can be drawn as a curve on a state diagram. A **reversible** process is quasi-static *and* free of dissipation (friction, finite-temperature-difference heat flow, unrestrained expansion); it can be run backwards leaving no trace in the surroundings. Reversible processes are idealizations, but they set the limits every real process is measured against.
+
+### Equations of state
+
+An **equation of state** relates the state variables of a particular substance. It is empirical input: the laws of thermodynamics do not supply it.
+
+**Ideal gas** — point particles with no interactions, accurate for dilute gases:
+
+$$PV = nRT = N k_B T.$$
+
+**Van der Waals gas** — adds a finite molecular volume $b$ and a mean attraction $a$, and qualitatively captures condensation and a critical point:
+
+$$\left(P + \frac{a n^2}{V^2}\right)(V - nb) = nRT, \qquad T_c = \frac{8a}{27Rb},\quad P_c = \frac{a}{27b^2},\quad V_c = 3nb.$$
+
+Real-fluid engineering calculations use multiparameter reference equations (for example the IAPWS-95 formulation for water) implemented in libraries such as CoolProp and NIST REFPROP.
+
+## The Laws of Thermodynamics
+
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.gutenberg.org/files/33229/33229-pdf.pdf"> Paper: <b><i>Reflections on the Motive Power of Fire</i></b> - Sadi Carnot</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://www.youtube.com/watch?v=Xb05CaG7TsQ"> Video: <b><i>The Laws of Thermodynamics Explained</i></b></a></p>
 
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Laws_of_thermodynamics"> Article: <b><i>Laws of Thermodynamics - Wikipedia</i></b></a></p>
+### Zeroth law and temperature
 
-#### Zeroth Law
-If two systems are in thermal equilibrium with a third system, they are in thermal equilibrium with each other. This law establishes temperature as a fundamental thermodynamic property.
+If systems $A$ and $B$ are each in thermal equilibrium with a third system $C$, they are in thermal equilibrium with each other. Transitivity lets $C$ serve as a thermometer: all systems in mutual equilibrium share one value of an intensive property, the **temperature**.
 
-$$T_A = T_C \text{ and } T_B = T_C \Rightarrow T_A = T_B$$
+The absolute (thermodynamic) temperature scale is defined independently of any substance through the Carnot efficiency, $T_C/T_H = Q_C/Q_H$ for a reversible engine. Since the 2019 redefinition of the SI base units, the kelvin is fixed by assigning the Boltzmann constant the exact value $k_B = 1.380649 \times 10^{-23}\ \text{J/K}$; the triple point of water (273.16 K) is now a measured quantity rather than the definition. Practical thermometry still uses the ITS-90 scale of fixed points.
 
-#### First Law (Conservation of Energy)
-Energy cannot be created or destroyed, only transformed from one form to another. For a closed system:
+### First law: energy conservation
 
-$$dU = \delta Q - \delta W$$
+For a closed system, the change in internal energy equals the heat added minus the work done *by* the system:
 
-Where:
-- $dU$ is the change in internal energy
-- $\delta Q$ is the heat added to the system
-- $\delta W$ is the work done by the system
+$$dU = \delta Q - \delta W, \qquad \Delta U = Q - W.$$
 
-For a cyclic process: $\oint \delta Q = \oint \delta W$
+For quasi-static expansion work, $\delta W = P\,dV$. Around a complete cycle $\Delta U = 0$, so the net work output equals the net heat input: $\oint \delta Q = \oint \delta W$.
 
-#### Second Law
-The entropy of an isolated system never decreases. There are several equivalent formulations:
+| Convention | First law | $W$ means | Common in |
+|------------|-----------|-----------|-----------|
+| Clausius / engineering | $\Delta U = Q - W$ | Work done **by** the system | Physics, mechanical engineering (used on this page) |
+| IUPAC / chemistry | $\Delta U = Q + W$ | Work done **on** the system | Chemistry, many modern textbooks |
 
-**Clausius Statement**: Heat cannot spontaneously flow from cold to hot.
+Both conventions describe the same physics; only the sign of $W$ differs. Check which one a source uses before combining formulas.
 
-**Kelvin-Planck Statement**: No engine can convert all heat into work.
+For an **open system** in steady flow (turbine, nozzle, compressor), the natural energy variable is the enthalpy $H = U + PV$, which absorbs the "flow work" needed to push fluid in and out:
 
-**Entropy Statement**: For an isolated system:
-$$dS \geq 0$$
+$$\dot{Q} - \dot{W}_{\text{shaft}} = \dot{m}\left[(h_2 - h_1) + \tfrac{1}{2}(v_2^2 - v_1^2) + g(z_2 - z_1)\right],$$
 
-For a reversible process: $dS = \frac{\delta Q_{rev}}{T}$
+where $h$ is specific enthalpy. This steady-flow energy equation is the working form of the First Law for power plants and refrigeration.
 
-The deeper reason behind the Second Law is statistical: there are vastly more disordered microstates than ordered ones, so an isolated system overwhelmingly evolves toward higher entropy simply by probability. Entropy thereby gives time a direction even though the underlying equations are reversible.
+### Second law: direction and limits
 
-#### Third Law
-As temperature approaches absolute zero, the entropy approaches a constant $S_0$ (zero for a perfect crystal, per the Nernst statement):
+The Second Law has several equivalent classical statements:
 
-$$\lim_{T \to 0} S = S_0$$
+- **Clausius**: no process whose *sole* result is the transfer of heat from a colder body to a hotter one.
+- **Kelvin–Planck**: no cyclic process whose *sole* result is the absorption of heat from a single reservoir and its complete conversion into work.
+- **Carathéodory**: in every neighbourhood of any equilibrium state there are states that cannot be reached from it by an adiabatic process.
 
-### The Four Laws at a Glance
+The Clausius and Kelvin–Planck statements are equivalent: a device violating one can be combined with an ordinary engine or refrigerator to violate the other. From them follows the **Clausius inequality** for any cycle,
 
-The four laws were discovered out of order — the First and Second came first in the 19th century, the Zeroth and Third were recognized later as logically prior or complementary. Read together they form a complete grammar for energy and disorder.
+$$\oint \frac{\delta Q}{T} \leq 0,$$
 
-| Law | One-line statement | Defines / forbids | Key equation |
-|-----|--------------------|-------------------|--------------|
-| Zeroth | Equilibrium is transitive | *Defines* temperature as a measurable property | $T_A = T_C,\ T_B = T_C \Rightarrow T_A = T_B$ |
-| First | Energy is conserved | *Forbids* perpetual motion of the first kind (energy from nothing) | $dU = \delta Q - \delta W$ |
-| Second | Entropy of an isolated system never decreases | *Forbids* perpetual motion of the second kind (100% heat-to-work) | $dS \geq 0$ |
-| Third | Entropy approaches a constant as $T \to 0$ | *Forbids* reaching absolute zero in finite steps | $\lim_{T \to 0} S = S_0$ |
+with equality only for reversible cycles. Equality means $\delta Q_{\text{rev}}/T$ is an exact differential, which defines the **entropy**:
 
-**Why four laws are enough.** The Zeroth gives you a thermometer, the First a ledger for energy, the Second a direction for time and a ceiling on efficiency, and the Third a fixed reference point for entropy. Everything else on this page — enthalpy, free energies, Maxwell relations, engine cycles — is bookkeeping built on top of these four statements.
+$$dS = \frac{\delta Q_{\text{rev}}}{T}, \qquad dS \geq \frac{\delta Q}{T}\ \text{(any process)}.$$
+
+For an isolated system $\delta Q = 0$, so $\Delta S \geq 0$: entropy increases in every spontaneous process and is constant only in reversible ones. Section [Entropy](#entropy) develops this further.
+
+### Third law: the approach to absolute zero
+
+The Third Law has three related forms:
+
+- **Nernst heat theorem** (1906): the entropy change of any isothermal process between equilibrium states of a condensed system tends to zero as $T \to 0$.
+- **Planck statement** (1911): the entropy of a perfect crystal of a pure substance tends to zero as $T \to 0$, which fixes an absolute zero for entropy.
+- **Unattainability principle**: no process can cool a system to $T = 0$ in a finite number of steps.
+
+Consequences include the vanishing of heat capacities, of thermal expansion, and of the slope of the melting curve of helium as $T \to 0$. Glasses and some crystals (CO, ice) retain a **residual entropy** at low temperature because they freeze into one of many disordered configurations, which is why the Planck form specifies perfect crystals. Masanes and Oppenheim (*Nature Communications*, 2017) derived the unattainability principle from quantum-information arguments and quantified it, bounding the time needed to cool a system toward absolute zero.
+
+## Heat Capacity and the Ideal Gas
+
+The heat capacity measures how much heat a system absorbs per unit temperature rise, and depends on what is held fixed:
+
+$$C_V = \left(\frac{\partial U}{\partial T}\right)_V, \qquad C_P = \left(\frac{\partial H}{\partial T}\right)_P.$$
+
+For an ideal gas $U$ depends only on $T$, and the two capacities differ by **Mayer's relation**:
+
+$$C_P - C_V = nR, \qquad \gamma \equiv \frac{C_P}{C_V} > 1.$$
+
+By equipartition, each quadratic degree of freedom that is thermally active contributes $\tfrac{1}{2}R$ per mole to $C_V$:
+
+| Gas | Active degrees of freedom (near room temperature) | $C_V$ per mole | $C_P$ per mole | $\gamma$ |
+|-----|---------------------------------------------------|----------------|----------------|----------|
+| Monatomic (He, Ar) | 3 translational | $\tfrac{3}{2}R$ | $\tfrac{5}{2}R$ | $5/3 \approx 1.67$ |
+| Diatomic (N$_2$, O$_2$, air) | 3 translational + 2 rotational | $\tfrac{5}{2}R$ | $\tfrac{7}{2}R$ | $7/5 = 1.40$ |
+| Nonlinear polyatomic (CH$_4$) | 3 translational + 3 rotational (+ vibrations when hot) | $\geq 3R$ | $\geq 4R$ | $\leq 1.33$ |
+
+Vibrational modes freeze out at room temperature because their quantum spacing exceeds $k_B T$; this failure of classical equipartition was one of the early clues to quantum mechanics. For general substances, $C_P - C_V = TV\alpha^2/\kappa_T$, where $\alpha$ is the thermal expansion coefficient and $\kappa_T$ the isothermal compressibility (derived from the Maxwell relations below).
+
+The entropy change of an ideal gas between any two states follows from integrating $dS = (dU + P\,dV)/T$:
+
+$$\Delta S = n C_{V,m} \ln\frac{T_2}{T_1} + nR \ln\frac{V_2}{V_1}.$$
 
 ## Thermodynamic Processes
 
-Starting from one initial state, the four idealized processes each travel to a different end state by holding a single variable fixed. The diagram below shows the four "exit routes" and the constraint each one imposes.
-
-```mermaid
-graph TD
-    A["Initial state<br/>P1, V1, T1"] -->|"Isothermal: T fixed"| B["State 2<br/>lower P, larger V, same T1"]
-    A -->|"Adiabatic: Q = 0"| C["State 3<br/>lower P and T, larger V"]
-    A -->|"Isobaric: P fixed"| D["State 4<br/>same P, larger V, higher T"]
-    A -->|"Isochoric: V fixed"| E["State 5<br/>lower P and T, same V1"]
-
-    A:::start
-    B:::iso
-    C:::adi
-    D:::isob
-    E:::isoc
-
-    classDef start fill:#fff3e0,stroke:#e65100,stroke-width:2px;
-    classDef iso fill:#e3f2fd,stroke:#1565c0,stroke-width:1px;
-    classDef adi fill:#e8f5e9,stroke:#2e7d32,stroke-width:1px;
-    classDef isob fill:#f3e5f5,stroke:#6a1b9a,stroke-width:1px;
-    classDef isoc fill:#fce4ec,stroke:#ad1457,stroke-width:1px;
-```
-
-| Process | Constraint | Curve on a $P$-$V$ diagram |
-|---------|------------|----------------------------|
-| Isothermal | $T$ constant | $PV = \text{const}$ (hyperbola) |
-| Adiabatic | $Q = 0$ | $PV^{\gamma} = \text{const}$ (steeper hyperbola) |
-| Isobaric | $P$ constant | horizontal line |
-| Isochoric | $V$ constant | vertical line |
-
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://phet.colorado.edu/en/simulation/gas-properties"> Interactive: <b><i>Gas Properties Simulation</i></b></a></p>
 
-### Isothermal Process
-Temperature remains constant: $T = \text{constant}$
+Four idealized quasi-static processes each hold one quantity fixed. Starting from a common state $A$, they trace distinct curves on a $P$–$V$ diagram:
 
-For an ideal gas:
-- $PV = nRT = \text{constant}$
-- Work done: $W = nRT \ln\left(\frac{V_f}{V_i}\right)$
-- Internal energy change: $\Delta U = 0$
+<div style="overflow-x:auto; text-align:center;">
+<svg viewBox="0 0 560 290" style="max-width:560px; width:100%; color:inherit;" role="img" aria-label="P-V diagram of the four ideal-gas processes through a common state A: horizontal isobar, vertical isochore, isotherm hyperbola, and the steeper adiabat">
+<g fill="none" stroke="currentColor">
+<path d="M60,250 L480,250" stroke-width="1.5"/>
+<path d="M60,250 L60,20" stroke-width="1.5"/>
+<path d="M82.2,165.4 L445.2,165.4" stroke-width="2"/>
+<path d="M163.7,239.8 L163.7,38.5" stroke-width="2" stroke-dasharray="2 4"/>
+<path d="M82.2,62.0 L94.7,91.7 L107.3,113.3 L119.8,129.7 L132.3,142.6 L144.8,153.0 L157.3,161.6 L169.8,168.7 L182.3,174.8 L194.9,180.1 L207.4,184.7 L219.9,188.7 L232.4,192.2 L244.9,195.3 L257.4,198.2 L270.0,200.7 L282.5,203.0 L295.0,205.1 L307.5,207.1 L320.0,208.8 L332.5,210.5 L345.1,212.0 L357.6,213.3 L370.1,214.6 L382.6,215.8 L395.1,217.0 L407.6,218.0 L420.2,219.0 L432.7,219.9 L445.2,220.8" stroke-width="2" stroke-dasharray="8 4"/>
+<path d="M92.6,38.6 L104.8,77.8 L116.9,106.0 L129.1,127.2 L141.2,143.5 L153.4,156.4 L165.5,166.8 L177.7,175.4 L189.9,182.6 L202.0,188.7 L214.2,193.9 L226.3,198.4 L238.5,202.3 L250.7,205.7 L262.8,208.7 L275.0,211.4 L287.1,213.8 L299.3,215.9 L311.4,217.9 L323.6,219.6 L335.8,221.2 L347.9,222.7 L360.1,224.0 L372.2,225.3 L384.4,226.4 L396.6,227.5 L408.7,228.4 L420.9,229.3 L433.0,230.2 L445.2,230.9" stroke-width="2.5"/>
+</g>
+<circle cx="163.7" cy="165.4" r="5" fill="currentColor"/>
+<g fill="currentColor" font-size="14" font-family="sans-serif">
+<text x="172" y="158">A</text>
+<text x="470" y="270" text-anchor="middle">V</text>
+<text x="45" y="30" text-anchor="middle">P</text>
+<text x="452" y="169">isobaric (P const)</text>
+<text x="452" y="216">isothermal (PV const)</text>
+<text x="452" y="236">adiabatic (PV&#947; const)</text>
+<text x="172" y="36">isochoric (V const)</text>
+</g>
+</svg>
+</div>
 
-### Adiabatic Process
-No heat exchange: $\delta Q = 0$
+The adiabat is steeper than the isotherm through the same point by a factor $\gamma$ in slope. Expanding adiabatically, the gas does work at the expense of its internal energy and cools, so its pressure falls faster than $PV = \text{const}$ would allow. That difference in slope is what lets a cycle of isotherms and adiabats enclose area and produce net work.
 
-For an ideal gas:
-- $PV^\gamma = \text{constant}$
-- $TV^{\gamma-1} = \text{constant}$
-- Where $\gamma = \frac{C_P}{C_V}$ is the heat capacity ratio
+| Process | Held fixed | Path equation (ideal gas) | Work by gas $W$ | Heat in $Q$ | $\Delta U$ |
+|---------|------------|---------------------------|-----------------|-------------|------------|
+| Isothermal | $T$ | $PV = \text{const}$ | $nRT\ln(V_f/V_i)$ | $= W$ | $0$ |
+| Adiabatic (reversible) | $Q = 0$, $S$ | $PV^{\gamma} = \text{const}$, $TV^{\gamma-1} = \text{const}$ | $\dfrac{P_iV_i - P_fV_f}{\gamma - 1} = -nC_V\Delta T$ | $0$ | $nC_V\Delta T$ |
+| Isobaric | $P$ | $V/T = \text{const}$ | $P(V_f - V_i)$ | $nC_P\Delta T$ | $nC_V\Delta T$ |
+| Isochoric | $V$ | $P/T = \text{const}$ | $0$ | $nC_V\Delta T$ | $nC_V\Delta T$ |
 
-### Isobaric Process
-Pressure remains constant: $P = \text{constant}$
+Two further processes matter in practice:
 
-Work done: $W = P(V_f - V_i)$
+- **Free (Joule) expansion** into vacuum: $Q = 0$ and $W = 0$, so $\Delta U = 0$ and an ideal gas keeps its temperature. The process is irreversible; the entropy still rises by $nR\ln(V_f/V_i)$, computed along any reversible path between the same end states.
+- **Throttling (Joule–Thomson)** through a valve or porous plug is isenthalpic ($H_1 = H_2$). A real gas cools on throttling when the Joule–Thomson coefficient $\mu_{JT} = (\partial T/\partial P)_H = \frac{V}{C_P}(T\alpha - 1)$ is positive, which is true below the gas's inversion temperature. This is the basis of the Linde–Hampson liquefaction process and of every vapor-compression refrigerator's expansion valve.
 
-### Isochoric Process
-Volume remains constant: $V = \text{constant}$
+## Entropy
 
-Work done: $W = 0$
+Entropy has two complementary definitions that agree wherever both apply.
 
-### Comparing the Four Processes
+- **Thermodynamic (Clausius)**: $dS = \delta Q_{\text{rev}}/T$. Only differences are defined, until the Third Law fixes the zero.
+- **Statistical (Boltzmann)**: $S = k_B \ln \Omega$, where $\Omega$ is the number of microstates consistent with the macrostate. The more general Gibbs form is $S = -k_B \sum_i p_i \ln p_i$ over microstate probabilities $p_i$.
 
-Each idealized process holds one quantity fixed, and that single constraint determines everything else through the First Law $dU = \delta Q - \delta W$. The table summarizes the ideal-gas results so you can see the pattern at a glance.
+"Disorder" is a loose gloss. Entropy measures how many microscopic arrangements are compatible with what is known macroscopically, which is why it connects directly to information theory: Shannon entropy is the same formula without $k_B$. The Second Law is then a statement of overwhelming probability. For a macroscopic system, macrostates of higher entropy correspond to exponentially more microstates, so a system starting in a low-entropy state is carried toward higher entropy by its dynamics. The time-reversal asymmetry comes from the low-entropy initial condition, not from the microscopic laws.
 
-| Process | Held constant | First Law reduces to | Work $W$ | Heat $Q$ |
-|---------|---------------|----------------------|----------|----------|
-| Isothermal | $T$ | $\delta Q = \delta W$ (since $\Delta U = 0$) | $nRT\ln(V_f/V_i)$ | $= W$ |
-| Adiabatic | $Q$ | $\Delta U = -W$ | $-\Delta U = -nC_V\Delta T$ | $0$ |
-| Isobaric | $P$ | $\Delta U = Q - P\Delta V$ | $P(V_f - V_i)$ | $nC_P\Delta T$ |
-| Isochoric | $V$ | $\Delta U = Q$ | $0$ | $nC_V\Delta T$ |
+**Entropy generation.** Every irreversibility produces entropy, $S_{\text{gen}} = \Delta S_{\text{system}} + \Delta S_{\text{surroundings}} \geq 0$. Two standard cases:
 
-The adiabat is always steeper than the isotherm on a $P$-$V$ diagram (because $\gamma > 1$): an adiabatically compressed gas heats up, so its pressure rises faster than the isothermal $PV = \text{const}$ would predict. This single fact is what makes the Carnot and Otto cycles enclose area — and therefore do net work.
+- *Heat flow across a finite temperature difference.* Heat $Q$ passing from a body at $T_H$ to one at $T_C$ generates $S_{\text{gen}} = Q\left(\frac{1}{T_C} - \frac{1}{T_H}\right) > 0$.
+- *Mixing of two different ideal gases*, each initially occupying part of a container: $\Delta S_{\text{mix}} = -nR\sum_i x_i \ln x_i > 0$. Mixing identical gases produces no entropy (the Gibbs paradox, resolved by the indistinguishability of identical particles).
 
-## State Functions and Properties
+The work that could have been extracted but was not is the **lost work** $W_{\text{lost}} = T_0 S_{\text{gen}}$ (the Gouy–Stodola theorem, with $T_0$ the environment temperature). Engineers use this to locate the largest losses in a plant through **exergy** analysis.
+
+## Thermodynamic Potentials
+
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.feynmanlectures.caltech.edu/I_44.html"> Lecture: <b><i>The Laws of Thermodynamics - Feynman Lectures</i></b></a></p>
 
+Combining the First and Second Laws for a reversible change in a simple system with a variable particle number gives the **fundamental thermodynamic relation**:
 
-### Internal Energy (U)
-Total energy contained within a system, excluding kinetic and potential energy of the system as a whole.
+$$dU = T\,dS - P\,dV + \mu\,dN.$$
 
-For an ideal gas: $U = nC_VT$
+It contains everything about the equilibrium thermodynamics of the system once $U(S, V, N)$ is known. The **chemical potential** $\mu = (\partial U/\partial N)_{S,V}$ is the energy cost of adding one particle; particles flow from high $\mu$ to low $\mu$, as heat flows from high $T$ to low $T$.
 
-### Enthalpy (H)
-$$H = U + PV$$
+Because $S$ is hard to control in the laboratory, it is convenient to define other energy-like functions whose natural variables are the ones actually held fixed. They are related by Legendre transforms (see [Advanced Topics](thermodynamics-advanced.html)):
 
-Useful for processes at constant pressure:
-$$dH = dU + PdV + VdP$$
+| Potential | Definition | Differential | Natural variables | Minimized at equilibrium when | Typical use |
+|-----------|------------|--------------|-------------------|-------------------------------|-------------|
+| Internal energy $U$ | — | $T\,dS - P\,dV + \mu\,dN$ | $S, V, N$ | $S, V$ fixed | Isentropic processes; foundations |
+| Enthalpy $H$ | $U + PV$ | $T\,dS + V\,dP + \mu\,dN$ | $S, P, N$ | $S, P$ fixed | Flow processes, heats of reaction |
+| Helmholtz $F$ | $U - TS$ | $-S\,dT - P\,dV + \mu\,dN$ | $T, V, N$ | $T, V$ fixed | Rigid vessels; statistical mechanics ($F = -k_BT\ln Z$) |
+| Gibbs $G$ | $H - TS$ | $-S\,dT + V\,dP + \mu\,dN$ | $T, P, N$ | $T, P$ fixed | Chemistry, phase equilibrium, electrochemistry |
 
-At constant pressure: $dH = \delta Q_P$
+Some useful interpretations:
 
-### Entropy (S)
-Measure of disorder or number of accessible microstates:
+- At constant pressure, $\Delta H = Q_P$: enthalpy change is the heat measured in an open-to-atmosphere calorimeter.
+- At constant temperature, $-\Delta F$ is the maximum total work a system can deliver.
+- At constant temperature and pressure, $-\Delta G$ is the maximum **non-expansion** work (for example electrical work in a battery or fuel cell: $\Delta G = -nFE_{\text{cell}}$ with Faraday's constant $F$).
 
-$$S = k_B \ln \Omega$$
+**Spontaneity.** At fixed $T$ and $P$, a process proceeds spontaneously if $\Delta G < 0$, is at equilibrium if $\Delta G = 0$, and does not proceed if $\Delta G > 0$. Writing $\Delta G = \Delta H - T\Delta S$ shows the competition between lowering energy and raising entropy:
 
-Where $\Omega$ is the number of microstates and $k_B$ is Boltzmann's constant.
+| $\Delta H$ | $\Delta S$ | Spontaneous? | Example |
+|------------|------------|--------------|---------|
+| $< 0$ | $> 0$ | At all temperatures | Combustion |
+| $< 0$ | $< 0$ | Below $T = \Delta H/\Delta S$ | Freezing of water below 0 °C |
+| $> 0$ | $> 0$ | Above $T = \Delta H/\Delta S$ | Melting of ice above 0 °C |
+| $> 0$ | $< 0$ | Never | — |
 
-### Gibbs Free Energy (G)
-$$G = H - TS$$
+A system held at fixed $T$ does not minimize its energy; it exchanges heat with its surroundings, and the quantity that reaches a minimum is the free energy. $\Delta G < 0$ says nothing about *rate*: diamond is thermodynamically unstable relative to graphite at room conditions but converts immeasurably slowly. Thermodynamics tells which way a process can go; kinetics tells how fast.
 
-Determines spontaneity at constant temperature and pressure:
-- $\Delta G < 0$: Spontaneous process
-- $\Delta G = 0$: Equilibrium
-- $\Delta G > 0$: Non-spontaneous
+### Maxwell relations
 
-### Helmholtz Free Energy (F)
-$$F = U - TS$$
+Each potential is a state function, so its mixed second partial derivatives are equal. Applied to the four differentials above (at fixed $N$), this gives the Maxwell relations:
 
-Useful for processes at constant temperature and volume.
+$$\left(\frac{\partial T}{\partial V}\right)_S = -\left(\frac{\partial P}{\partial S}\right)_V, \qquad \left(\frac{\partial T}{\partial P}\right)_S = \left(\frac{\partial V}{\partial S}\right)_P,$$
 
-### Choosing the Right Potential
+$$\left(\frac{\partial S}{\partial V}\right)_T = \left(\frac{\partial P}{\partial T}\right)_V, \qquad \left(\frac{\partial S}{\partial P}\right)_T = -\left(\frac{\partial V}{\partial T}\right)_P.$$
 
-The four potentials $U, H, F, G$ are not different physics — they are the *same* energy budget viewed through different "natural variables," obtained from one another by Legendre transforms (swapping a variable for its conjugate, e.g. $V \leftrightarrow P$ or $S \leftrightarrow T$). You pick the one whose natural variables match what your experiment actually holds fixed, and minimizing it predicts equilibrium.
+Their practical value is that they convert derivatives involving entropy, which cannot be measured directly, into derivatives of the equation of state. For example, the third relation yields the **energy equation**
 
-| Potential | Definition | Natural variables | Minimized (equilibrium) when held fixed | Typical use |
-|-----------|------------|-------------------|------------------------------------------|-------------|
-| Internal energy $U$ | — | $S, V$ | isolated system | Foundational; isentropic processes |
-| Enthalpy $H$ | $U + PV$ | $S, P$ | constant pressure | Flow processes, heats of reaction |
-| Helmholtz $F$ | $U - TS$ | $T, V$ | constant $T, V$ | Statistical mechanics, sealed rigid container |
-| Gibbs $G$ | $U - TS + PV$ | $T, P$ | constant $T, P$ | Chemistry, phase equilibria (lab conditions) |
+$$\left(\frac{\partial U}{\partial V}\right)_T = T\left(\frac{\partial P}{\partial T}\right)_V - P,$$
 
-**Why free energy, not energy?** A hot cup of coffee cooling in a room does not minimize its energy — it dumps energy to the room. What the combined system minimizes is the *free* energy, which balances the system's drive toward lower energy against the universe's drive toward higher entropy ($F = U - TS$ trades off the two). Because most lab and biological processes happen at fixed temperature and pressure, the Gibbs free energy $G$ is the single most useful quantity in chemistry: $\Delta G < 0$ is the universal criterion for "this will happen on its own."
+which is zero for an ideal gas (so $U = U(T)$) and equals $an^2/V^2$ for a van der Waals gas. The [advanced page](thermodynamics-advanced.html) gives the Legendre-transform derivation, the thermodynamic square mnemonic, and the Jacobian method.
 
-## Maxwell Relations
+## Phase Equilibrium
 
-Derived from the equality of mixed partial derivatives:
+Two phases of a substance coexist in equilibrium when they share the same temperature, pressure, and chemical potential. Per mole of a pure substance $\mu = G_m$, so the phase with the lowest molar Gibbs energy is the stable one, and phase boundaries are where two such curves cross.
 
-$$\left(\frac{\partial T}{\partial V}\right)_S = -\left(\frac{\partial P}{\partial S}\right)_V$$
+**Gibbs phase rule.** For $C$ independent components in $\Pi$ coexisting phases, the number of intensive variables that can be varied independently is
 
-$$\left(\frac{\partial T}{\partial P}\right)_S = \left(\frac{\partial V}{\partial S}\right)_P$$
+$$\mathcal{F} = C - \Pi + 2.$$
 
-$$\left(\frac{\partial S}{\partial V}\right)_T = \left(\frac{\partial P}{\partial T}\right)_V$$
+For pure water ($C = 1$): a single phase has $\mathcal{F} = 2$ (a region of the $P$–$T$ diagram), two coexisting phases have $\mathcal{F} = 1$ (a coexistence line), and three phases coexist only at an isolated **triple point** ($\mathcal{F} = 0$). The liquid–vapor line ends at the **critical point** (647.096 K, 22.064 MPa for water), beyond which liquid and gas are indistinguishable.
 
-$$\left(\frac{\partial S}{\partial P}\right)_T = -\left(\frac{\partial V}{\partial T}\right)_P$$
+**Clausius–Clapeyron relation.** Equating $d\mu$ on both sides of a coexistence line gives its slope in terms of the latent heat $L$ and the volume change $\Delta V$ of the transition:
 
-These four relations turn quantities you cannot easily measure (like $(\partial S/\partial V)_T$) into slopes you can read straight off an equation of state (like $(\partial P/\partial T)_V$). The [advanced page](thermodynamics-advanced.html) derives the complete set from the Legendre structure of the potentials and packs them into the thermodynamic-square mnemonic.
+$$\frac{dP}{dT} = \frac{L}{T\,\Delta V}.$$
 
-## Heat Engines and Refrigerators
+For liquid–vapor coexistence far below the critical point, neglecting the liquid volume and treating the vapor as ideal, this integrates to $\ln P \approx -L_m/(RT) + \text{const}$, the familiar exponential rise of vapor pressure with temperature. Water's solid–liquid line has negative slope because ice is less dense than liquid water ($\Delta V < 0$ on melting).
 
-### Carnot Engine
-The most efficient heat engine operating between two temperatures:
+**Classification.** Transitions with a latent heat and a jump in density or entropy (melting, boiling) are **first order**: the first derivatives of $G$ are discontinuous. Transitions where these are continuous but response functions diverge (the Curie point of a ferromagnet, the liquid–gas critical point, the superfluid transition of helium-4) are **continuous** or critical. Their theory, including critical exponents, universality, and the renormalization group, is on the [advanced page](thermodynamics-advanced.html).
 
-Efficiency: $\eta = 1 - \frac{T_C}{T_H}$
+## Heat Engines, Refrigerators, and Heat Pumps
 
-Where $T_H$ is the hot reservoir temperature and $T_C$ is the cold reservoir temperature.
+A **heat engine** takes heat $Q_H$ from a hot reservoir, rejects $Q_C$ to a cold reservoir, and delivers work $W = Q_H - Q_C$. A **refrigerator** or **heat pump** runs the same cycle backwards, using work to move heat from cold to hot.
 
-**Worked example — why power plants "waste" heat.** A steam turbine takes in superheated steam at $T_H = 810\ \text{K}$ and rejects heat to a river at $T_C = 300\ \text{K}$. The *maximum* efficiency any engine could achieve between these reservoirs is
+```mermaid
+flowchart LR
+    subgraph ENG["Heat engine"]
+        H1["Hot reservoir T_H"] -->|"Q_H"| E(("Engine"))
+        E -->|"W = Q_H - Q_C"| W1["Work out"]
+        E -->|"Q_C"| C1["Cold reservoir T_C"]
+    end
+    subgraph REF["Refrigerator or heat pump"]
+        C2["Cold reservoir T_C"] -->|"Q_C"| R(("Cycle"))
+        W2["Work in"] -->|"W"| R
+        R -->|"Q_H = Q_C + W"| H2["Hot reservoir T_H"]
+    end
+```
 
-$$\eta_{\max} = 1 - \frac{T_C}{T_H} = 1 - \frac{300}{810} \approx 0.63 = 63\%.$$
+| Device | Figure of merit | Carnot (reversible) limit |
+|--------|-----------------|---------------------------|
+| Heat engine | $\eta = W/Q_H$ | $1 - T_C/T_H$ |
+| Refrigerator / air conditioner | $\text{COP}_R = Q_C/W$ | $T_C/(T_H - T_C)$ |
+| Heat pump (heating) | $\text{COP}_{HP} = Q_H/W$ | $T_H/(T_H - T_C)$ |
 
-Real plants reach ~40% because of friction, finite-rate heat transfer, and other irreversibilities. The remaining ~60% of the input energy is **not lost to bad engineering** — the Second Law forbids converting it all to work. To improve efficiency you must raise $T_H$ (hotter steam, better materials) or lower $T_C$ (colder cooling water). This single inequality explains why every thermal power station on Earth dumps heat into a river, cooling tower, or the sky.
+$\text{COP}_{HP} = \text{COP}_R + 1$, and both can exceed 1 because the work only *moves* heat rather than producing it.
 
-### Carnot Refrigerator
-Coefficient of Performance (COP):
-$$\text{COP} = \frac{T_C}{T_H - T_C}$$
+### The Carnot cycle
 
-### Otto Cycle
-Models the idealized gasoline engine:
-1. Adiabatic compression
-2. Isochoric heat addition
-3. Adiabatic expansion
-4. Isochoric heat rejection
+The Carnot cycle consists of two reversible isotherms joined by two reversible adiabats:
 
-Efficiency: $\eta = 1 - \frac{1}{r^{\gamma-1}}$
+```mermaid
+stateDiagram-v2
+    direction LR
+    S1: State 1 (T_H, small V)
+    S2: State 2 (T_H)
+    S3: State 3 (T_C, large V)
+    S4: State 4 (T_C)
+    S1 --> S2: isothermal expansion, absorbs Q_H
+    S2 --> S3: adiabatic expansion, T falls
+    S3 --> S4: isothermal compression, rejects Q_C
+    S4 --> S1: adiabatic compression, T rises
+```
 
-Where $r$ is the compression ratio.
+For an ideal gas, $Q_H = nRT_H\ln(V_2/V_1)$ and $Q_C = nRT_C\ln(V_3/V_4)$. The adiabat relations $T_HV_2^{\gamma-1} = T_CV_3^{\gamma-1}$ and $T_HV_1^{\gamma-1} = T_CV_4^{\gamma-1}$ give $V_3/V_4 = V_2/V_1$, so
 
-## Code Examples
+$$\frac{Q_C}{Q_H} = \frac{T_C}{T_H}, \qquad \eta_{\text{Carnot}} = 1 - \frac{T_C}{T_H}.$$
 
-### Carnot Engine Simulation
+**Carnot's theorem.** No engine operating between two reservoirs is more efficient than a reversible one, and all reversible engines between the same reservoirs have the same efficiency. If a more efficient engine existed, it could drive a reversed Carnot engine to move heat from cold to hot with no other effect, violating the Clausius statement. Because the result is independent of the working substance, it defines the thermodynamic temperature scale.
+
+A reversible engine is infinitely slow and produces zero power. For an engine limited by finite-rate heat transfer and run at maximum power, the Curzon–Ahlborn (Novikov) efficiency $\eta_{CA} = 1 - \sqrt{T_C/T_H}$ is a better guide to what real plants achieve.
+
+### Practical cycles
+
+| Cycle | Idealized processes | Ideal efficiency | Application |
+|-------|---------------------|------------------|-------------|
+| Carnot | 2 isotherms + 2 adiabats | $1 - T_C/T_H$ | Theoretical upper bound |
+| Otto | 2 adiabats + 2 isochores | $1 - r^{1-\gamma}$ ($r$ = compression ratio) | Spark-ignition (gasoline) engines |
+| Diesel | 2 adiabats + isobaric heat addition + isochoric rejection | $1 - \dfrac{1}{r^{\gamma-1}}\dfrac{r_c^{\gamma} - 1}{\gamma(r_c - 1)}$ ($r_c$ = cutoff ratio) | Compression-ignition engines |
+| Brayton (Joule) | 2 adiabats + 2 isobars | $1 - r_p^{-(\gamma-1)/\gamma}$ ($r_p$ = pressure ratio) | Gas turbines, jet engines |
+| Rankine | Pump, boiler, turbine, condenser (liquid–vapor phase change) | From steam tables | Steam power plants, nuclear, solar thermal |
+| Stirling / Ericsson | 2 isotherms + 2 isochores / isobars, with regenerator | $1 - T_C/T_H$ with an ideal regenerator | Stirling engines, cryocoolers |
+| Vapor compression | Compressor, condenser, expansion valve, evaporator | $\text{COP}$ from refrigerant tables | Refrigerators, air conditioners, heat pumps |
+
+For the same compression ratio the Otto cycle is more efficient than the Diesel cycle, but diesel engines tolerate much higher compression ratios (roughly 15–22 versus 8–13 for gasoline engines, where knock limits compression), and so achieve higher efficiency in practice. A **combined-cycle** plant feeds the hot exhaust of a Brayton gas turbine into a Rankine steam cycle, so the gas turbine's "waste" heat drives a second engine.
+
+### Worked examples
+
+**Steam power plant.** A turbine receives steam at $T_H = 810$ K and condenses it against river water at $T_C = 300$ K. The Carnot limit is
+
+$$\eta_{\max} = 1 - \frac{300}{810} \approx 0.63.$$
+
+Subcritical coal plants reach about 33–38%, and supercritical and ultra-supercritical units about 42–47%, because of irreversibilities (finite-rate heat transfer, friction, throttling) and because heat is not all added at the peak temperature. The rejected heat is not a design failure; the Second Law requires it. Raising $T_H$, the reason for ever-hotter turbine materials, is the main route to higher efficiency. Combined-cycle gas plants exceed 60%: EDF's Bouchain plant (GE 9HA turbine) was certified at 62.22% net efficiency in 2016.
+
+**Otto engine.** For $r = 10$ and $\gamma = 1.4$, $\eta_{\text{Otto}} = 1 - 10^{-0.4} \approx 0.60$. Real spark-ignition engines achieve roughly 25–40% brake efficiency, the gap coming from heat loss to the cylinder walls, finite combustion time, pumping losses, friction, and a working fluid whose $\gamma$ falls at high temperature.
+
+**Heat pump.** Heating a house to $T_H = 293$ K from outdoor air at $T_C = 273$ K has a Carnot limit of $\text{COP}_{HP} = 293/20 \approx 14.7$. Real air-source heat pumps achieve a COP of roughly 2–5, lower in cold weather because the temperature lift grows; ground-source units, drawing on a steadier ground temperature, typically reach 3–6. Even a COP of 3 delivers three times more heat than resistive heating for the same electricity, which is why heat pumps are central to building decarbonization.
+
+## Code Example: Carnot Cycle
+
+The script traces an ideal-gas Carnot cycle on the $P$–$V$ plane, integrates $\oint P\,dV$ numerically, and checks the result against the analytic work $(T_H - T_C)\,nR\ln(V_2/V_1)$ and the Carnot efficiency. Units are normalized so that $nR = 1$. It requires NumPy 2.0 or later (`np.trapezoid`; use `np.trapz` on older versions).
 
 ```python
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-import matplotlib.patches as mpatches
 
-def carnot_cycle(T_hot=600, T_cold=300, V1=1.0, V2=2.0):
-    """
-    Simulate a Carnot cycle and calculate efficiency
-    """
-    gamma = 1.4  # Heat capacity ratio for diatomic gas
-    
-    # State points
-    # 1->2: Isothermal expansion at T_hot
-    # 2->3: Adiabatic expansion
-    # 3->4: Isothermal compression at T_cold
-    # 4->1: Adiabatic compression
-    
-    # Calculate V3 and V4 using adiabatic relations
-    # For adiabatic process: TV^(γ-1) = constant
-    # From state 2 to 3: T_hot * V2^(γ-1) = T_cold * V3^(γ-1)
-    V3 = V2 * (T_hot/T_cold)**(1/(gamma-1))
-    V4 = V1 * (T_hot/T_cold)**(1/(gamma-1))
-    
-    # Generate P-V diagram
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-    
-    # Process 1->2: Isothermal expansion
-    V_12 = np.linspace(V1, V2, 100)
-    P_12 = T_hot / V_12  # Using PV = nRT (normalized)
-    
-    # Process 2->3: Adiabatic expansion
-    V_23 = np.linspace(V2, V3, 100)
-    P_23 = P_12[-1] * (V2/V_23)**gamma
-    
-    # Process 3->4: Isothermal compression
-    V_34 = np.linspace(V3, V4, 100)
-    P_34 = T_cold / V_34
-    
-    # Process 4->1: Adiabatic compression
-    V_41 = np.linspace(V4, V1, 100)
-    P_41 = P_34[-1] * (V4/V_41)**gamma
-    
-    # Plot P-V diagram
-    ax1.plot(V_12, P_12, 'r-', linewidth=2, label='1→2: Isothermal (T_hot)')
-    ax1.plot(V_23, P_23, 'b-', linewidth=2, label='2→3: Adiabatic')
-    ax1.plot(V_34, P_34, 'g-', linewidth=2, label='3→4: Isothermal (T_cold)')
-    ax1.plot(V_41, P_41, 'm-', linewidth=2, label='4→1: Adiabatic')
-    
-    # Mark state points
-    states = [(V1, T_hot/V1, '1'), (V2, T_hot/V2, '2'), 
-              (V3, T_cold/V3, '3'), (V4, T_cold/V4, '4')]
-    for V, P, label in states:
-        ax1.plot(V, P, 'ko', markersize=8)
-        ax1.annotate(label, (V, P), xytext=(5, 5), textcoords='offset points')
-    
-    ax1.fill([V1] + list(V_12) + list(V_23) + list(V_34) + list(V_41), 
-             [P_12[0]] + list(P_12) + list(P_23) + list(P_34) + list(P_41), 
-             alpha=0.3, color='yellow')
-    
-    ax1.set_xlabel('Volume (V)')
-    ax1.set_ylabel('Pressure (P)')
-    ax1.set_title('Carnot Cycle P-V Diagram')
-    ax1.grid(True, alpha=0.3)
-    ax1.legend()
-    
-    # Calculate and display efficiency
-    efficiency = 1 - T_cold/T_hot
-    work = T_hot * np.log(V2/V1) - T_cold * np.log(V3/V4)
-    
-    # Energy flow diagram
-    ax2.set_xlim(0, 10)
-    ax2.set_ylim(0, 10)
-    ax2.axis('off')
-    
-    # Hot reservoir
-    hot_rect = Rectangle((1, 7), 3, 2, facecolor='red', alpha=0.5)
-    ax2.add_patch(hot_rect)
-    ax2.text(2.5, 8, f'T_hot = {T_hot}K', ha='center', va='center', fontsize=12)
-    
-    # Engine
-    engine_rect = Rectangle((2, 4), 2, 2, facecolor='gray', alpha=0.5)
-    ax2.add_patch(engine_rect)
-    ax2.text(3, 5, 'Carnot\nEngine', ha='center', va='center', fontsize=10)
-    
-    # Cold reservoir
-    cold_rect = Rectangle((1, 1), 3, 2, facecolor='blue', alpha=0.5)
-    ax2.add_patch(cold_rect)
-    ax2.text(2.5, 2, f'T_cold = {T_cold}K', ha='center', va='center', fontsize=12)
-    
-    # Energy arrows
-    ax2.arrow(3, 7, 0, -0.8, head_width=0.2, head_length=0.1, fc='red', ec='red')
-    ax2.text(3.5, 6.5, 'Q_hot', fontsize=10)
-    
-    ax2.arrow(4, 5, 1, 0, head_width=0.2, head_length=0.1, fc='green', ec='green')
-    ax2.text(5.5, 5, f'W = {work:.2f}', fontsize=10)
-    
-    ax2.arrow(3, 4, 0, -0.8, head_width=0.2, head_length=0.1, fc='blue', ec='blue')
-    ax2.text(3.5, 3.5, 'Q_cold', fontsize=10)
-    
-    ax2.text(7, 8, f'Efficiency = {efficiency:.1%}', fontsize=14, 
-             bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.5))
-    ax2.text(7, 7, f'η = 1 - T_cold/T_hot', fontsize=10)
-    
-    ax2.set_title('Carnot Engine Energy Flow')
-    
-    plt.tight_layout()
-    plt.show()
-    
-    return efficiency, work
+def carnot_cycle(T_hot=600.0, T_cold=300.0, V1=1.0, V2=2.0, gamma=1.4, nR=1.0, n=400):
+    """Trace an ideal-gas Carnot cycle; return the P-V path, net work, and efficiency."""
+    k = 1.0 / (gamma - 1.0)                      # from T V^(gamma-1) = const
+    V3 = V2 * (T_hot / T_cold) ** k              # end of adiabatic expansion
+    V4 = V1 * (T_hot / T_cold) ** k              # start of adiabatic compression
 
-# Run simulation
-eff, work = carnot_cycle(T_hot=600, T_cold=300)
-print(f"Carnot efficiency: {eff:.1%}")
-print(f"Work output (normalized): {work:.2f}")
+    def isotherm(T, Va, Vb):
+        V = np.linspace(Va, Vb, n)
+        return V, nR * T / V
+
+    def adiabat(Va, Vb, Pa):
+        V = np.linspace(Va, Vb, n)
+        return V, Pa * (Va / V) ** gamma
+
+    legs = [isotherm(T_hot, V1, V2)]                       # 1 -> 2
+    legs.append(adiabat(V2, V3, legs[-1][1][-1]))          # 2 -> 3
+    legs.append(isotherm(T_cold, V3, V4))                  # 3 -> 4
+    legs.append(adiabat(V4, V1, legs[-1][1][-1]))          # 4 -> 1
+
+    W_net = sum(np.trapezoid(P, V) for V, P in legs)       # closed-loop integral of P dV
+    Q_hot = nR * T_hot * np.log(V2 / V1)                   # heat absorbed on 1 -> 2
+    return legs, W_net, W_net / Q_hot
+
+legs, W, eta = carnot_cycle()
+print(f"net work      W   = {W:.2f}  (exact: {(600 - 300) * np.log(2):.2f})")
+print(f"efficiency    eta = {eta:.4f}  (Carnot: {1 - 300 / 600:.4f})")
+
+# Optional plot:
+# import matplotlib.pyplot as plt
+# for V, P in legs: plt.plot(V, P)
+# plt.xlabel("V"); plt.ylabel("P"); plt.title("Carnot cycle"); plt.show()
 ```
 
-<details>
-<summary><b>Expected Output</b></summary>
-<br>
-The code produces two visualizations:
-<ol>
-<li>Left: P-V diagram showing the four processes of the Carnot cycle with the enclosed area representing work done</li>
-<li>Right: Energy flow diagram showing heat flow from hot to cold reservoir and work output</li>
-</ol>
-Console output shows:
-<ul>
-<li>Carnot efficiency: 50.0%</li>
-<li>Work output (normalized): 0.69</li>
-</ul>
-</details>
+Output:
 
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/scipy/scipy/blob/main/scipy/constants/constants.py"> Library: <b><i>SciPy Constants - Thermodynamic Constants</i></b></a></p>
+```text
+net work      W   = 207.94  (exact: 207.94)
+efficiency    eta = 0.5000  (Carnot: 0.5000)
+```
+
+The adiabatic legs contribute equal and opposite work, so the net work comes entirely from the two isotherms, as the analytic derivation predicts.
 
 ## Applications
 
-### Power Generation
-- Steam turbines using Rankine cycle
-- Gas turbines using Brayton cycle
-- Combined cycle power plants
+| Field | Thermodynamic content |
+|-------|-----------------------|
+| Power generation | Rankine (steam), Brayton (gas turbine), and combined cycles; exergy analysis; cooling-water and cooling-tower design |
+| Refrigeration, HVAC, heat pumps | Vapor-compression and absorption cycles; refrigerant selection under the Kigali Amendment's phase-down of high-GWP HFCs, with a shift toward low-GWP working fluids such as R-290 (propane), CO$_2$ (R-744), and HFOs |
+| Chemical engineering | Reaction equilibria from $\Delta G^\circ = -RT\ln K$; vapor–liquid equilibrium for distillation; equations of state for process simulation |
+| Materials science | Phase diagrams and CALPHAD modelling; heat treatment; solidification |
+| Electrochemistry | Cell voltages and battery limits from $\Delta G = -nFE$; fuel-cell efficiency bounds |
+| Atmosphere and climate | Adiabatic lapse rate, latent heat in convection, Clausius–Clapeyron scaling of water vapor (about 7% per kelvin of warming) |
+| Computing | Heat dissipation limits; Landauer's bound on the energy cost of erasing information (see [Advanced Topics](thermodynamics-advanced.html#thermodynamics-of-information)) |
 
-### Refrigeration and Air Conditioning
-- Vapor compression cycle
-- Absorption refrigeration
-- Heat pumps
-
-### Chemical Engineering
-- Distillation column design
-- Reaction engineering
-- Process optimization
-
-### Materials Science
-- Phase diagram analysis
-- Crystal growth
-- Heat treatment of materials
-
-## Where to Go Next
-
-Everything above is the working core of classical thermodynamics — the four laws, the state functions, the idealized processes, the engine cycles, and the free energies. The graduate-level machinery built on these foundations lives on its own page: the formal Legendre-transform structure relating the potentials, the Euler and Gibbs-Duhem relations, the full set of Maxwell relations and the thermodynamic square, critical phenomena and the renormalization group, and the modern non-equilibrium, stochastic, quantum, and information-theoretic extensions — see [Thermodynamics: Advanced Topics](thermodynamics-advanced.html). For the microscopic story that *derives* these laws from counting microstates, see [Statistical Mechanics](statistical-mechanics/).
-
----
-
-## Essential Resources
+## Further Reading
 
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://www.feynmanlectures.caltech.edu/I_44.html"> Book: <b><i>The Feynman Lectures on Physics - Thermodynamics</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Laws_of_thermodynamics"> Article: <b><i>Laws of Thermodynamics - Wikipedia</i></b></a></p>
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://ocw.mit.edu/courses/chemistry/5-60-thermodynamics-kinetics-spring-2008/"> Course: <b><i>MIT 5.60 Thermodynamics & Kinetics</i></b></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://youtube.com/playlist?list=PLA62087102CC93765"> Video Series: <b><i>Thermodynamics - MIT OpenCourseWare</i></b></a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/CalebBell/thermo"> Library: <b><i>Thermo - Chemical Engineering Thermodynamics in Python</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://www.youtube.com/watch?v=Xb05CaG7TsQ"> Video: <b><i>The Laws of Thermodynamics Explained</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/CalebBell/thermo"> Library: <b><i>thermo - Chemical engineering thermodynamics in Python</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/git.svg" class="icon"><a href="https://github.com/CoolProp/CoolProp"> Library: <b><i>CoolProp - Thermophysical properties of fluids</i></b></a></p>
 
----
-
-## Key Takeaways
-
-- **Four laws, no exceptions.** Zeroth defines temperature, First conserves energy, Second drives entropy upward, Third sets the zero of entropy at $T=0$.
-- **State functions vs. path functions.** $U, H, S, G, F$ depend only on the state; heat $Q$ and work $W$ depend on the path taken between states.
-- **Free energy predicts spontaneity.** At constant $T,P$ a process runs forward when $\Delta G < 0$; the system seeks minimum free energy, not minimum energy.
-- **Carnot bounds every engine.** $\eta_{\max} = 1 - T_C/T_H$ caps all heat engines; refrigerators are bounded by the analogous COP.
-- **Maxwell relations link the unmeasurable.** Equality of mixed partials turns hard-to-measure quantities like $(\partial S/\partial V)_T$ into easy ones like $(\partial P/\partial T)_V$.
-- **It bridges to the microscopic.** Statistical mechanics derives every thermodynamic law from counting microstates: $S = k_B \ln \Omega$.
+Standard textbooks: Callen, *Thermodynamics and an Introduction to Thermostatistics*; Fermi, *Thermodynamics* (short and classic); Schroeder, *An Introduction to Thermal Physics*; Çengel and Boles, *Thermodynamics: An Engineering Approach*.
 
 ## See Also
 
-- [Thermodynamics: Advanced Topics](thermodynamics-advanced.html) — the Legendre structure of the potentials, critical phenomena and the renormalization group, and non-equilibrium, stochastic, and quantum thermodynamics.
-- [Statistical Mechanics](statistical-mechanics/) — the microscopic foundation that *derives* thermodynamics from counting microstates.
+- [Thermodynamics: Advanced Topics](thermodynamics-advanced.html) — Legendre structure, critical phenomena and the renormalization group, non-equilibrium, stochastic, and quantum thermodynamics.
+- [Statistical Mechanics](statistical-mechanics/) — the microscopic foundation that derives thermodynamics from counting microstates.
+- [Fluid Mechanics](fluid-mechanics.html) — compressible flow and energy transport in moving fluids.
 - [Classical Mechanics](classical-mechanics/) — work, energy, and the mechanical origin of the First Law.
-- [Quantum Mechanics](quantum-mechanics/) — quantized energy levels underlying quantum statistical mechanics.
-- [Relativity](relativity/) — black-hole thermodynamics and the Bekenstein-Hawking entropy.
+- [Quantum Mechanics](quantum-mechanics/) — quantized energy levels and the freezing out of degrees of freedom.
+- [Black Holes](relativity/black-holes.html) — black-hole thermodynamics and Bekenstein–Hawking entropy.
 - [Computational Physics](computational-physics/) — Monte Carlo and molecular dynamics for thermal systems.

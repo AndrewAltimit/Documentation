@@ -11,143 +11,171 @@ toc: false  # Index pages typically don't need TOC
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Metrics, logs, and traces — understanding the internal state of production systems from their external output</p>
 </div>
 
-<div class="code-example" markdown="1">
-Observability is the practice of instrumenting systems so that their internal behavior can be inferred from the telemetry they emit. Modern services are distributed, dynamic, and partially failing at all times; you cannot SSH into one box and read a log file to understand them. This hub frames the core idea — observability as a property you design *into* a system — and routes you into focused pages for each of the three pillars: metrics, logging, and tracing.
-</div>
+**Observability** is the degree to which the internal state of a running system can be inferred from the telemetry it emits — metrics, logs, traces, and increasingly continuous profiles — without shipping new code to ask a new question. This hub defines the term, contrasts it with monitoring, describes each telemetry signal and how the signals are correlated, introduces OpenTelemetry as the now-standard instrumentation layer, and covers the SLI/SLO/error-budget framework that turns telemetry into operational decisions. Each signal has its own page:
 
-## Overview
+| Page | Covers |
+|------|--------|
+| [Metrics &amp; Monitoring](metrics.html) | Metric types, Prometheus 3 and PromQL, native histograms, RED/USE, Grafana, Alertmanager, burn-rate alerts, cardinality, long-term storage |
+| [Logging](logging.html) | Structured logs, the OpenTelemetry log data model, levels, correlation, Elasticsearch/OpenSearch and Loki, collectors, retention, PII, log-based alerts |
+| [Distributed Tracing](tracing.html) | Spans, W3C Trace Context, the OpenTelemetry SDK and Collector, head and tail sampling, Jaeger/Tempo/Zipkin |
 
-Observability is the ability to understand the internal state of a system purely from the data it exposes — its metrics, logs, and traces — without shipping new code to ask a new question. The term is borrowed from control theory, where a system is *observable* if its internal state can be reconstructed from its outputs over time. Applied to software, the bar is practical: when something breaks at 3 a.m., can you diagnose a novel failure mode with the telemetry you already collect, or do you have to add a log line and redeploy to find out what happened?
+## Definition
 
-**What you'll get:** a working mental model of why observability is distinct from traditional monitoring, the three pillars and what each is good (and bad) at, and the SLO/error-budget framework that ties them to engineering and product decisions. From here you can branch into the focused pages for each pillar.
+The term comes from control theory, where a system is *observable* if its internal state can be reconstructed from its outputs over time (R. Kálmán, 1960). Applied to software the bar is practical: when a novel failure occurs, can an engineer explain it using only the telemetry already being collected, or must they add a log line and redeploy to find out?
 
-**Assumed background:** comfort with running a service in production, basic networking, and the idea that systems are composed of many independently failing parts. No prior SRE experience required.
+### Observability and monitoring
 
-### Observability vs. Monitoring
+The two terms are often used interchangeably but describe different postures toward failure.
 
-The two terms are often used interchangeably, but they describe different postures toward failure.
-
-**Monitoring** is checking whether a system is in one of a *known* set of bad states. You decide in advance what can go wrong — disk full, CPU pegged, endpoint returning 500s — and you build a dashboard or an alert for each. Monitoring answers questions you already knew to ask. It is necessary, well-understood, and sufficient for systems simple enough that you can enumerate their failure modes.
-
-**Observability** is the property that lets you ask *new* questions about a system without deploying new instrumentation. It is about the *unknown unknowns* — the emergent failure modes of distributed systems that nobody predicted, where the dashboard is green but a specific cohort of users on a specific code path is failing. A monitored system tells you *that* something is wrong; an observable system lets you interrogate *why*, even when "why" is a question you'd never thought to pre-build.
+- **Monitoring** checks whether a system is in one of a *known* set of bad states — disk full, CPU saturated, endpoint returning 5xx. Each failure mode is anticipated in advance and gets a dashboard panel or an alert. Monitoring answers questions someone already thought to ask.
+- **Observability** is the property that allows *new* questions to be answered after the fact: why p99 latency rose only for EU mobile clients on one API version, while every dashboard stayed green. It targets the *unknown unknowns* that emerge in distributed systems.
 
 | | Monitoring | Observability |
 |---|---|---|
-| **Questions** | Known, pre-defined ("is the disk full?") | Arbitrary, asked after the fact ("why are p99 latencies up only for EU mobile users?") |
-| **Failure modes** | Known unknowns | Unknown unknowns |
-| **Data** | Aggregated, low-cardinality | High-cardinality, high-dimensional |
-| **Typical question shape** | Boolean / threshold | Exploratory, slice-and-dice |
-| **Maps to** | Dashboards, alerts | Ad-hoc querying across metrics, logs, traces |
+| Questions | Pre-defined ("is the disk full?") | Arbitrary, asked during investigation |
+| Failure modes | Known unknowns | Unknown unknowns |
+| Data shape | Pre-aggregated, low-cardinality | High-cardinality, high-dimensional events |
+| Typical output | Threshold alert, dashboard | Ad-hoc slice-and-dice across signals |
 
-Observability does not replace monitoring — you still alert on a handful of known, user-facing symptoms. Rather, monitoring is what you do with an observable system once you've decided which signals matter. The shift in modern systems is that the *enumerate-every-failure-mode* approach stops scaling once you have hundreds of services, autoscaling replicas, and deploys many times a day. At that point, instrumenting for arbitrary questions becomes a design requirement, not a luxury.
+Observability does not replace monitoring. A mature system still alerts on a small number of user-facing symptoms; observability is what makes the resulting investigation tractable. The shift matters because enumerating every failure mode stops scaling once a system has hundreds of services, autoscaled replicas, feature flags, and many deploys per day.
+
+## Telemetry Signals
+
+Observability data is conventionally described as three "pillars". The framing is useful for tooling but misleading if taken to mean three separate systems: the signals are most valuable when they share identifiers and can be pivoted between.
+
+| Signal | Unit of data | Strength | Weakness | Typical backend |
+|--------|--------------|----------|----------|-----------------|
+| **Metrics** | Numeric time series, pre-aggregated | Cheap, constant cost; ideal for dashboards and alerts | Aggregation discards individual events; label cardinality must stay bounded | Prometheus, Mimir, Thanos, VictoriaMetrics, CloudWatch |
+| **Logs** | Timestamped discrete events | Arbitrary per-event detail (payloads, errors, stack traces) | Volume and cost; unstructured text is hard to query | Elasticsearch/OpenSearch, Loki, ClickHouse, CloudWatch Logs |
+| **Traces** | Tree of timed spans for one request | Shows causality and where latency accrues across services | Must be sampled at scale; requires context propagation everywhere | Jaeger, Grafana Tempo, Zipkin, AWS X-Ray |
+| **Profiles** | Stack samples aggregated over time | Attributes CPU/memory cost to specific functions in production | Newer signal; tooling and standards still maturing | Grafana Pyroscope, Parca, vendor profilers |
+
+- **Metrics** answer *how much and how often*. Because a counter costs the same whether it has counted ten events or ten billion, metrics are the substrate for dashboards, SLOs, and alerting. See [Metrics &amp; Monitoring](metrics.html).
+- **Logs** answer *what exactly happened* in one event. They should be structured (typed key/value fields, usually JSON) and carry the active `trace_id`. See [Logging](logging.html).
+- **Traces** answer *where* — which of the services a request touched added the latency or raised the error, and whether it was on the critical path. See [Distributed Tracing](tracing.html).
+- **Continuous profiling** answers *which code* is consuming resources. OpenTelemetry added profiles as a fourth signal to its protocol; as of 2026 that part of the specification is still in development, while traces, metrics, and logs are stable.
+
+### Wide events
+
+A competing framing, associated with the "Observability 2.0" argument made by Honeycomb's founders, holds that the pillars are an artifact of storage engines rather than a model of the problem. It proposes a single primary signal: **wide, structured events** — one record per unit of work with dozens to hundreds of fields (user, tenant, build SHA, feature flags, timings, outcome) — from which metrics can be derived at query time and traces reconstructed by parent/child IDs. Columnar stores such as ClickHouse make this approach economical. In practice most organizations run a hybrid: OpenTelemetry spans with rich attributes serve as wide events, while pre-aggregated metrics still back SLOs and paging.
+
+### Correlation
+
+The signals become a single investigative surface when they share context. The mechanisms are:
+
+- **Shared resource attributes** (`service.name`, `service.version`, `deployment.environment.name`, `k8s.pod.name`) on every metric, log, and span, so all three can be filtered by the same dimensions.
+- **Trace IDs in logs**, injected automatically by the logging integration from the active span.
+- **Exemplars** on metrics: a `trace_id` attached to a sample histogram observation, so a latency spike on a graph links to a representative trace.
+- **Span-to-log and span-to-metric links** configured in the query UI (for example Grafana's Tempo–Loki–Prometheus data-source links).
 
 ```mermaid
 flowchart LR
-    App["Instrumented service"] --> M["Metrics<br/>(what)"]
-    App --> L["Logs<br/>(why)"]
-    App --> T["Traces<br/>(where)"]
-    M --> Q["Observability backend<br/>store · correlate · query"]
-    L --> Q
-    T --> Q
-    Q --> Mon["Monitoring<br/>dashboards + alerts<br/>(known symptoms)"]
-    Q --> Debug["Ad-hoc investigation<br/>(unknown unknowns)"]
+    Alert["Burn-rate alert<br/>SLO at risk"] --> Dash["Dashboard<br/>which route, which region"]
+    Dash -->|exemplar| Trace["Representative slow trace"]
+    Trace -->|critical-path span| Profile["Profile of the hot span<br/>which function"]
+    Trace -->|trace_id| Logs["Structured logs<br/>for that request"]
+    Logs --> Cause["Root cause"]
+    Profile --> Cause
 ```
 
-### The Three Pillars
+## OpenTelemetry
 
-Observability is conventionally built from three complementary signal types. None is sufficient alone; each compensates for the others' blind spots.
+**OpenTelemetry (OTel)** is the CNCF project that standardizes how telemetry is produced and transported: vendor-neutral APIs and SDKs for each language, a wire protocol (**OTLP**), shared **semantic conventions** for attribute names, and the **Collector**, a pipeline service that receives, processes, and exports telemetry. It is the second most active CNCF project after Kubernetes and has displaced most proprietary agents as the default way to instrument new code.
 
-**1. Metrics — aggregated numeric time series.** A metric is a number measured over time: requests per second, error ratio, queue depth, p99 latency, memory saturation. Metrics are cheap to store and fast to query because they are pre-aggregated — a counter incremented millions of times costs the same to store as one incremented once. That same aggregation is their weakness: once you've summed everything into a counter, you can no longer recover the individual events. Metrics are the natural home for **dashboards** and **alerting**, and the four "golden signals" (latency, traffic, errors, saturation) live here. See **[Metrics &amp; Monitoring](metrics.html)**.
-
-**2. Logs — discrete event records.** A log is a timestamped record of a single event, ideally **structured** (key/value or JSON) rather than free-text. Logs carry the high-cardinality detail metrics throw away: the exact user ID, request parameters, error message, and stack trace of one failing request. The cost is volume — logs are expensive to store and search at scale, which drives sampling, retention tiers, and the move from string-grepping to structured querying. See **[Logging](logging.html)**.
-
-**3. Traces — causal request paths.** A distributed trace follows a single request as it fans out across services, recording a tree of **spans** (each a timed unit of work) linked by a propagated trace context. Traces answer the question metrics and logs struggle with in a microservice mesh: *which* of the twelve services this request touched added the 800 ms, and was it on the critical path? See **[Distributed Tracing](tracing.html)**.
-
-The pillars are most powerful when **correlated**: a metric alert points you at a time window, exemplars or trace IDs on that metric jump you to representative traces, and span attributes link out to the structured logs for the exact failing requests. Modern instrumentation (notably **OpenTelemetry**) emits all three from a single SDK with a shared context so this correlation is built in rather than stitched together by hand.
+The practical consequence is a decoupling of instrumentation from backend choice. Applications emit OTLP once; the Collector (or a distribution of it, such as Grafana Alloy) routes each signal to whatever store is appropriate, and changing vendors becomes a Collector configuration change rather than a re-instrumentation project. Most backends now accept OTLP directly, including Prometheus 3 (for metrics) and Loki 3 (for logs).
 
 ```mermaid
-flowchart TD
-    Alert["Metric alert fires<br/>error rate &gt; SLO"] -->|exemplar / trace id| Trace["Open a representative trace"]
-    Trace -->|span attributes| Log["Jump to structured logs<br/>for the failing request"]
-    Log --> Root["Root cause"]
-    Trace --> Root
+flowchart LR
+    subgraph Workloads
+        A["Service A<br/>OTel SDK"]
+        B["Service B<br/>auto-instrumentation"]
+        C["Legacy app<br/>stdout / Prometheus endpoint"]
+    end
+    A -->|OTLP| Agent["Collector agent<br/>per node"]
+    B -->|OTLP| Agent
+    C -->|log files / scrape| Agent
+    Agent -->|OTLP| GW["Collector gateway<br/>batch · tail-sample · redact · route"]
+    GW --> MS[("Metrics store<br/>Prometheus / Mimir")]
+    GW --> LS[("Log store<br/>Loki / OpenSearch")]
+    GW --> TS[("Trace store<br/>Tempo / Jaeger")]
+    MS --> UI["Query, dashboards, alerting"]
+    LS --> UI
+    TS --> UI
 ```
 
-### Service Level Objectives and Error Budgets
+Two instrumentation styles coexist:
 
-Telemetry is only useful if it drives decisions, and the framework that connects signals to decisions is the **SLI / SLO / SLA** hierarchy popularized by Google's SRE practice.
+- **Code-based instrumentation** uses the OTel API directly, or library integrations for HTTP servers, database drivers, and RPC frameworks, to create spans, record metrics, and bridge existing logging libraries.
+- **Zero-code instrumentation** attaches without source changes: language agents (Java, .NET, Python, Node.js) and, increasingly, **eBPF**-based instrumentation that observes HTTP/gRPC traffic from the kernel. Grafana donated its Beyla eBPF instrumentation to OpenTelemetry in 2025, where it continues as OpenTelemetry eBPF Instrumentation (OBI). eBPF gives broad coverage cheaply but sees only protocol-level detail, not business attributes.
 
-- **SLI — Service Level Indicator.** A quantitative measure of some aspect of service health, almost always expressed as *good events / valid events*. Examples: the proportion of HTTP requests served in under 300 ms, or the proportion of requests that did not return a 5xx. A good SLI is a ratio between 0 and 1 that tracks the user's actual experience.
-- **SLO — Service Level Objective.** A target for an SLI over a window. For example: "99.9% of requests over a rolling 28-day window complete successfully." The SLO is an internal commitment — the line between "healthy enough" and "needs attention."
-- **SLA — Service Level Agreement.** A contractual promise to customers, usually *looser* than the internal SLO and carrying financial penalties when breached. You set the SLO stricter than the SLA so you notice and react before the contract is at risk.
+## Service Level Objectives
 
-The pivotal idea is the **error budget**: the amount of unreliability the SLO *permits*. If your availability SLO is 99.9% over 28 days, you are explicitly allowed to be unavailable for the remaining 0.1% — roughly 40 minutes per month. That budget is a resource to spend:
+Telemetry is useful only if it drives decisions. The framework connecting signals to decisions is the **SLI / SLO / SLA** hierarchy popularized by Google's SRE books.
+
+| Term | Definition | Example | Audience |
+|------|------------|---------|----------|
+| **SLI** (indicator) | Ratio of good events to valid events, measured where the user experiences it | Fraction of HTTP requests answered successfully in under 300 ms | Engineers |
+| **SLO** (objective) | Target for an SLI over a window | 99.9% of requests good over a rolling 28 days | Engineering and product |
+| **SLA** (agreement) | Contractual promise with penalties | 99.5% monthly availability, service credits if missed | Customers, legal |
+
+The SLO is deliberately stricter than any SLA so that the team reacts before the contract is at risk. Good SLIs measure symptoms users notice — availability, latency, correctness, freshness — rather than causes such as CPU usage.
+
+### Error budgets
+
+The **error budget** is the unreliability the SLO permits:
 
 $$
 \text{error budget} = 1 - \text{SLO}
 $$
 
-For a request-based availability SLO over a window of $N$ valid requests, the number of failures you can absorb before breaching is:
+For a request-based SLO over a window containing $N$ valid requests, the number of bad requests that can be absorbed, and the fraction of budget consumed so far, are:
 
 $$
-\text{failures allowed} = N \times (1 - \text{SLO})
+\text{bad events allowed} = N \, (1 - \text{SLO}), \qquad
+\text{budget consumed} = \frac{\text{bad events so far}}{N \, (1 - \text{SLO})}
 $$
 
-And the fraction of budget already consumed at any point in the window is:
+For a time-based availability SLO the budget is a duration:
 
-$$
-\text{budget consumed} = \frac{\text{bad events so far}}{N \times (1 - \text{SLO})}
-$$
+| SLO | Downtime per 28 days | Downtime per 30 days | Downtime per year |
+|-----|----------------------|----------------------|-------------------|
+| 99% | 6 h 43 min | 7 h 12 min | 3.65 days |
+| 99.5% | 3 h 22 min | 3 h 36 min | 1.83 days |
+| 99.9% | 40 min 19 s | 43 min 12 s | 8 h 46 min |
+| 99.95% | 20 min 10 s | 21 min 36 s | 4 h 23 min |
+| 99.99% | 4 min 2 s | 4 min 19 s | 52 min 34 s |
 
-The error budget reframes reliability from an absolute ("never go down") to an economic trade-off. A team with budget to spare can ship risky features and move fast; a team that has *burned* its budget freezes feature work and spends the next cycle on reliability. This turns reliability into a negotiated, data-driven decision rather than a source of perpetual conflict between developers (who want to ship) and operators (who want stability). Alerting then targets the **burn rate** — how fast the budget is being consumed — so a fast burn pages immediately while a slow burn opens a ticket.
+The budget reframes reliability from an absolute ("never go down") into a resource that is spent on change. An **error-budget policy**, agreed in advance between engineering and product, states what happens as the budget depletes:
 
-100% is the wrong reliability target: it is impossible, prohibitively expensive, and indistinguishable to users from "almost always up" given that their own networks and devices fail more often than a well-run service does. The right SLO is the *lowest* reliability your users won't notice, which leaves the maximum budget for change.
+```mermaid
+flowchart LR
+    M["Measure SLI<br/>continuously"] --> B{"Budget remaining<br/>in window?"}
+    B -->|"healthy"| Ship["Ship features,<br/>run experiments"]
+    B -->|"burning fast"| Page["Page on-call<br/>(burn-rate alert)"]
+    B -->|"exhausted"| Freeze["Freeze risky releases;<br/>prioritize reliability work"]
+    Ship --> M
+    Page --> M
+    Freeze --> M
+```
 
-## Explore the Pillars
+Alerting is driven by the **burn rate** — how fast the budget is being consumed relative to the rate that would exactly exhaust it at the end of the window. A fast burn pages immediately; a slow burn opens a ticket. The multi-window, multi-burn-rate technique is covered in [Metrics &amp; Monitoring](metrics.html#burn-rate-alerting).
 
-The pages below go deep on each of the three pillars. Read them in pillar order, or jump straight to whichever signal you're currently trying to wrangle.
+A 100% target is the wrong goal: it is unachievable, expensive, and indistinguishable to users whose own networks and devices fail more often than a well-run service. The right SLO is the lowest reliability users will not notice, which leaves the largest budget for change. SLOs can be defined declaratively and compiled into Prometheus rules by tools such as Sloth and Pyrra, or described portably with the OpenSLO specification.
 
-| Page | What it covers |
-|------|----------------|
-| [Metrics & Monitoring](metrics.html) | Counters/gauges/histograms, golden signals (RED & USE), Prometheus + PromQL, dashboards, alerting |
-| [Logging](logging.html) | Structured logging, log levels, correlation IDs, aggregation pipelines, sampling, retention and cost |
-| [Distributed Tracing](tracing.html) | Spans, context propagation, head/tail sampling, OpenTelemetry, latency and error localization |
+## Related Topics
 
-## How It Fits
+- **[Distributed Systems: Observability](../distributed-systems/observability.html)** — the three signals, correlation IDs, and SLOs in a multi-node setting; partial failure and the absence of a global clock are invisible without them.
+- **[Kubernetes](../technology/kubernetes/)** — ephemeral, rescheduled containers make node-local logs and per-host dashboards useless; Prometheus service discovery, DaemonSet log collectors, and mesh-generated traces are the standard answer.
+- **[AWS Monitoring](../technology/aws/monitoring.html)** — CloudWatch metrics and logs, X-Ray tracing, and managed Prometheus and Grafana, plus telemetry for infrastructure you do not operate.
+- **[Networking](../technology/networking/)** — latency, loss, and connection saturation; many "application" incidents are network incidents, and metrics are where the two are told apart.
+- **[CI/CD](../technology/ci-cd/)** — deployment annotations, canary analysis, and SLO gates connect releases to their observed impact.
 
-Observability is not a standalone discipline — it is the sensory layer over everything else you run, and it is the operational counterpart to the theory of distributed systems.
+## Further Reading
 
-- **[Distributed Systems](../distributed-systems/).** Observability is listed there as a mandatory design concern, and for good reason: the failure modes that make distributed systems hard — partial failure, no global clock, emergent multi-node behavior — are *invisible* without tracing, metrics, and structured logs. The three pillars are how you reason about a system whose state is smeared across many machines that fail independently.
-- **[Kubernetes](../technology/kubernetes/).** Containers are ephemeral and rescheduled constantly, so node-local log files and per-pod dashboards are useless. Kubernetes is the canonical environment that *forces* observability: Prometheus scrapes pod metrics through service discovery, sidecars or DaemonSets ship logs off short-lived containers, and the service mesh emits traces for east-west traffic you didn't instrument by hand.
-- **[AWS Cloud Services](../technology/aws/).** Managed platforms supply the storage and query backends — CloudWatch for metrics and logs, X-Ray for traces, and managed Prometheus/Grafana — and emit their own telemetry for the infrastructure you don't operate (load balancers, queues, databases), which you stitch into the same SLOs.
-- **[Networking](../technology/networking/).** Latency, packet loss, and connection saturation are first-class observability signals; many "application" incidents are network incidents wearing a costume, and the metrics pillar is where you tell them apart.
-
-In short: distributed systems and Kubernetes create the complexity, AWS and other platforms provide the backends, and observability is the discipline that makes the resulting system understandable — and the SLO framework is how that understanding becomes operational policy.
-
-## Key Takeaways
-
-- **Observability is not monitoring.** Monitoring answers known questions; observability lets you ask new ones after the fact. Modern distributed systems need both.
-- **Use all three pillars.** Metrics for the *what*, logs for the *why*, traces for the *where*. Correlate them so an alert leads to a trace leads to the failing log line.
-- **Structure your telemetry.** Structured, high-cardinality logs and labeled metrics are queryable; free-text strings and unlabeled counters are not.
-- **Define SLOs, not vibes.** An SLI is a good/valid ratio; an SLO is a target; the error budget is what you spend on shipping features.
-- **100% is the wrong target.** Aim for the lowest reliability users won't notice — it maximizes the budget available for change.
-- **Instrument once.** OpenTelemetry emits all three signals from a shared context, so correlation is built in rather than bolted on.
-
-## See Also
-
-- **[Metrics & Monitoring](metrics.html)** — the golden signals, Prometheus, and alerting.
-- **[Logging](logging.html)** — structured logs, correlation IDs, and aggregation pipelines.
-- **[Distributed Tracing](tracing.html)** — spans, context propagation, and OpenTelemetry.
-- **[Distributed Systems](../distributed-systems/)** — the emergent, multi-node behavior observability exists to illuminate.
-- **[Kubernetes](../technology/kubernetes/)** — the ephemeral, dynamic environment that makes observability mandatory.
-- **[AWS Cloud Services](../technology/aws/)** — CloudWatch, X-Ray, and managed metric/trace backends.
-- **[Networking](../technology/networking/)** — the substrate whose latency and loss show up first in your metrics.
-
-### Further Reading
-
-- "Site Reliability Engineering" by Google (the SRE Book) — SLIs, SLOs, and error budgets
-- "The Site Reliability Workbook" by Google — implementing SLOs in practice
-- "Observability Engineering" by Majors, Fong-Jones & Miranda
-- "Distributed Systems Observability" by Cindy Sridharan
-- [OpenTelemetry documentation](https://opentelemetry.io/docs/)
+- Beyer, Jones, Petoff, Murphy (eds.), *Site Reliability Engineering* (Google, 2016) — SLIs, SLOs, and error budgets. [sre.google/books](https://sre.google/books/)
+- Beyer et al., *The Site Reliability Workbook* (Google, 2018) — implementing SLOs and burn-rate alerting.
+- Majors, Fong-Jones, Miranda, *Observability Engineering* (O'Reilly, 2022).
+- Sridharan, *Distributed Systems Observability* (O'Reilly, 2018).
+- [OpenTelemetry documentation](https://opentelemetry.io/docs/) and [specification status](https://opentelemetry.io/docs/specs/status/)
 - [Prometheus documentation](https://prometheus.io/docs/)
+- [OpenSLO specification](https://openslo.com/)

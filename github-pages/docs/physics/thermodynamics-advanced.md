@@ -1,7 +1,7 @@
 ---
 layout: docs
 title: "Thermodynamics: Advanced Topics"
-description: Graduate-level thermodynamics — Legendre structure and the thermodynamic potentials, Maxwell relations, critical phenomena and the renormalization group, non-equilibrium thermodynamics, and stochastic/quantum thermodynamics.
+description: Graduate-level thermodynamics — Legendre structure of the potentials, Maxwell relations and stability, statistical ensembles and fluctuations, critical phenomena and the renormalization group, non-equilibrium and stochastic thermodynamics, fluctuation theorems, information and quantum thermodynamics.
 permalink: /docs/physics/thermodynamics-advanced.html
 toc: true
 toc_sticky: true
@@ -11,125 +11,204 @@ toc_icon: "cog"
 
 [Thermodynamics](./thermodynamics.html) &raquo; Advanced Topics
 
-This page is the denser, formula-forward continuation of [Thermodynamics](./thermodynamics.html). It assumes the four laws, the four potentials, and the engine cycles, and builds the formal machinery on top: the Legendre-transform structure that relates the potentials, the complete set of Maxwell relations, the theory of continuous phase transitions and the renormalization group, and the modern extensions to systems far from equilibrium — Onsager's reciprocity, the fluctuation theorems, and stochastic and quantum thermodynamics. For the microscopic story behind the statistical sections, see [Statistical Mechanics](statistical-mechanics/).
+This page continues [Thermodynamics](./thermodynamics.html) at graduate level. It assumes the four laws, the potentials $U, H, F, G$, and the engine cycles, and covers: the Legendre-transform structure of equilibrium thermodynamics, with the Maxwell relations, Jacobian methods, and stability conditions; the link to statistical ensembles and equilibrium fluctuations; continuous phase transitions, critical exponents, and the renormalization group; and thermodynamics away from equilibrium, from Onsager's linear response to the fluctuation theorems, stochastic thermodynamics, the thermodynamics of information, and quantum thermodynamics. For microscopic derivations see [Statistical Mechanics](statistical-mechanics/) and [Phase Transitions and Advanced Topics](statistical-mechanics/phase-transitions-and-advanced.html).
 
-## Legendre Transformations and Thermodynamic Potentials
+## Formal Structure of Equilibrium Thermodynamics
 
-### Mathematical Framework
+### The fundamental relation
 
-A Legendre transformation replaces a function of a variable by an equivalent function of that variable's *conjugate slope*, with no loss of information. Given a convex function $f(x)$, define the conjugate variable $p = df/dx$. The Legendre transform is
+Equilibrium thermodynamics of a simple system is fully specified by one **fundamental relation**, either $S(U, V, N)$ (entropy representation) or $U(S, V, N)$ (energy representation). Callen's postulates make this precise: $S$ is a continuous, differentiable, monotonically increasing function of $U$; it is additive over subsystems; and an unconstrained composite system settles into the state that maximizes total entropy. The first derivatives of $U$ are the intensive variables,
 
-$$
-g(p) = px - f(x),
-$$
+$$T = \left(\frac{\partial U}{\partial S}\right)_{V,N}, \qquad P = -\left(\frac{\partial U}{\partial V}\right)_{S,N}, \qquad \mu = \left(\frac{\partial U}{\partial N}\right)_{S,V},$$
 
-where $x$ is understood as the value at which $df/dx = p$. Differentiating, $dg = x\,dp$, so $x = dg/dp$: the transform is an involution that swaps the roles of the variable and its slope. In thermodynamics this is exactly how one trades an *extensive* natural variable (such as $S$ or $V$) for its *intensive* conjugate ($T$ or $-P$), generating the family of potentials from a single fundamental relation $U(S,V,N)$.
+and each such derivative, expressed in terms of the natural variables, is an **equation of state**. Any one equation of state loses information; all of them together (or the fundamental relation) contain everything.
 
-### The Thermodynamic Potentials
+### Legendre transformations
 
-Each potential is obtained from $U$ by Legendre-transforming away one or more extensive variables. The fundamental differentials encode the equations of state as first derivatives.
+A Legendre transform replaces a convex function of a variable with an equivalent function of that variable's slope, without loss of information. For convex $f(x)$ with slope $p = df/dx$,
 
-**Internal Energy:** $U(S,V,N)$
-$$
-dU = T\,dS - P\,dV + \mu\,dN
-$$
+$$g(p) = px - f(x), \qquad dg = x\,dp,$$
 
-**Enthalpy:** $H(S,P,N) = U + PV$
-$$
-dH = T\,dS + V\,dP + \mu\,dN
-$$
-
-**Helmholtz Free Energy:** $F(T,V,N) = U - TS$
-$$
-dF = -S\,dT - P\,dV + \mu\,dN
-$$
-
-**Gibbs Free Energy:** $G(T,P,N) = U - TS + PV$
-$$
-dG = -S\,dT + V\,dP + \mu\,dN
-$$
-
-**Grand Potential:** $\Omega(T,V,\mu) = U - TS - \mu N$
-$$
-d\Omega = -S\,dT - P\,dV - N\,d\mu
-$$
-
-From these, every first-order equation of state is a partial derivative — for example $T = (\partial U/\partial S)_{V,N}$, $P = -(\partial F/\partial V)_{T,N}$, and $N = -(\partial \Omega/\partial \mu)_{T,V}$.
-
-**Why the transform matters physically.** The natural variables of a potential are precisely the quantities an experiment controls. A reaction in an open beaker is held at fixed $T$ and $P$, so the relevant potential is $G$; a gas sealed in a rigid box at fixed temperature is governed by $F$; a system exchanging particles with a reservoir (an adsorbed monolayer, an electron gas) is governed by $\Omega$. In each case *minimizing the matching potential* identifies equilibrium, and the Legendre transform guarantees these descriptions all carry the same physical content.
-
-### The Euler Relation and Gibbs–Duhem
-
-Because $U$ is a first-order homogeneous function of its extensive variables ($U(\lambda S, \lambda V, \lambda N) = \lambda U$), Euler's theorem gives the integrated form
-
-$$
-U = TS - PV + \mu N.
-$$
-
-Differentiating this and subtracting the fundamental differential $dU = T\,dS - P\,dV + \mu\,dN$ yields the **Gibbs–Duhem relation**,
-
-$$
-S\,dT - V\,dP + N\,d\mu = 0,
-$$
-
-which states that the intensive variables $T, P, \mu$ are not independent: in a single-phase system, fixing two determines the third. Gibbs–Duhem is the backbone of phase-coexistence arguments and of the phase rule.
-
-### Maxwell Relations
-
-Each potential is an exact differential, so its mixed second partials are equal. Reading off the equality for every potential gives the full set of Maxwell relations — note the sign flips, which track whether the conjugate pair appears with a $+$ or $-$ in the differential.
-
-| Potential | Natural variables | Maxwell relation |
-|-----------|-------------------|------------------|
-| $U$ | $S, V, N$ | $\left(\dfrac{\partial T}{\partial V}\right)_{S,N} = -\left(\dfrac{\partial P}{\partial S}\right)_{V,N}$ |
-| $H$ | $S, P, N$ | $\left(\dfrac{\partial T}{\partial P}\right)_{S,N} = \left(\dfrac{\partial V}{\partial S}\right)_{P,N}$ |
-| $F$ | $T, V, N$ | $\left(\dfrac{\partial S}{\partial V}\right)_{T,N} = \left(\dfrac{\partial P}{\partial T}\right)_{V,N}$ |
-| $G$ | $T, P, N$ | $\left(\dfrac{\partial S}{\partial P}\right)_{T,N} = -\left(\dfrac{\partial V}{\partial T}\right)_{P,N}$ |
-
-**What Maxwell relations are for.** They convert quantities you cannot easily measure into quantities you can. The entropy change of a gas with volume, $(\partial S/\partial V)_T$, is not directly accessible, but the Maxwell relation equates it to $(\partial P/\partial T)_V$ — a slope read straight off the equation of state. The same trick yields the energy equation $(\partial U/\partial V)_T = T(\partial P/\partial T)_V - P$, which vanishes for an ideal gas and is nonzero (and computable) for a van der Waals gas.
-
-### The Thermodynamic Square
-
-A classic mnemonic packs all four potentials and their natural variables into a single square. Each potential sits between its two natural variables, and the Maxwell relations are read off the corners.
+where $x$ is evaluated at the point where $df/dx = p$. The transform is an involution: transforming $g$ recovers $f$. Thermodynamics uses the convention $\mathcal{L}[f] = f - px$ (the negative of the mathematical definition), which trades an extensive natural variable for its intensive conjugate:
 
 ```mermaid
-graph LR
-    U["U (S, V)"] --- H["H (S, P)"]
-    F["F (T, V)"] --- G["G (T, P)"]
-    U --- F
-    H --- G
-    U:::pot
-    H:::pot
-    F:::pot
-    G:::pot
-    classDef pot fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
+flowchart LR
+    U["U(S, V, N)"] -->|"S → T: subtract TS"| F["F(T, V, N)"]
+    U -->|"V → P: add PV"| H["H(S, P, N)"]
+    F -->|"V → P: add PV"| G["G(T, P, N) = μN"]
+    H -->|"S → T: subtract TS"| G
+    F -->|"N → μ: subtract μN"| Om["Ω(T, V, μ) = −PV"]
 ```
 
-The two diagonals of the square satisfy
+| Potential | Definition | Differential | Natural variables | Statistical ensemble |
+|-----------|------------|--------------|-------------------|----------------------|
+| Internal energy $U$ | — | $T\,dS - P\,dV + \mu\,dN$ | $S, V, N$ | Microcanonical (via $S = k_B\ln\Omega$) |
+| Enthalpy $H$ | $U + PV$ | $T\,dS + V\,dP + \mu\,dN$ | $S, P, N$ | Isoenthalpic–isobaric |
+| Helmholtz $F$ | $U - TS$ | $-S\,dT - P\,dV + \mu\,dN$ | $T, V, N$ | Canonical |
+| Gibbs $G$ | $U - TS + PV$ | $-S\,dT + V\,dP + \mu\,dN$ | $T, P, N$ | Isothermal–isobaric |
+| Grand potential $\Omega$ | $U - TS - \mu N$ | $-S\,dT - P\,dV - N\,d\mu$ | $T, V, \mu$ | Grand canonical |
 
-$$U + G = H + F = TS + \mu N,$$
+The natural variables of a potential are the quantities an experiment controls, and at fixed natural variables the potential is minimized in equilibrium. A reaction in an open beaker is described by $G$, a gas in a rigid thermostatted box by $F$, and a system exchanging particles with a reservoir (an adsorbed layer, electrons in a metal contacted to leads) by $\Omega$. Because each is a Legendre transform of $U$, all carry the same information.
 
-which is just the Euler relation re-expressed through the four potentials.
+### Euler and Gibbs–Duhem relations
+
+$U$ is a first-order homogeneous function of its extensive arguments, $U(\lambda S, \lambda V, \lambda N) = \lambda U(S, V, N)$. Euler's theorem then gives the integrated form
+
+$$U = TS - PV + \mu N,$$
+
+from which $G = \mu N$ and $\Omega = -PV$ follow immediately. Differentiating the Euler relation and subtracting the fundamental differential gives the **Gibbs–Duhem relation**
+
+$$S\,dT - V\,dP + N\,d\mu = 0,$$
+
+so the intensive variables of a single phase are not independent: for a one-component system, fixing two fixes the third. For a multicomponent system, $\sum_i N_i\,d\mu_i = 0$ at fixed $T$ and $P$; this constraint underlies activity-coefficient consistency tests and, together with equality of chemical potentials between phases, the Gibbs phase rule.
+
+### Maxwell relations and the thermodynamic square
+
+Each potential is a state function, so its mixed second derivatives commute. This gives one Maxwell relation for each pair of natural variables; the four most used (fixed $N$) are:
+
+| Potential | Maxwell relation |
+|-----------|------------------|
+| $U(S, V)$ | $\left(\dfrac{\partial T}{\partial V}\right)_{S} = -\left(\dfrac{\partial P}{\partial S}\right)_{V}$ |
+| $H(S, P)$ | $\left(\dfrac{\partial T}{\partial P}\right)_{S} = \left(\dfrac{\partial V}{\partial S}\right)_{P}$ |
+| $F(T, V)$ | $\left(\dfrac{\partial S}{\partial V}\right)_{T} = \left(\dfrac{\partial P}{\partial T}\right)_{V}$ |
+| $G(T, P)$ | $\left(\dfrac{\partial S}{\partial P}\right)_{T} = -\left(\dfrac{\partial V}{\partial T}\right)_{P}$ |
+
+Including $N$ adds relations such as $(\partial \mu/\partial P)_{T,N} = (\partial V/\partial N)_{T,P}$, the partial molar volume.
+
+The **thermodynamic square** (Born square) encodes all four differentials. The natural variables sit at the corners and each potential sits on the edge between its two natural variables. The diagonal arrows run from $S$ to $T$ and from $P$ to $V$.
+
+<div style="overflow-x:auto; text-align:center;">
+<svg viewBox="0 0 320 260" style="max-width:320px; width:100%; color:inherit;" role="img" aria-label="Thermodynamic square: corners V (top left), T (top right), S (bottom left), P (bottom right); edges F (top), G (right), H (bottom), U (left); diagonal arrows from S to T and from P to V">
+<defs>
+<marker id="thermo-sq-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+<path d="M0,0 L0,6 L9,3 z" fill="currentColor"/>
+</marker>
+</defs>
+<g stroke="currentColor" stroke-width="1.5" fill="none">
+<path d="M86,40 L146,40 M174,40 L234,40"/>
+<path d="M70,56 L70,114 M70,146 L70,204"/>
+<path d="M250,56 L250,114 M250,146 L250,204"/>
+<path d="M86,220 L146,220 M174,220 L234,220"/>
+<path d="M84,206 L234,56" stroke-width="2" marker-end="url(#thermo-sq-arrow)"/>
+<path d="M236,206 L86,56" stroke-width="2" marker-end="url(#thermo-sq-arrow)"/>
+</g>
+<g fill="currentColor" font-family="sans-serif" text-anchor="middle">
+<text x="70" y="46" font-size="18" font-style="italic">V</text>
+<text x="250" y="46" font-size="18" font-style="italic">T</text>
+<text x="70" y="226" font-size="18" font-style="italic">S</text>
+<text x="250" y="226" font-size="18" font-style="italic">P</text>
+<text x="160" y="46" font-size="18" font-weight="bold">F</text>
+<text x="70" y="136" font-size="18" font-weight="bold">U</text>
+<text x="250" y="136" font-size="18" font-weight="bold">G</text>
+<text x="160" y="226" font-size="18" font-weight="bold">H</text>
+</g>
+</svg>
+</div>
+
+To read a differential, take the potential's two adjacent corners as the differentials; each is multiplied by the variable at the diagonally opposite corner. The sign is $+$ if the diagonal arrow points from the differential's corner toward its coefficient and $-$ if it points the other way. For $U$ (corners $V$ and $S$): $dS$ takes coefficient $T$ with the arrow running $S \to T$, giving $+T\,dS$; $dV$ takes coefficient $P$ with the arrow running $P \to V$, giving $-P\,dV$. Hence $dU = T\,dS - P\,dV$, and likewise $dG = -S\,dT + V\,dP$. Maxwell relations come from the three corners along each side of the square. The mnemonic "**V**alid **F**acts and **T**heoretical **U**nderstanding **G**enerate **S**olutions to **H**ard **P**roblems" recovers the layout reading row by row.
+
+**Why Maxwell relations matter.** They convert entropy derivatives, which cannot be measured directly, into slopes of the equation of state. The $F$ relation gives the **energy equation** $(\partial U/\partial V)_T = T(\partial P/\partial T)_V - P$, which vanishes for an ideal gas and equals $an^2/V^2$ for a van der Waals gas; the $G$ relation gives $(\partial H/\partial P)_T = V - T(\partial V/\partial T)_P$, and hence the Joule–Thomson coefficient.
+
+### Jacobian methods
+
+Jacobians turn the manipulation of thermodynamic derivatives into routine algebra. Define
+
+$$\frac{\partial(u,v)}{\partial(x,y)} = \det\begin{pmatrix} \partial u/\partial x & \partial u/\partial y \\ \partial v/\partial x & \partial v/\partial y \end{pmatrix}, \qquad \left(\frac{\partial u}{\partial x}\right)_y = \frac{\partial(u,y)}{\partial(x,y)}.$$
+
+Jacobians obey the chain rule $\frac{\partial(u,v)}{\partial(x,y)} = \frac{\partial(u,v)}{\partial(s,t)}\,\frac{\partial(s,t)}{\partial(x,y)}$ and change sign when two entries are swapped. All four Maxwell relations collapse to the single identity
+
+$$\frac{\partial(T,S)}{\partial(P,V)} = 1,$$
+
+which expresses that a reversible cycle encloses equal areas in the $T$–$S$ and $P$–$V$ planes (net heat equals net work). A standard application is the general relation between heat capacities,
+
+$$C_P - C_V = \frac{TV\alpha^2}{\kappa_T}, \qquad \frac{C_P}{C_V} = \frac{\kappa_T}{\kappa_S},$$
+
+with thermal expansion coefficient $\alpha = V^{-1}(\partial V/\partial T)_P$, isothermal compressibility $\kappa_T = -V^{-1}(\partial V/\partial P)_T$, and adiabatic compressibility $\kappa_S = -V^{-1}(\partial V/\partial P)_S$. Since $\kappa_T > 0$ in a stable system, $C_P \geq C_V$ always.
+
+### Stability and convexity
+
+Equilibrium requires a minimum of the relevant potential, not merely a stationary point. Local stability requires positive response functions:
+
+| Condition | Name | Meaning |
+|-----------|------|---------|
+| $C_V > 0$ | Thermal stability | Adding heat raises the temperature |
+| $\kappa_T > 0$ | Mechanical stability | Compressing raises the pressure |
+| $(\partial\mu/\partial N)_{T,V} > 0$ | Diffusive (chemical) stability | Adding particles raises the chemical potential |
+
+These follow from the curvature of the potentials. $S(U, V, N)$ is concave; $U(S, V, N)$ is convex. A Legendre transform flips curvature in the transformed variable only, so $F(T, V)$ is concave in $T$ and convex in $V$, and $G(T, P)$ is concave in both $T$ and $P$.
+
+When a model violates these conditions, for example a van der Waals isotherm with $(\partial P/\partial V)_T > 0$ below $T_c$, the homogeneous state is unstable and the system separates into coexisting phases. The Maxwell equal-area construction replaces the non-convex part of $F(V)$ by its convex hull (a common tangent), which is the thermodynamic statement of phase coexistence. The boundary of the unstable region is the **spinodal**; between spinodal and coexistence curve lie metastable states (superheated liquid, supercooled vapor).
+
+## Statistical Foundations
+
+### Ensembles and potentials
+
+Each thermodynamic potential is, up to a factor of $-k_BT$, the logarithm of the partition function of the ensemble whose control variables match its natural variables. (The symbol $\Omega$ is used both for the microcanonical state count and for the grand potential; context distinguishes them.)
+
+| Ensemble | Fixed | Partition function | Potential |
+|----------|-------|--------------------|-----------|
+| Microcanonical | $E, V, N$ | $\Omega(E,V,N) = \int d\Gamma\,\delta(H - E)$ | $S = k_B\ln\Omega$ |
+| Canonical | $T, V, N$ | $Z = \int d\Gamma\,e^{-\beta H}$ | $F = -k_BT\ln Z$ |
+| Isothermal–isobaric | $T, P, N$ | $\Delta = \int dV\,e^{-\beta PV} Z(V)$ | $G = -k_BT\ln\Delta$ |
+| Grand canonical | $T, V, \mu$ | $\Xi = \sum_N e^{\beta\mu N} Z_N$ | $\Omega = -k_BT\ln\Xi = -PV$ |
+
+Here $\beta = 1/k_BT$ and $d\Gamma$ is the phase-space measure, including the $1/(N!\,h^{3N})$ factor for identical classical particles. In the thermodynamic limit the relative fluctuations of extensive quantities scale as $N^{-1/2}$, so the ensembles give identical thermodynamics away from phase transitions and the choice is a matter of convenience. Ensemble equivalence can fail for systems with long-range interactions (self-gravitating systems, where the microcanonical heat capacity can be negative) and at first-order transitions.
+
+### Fluctuations and response
+
+Equilibrium fluctuations are tied to static response functions. If the Hamiltonian contains a term $-hA$ coupling an observable $A$ to a field $h$, then
+
+$$\langle(\delta A)^2\rangle = k_BT\left(\frac{\partial\langle A\rangle}{\partial h}\right)_T.$$
+
+Special cases:
+
+$$\langle(\delta E)^2\rangle = k_BT^2 C_V, \qquad \langle(\delta M)^2\rangle = k_BT\,\chi, \qquad \langle(\delta V)^2\rangle_{NPT} = k_BT\,V\kappa_T, \qquad \frac{\langle(\delta N)^2\rangle_{\mu VT}}{\langle N\rangle^2} = \frac{k_BT\,\kappa_T}{V}.$$
+
+The last relation connects compressibility to density fluctuations, and via the structure factor $S(k \to 0) = \rho k_BT\kappa_T$ to scattering experiments. Because response functions are proportional to fluctuation variances, and the variances diverge as the correlation length $\xi \to \infty$, susceptibilities and compressibilities diverge at critical points; near the liquid–gas critical point this appears as **critical opalescence**. The dynamical generalization, which relates the time-dependent response to equilibrium time correlations, is the fluctuation–dissipation theorem of Callen and Welton (1951) and Kubo.
 
 ## Critical Phenomena and Phase Transitions
 
-### Critical Exponents
+### Classification and order parameters
 
-Approaching a continuous (second-order) phase transition, thermodynamic quantities diverge or vanish as power laws in the reduced temperature $t = (T - T_c)/T_c$. The exponents are remarkably *universal*: wildly different systems sharing the same dimensionality and symmetry collapse onto the same set of values.
+In the modern classification, a transition is **first order** if the first derivatives of the free energy (entropy, volume, magnetization) jump, with a latent heat, and **continuous** otherwise. Ehrenfest's older scheme of "$n$th-order" transitions is rarely used. A continuous transition is characterized by an **order parameter**, a quantity that vanishes in the disordered phase and becomes nonzero in the ordered phase, usually reflecting a broken symmetry.
+
+| System | Order parameter | Broken symmetry | Universality class (3D) |
+|--------|-----------------|-----------------|--------------------------|
+| Uniaxial ferromagnet | Magnetization $m$ | $\mathbb{Z}_2$ (up/down) | Ising |
+| Liquid–gas critical point | $\rho_{\text{liquid}} - \rho_{\text{gas}}$ | Emergent $\mathbb{Z}_2$ | Ising |
+| Binary liquid mixture | Concentration difference | Emergent $\mathbb{Z}_2$ | Ising |
+| Planar magnet, superfluid $^4$He | Complex amplitude $\psi$ | $U(1)$ | XY, $O(2)$ |
+| Isotropic ferromagnet | Magnetization vector | $O(3)$ | Heisenberg |
+
+### Critical exponents
+
+Near a continuous transition, with reduced temperature $t = (T - T_c)/T_c$ and conjugate field $h$, thermodynamic quantities follow power laws:
 
 | Quantity | Power law | Exponent |
 |----------|-----------|----------|
-| Specific heat | $C \sim \lvert t \rvert^{-\alpha}$ | $\alpha$ |
-| Order parameter | $m \sim \lvert t \rvert^{\beta}$ | $\beta$ |
-| Susceptibility | $\chi \sim \lvert t \rvert^{-\gamma}$ | $\gamma$ |
-| Correlation length | $\xi \sim \lvert t \rvert^{-\nu}$ | $\nu$ |
-| Critical isotherm | $m \sim H^{1/\delta}$ | $\delta$ |
-| Correlation function | $G(r) \sim r^{-(d-2+\eta)}$ | $\eta$ |
+| Specific heat | $C \sim \lvert t\rvert^{-\alpha}$ | $\alpha$ |
+| Order parameter ($t < 0$) | $m \sim (-t)^{\beta}$ | $\beta$ |
+| Susceptibility | $\chi \sim \lvert t\rvert^{-\gamma}$ | $\gamma$ |
+| Critical isotherm ($t = 0$) | $m \sim h^{1/\delta}$ | $\delta$ |
+| Correlation length | $\xi \sim \lvert t\rvert^{-\nu}$ | $\nu$ |
+| Correlation function at $T_c$ | $G(r) \sim r^{-(d-2+\eta)}$ | $\eta$ |
 
-The divergence of the correlation length $\xi$ is the physical heart of criticality: as $\xi \to \infty$, fluctuations on *every* length scale become important simultaneously, the system loses any characteristic scale, and microscopic details wash out. This is why universality exists at all.
+The exponents are **universal**: they depend only on dimensionality, the symmetry of the order parameter, and the range of interactions, not on microscopic details.
 
-### Scaling Relations
+| Exponent | Mean field | 2D Ising (exact, Onsager/CFT) | 3D Ising (conformal bootstrap) |
+|----------|------------|-------------------------------|-------------------------------|
+| $\alpha$ | $0$ (discontinuity) | $0$ (logarithmic) | $0.11009$ |
+| $\beta$ | $1/2$ | $1/8$ | $0.32642$ |
+| $\gamma$ | $1$ | $7/4$ | $1.23708$ |
+| $\delta$ | $3$ | $15$ | $4.78984$ |
+| $\nu$ | $1/2$ | $1$ | $0.62997$ |
+| $\eta$ | $0$ | $1/4$ | $0.03630$ |
 
-The six exponents are not independent — scaling theory links them through equalities that hold across all universality classes:
+The 3D Ising values come from the numerical conformal bootstrap (Kos, Poland, Simmons-Duffin, Vichi and collaborators, 2014–2017), which bounds the operator dimensions of the critical theory and now gives the most precise determination, ahead of Monte Carlo and the $\epsilon$-expansion. The same values describe the critical point of water, carbon dioxide, and binary mixtures.
+
+### Scaling relations
+
+The exponents are linked by scaling laws that hold in every universality class:
 
 $$\begin{aligned}
 &\text{Rushbrooke:} && \alpha + 2\beta + \gamma = 2 \\
@@ -139,472 +218,342 @@ $$\begin{aligned}
 &\text{Josephson (hyperscaling):} && d\nu = 2 - \alpha
 \end{aligned}$$
 
-These follow from the **scaling hypothesis** for the singular part of the free energy density: under a change of length scale by a factor $b$,
+They follow from the **scaling hypothesis**: under a change of length scale by a factor $b$, the singular part of the free-energy density transforms as
 
-$$
-f_s(t, H) = b^{-d} f_s\!\left(b^{y_t} t,\; b^{y_h} H\right),
-$$
+$$f_s(t, h) = b^{-d} f_s\!\left(b^{y_t} t,\; b^{y_h} h\right),$$
 
-with two independent exponents $y_t$ and $y_h$. All six thermodynamic exponents are algebraic combinations of $y_t$, $y_h$, and the dimension $d$, which is why only two are independent and why hyperscaling involves $d$ explicitly.
+with two independent eigenvalues $y_t = 1/\nu$ and $y_h = (d + 2 - \eta)/2$. All six exponents are functions of $y_t$, $y_h$, and $d$, so only two are independent. Hyperscaling, the one relation containing $d$, holds below the upper critical dimension and fails above it, where mean-field exponents apply in every $d$.
 
-### Landau Theory
+### Landau theory
 
-Landau theory expands the free energy in powers of the order parameter $m$, keeping only terms allowed by symmetry. Near a critical point in a field $H$,
+Landau theory expands the free-energy density in powers of the order parameter, keeping the terms allowed by symmetry. For a scalar order parameter with $m \to -m$ symmetry in a field $h$:
 
-$$
-F = F_0 + a\,t\,m^2 + b\,m^4 + c\,m^6 + \ldots - Hm,
-$$
+$$f(m) = f_0 + a\,t\,m^2 + b\,m^4 - h\,m, \qquad a, b > 0.$$
 
-with $a, b, c > 0$ and $t = (T-T_c)/T_c$. Minimizing $\partial F/\partial m = 0$ gives $m = 0$ for $t > 0$ and $m \sim (-t)^{1/2}$ for $t < 0$ (when the quartic term controls the transition), reproducing the mean-field exponents directly.
+Minimizing at $h = 0$ gives $m = 0$ for $t > 0$ and $m = \pm\sqrt{-at/2b}$ for $t < 0$, so $\beta = 1/2$. At $t = 0$, $h = 4bm^3$ gives $\delta = 3$; the susceptibility $\chi = (\partial m/\partial h) \propto \lvert t\rvert^{-1}$ gives $\gamma = 1$; and the free energy $-a^2t^2/4b$ below $T_c$ produces a finite jump in the specific heat ($\alpha = 0$). Adding a gradient term $c\,(\nabla m)^2$ gives Ornstein–Zernike correlations with $\nu = 1/2$ and $\eta = 0$. If $b < 0$, a positive $m^6$ term is needed and the transition becomes first order; the point where $b$ changes sign is a **tricritical point**.
 
-**Mean-field critical exponents:**
+Mean-field theory neglects fluctuations. The **Ginzburg criterion** compares the fluctuations of $m$ over a correlation volume with $m^2$ itself; the fluctuations grow as $\lvert t\rvert^{(d-4)/2}$ relative to the mean, so they dominate near $T_c$ for $d < 4$. The **upper critical dimension** is therefore $d_c = 4$ for short-range interactions: above it mean-field exponents are exact, at $d = 4$ they acquire logarithmic corrections, and below it the renormalization group is needed.
 
-| Exponent | Value |
-|----------|-------|
-| $\alpha$ | $0$ (jump/logarithmic) |
-| $\beta$ | $1/2$ |
-| $\gamma$ | $1$ |
-| $\delta$ | $3$ |
-| $\nu$ | $1/2$ |
-| $\eta$ | $0$ |
+### Renormalization group
 
-Mean-field theory is exact above the **upper critical dimension** $d_c = 4$, where fluctuations are too weak to matter. Below $d_c$, the Ginzburg criterion shows fluctuations dominate near $T_c$ and the true exponents deviate from these values — which is exactly the problem the renormalization group solves.
+The renormalization group (RG) turns "looking at the system on coarser scales" into a transformation on the space of Hamiltonians. One RG step integrates out short-wavelength fluctuations and rescales, producing a new effective Hamiltonian with the same long-distance physics:
 
-### Renormalization Group Theory
+```mermaid
+flowchart LR
+    A["Hamiltonian H<br/>couplings g_i, cutoff a"] --> B["Coarse-grain<br/>block spins or integrate out<br/>modes with k between Λ/b and Λ"]
+    B --> C["Rescale lengths<br/>x → x / b"]
+    C --> D["Renormalize fields<br/>restore normalization"]
+    D --> E["H' = R_b(H)<br/>couplings g_i'"]
+    E -. "repeat" .-> B
+```
 
-The renormalization group (RG) makes the idea of "looking at the system on coarser and coarser scales" into a precise transformation on the space of Hamiltonians. A single RG step thins out short-wavelength degrees of freedom (for example by a real-space block-spin average or a momentum-shell integration) and rescales lengths, producing a *new* effective Hamiltonian for the remaining long-wavelength physics.
+**Fixed points.** A critical point corresponds to a fixed point $H^* = \mathcal{R}_b(H^*)$. At the fixed point the correlation length is infinite (or zero, for trivial fixed points), and the system is statistically self-similar.
 
-**RG transformation:** A coarse-graining map $\mathcal{R}_b$ that rescales lengths by a factor $b$ takes a Hamiltonian (a set of couplings) to a new one,
+**Scaling fields.** Linearizing the flow near a fixed point, perturbations with eigenvalues $y_i$ scale as $g_i' = b^{y_i} g_i$:
 
-$$
-H' = \mathcal{R}_b(H),
-$$
+| Eigenvalue | Type | Behavior under coarse-graining | Examples |
+|------------|------|---------------------------------|----------|
+| $y_i > 0$ | Relevant | Grows; drives the system away from criticality | Reduced temperature $t$, field $h$ |
+| $y_i = 0$ | Marginal | Neither grows nor shrinks at linear order; often logarithmic corrections | $\phi^4$ coupling at $d = 4$ |
+| $y_i < 0$ | Irrelevant | Shrinks; microscopic details that do not affect critical behavior | Lattice structure, higher-order couplings |
 
-so the partition function and long-distance physics are preserved while short-distance detail is integrated out.
+The thermal and field eigenvalues are the $y_t$ and $y_h$ of the scaling hypothesis, so the RG derives the scaling form rather than postulating it. **Universality** follows: all Hamiltonians in the basin of attraction of the same fixed point share its exponents, and they differ only through irrelevant variables that die away.
 
-**Fixed points:** A scale-invariant theory is a fixed point of the flow,
+**Wilson–Fisher fixed point.** For the $\phi^4$ theory in $d = 4 - \epsilon$ dimensions, the one-loop flow of the quartic coupling $u$ is
 
-$$
-H^* = \mathcal{R}_b(H^*).
-$$
+$$\frac{du}{d\ell} = \epsilon\,u - C\,u^2, \qquad \ell = \ln b,$$
 
-Critical points correspond to fixed points: there the correlation length is infinite, so the system looks the same at every magnification.
+with $C > 0$. For $\epsilon > 0$ the Gaussian fixed point $u = 0$ is unstable, and the flow ends at the nontrivial **Wilson–Fisher fixed point** $u^* = \epsilon/C$. Expanding exponents in $\epsilon$ (for the $O(n)$ model, $\nu = \tfrac{1}{2} + \tfrac{n+2}{4(n+8)}\epsilon + O(\epsilon^2)$, which gives $\nu = \tfrac12 + \tfrac{\epsilon}{12}$ for Ising) and resumming the series at $\epsilon = 1$ gives good 3D estimates. Kenneth Wilson received the 1982 Nobel Prize in Physics for this theory. The field-theory side of the RG is covered in [Renormalization](renormalization.html).
 
-**Scaling dimensions:** Linearizing the flow about a fixed point, the couplings $\{g_i\}$ evolve as $g_i' = b^{\,y_i} g_i$, where the eigenvalues $y_i$ classify each perturbation:
+### Kosterlitz–Thouless transition
 
-- **Relevant** ($y_i > 0$): grows under coarse-graining and drives the system away from the fixed point — these are the parameters (like $t$ and $H$) you must tune to reach criticality.
-- **Marginal** ($y_i = 0$): requires higher-order analysis; often produces logarithmic corrections.
-- **Irrelevant** ($y_i < 0$): shrinks under coarse-graining — microscopic details that do *not* affect critical behavior.
+In two dimensions, the Mermin–Wagner theorem forbids spontaneous breaking of a continuous symmetry at $T > 0$, so the 2D XY model has no long-range order. It nevertheless has a sharp **topological** transition, driven by vortices:
 
-The thermal and field eigenvalues are exactly the $y_t$ and $y_h$ of the scaling hypothesis, which is how RG *derives* the scaling form (and hence all the scaling relations) rather than postulating it.
+- Below $T_{KT}$, vortices and antivortices are bound in neutral pairs, and correlations decay as a power law (quasi-long-range order): $G(r) \sim r^{-\eta(T)}$, with $\eta(T_{KT}) = 1/4$.
+- Above $T_{KT}$, free vortices proliferate and correlations decay exponentially: $G(r) \sim e^{-r/\xi}$.
+- The correlation length diverges with an essential singularity, $\xi \sim \exp\!\left(b/\sqrt{T - T_{KT}}\right)$, and all derivatives of the free energy are continuous.
+- The superfluid stiffness jumps to zero at $T_{KT}$ with a universal value, $\rho_s(T_{KT}^-) = 2m^2k_BT_{KT}/(\pi\hbar^2)$ (Nelson–Kosterlitz), confirmed in helium-4 films.
 
-**Universality:** Because only the relevant couplings survive coarse-graining, every microscopic model that flows to the same fixed point shares the same critical exponents. Systems are grouped into **universality classes** set by dimensionality $d$, the symmetry of the order parameter, and the range of interactions — which is why a uniaxial ferromagnet and the liquid–gas critical point of a simple fluid share the 3D Ising exponents.
+Kosterlitz, Thouless, and Haldane shared the 2016 Nobel Prize in Physics for topological phase transitions and topological phases of matter.
 
-**Worked sketch — the Gaussian fixed point and $\epsilon$-expansion.** For the $\phi^4$ field theory, a momentum-shell RG step generates the flow of the quartic coupling $u$. In $d = 4 - \epsilon$ dimensions the one-loop recursion is
+### Quantum phase transitions
 
-$$
-\frac{du}{d\ell} = \epsilon\, u - C\, u^2,
-$$
+A quantum phase transition occurs at $T = 0$ as a non-thermal parameter $g$ (pressure, doping, magnetic field) passes a critical value $g_c$, driven by quantum rather than thermal fluctuations. Imaginary time acts as an extra dimension that scales with the **dynamical critical exponent** $z$, $\xi_\tau \sim \xi^z$, so a $d$-dimensional quantum critical point is related to a $(d + z)$-dimensional classical one. The singular free-energy density scales as
 
-with $C > 0$ a geometric constant and $\ell = \ln b$. For $\epsilon > 0$ this has a nontrivial stable fixed point $u^* = \epsilon / C$ — the **Wilson-Fisher fixed point** — which controls criticality below four dimensions. Expanding the exponents in powers of $\epsilon$ (e.g. $\nu = 1/2 + \epsilon/12 + \ldots$) and extrapolating to $\epsilon = 1$ gives strikingly good estimates for the 3D Ising exponents, the calculation for which Wilson received the 1982 Nobel Prize.
+$$f(g, T) = b^{-(d+z)} f\!\left((g - g_c)\,b^{1/\nu},\; T\,b^{z}\right).$$
 
-## Statistical Foundations
+At finite temperature the critical point opens into a **quantum critical fan** in the $(g, T)$ plane where the only energy scale is $k_BT$. Transport there is governed by "Planckian" relaxation times $\tau \sim \hbar/k_BT$, which has been connected to the linear-in-$T$ resistivity of strange metals such as the cuprates. See [Emergent Phases](condensed-matter/emergent-phases.html).
 
-### Ensemble Theory
+### The glass transition
 
-The thermodynamic potentials are the logarithms of partition functions in the matching statistical ensemble — the bridge between counting microstates and the macroscopic relations above.
+The glass transition is a kinetic arrest rather than an equilibrium phase transition: the viscosity of a supercooled liquid rises by many orders of magnitude over a narrow range, and the glass temperature $T_g$ (conventionally where viscosity reaches about $10^{12}$ Pa·s) depends on the cooling rate.
 
-**Microcanonical (NVE):** fixed energy, the bare statement $S = k_B \ln \Omega$.
-$$
-S = k_B \ln \Omega(E,V,N), \qquad \Omega(E,V,N) = \int \delta(H - E)\, d\Gamma
-$$
-
-**Canonical (NVT):** fixed temperature; the Helmholtz free energy is the log partition function.
-$$
-Z = \int e^{-\beta H}\, d\Gamma, \qquad F = -k_B T \ln Z
-$$
-
-**Grand Canonical (μVT):** fixed temperature and chemical potential; the grand potential is the log grand partition function.
-$$
-\Xi = \sum_N e^{\beta\mu N} Z_N, \qquad \Omega = -k_B T \ln \Xi
-$$
-
-In the thermodynamic limit these ensembles are equivalent (away from phase transitions): the relative fluctuations of extensive quantities scale as $1/\sqrt{N}$, so the choice of ensemble is a matter of calculational convenience.
-
-### Fluctuations and Response Functions
-
-A central result of statistical mechanics is that *equilibrium fluctuations* of a quantity are tied to the *response* of its mean to the conjugate field — the fluctuation–dissipation theorem. The variance of an observable is a curvature of the relevant free energy.
-
-**Fluctuation–dissipation theorem:**
-$$
-\langle(\delta A)^2\rangle = k_B T^2 \left(\frac{\partial\langle A\rangle}{\partial T}\right)_X
-$$
-
-**Specific heat** ties to energy fluctuations:
-$$
-C_V = \left(\frac{\partial U}{\partial T}\right)_V = \frac{\langle(\delta E)^2\rangle}{k_B T^2}
-$$
-
-**Compressibility** ties to volume (or density) fluctuations:
-$$
-\kappa_T = -\frac{1}{V}\left(\frac{\partial V}{\partial P}\right)_T = \frac{\langle(\delta V)^2\rangle}{k_B T V}
-$$
-
-**Magnetic susceptibility** ties to magnetization fluctuations:
-$$
-\chi = \left(\frac{\partial M}{\partial H}\right)_T = \beta\langle(\delta M)^2\rangle
-$$
-
-Because response functions like $\chi$ and $C$ are proportional to fluctuation variances, and those variances diverge as $\xi \to \infty$, this is the microscopic reason susceptibilities and specific heats blow up at a critical point.
+- **Vogel–Fulcher–Tammann law.** Relaxation times in "fragile" liquids grow faster than Arrhenius, $\tau = \tau_0\exp\!\left[DT_0/(T - T_0)\right]$, extrapolating to a divergence at $T_0 < T_g$.
+- **Kauzmann paradox.** Extrapolated below $T_g$, the supercooled liquid's entropy would fall below the crystal's at a temperature $T_K$, usually close to $T_0$. Real liquids avoid this by falling out of equilibrium first.
+- **Adam–Gibbs theory** links the two: $\tau \sim \exp\!\left[A/(TS_c)\right]$, with $S_c$ the configurational entropy, so a vanishing $S_c$ at $T_K$ implies diverging relaxation.
+- **Random first-order transition theory** and mean-field spin-glass analogies predict an ideal glass transition at $T_K$; whether one exists in finite dimensions remains open.
 
 ## Non-equilibrium Thermodynamics
 
-### Linear Response Theory
+### Local equilibrium and entropy production
 
-Close to equilibrium, thermodynamic fluxes are *linear* in the driving forces, and the response is governed by symmetric transport coefficients.
+Classical irreversible thermodynamics assumes **local equilibrium**: each small volume element has well-defined $T$, $P$, $\mu$ that vary slowly in space and time. Entropy then obeys a local balance equation with a source term, the entropy production density $\sigma$, which is a sum of fluxes $J_i$ times their conjugate thermodynamic forces $X_i$:
 
-**Onsager regression hypothesis:** the spontaneous decay of an equilibrium fluctuation follows the same macroscopic relaxation law as a small externally imposed perturbation. This is the principle that lets equilibrium correlation functions predict transport coefficients (Green–Kubo relations).
+$$\sigma = \sum_i J_i X_i \geq 0.$$
 
-**Transport coefficients:** writing the fluxes $J_i$ (of heat, charge, particles) as linear functions of the thermodynamic forces $X_j$ (gradients of $1/T$, $-\mu/T$, etc.):
-$$
-J_i = \sum_j L_{ij} X_j
-$$
+| Flux $J_i$ | Force $X_i$ | Linear law |
+|------------|-------------|------------|
+| Heat flux $\mathbf{J}_q$ | $\nabla(1/T)$ | Fourier's law |
+| Particle flux $\mathbf{J}_k$ | $-\nabla(\mu_k/T)$ | Fick's law |
+| Electric current $\mathbf{J}_e$ | $\mathbf{E}/T$ | Ohm's law |
+| Reaction rate $v_r$ | Affinity $A_r/T$ | Linearized mass action |
 
-**Onsager reciprocity:** for forces and fluxes defined so that the entropy production is $\sigma = \sum_i J_i X_i$, the kinetic matrix is symmetric,
-$$
-L_{ij} = L_{ji}.
-$$
+### Linear response and Onsager reciprocity
 
-This symmetry is a deep consequence of the *time-reversal invariance* of the underlying microscopic dynamics, and it ties together superficially unrelated cross-effects — the thermoelectric Seebeck and Peltier coefficients, for example, are forced to be equal (in appropriate units) by $L_{12} = L_{21}$. In a magnetic field $B$, the relation generalizes to $L_{ij}(B) = L_{ji}(-B)$.
+Near equilibrium, fluxes are linear in forces, $J_i = \sum_j L_{ij} X_j$, and positive entropy production requires the symmetric part of $L$ to be positive semidefinite. Onsager (1931) showed, from time-reversal invariance of the microscopic dynamics and the **regression hypothesis** (spontaneous fluctuations decay by the same laws as imposed perturbations), that
 
-### Entropy Production
+$$L_{ij} = L_{ji}, \qquad L_{ij}(\mathbf{B}) = L_{ji}(-\mathbf{B})\ \text{in a magnetic field}.$$
 
-The Second Law in its local form states that the entropy generated per unit volume and time is nonnegative:
+Reciprocity links cross-effects that look unrelated. In thermoelectricity, the Peltier coefficient $\Pi$ and the Seebeck coefficient $S$ satisfy the Kelvin relation $\Pi = TS$; in the Soret and Dufour effects, heat driving mass flow and mass flow driving heat are governed by the same coefficient.
 
-$$
-\sigma = \sum_i J_i X_i \geq 0.
-$$
+**Green–Kubo relations** express the transport coefficients as time integrals of equilibrium correlation functions. For example, the self-diffusion coefficient and shear viscosity are
 
-In the linear regime $\sigma = \sum_{ij} L_{ij} X_i X_j \geq 0$ requires the symmetric part of $L$ to be positive semidefinite — a stronger statement than the global Second Law.
+$$D = \frac{1}{3}\int_0^\infty \langle \mathbf{v}(0)\cdot\mathbf{v}(t)\rangle\,dt, \qquad \eta = \frac{V}{k_BT}\int_0^\infty \langle P_{xy}(0)\,P_{xy}(t)\rangle\,dt,$$
 
-**Minimum entropy production (Prigogine):** for a system held near equilibrium with some forces fixed, the *steady state* is the one that minimizes the total entropy production subject to the constraints. This provides a variational characterization of near-equilibrium steady states, the closest non-equilibrium analogue of the equilibrium minimum-free-energy principle.
+which is how molecular dynamics simulations compute transport coefficients.
 
-### Fluctuation Theorems
+**Minimum entropy production.** Prigogine's theorem states that in the linear regime with constant, symmetric $L_{ij}$ and some forces held fixed, the steady state minimizes total entropy production. It is a genuine variational principle only under those conditions; there is no general extremum principle far from equilibrium, where structure formation (convection rolls, chemical oscillations, Turing patterns) is described instead by instability and bifurcation theory of **dissipative structures**.
 
-Far from equilibrium the Second Law becomes a statement about *probabilities*: entropy-decreasing trajectories are not forbidden, merely exponentially unlikely, and the precise ratio is fixed. These exact relations hold arbitrarily far from equilibrium and have been confirmed in single-molecule experiments.
+## Stochastic Thermodynamics
 
-**Crooks fluctuation relation** compares the work distribution $P_F(W)$ of a forward driving protocol with that of its time-reverse $P_R(-W)$:
-$$
-\frac{P_F(W)}{P_R(-W)} = e^{\beta (W - \Delta F)}.
-$$
-The two distributions cross at $W = \Delta F$, giving a model-free way to extract the free-energy difference from non-equilibrium pulls.
+Stochastic thermodynamics defines heat, work, and entropy along *individual* fluctuating trajectories of small systems (colloids in optical traps, biomolecules, molecular motors, nanoelectronic circuits), where thermal fluctuations are comparable to the energies involved.
 
-**Jarzynski equality** follows by integrating Crooks: the exponential average of the dissipated work equals the equilibrium free-energy difference *exactly*, even for arbitrarily fast (irreversible) processes,
-$$
-\langle e^{-\beta W}\rangle = e^{-\beta\Delta F}.
-$$
-By Jensen's inequality this implies $\langle W \rangle \geq \Delta F$, recovering the familiar Second-Law bound while sharpening it into an equality over fluctuations.
+### Trajectory-level energetics
 
-**Gallavotti–Cohen theorem** is the steady-state analogue for the time-averaged entropy production rate $\Sigma_\tau$ over a window of duration $\tau$:
-$$
-\frac{P(\Sigma_\tau = A)}{P(\Sigma_\tau = -A)} = e^{\tau A / k_B}.
-$$
-It quantifies how the probability of a transient Second-Law "violation" decays exponentially with the observation time and the system size.
+An overdamped colloidal particle in a potential $V(x, \lambda)$, controlled by an externally varied parameter $\lambda(t)$ and immersed in a bath at temperature $T$, obeys the Langevin equation
 
-## Advanced Phase Transitions
+$$\gamma\,\dot{x} = -\frac{\partial V(x,\lambda)}{\partial x} + \sqrt{2\gamma k_BT}\,\xi(t), \qquad \langle \xi(t)\xi(t')\rangle = \delta(t - t').$$
 
-### Kosterlitz–Thouless Transition
+Following Sekimoto, the First Law holds along each trajectory: the work done by the controller is $w = \int \frac{\partial V}{\partial\lambda}\dot{\lambda}\,dt$, the heat released to the bath is $q = w - \Delta V$, and the total entropy production combines the bath entropy $q/T$ with the change in the trajectory's stochastic (Shannon) entropy $s = -k_B\ln p(x,t)$. The Second Law becomes a statement about averages: individual trajectories can have negative entropy production.
 
-Some transitions have no local order parameter at all. The 2D XY model undergoes a *topological* transition driven by the binding and unbinding of vortices:
+### Fluctuation theorems
 
-- **No true long-range order** at any $T > 0$, by the Mermin–Wagner theorem (continuous symmetries cannot be spontaneously broken in $d \le 2$ at finite temperature).
-- **Quasi-long-range order** below $T_{KT}$: correlations decay as a power law rather than to a constant.
-- **Vortex–antivortex unbinding** at $T_{KT}$: below the transition vortices are bound in neutral pairs; above it free vortices proliferate and destroy the quasi-order.
+The fluctuation theorems are exact relations valid arbitrarily far from equilibrium. They quantify how improbable Second-Law-violating trajectories are.
 
-**Correlation function** changes character across $T_{KT}$:
-$$
-G(r) \sim r^{-\eta(T)} \quad (T < T_{KT}), \qquad G(r) \sim e^{-r/\xi} \quad (T > T_{KT}).
-$$
-The transition is of infinite order (all derivatives of the free energy are continuous), and the correlation length diverges with an essential singularity $\xi \sim \exp(b/\sqrt{T - T_{KT}})$ rather than a power law. Kosterlitz and Thouless shared the 2016 Nobel Prize for this analysis.
+| Relation | Statement | Setting |
+|----------|-----------|---------|
+| Evans–Searles / Gallavotti–Cohen (1993–1995) | $\dfrac{P(\Sigma_\tau = A)}{P(\Sigma_\tau = -A)} = e^{\tau A/k_B}$ | Entropy production rate averaged over time $\tau$ (transient, or asymptotic in steady state) |
+| Jarzynski equality (1997) | $\langle e^{-\beta W}\rangle = e^{-\beta\Delta F}$ | Driving from equilibrium; any speed |
+| Crooks relation (1999) | $\dfrac{P_F(W)}{P_R(-W)} = e^{\beta(W - \Delta F)}$ | Forward vs. time-reversed protocol |
+| Integral fluctuation theorem (Seifert 2005) | $\langle e^{-\Delta s_{\text{tot}}/k_B}\rangle = 1$ | Any Markovian dynamics, any initial state |
+| Hatano–Sasa (2001) | $\langle e^{-Y}\rangle = 1$ for excess entropy | Transitions between non-equilibrium steady states |
 
-### Quantum Phase Transitions
+Jarzynski's equality is the exponential average of the *total* work $W$, not of the dissipated work. Jensen's inequality ($\langle e^{x}\rangle \geq e^{\langle x\rangle}$) gives $\langle W\rangle \geq \Delta F$, the Second Law for work. The Crooks work distributions cross at $W = \Delta F$, so free energies can be extracted from irreversible experiments. Experimental tests include mechanical unfolding of single RNA hairpins with optical tweezers (Liphardt et al., *Science* 2002, for Jarzynski; Collin et al., *Nature* 2005, for Crooks). In practice the Jarzynski average is dominated by rare low-work trajectories, so the number of samples needed grows exponentially with the dissipated work.
 
-A quantum phase transition occurs at $T = 0$ as a non-thermal parameter $g$ (pressure, doping, magnetic field) is tuned through a critical value $g_c$, driven by quantum rather than thermal fluctuations. Space and (imaginary) time scale differently, controlled by the **dynamical critical exponent** $z$: $\xi_\tau \sim \xi^z$.
+### Thermodynamic uncertainty relations and speed limits
 
-**Scaling ansatz** for the singular free energy density:
-$$
-F(g,T) = b^{-(d+z)} F\!\left(g\, b^{1/\nu},\; T\, b^{z}\right).
-$$
-A quantum critical point at $T = 0$ broadens at finite temperature into a **quantum critical fan** in the $(g, T)$ plane, where unusual "strange-metal" transport and the absence of well-defined quasiparticles are observed — a central theme of modern condensed-matter physics.
+The **thermodynamic uncertainty relation** (TUR), proposed by Barato and Seifert (2015) and proved for Markov jump processes in steady state by Gingrich, Horowitz, and collaborators (2016), bounds the precision of any time-integrated current $J$ (number of steps of a motor, charge transferred, product molecules made) by the total entropy production $\Sigma$ over the same interval:
 
-### Glass Transitions
+$$\frac{\mathrm{Var}(J)}{\langle J\rangle^2} \geq \frac{2k_B}{\langle\Sigma\rangle}.$$
 
-The glass transition is not a sharp thermodynamic transition but a dramatic dynamical arrest, with several deep puzzles:
+Precision costs dissipation: halving the relative uncertainty of a molecular clock or motor requires at least four times the entropy production. The TUR is used to infer lower bounds on the dissipation of biological machines from measured fluctuations. It can be violated in underdamped dynamics, with time-dependent driving, and in coherent quantum transport, which has motivated generalized versions.
 
-**Kauzmann paradox:** extrapolating the excess entropy of a supercooled liquid below the experimental glass temperature, it would become *less* than the crystal's at a finite Kauzmann temperature $T_K$ — an apparent entropy crisis that real systems avoid by falling out of equilibrium first.
+**Thermodynamic speed limits** give a related trade-off in time: transforming one probability distribution into another in time $\tau$ produces entropy that grows as the transformation is made faster, with lower bounds set by a distance between the initial and final distributions (for overdamped dynamics, the $L^2$-Wasserstein distance of optimal transport). Finite-time protocols that minimize dissipation follow geodesics of a **thermodynamic metric**, a framework used to design optimal driving in experiments and in free-energy calculations.
 
-**Vogel–Fulcher–Tammann law** for the structural relaxation time:
-$$
-\tau = \tau_0 \exp\!\left[\frac{D\,T_0}{T - T_0}\right],
-$$
-which diverges at a finite temperature $T_0$ (often close to $T_K$), far stronger than ordinary Arrhenius behavior.
+### Thermodynamics of information
 
-**Adam–Gibbs theory** rationalizes the connection by relating the relaxation time to a vanishing *configurational entropy* $S_c$ via $\tau \sim \exp(A/T S_c)$, linking the dynamical slowdown to the thermodynamic entropy crisis.
+**Landauer's principle.** Erasing one bit of information, a logically irreversible operation, in contact with a bath at temperature $T$ dissipates on average at least
+
+$$Q_{\text{erase}} \geq k_BT\ln 2 \approx 2.9 \times 10^{-21}\ \text{J at } 300\ \text{K}.$$
+
+Bérut et al. (*Nature*, 2012) measured the bound approached in the slow-erasure limit using a colloidal particle in a double-well optical trap, and later experiments have tested it in nanomagnets and quantum systems. Present-day CMOS logic dissipates several orders of magnitude more energy per operation than this limit.
+
+**Maxwell's demon and feedback.** A demon that measures a system and acts on the result can extract work, as in the Szilard engine, which extracts $k_BT\ln 2$ per cycle from a single-molecule gas. Sagawa and Ueda (2008–2010) generalized the Second Law to feedback control,
+
+$$\langle W_{\text{ext}}\rangle \leq -\Delta F + k_BT\,I, \qquad \langle e^{-\beta(W - \Delta F) - I}\rangle = 1,$$
+
+where $I$ is the mutual information (in nats) acquired by measurement. Information is a thermodynamic resource, and the demon's apparent violation is repaid when its memory is erased (the Landauer cost) or reset.
+
+## Quantum Thermodynamics
+
+Quantum thermodynamics extends the laws to working media that are small quantum systems, where discreteness, coherence, entanglement, and measurement back-action matter.
+
+**Work and heat.** For a system with Hamiltonian $H(\lambda) = \sum_n E_n(\lambda)\,|n\rangle\langle n|$ and state $\rho = \sum_n p_n |n\rangle\langle n|$, the change in mean energy splits as (Alicki, 1979)
+
+$$d\langle E\rangle = \underbrace{\sum_n p_n\,dE_n}_{\delta W\ \text{(level shifts)}} + \underbrace{\sum_n E_n\,dp_n}_{\delta Q\ \text{(population changes)}}.$$
+
+Work is not an observable in the quantum case; it is defined through a **two-point measurement** of energy before and after the driving unitary $U$. The work distribution is
+
+$$P(w) = \sum_{m,n} p_n^{(0)}\,\bigl|\langle m_f|U|n_i\rangle\bigr|^2\,\delta\!\left(w - (E_m^f - E_n^i)\right),$$
+
+and with this definition the Jarzynski equality and Crooks relation hold unchanged (Kurchan 2000; Tasaki 2000). The two-point scheme destroys initial coherences, and several alternative definitions of quantum work are still under study.
+
+**Resource theories and many second laws.** Treating thermal states as free and energy-preserving unitaries with a bath as free operations gives a resource theory of athermality. For single-shot (small-system) transitions the ordinary free energy is replaced by a family of conditions: Brandão, Horodecki, Ng, Oppenheim, and Wehner (*PNAS*, 2015) showed that a whole family of Rényi-divergence free energies must all decrease, recovering the single standard second law only in the thermodynamic limit. The same framework gives a quantitative third law (Masanes and Oppenheim, 2017): the time needed to cool toward $T = 0$ diverges, with explicit bounds.
+
+**Quantum heat engines and refrigerators.** Otto, Carnot, and absorption cycles have been realized with single trapped ions (Roßnagel et al., *Science*, 2016), NV centers, superconducting qubits, and spin ensembles. Their efficiency is bounded by Carnot when the baths are thermal; apparent excesses reported for "squeezed" or coherent baths come from counting the non-thermal resource as free. Autonomous quantum absorption refrigerators and thermal machines are studied as benchmarks for heat management in quantum processors.
+
+## Other Regimes and Frontiers
+
+### Active matter
+
+Active systems (bacterial suspensions, self-propelled colloids, flocks, the cytoskeleton) consume energy at the level of each constituent and are permanently out of equilibrium. Characteristic effects:
+
+- **Motility-induced phase separation**: self-propelled particles with purely repulsive interactions separate into dense and dilute phases because they slow down where crowded.
+- **No equation of state for pressure**: the mechanical pressure on a wall can depend on the wall's details (Solon et al., *Nature Physics*, 2015), unlike equilibrium pressure.
+- **Broken fluctuation–dissipation**: effective temperatures inferred from different observables disagree; the degree of violation (Harada–Sasa relation) measures the dissipation rate.
+- Entropy production splits into a **housekeeping** part that maintains the steady state and an **excess** part associated with transitions between steady states.
+
+### Biological and chemical machines
+
+Molecular motors (kinesin, myosin), ion pumps, and the rotary ATP synthase operate in an overdamped, noisy environment, converting free energy from ATP hydrolysis ($\Delta G \approx -50$ kJ/mol under cellular conditions) into work, often with high efficiency at low speed. Stochastic thermodynamics provides the tools for their analysis: TURs bound their precision, and kinetic proofreading illustrates the trade-off between dissipation and accuracy in copying information (DNA replication, translation). England (2013) derived bounds relating the heat dissipated by self-replicators to their growth and decay rates. Living systems maintain low internal entropy by continuously exporting entropy to their environment.
+
+### Negative absolute temperature
+
+When a system's energy spectrum is bounded above, a population inversion gives $\partial S/\partial U < 0$ and hence $T < 0$. Such states are *hotter* than any positive temperature: in contact, heat flows from them to any positive-temperature system. They were first realized in nuclear spin systems (Purcell and Pound, 1951), and for motional degrees of freedom of ultracold atoms in optical lattices (Braun et al., *Science*, 2013). Whether a "Carnot efficiency above 1" follows is a matter of definition; it does not survive a careful accounting of the work needed to prepare and maintain the inverted state.
+
+### Black-hole thermodynamics
+
+Black holes obey laws formally identical to the four laws of thermodynamics, with surface gravity as temperature and horizon area as entropy. The Bekenstein–Hawking entropy and Hawking temperature of a Schwarzschild black hole are
+
+$$S_{BH} = \frac{k_B A}{4\ell_P^2}, \qquad T_H = \frac{\hbar c^3}{8\pi G M k_B}, \qquad \ell_P^2 = \frac{G\hbar}{c^3}.$$
+
+Entropy scaling with area rather than volume underlies the holographic principle. A black hole has negative heat capacity, so it heats as it radiates. See [Black Holes](relativity/black-holes.html) and [Quantum Gravity](relativity/quantum-gravity.html).
 
 ## Computational Methods
 
-### Monte Carlo Methods
+### Monte Carlo sampling
 
-Markov-chain Monte Carlo samples configurations with the Boltzmann weight $e^{-\beta H}$, making thermal averages computable without enumerating the exponentially many states. The Metropolis algorithm uses local single-spin updates; near criticality these suffer from *critical slowing down* (the autocorrelation time diverges as $\xi^z$), which cluster algorithms like Wolff's defeat by flipping correlated clusters in one move.
+Markov-chain Monte Carlo samples configurations with Boltzmann weight $e^{-\beta H}$, so thermal averages can be computed without enumerating states. The Metropolis algorithm accepts a proposed move with probability $\min(1, e^{-\beta\Delta E})$, which satisfies detailed balance. Near criticality local updates suffer **critical slowing down**: the autocorrelation time grows as $\tau \sim \xi^{z}$ with $z \approx 2$. Cluster algorithms (Swendsen–Wang, Wolff) flip correlated clusters in one move and reduce $z$ substantially for Ising and $O(n)$ models.
+
+The example simulates the 2D Ising model ($J = 1$, periodic boundaries) with a vectorized checkerboard Metropolis sweep and a Wolff cluster update. Sites of one checkerboard color share no bonds, so they can be updated simultaneously.
 
 ```python
-def metropolis_ising_2d(L, T, n_steps):
-    """Metropolis algorithm for 2D Ising model"""
-    # Initialize random spin configuration
-    spins = 2*np.random.randint(2, size=(L, L)) - 1
-    beta = 1.0/T
+import numpy as np
 
-    # Precompute Boltzmann factors
-    w = {}
-    for dE in [-8, -4, 0, 4, 8]:
-        w[dE] = np.exp(-beta * dE)
+rng = np.random.default_rng(0)
 
-    magnetization = []
-    energy = []
+def energy(s):
+    """Total energy of a periodic 2D Ising lattice, J = 1, h = 0."""
+    return -np.sum(s * (np.roll(s, 1, axis=0) + np.roll(s, 1, axis=1)))
 
-    for step in range(n_steps):
-        # Choose random spin
-        i = np.random.randint(L)
-        j = np.random.randint(L)
+def metropolis_sweep(s, beta):
+    """One checkerboard sweep: update all 'black' sites, then all 'white' sites."""
+    L = s.shape[0]
+    parity = np.add.outer(np.arange(L), np.arange(L)) % 2
+    for colour in (0, 1):
+        nn = (np.roll(s, 1, 0) + np.roll(s, -1, 0) +
+              np.roll(s, 1, 1) + np.roll(s, -1, 1))
+        dE = 2 * s * nn                                  # energy cost of flipping each spin
+        accept = rng.random(s.shape) < np.exp(-beta * dE)
+        s[accept & (parity == colour)] *= -1
+    return s
 
-        # Calculate energy change
-        s = spins[i, j]
-        neighbors = spins[(i+1)%L, j] + spins[i, (j+1)%L] + \
-                   spins[(i-1)%L, j] + spins[i, (j-1)%L]
-        dE = 2 * s * neighbors
-
-        # Metropolis acceptance
-        if dE <= 0 or np.random.random() < w[dE]:
-            spins[i, j] = -s
-
-        # Measure observables
-        if step % 10 == 0:
-            magnetization.append(np.mean(spins))
-            energy.append(calculate_energy(spins))
-
-    return magnetization, energy, spins
-
-def wolff_cluster_algorithm(spins, T):
-    """Wolff cluster algorithm for reduced critical slowing"""
-    L = len(spins)
-    p_add = 1 - np.exp(-2.0/T)
-
-    # Choose random spin
-    i0, j0 = np.random.randint(L, size=2)
-    cluster_spin = spins[i0, j0]
-
-    # Build cluster
-    cluster = {(i0, j0)}
-    boundary = {(i0, j0)}
-
-    while boundary:
-        i, j = boundary.pop()
-
-        # Check neighbors
-        for di, dj in [(1,0), (-1,0), (0,1), (0,-1)]:
-            ni, nj = (i+di)%L, (j+dj)%L
-
-            if (ni, nj) not in cluster and \
-               spins[ni, nj] == cluster_spin and \
-               np.random.random() < p_add:
+def wolff_step(s, beta):
+    """Flip one Wolff cluster; returns the cluster size."""
+    L = s.shape[0]
+    p_add = 1.0 - np.exp(-2.0 * beta)
+    i, j = rng.integers(L, size=2)
+    seed = s[i, j]
+    stack, cluster = [(i, j)], {(i, j)}
+    while stack:
+        i, j = stack.pop()
+        for ni, nj in (((i + 1) % L, j), ((i - 1) % L, j), (i, (j + 1) % L), (i, (j - 1) % L)):
+            if (ni, nj) not in cluster and s[ni, nj] == seed and rng.random() < p_add:
                 cluster.add((ni, nj))
-                boundary.add((ni, nj))
-
-    # Flip cluster
+                stack.append((ni, nj))
     for i, j in cluster:
-        spins[i, j] = -spins[i, j]
-
+        s[i, j] = -seed
     return len(cluster)
+
+L = 32
+T_c = 2.0 / np.log(1.0 + np.sqrt(2.0))                 # Onsager: 2.269...
+for T in (1.5, T_c, 3.5):
+    s = rng.choice([-1, 1], size=(L, L))
+    for _ in range(2000):
+        metropolis_sweep(s, 1.0 / T)
+    print(f"T = {T:.3f}  |m| = {abs(s.mean()):.3f}  E/N = {energy(s) / L**2:.3f}")
+
+s = np.ones((L, L), dtype=int)
+sizes = [wolff_step(s, 1.0 / T_c) for _ in range(200)]
+print(f"mean Wolff cluster size at T_c: {np.mean(sizes):.0f} spins")
 ```
 
-### Density Functional Theory
+A representative run shows the ordered phase ($\lvert m\rvert \approx 0.99$ at $T = 1.5$), the disordered phase ($\lvert m\rvert \approx 0$ at $T = 3.5$), and a finite-size magnetization near $T_c$; the Wolff clusters at $T_c$ span a large fraction of the lattice. Production studies add equilibration checks, autocorrelation analysis, and finite-size scaling across several $L$. For molecular dynamics, thermostats, and larger-scale methods see [Monte Carlo and Molecular Dynamics](computational-physics/monte-carlo-and-md.html).
 
-Classical density functional theory casts equilibrium as a variational problem for the one-body density $\rho(r)$, with the grand potential as the functional to minimize.
+### Free-energy calculation
 
-**Grand potential functional:**
-$$
-\Omega[\rho] = F[\rho] + \int dr\, \rho(r)\,[V_{\text{ext}}(r) - \mu]
-$$
+Free energies are not averages of a mechanical observable, so they need special estimators:
 
-**Euler–Lagrange equation** (stationarity of $\Omega$):
-$$
-\frac{\delta F}{\delta\rho(r)} + V_{\text{ext}}(r) = \mu
-$$
+| Method | Estimator | Notes |
+|--------|-----------|-------|
+| Free-energy perturbation (Zwanzig, 1954) | $\Delta F = -k_BT\ln\langle e^{-\beta\Delta U}\rangle_0$ | Requires overlap between end states; usually staged through intermediates |
+| Thermodynamic integration | $\Delta F = \int_0^1 \left\langle \partial U/\partial\lambda\right\rangle_\lambda d\lambda$ | Robust; many $\lambda$ windows |
+| Bennett acceptance ratio / MBAR (Shirts and Chodera, 2008) | Optimal combination of samples from all states | Statistically optimal; implemented in `pymbar` |
+| Umbrella sampling, metadynamics | Bias along a collective variable, then reweight | Free-energy profiles and barriers |
+| Nonequilibrium work (Jarzynski, Crooks) | Exponential or bidirectional work averages | Uses fast switching; bidirectional estimates are far better conditioned |
 
-**Mean-field approximation** splits $F$ into an ideal-gas entropy term plus a mean-field interaction:
-$$
-F[\rho] = k_B T \int dr\, \rho(r)\,[\ln(\rho(r)\Lambda^3) - 1] + \frac{1}{2} \iint dr\, dr'\, \rho(r)\rho(r')\,V(|r - r'|)
-$$
+These methods underpin binding-affinity prediction in drug discovery and phase-equilibrium calculations in materials science.
 
-DFT is the workhorse for inhomogeneous fluids — interfaces, wetting, adsorption, and confinement — where the density varies strongly in space.
+### Classical density functional theory
 
-## Modern Research Topics
+Classical DFT casts inhomogeneous equilibrium as minimization of a grand-potential functional of the one-body density $\rho(\mathbf{r})$:
 
-### Active Matter Thermodynamics
+$$\Omega[\rho] = \mathcal{F}[\rho] + \int d\mathbf{r}\,\rho(\mathbf{r})\left[V_{\text{ext}}(\mathbf{r}) - \mu\right], \qquad \frac{\delta\mathcal{F}}{\delta\rho(\mathbf{r})} + V_{\text{ext}}(\mathbf{r}) = \mu.$$
 
-Active systems (bacterial suspensions, self-propelled colloids, the cytoskeleton) consume energy locally and operate permanently out of equilibrium, breaking the usual thermodynamic relations.
+The intrinsic free energy splits into an exact ideal-gas part and an excess part that must be approximated:
 
-**Entropy production** splits into a maintenance ("housekeeping") part that sustains the non-equilibrium steady state and an excess part associated with relaxation:
-$$
-\Pi = \Pi_{\text{housekeeping}} + \Pi_{\text{excess}}.
-$$
+$$\mathcal{F}[\rho] = k_BT\int d\mathbf{r}\,\rho(\mathbf{r})\left[\ln\!\left(\rho(\mathbf{r})\Lambda^3\right) - 1\right] + \mathcal{F}_{\text{ex}}[\rho],$$
 
-**Pressure in active fluids** generally violates an equation of state — the mechanical pressure can depend on the details of the confining wall, unlike equilibrium pressure. **Effective temperatures** measured from different observables (diffusion vs. response) need not agree, signaling the breakdown of fluctuation–dissipation.
+where $\Lambda$ is the thermal de Broglie wavelength. Mean-field treatments of attractions combined with fundamental-measure theory (Rosenfeld, 1989) for hard-core repulsion give accurate results for interfaces, wetting, adsorption in pores, and confined fluids. Recent work trains neural-network approximations to $\mathcal{F}_{\text{ex}}$ directly from simulation data.
 
-### Stochastic Thermodynamics
+### Machine learning
 
-Stochastic thermodynamics extends heat, work, and entropy to *individual fluctuating trajectories* of small systems, where thermal noise is not negligible.
+Machine learning now appears throughout computational statistical physics:
 
-**Langevin equation** for an overdamped or underdamped particle in a potential $U$ coupled to a bath at temperature $T$:
-$$
-m\ddot{x} = -\gamma\dot{x} - \frac{\partial U}{\partial x} + \sqrt{2\gamma k_B T}\, \xi(t),
-$$
-with $\xi(t)$ unit white noise. Heat is identified with the work done by the friction and noise forces, and the fluctuation theorems above (Jarzynski, Crooks) are theorems about functionals of these trajectories.
+- **Phase classification.** Convolutional networks trained on raw spin configurations locate phase transitions without being given an order parameter (Carrasquilla and Melko, *Nature Physics*, 2017); unsupervised variants find order parameters from data.
+- **Generative samplers.** Normalizing flows and autoregressive networks give exact-likelihood samples that can be reweighted to the Boltzmann distribution: Boltzmann generators for molecular systems (Noé et al., *Science*, 2019) and variational autoregressive networks for lattice models (Wu, Wang, and Zhang, *Physical Review Letters*, 2019), which minimize a variational free energy directly. Diffusion-model samplers extend this approach.
+- **Machine-learned interatomic potentials** give near-quantum accuracy in molecular dynamics at a fraction of the cost, enabling free-energy and phase-diagram calculations for realistic materials.
 
-**Information thermodynamics:** feedback control converts information into work, formalizing Maxwell's demon and the Szilard engine. The generalized Second Law $\langle W_{\text{ext}}\rangle \le -\Delta F + k_B T\, I$ shows that the *mutual information* $I$ acquired by measurement is a genuine thermodynamic resource — and Landauer's principle (below) accounts for its eventual cost.
-
-### Quantum Thermodynamics
-
-Quantum thermodynamics asks how the laws change when the working medium is a quantum system with discrete levels and coherence.
-
-**Quantum work** is defined through a two-point energy measurement; for a driven Hamiltonian with eigenenergies $E_n(\lambda)$ and occupations $p_n(\lambda)$,
-$$
-W = \sum_n E_n(\lambda_f)\,[p_n(\lambda_f) - p_n(\lambda_i)].
-$$
-
-**Quantum heat engines** implement cycles such as the quantum Otto cycle with a few-level or harmonic working medium; coherence and degeneracy can shift performance relative to the classical bound.
-
-**Thermodynamic uncertainty relations** bound the precision of any current $J$ in a non-equilibrium steady state by the entropy production $\langle\Sigma\rangle$:
-$$
-\frac{(\Delta J)^2}{\langle J\rangle^2} \geq \frac{2 k_B}{\langle\Sigma\rangle}.
-$$
-More precision demands more dissipation — a sharp, universal trade-off with no classical-equilibrium analogue.
-
-### Machine Learning Applications
-
-Neural networks can classify phases directly from raw configurations, learning order parameters without being told what to look for.
-
-```python
-def build_phase_classifier():
-    model = tf.keras.Sequential([
-        tf.keras.layers.Conv2D(32, (3,3), activation='relu'),
-        tf.keras.layers.MaxPooling2D(2,2),
-        tf.keras.layers.Conv2D(64, (3,3), activation='relu'),
-        tf.keras.layers.Flatten(),
-        tf.keras.layers.Dense(128, activation='relu'),
-        tf.keras.layers.Dense(1, activation='sigmoid')
-    ])
-    return model
-```
-
-**Variational free-energy calculations** use neural-network ansätze for wavefunctions and density matrices, minimizing a variational free energy to study many-body and finite-temperature quantum systems.
-
-## Research Frontiers
-
-### Thermodynamics of Information
-
-**Landauer's principle:** erasing one bit of information in contact with a bath at temperature $T$ dissipates at least $k_B T \ln 2$ of heat. This places a fundamental thermodynamic cost on irreversible computation and closes the loop on Maxwell's demon: the demon must eventually erase its memory, paying back exactly the work it extracted.
-
-**Information engines** extract work by exploiting measured information; **quantum information thermodynamics** treats entanglement as a consumable resource for work extraction and refrigeration.
-
-### Extreme Conditions
-
-**Negative temperature systems:** when a system has a bounded energy spectrum and a population inversion, $\partial S/\partial U$ can be negative, giving a formally negative absolute temperature — *hotter* than any positive temperature, since energy flows from it to any ordinary system on contact.
-
-**Black hole thermodynamics:** a black hole behaves as a thermal object — it carries entropy proportional to its horizon *area* (not its volume) and radiates at a temperature inversely proportional to its mass:
-
-$$S_{BH} = \frac{k_B A}{4 \ell_P^2}, \qquad T_H = \frac{\hbar c^3}{8\pi G M k_B}.$$
-
-The area law underlies the holographic principle and remains a central clue in the search for quantum gravity.
-
-### Biological Systems
-
-**Efficiency of molecular motors:** kinesin, myosin, and ATP synthase often operate remarkably close to their thermodynamic limits, converting chemical free energy to mechanical work with high efficiency in a noisy, overdamped environment.
-
-**Thermodynamics of self-replication:** general bounds (England and others) relate the minimum heat dissipated during self-copying to the irreversibility of the process, connecting non-equilibrium thermodynamics to the physics of living matter.
-
-**Non-equilibrium steady states:** life is sustained by a continuous through-flow of energy and matter, maintaining a low-entropy state by exporting entropy to the environment — the organism is a paradigmatic dissipative structure.
-
-## Advanced Mathematical Methods
-
-### Jacobians and Thermodynamic Derivatives
-
-Jacobian algebra is the most systematic way to manipulate the dozens of partial derivatives that appear in thermodynamics, turning identities into routine determinant manipulations.
-
-**Jacobian notation:**
-$$
-\frac{\partial(u,v)}{\partial(x,y)} = \begin{vmatrix} \dfrac{\partial u}{\partial x} & \dfrac{\partial u}{\partial y} \\[1ex] \dfrac{\partial v}{\partial x} & \dfrac{\partial v}{\partial y} \end{vmatrix}
-$$
-
-**Chain rule** (composition of Jacobians):
-$$
-\frac{\partial(u,v)}{\partial(x,y)} = \frac{\partial(u,v)}{\partial(s,t)} \cdot \frac{\partial(s,t)}{\partial(x,y)}
-$$
-
-**Thermodynamic identities** become transparent — for instance a partial derivative at fixed entropy is just a ratio of Jacobians:
-$$
-\left(\frac{\partial T}{\partial P}\right)_S = \frac{\partial(T,S)}{\partial(P,S)}.
-$$
-The antisymmetry $\partial(u,v)/\partial(x,y) = -\partial(v,u)/\partial(x,y)$ and the invariance $\partial(T,S)/\partial(P,V) = 1$ (from the area-preserving structure of reversible cycles) reproduce the Maxwell relations mechanically.
-
-### Stability Conditions
-
-Equilibrium must be a *minimum* of the relevant potential, not merely a stationary point. Local stability requires that the second-order response functions be positive:
-
-1. $C_V > 0$ — **thermal stability**: adding heat raises the temperature.
-2. $\kappa_T > 0$ — **mechanical stability**: compressing raises the pressure.
-3. $(\partial \mu / \partial N)_{T,V} > 0$ — **diffusive stability**: adding particles raises the chemical potential.
-
-These follow from the **convexity/concavity of the potentials**:
-
-- $S(U,V,N)$ is **concave** in its arguments.
-- $U(S,V,N)$ is **convex** in its arguments.
-- $F(T,V,N)$ is **convex** in $V$ (and concave in $T$).
-- $G(T,P,N)$ is concave in $T$ and $P$.
-
-When these conditions fail — for example when $\kappa_T < 0$ on a van der Waals loop — the homogeneous state is unstable and the system phase-separates, the Maxwell equal-area construction restoring a convex free energy.
+See [Machine Learning for Physics](computational-physics/ml-for-physics.html).
 
 ## References and Further Reading
 
-### Graduate Textbooks
-1. **Callen** — *Thermodynamics and an Introduction to Thermostatistics*
-2. **Reichl** — *A Modern Course in Statistical Physics*
-3. **Chandler** — *Introduction to Modern Statistical Mechanics*
-4. **Kardar** — *Statistical Physics of Particles* and *Statistical Physics of Fields*
+### Textbooks
 
-### Research Monographs
-1. **Goldenfeld** — *Lectures on Phase Transitions and the Renormalization Group*
-2. **Chaikin & Lubensky** — *Principles of Condensed Matter Physics*
-3. **Seifert** — *Stochastic Thermodynamics* (Rep. Prog. Phys. 2012)
-4. **Jarzynski** — *Nonequilibrium Work Relations* (C. R. Physique 2007)
+- H. B. Callen, *Thermodynamics and an Introduction to Thermostatistics*, 2nd ed. (Wiley, 1985) — the postulational approach used above.
+- L. E. Reichl, *A Modern Course in Statistical Physics*, 4th ed. (Wiley, 2016).
+- D. Chandler, *Introduction to Modern Statistical Mechanics* (Oxford, 1987).
+- M. Kardar, *Statistical Physics of Particles* and *Statistical Physics of Fields* (Cambridge, 2007).
+- N. Goldenfeld, *Lectures on Phase Transitions and the Renormalization Group* (Addison-Wesley, 1992).
+- P. M. Chaikin and T. C. Lubensky, *Principles of Condensed Matter Physics* (Cambridge, 1995).
+- S. R. de Groot and P. Mazur, *Non-Equilibrium Thermodynamics* (Dover reprint).
 
-### Recent Reviews
-1. **Active Matter:** Marchetti et al., Rev. Mod. Phys. 85, 1143 (2013)
-2. **Fluctuation Theorems:** Sevick et al., Annu. Rev. Phys. Chem. 59, 603 (2008)
-3. **Quantum Thermodynamics:** Vinjanampathy & Anders, Contemp. Phys. 57, 545 (2016)
-4. **Information Thermodynamics:** Parrondo et al., Nat. Phys. 11, 131 (2015)
+### Reviews
 
-### Computational Resources
-1. **LAMMPS:** Large-scale MD simulations
-2. **Monte Carlo codes:** ALPS, SpinMC
-3. **Phase diagram software:** CALPHAD, Thermo-Calc
-4. **Python libraries:** pyro, emcee, thermopy
+- U. Seifert, "Stochastic thermodynamics, fluctuation theorems and molecular machines," *Rep. Prog. Phys.* 75, 126001 (2012).
+- C. Jarzynski, "Nonequilibrium work relations: foundations and applications," *Eur. Phys. J. B* 64, 331 (2008).
+- J. M. R. Parrondo, J. M. Horowitz, and T. Sagawa, "Thermodynamics of information," *Nat. Phys.* 11, 131 (2015).
+- J. M. Horowitz and T. R. Gingrich, "Thermodynamic uncertainty relations constrain non-equilibrium fluctuations," *Nat. Phys.* 16, 15 (2020).
+- S. Vinjanampathy and J. Anders, "Quantum thermodynamics," *Contemp. Phys.* 57, 545 (2016).
+- M. C. Marchetti et al., "Hydrodynamics of soft active matter," *Rev. Mod. Phys.* 85, 1143 (2013).
+- D. Poland, S. Rychkov, and A. Vichi, "The conformal bootstrap: theory, numerical techniques, and applications," *Rev. Mod. Phys.* 91, 015002 (2019).
+
+### Software
+
+| Tool | Use |
+|------|-----|
+| LAMMPS, GROMACS, OpenMM | Molecular dynamics, including free-energy methods |
+| pymbar | MBAR and related free-energy estimators |
+| ALPS (ALPSCore) | Lattice Monte Carlo and related methods for quantum and classical spin models |
+| Thermo-Calc, pycalphad | CALPHAD phase-diagram modelling |
+| CoolProp, thermo, Cantera | Fluid properties, chemical equilibrium, and reacting-flow thermodynamics |
 
 ## See Also
 
-- [Thermodynamics](./thermodynamics.html) — the foundational laws, processes, potentials, and engine cycles this page builds on.
-- [Statistical Mechanics](statistical-mechanics/) — the microscopic foundation that *derives* thermodynamics from counting microstates.
-- [Condensed Matter Physics](condensed-matter/) — phase transitions, criticality, and the renormalization group in real materials.
-- [Quantum Mechanics](quantum-mechanics/) — quantized energy levels underlying quantum statistical and quantum thermodynamics.
-- [Relativity](relativity/) — black-hole thermodynamics and the Bekenstein-Hawking entropy.
-- [Computational Physics](computational-physics/) — Monte Carlo and molecular dynamics for thermal systems.
+- [Thermodynamics](./thermodynamics.html) — the laws, processes, potentials, and cycles this page builds on.
+- [Statistical Mechanics](statistical-mechanics/) — the microscopic foundation of the ensembles used here.
+- [Phase Transitions and Advanced Statistical Mechanics](statistical-mechanics/phase-transitions-and-advanced.html) — Ising model solutions, mean-field theory, and critical phenomena in more depth.
+- [Renormalization](renormalization.html) — the renormalization group from the quantum-field-theory side.
+- [Condensed Matter Physics](condensed-matter/) — phase transitions, criticality, and emergent order in materials.
+- [Black Holes](relativity/black-holes.html) — Hawking radiation and black-hole entropy.
+- [Computational Physics](computational-physics/) — Monte Carlo, molecular dynamics, and machine learning for thermal systems.

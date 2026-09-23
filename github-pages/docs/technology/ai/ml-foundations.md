@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "AI: Machine Learning Foundations"
+description: "Statistical learning theory, optimization, regularization, kernel methods, Gaussian processes, and variational inference: the classical foundations under modern machine learning."
 permalink: /docs/technology/ai/ml-foundations.html
 toc: true
 toc_sticky: true
@@ -8,354 +9,418 @@ toc_sticky: true
 
 [AI & Machine Learning](./) › Machine Learning Foundations
 
-Before you stack a hundred layers and call it deep learning, it pays to understand *why* learning from finite data is possible at all, *how* we actually find good parameters, and *what* classical tools (kernels, Gaussian processes, variational inference) reveal about modern models. This page builds those foundations gradually—from intuitive concepts to the formal results—then hands off to [Neural Network Architectures](architectures.html), which assumes all of it.
+This page covers the ideas that every later model depends on. It explains why a model fitted to finite data can generalize (statistical learning theory), how parameters are found in practice (optimization and regularization), and what three classical frameworks reveal about modern systems: kernel methods, Gaussian processes, and variational inference. The treatment is precise but proof-light. Formal statements and proofs are in [AI Mathematics](../../advanced/ai-mathematics/), and the standard algorithms (linear models, trees, boosting, SVMs, clustering) are on [Core ML Algorithms](core-ml-algorithms.html).
 
-## Building the Foundation: How Machines Learn
+## The Learning Problem
 
-Let's explore the mathematical principles that make these systems work. Don't worry—we'll build up gradually from intuitive concepts to more advanced ideas.
+### Risk and Empirical Risk Minimization
 
-### Statistical Learning Theory
+Supervised learning assumes that training pairs $(x_i, y_i)$ are drawn independently from a fixed but unknown distribution $\mathcal{D}$ over $\mathcal{X} \times \mathcal{Y}$. An algorithm chooses a hypothesis $h$ from a **hypothesis class** $\mathcal{H}$ and is judged by a loss $\ell(h(x), y)$. The goal is to minimize the **true (population) risk**
 
-At its heart, machine learning is about finding patterns in data. Statistical learning theory gives us the mathematical tools to understand when and why our learning algorithms will work. Think of it as the "physics" of machine learning—fundamental laws that govern what's possible.
+$$R(h) = \mathbb{E}_{(x,y) \sim \mathcal{D}}\big[\ell(h(x), y)\big],$$
 
-**Core Concepts:**
-
-- **Generalization**: How well a model performs on new, unseen data
-- **Overfitting vs Underfitting**: Balancing model complexity with performance
-- **Bias-Variance Tradeoff**: The fundamental tension in model selection
-- **Cross-Validation**: Techniques to evaluate model performance reliably
-
-#### The Learning Setup
-
-We assume training examples $(x_i, y_i)$ are drawn independently from a fixed but unknown distribution $\mathcal{D}$ over $\mathcal{X} \times \mathcal{Y}$. A learning algorithm picks a hypothesis $h$ from a hypothesis class $\mathcal{H}$ to minimize a loss $\ell(h(x), y)$. We care about the **true (population) risk**
-
-$$R(h) = \mathbb{E}_{(x,y) \sim \mathcal{D}}\big[\ell(h(x), y)\big]$$
-
-but we can only measure the **empirical risk** on our $n$ samples,
+but only the **empirical risk** on the $n$ observed samples can be computed:
 
 $$\hat{R}_n(h) = \frac{1}{n}\sum_{i=1}^{n} \ell(h(x_i), y_i).$$
 
-The entire game of generalization is about controlling the gap $R(h) - \hat{R}_n(h)$. Minimizing $\hat{R}_n$ is called **empirical risk minimization (ERM)**; it only works if that gap is provably small uniformly over the class $\mathcal{H}$.
+Choosing $\hat{h} = \arg\min_{h \in \mathcal{H}} \hat{R}_n(h)$ is **empirical risk minimization (ERM)**. ERM is justified only when the **generalization gap** $R(h) - \hat{R}_n(h)$ is small, and small uniformly over $\mathcal{H}$, since the minimizer is chosen after looking at the data.
 
-#### Bias–Variance Decomposition
+### Where Error Comes From
 
-For squared-error regression with target $y = f(x) + \varepsilon$ where $\mathbb{E}[\varepsilon] = 0$ and $\operatorname{Var}(\varepsilon) = \sigma^2$, the expected error of a learned predictor $\hat{f}$ at a point $x$ decomposes exactly:
+The excess risk of a trained model over the best achievable (Bayes) risk $R^\star$ splits into three parts (Bottou and Bousquet, 2008). Each has its own remedy.
 
-$$\mathbb{E}\big[(y - \hat{f}(x))^2\big] = \underbrace{\big(f(x) - \mathbb{E}[\hat{f}(x)]\big)^2}_{\text{bias}^2} + \underbrace{\mathbb{E}\big[(\hat{f}(x) - \mathbb{E}[\hat{f}(x)])^2\big]}_{\text{variance}} + \underbrace{\sigma^2}_{\text{irreducible}}$$
+```mermaid
+flowchart LR
+    B["Bayes-optimal predictor<br/>risk R*"] -->|"approximation error<br/>(class H too small)"| H["Best model in H<br/>risk R(h*)"]
+    H -->|"estimation error<br/>(finite data)"| E["Exact ERM solution<br/>risk R(h_n)"]
+    E -->|"optimization error<br/>(training stopped early,<br/>non-convexity)"| T["Model actually returned<br/>risk R(h_trained)"]
+```
 
-The expectations are taken over random draws of the training set. This is the **fundamental tension**:
+| Component | Cause | Reduced by |
+|-----------|-------|------------|
+| Approximation error | $\mathcal{H}$ cannot express the target | Richer model class, better features |
+| Estimation error | Only $n$ samples observed | More data, regularization, smaller effective capacity |
+| Optimization error | The optimizer does not find the ERM solution | More compute, better optimizers, better conditioning |
 
-- **High bias** (too simple a model) systematically misses the true function — underfitting.
-- **High variance** (too flexible a model) chases noise in the particular training sample — overfitting.
-- The **irreducible** term $\sigma^2$ is the noise floor; no model can beat it.
+Classical theory concentrates on the first two, which trade off against each other. Large-scale deep learning is often limited by the third: a fixed compute budget means that training on more data for fewer passes can beat fitting a smaller dataset exactly.
 
-Increasing model complexity lowers bias but raises variance. The sweet spot minimizes their sum. (Modern overparameterized networks complicate this classic U-curve with "double descent," where test error falls again past the interpolation threshold — but the decomposition itself still holds.)
+### Bias–Variance Decomposition
 
-#### Generalization Bounds: VC Dimension and Rademacher Complexity
+For squared-error regression with $y = f(x) + \varepsilon$, $\mathbb{E}[\varepsilon] = 0$ and $\operatorname{Var}(\varepsilon) = \sigma^2$, the expected error of a learned predictor $\hat{f}$ at a point $x$ decomposes exactly. The expectation is over random draws of the training set and the noise:
 
-Why should a model that fits the training data also work on new data? The answer is **uniform convergence**: if the hypothesis class is not too rich, then $\hat{R}_n(h)$ is close to $R(h)$ for *every* $h \in \mathcal{H}$ simultaneously, so minimizing the empirical risk is safe.
+$$\mathbb{E}\big[(y - \hat{f}(x))^2\big] = \underbrace{\big(f(x) - \mathbb{E}[\hat{f}(x)]\big)^2}_{\text{bias}^2} + \underbrace{\mathbb{E}\big[(\hat{f}(x) - \mathbb{E}[\hat{f}(x)])^2\big]}_{\text{variance}} + \underbrace{\sigma^2}_{\text{irreducible noise}}$$
 
-**VC dimension** measures the capacity of a binary hypothesis class. The VC dimension of $\mathcal{H}$ is the size $d_{VC}$ of the largest set of points that $\mathcal{H}$ can **shatter** — label in all $2^{d_{VC}}$ possible ways. (A linear classifier in $\mathbb{R}^d$ has $d_{VC} = d + 1$.) The classic VC bound says that with probability at least $1 - \delta$, for all $h \in \mathcal{H}$,
+- **Bias** is systematic error from a model too simple to represent $f$ (underfitting).
+- **Variance** is sensitivity to the particular training sample (overfitting).
+- **Irreducible noise** $\sigma^2$ is a floor that no model can go below.
 
-$$R(h) \le \hat{R}_n(h) + \sqrt{\frac{d_{VC}\big(\ln(2n/d_{VC}) + 1\big) + \ln(4/\delta)}{n}}.$$
+In the classical picture, raising capacity lowers bias and raises variance, which gives a U-shaped test-error curve with an optimum in between.
 
-The gap shrinks like $\sqrt{d_{VC}/n}$: more capacity needs proportionally more data. This is exactly the `vc_dimension_bound` used in the worked example below.
+### Double Descent and Benign Overfitting
 
-**Rademacher complexity** is a sharper, data-dependent capacity measure. Given samples $x_1, \dots, x_n$ and i.i.d. signs $\sigma_i \in \{-1, +1\}$ (Rademacher variables), the empirical Rademacher complexity of a real-valued class $\mathcal{F}$ is
+Modern overparameterized models do not follow the U-curve. As capacity grows past the **interpolation threshold**, the point where the model can fit the training set exactly, test error peaks and then falls again, often below the classical optimum. This **double descent** was described by Belkin et al. (2019) and shown for deep networks, both as a function of model size and of training epochs, by Nakkiran et al. (2019).
 
-$$\hat{\mathfrak{R}}_n(\mathcal{F}) = \mathbb{E}_{\sigma}\left[\sup_{f \in \mathcal{F}} \frac{1}{n}\sum_{i=1}^{n} \sigma_i\, f(x_i)\right].$$
+<figure>
+<svg viewBox="0 0 520 250" role="img" aria-labelledby="dd-title" style="max-width:100%;height:auto;background:transparent;color:currentColor">
+  <title id="dd-title">Double descent: test error against model capacity, peaking at the interpolation threshold</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.5">
+    <line x1="50" y1="210" x2="500" y2="210"/>
+    <line x1="50" y1="210" x2="50" y2="20"/>
+  </g>
+  <line x1="250" y1="25" x2="250" y2="210" stroke="currentColor" stroke-width="1" stroke-dasharray="5 4" opacity="0.6"/>
+  <path d="M60,190 C110,195 170,200 250,202 C320,204 420,205 495,206" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 3" opacity="0.8"/>
+  <path d="M60,120 C95,85 125,80 150,95 C190,118 225,40 250,40 C275,40 300,120 340,145 C390,172 440,178 495,180" fill="none" stroke="currentColor" stroke-width="2.5"/>
+  <g font-size="12" fill="currentColor" font-family="sans-serif">
+    <text x="275" y="235" text-anchor="middle">model capacity (parameters, or epochs)</text>
+    <text x="18" y="115" transform="rotate(-90 18 115)" text-anchor="middle">error</text>
+    <text x="256" y="32">interpolation threshold</text>
+    <text x="85" y="72">classical regime</text>
+    <text x="360" y="128">overparameterized regime</text>
+    <text x="400" y="170">test error</text>
+    <text x="400" y="200">training error</text>
+  </g>
+</svg>
+<figcaption>Schematic double-descent curve. Test error (solid) follows the classical U-shape, spikes where the model can just interpolate the training data, then falls again as capacity keeps growing. Training error (dotted) goes to zero.</figcaption>
+</figure>
 
-It measures how well the class can correlate with pure random noise — a class that can fit any labeling has high complexity. The corresponding bound is, with probability $\ge 1 - \delta$,
+The bias–variance identity still holds. What changes is that among the many interpolating solutions, gradient descent is implicitly biased toward low-norm, smooth ones, and extra parameters let it find smoother interpolants. When the noise is absorbed in many directions that barely affect predictions, fitting noisy labels exactly does little harm (**benign overfitting**). Regularization and early stopping reduce the peak. The theory is covered in [AI Mathematics: double descent](../../advanced/ai-mathematics/#double-descent-and-benign-overfitting) and [Deep Learning Theory](deep-learning-theory.html).
 
-$$R(h) \le \hat{R}_n(h) + 2\,\hat{\mathfrak{R}}_n(\mathcal{F}) + 3\sqrt{\frac{\ln(2/\delta)}{2n}}.$$
+## Generalization Theory
 
-Rademacher complexity is more refined than VC because it depends on the actual data distribution and applies to real-valued classes (e.g., margin-based bounds for SVMs and neural nets).
+Generalization bounds make "not too much capacity" precise. They all follow one pattern: with probability at least $1 - \delta$ over the draw of the sample, for every $h \in \mathcal{H}$,
 
-**PAC learning sketch.** The *Probably Approximately Correct* framework formalizes "learnable." A class $\mathcal{H}$ is PAC-learnable if there is an algorithm that, for any $\varepsilon, \delta \in (0,1)$, returns with probability $\ge 1 - \delta$ a hypothesis with risk $\le \varepsilon$, using a sample size **polynomial** in $1/\varepsilon$, $1/\delta$, and the relevant capacity. For a *finite* hypothesis class the argument is a one-line union bound: a single bad hypothesis with true error $> \varepsilon$ survives $n$ samples with probability $\le (1-\varepsilon)^n \le e^{-\varepsilon n}$, so union-bounding over $|\mathcal{H}|$ candidates,
+$$R(h) \le \hat{R}_n(h) + \text{(capacity term shrinking with } n\text{)}.$$
+
+This is **uniform convergence**. If it holds, minimizing training error is safe.
+
+### PAC Learning
+
+The *Probably Approximately Correct* framework defines learnability. A class $\mathcal{H}$ is PAC-learnable if some algorithm, for any $\varepsilon, \delta \in (0,1)$, returns with probability at least $1 - \delta$ a hypothesis with risk at most $\varepsilon$, using a number of samples polynomial in $1/\varepsilon$ and $1/\delta$. For a **finite** class in the realizable case, a union bound is enough. A hypothesis with true error above $\varepsilon$ survives $n$ independent samples with probability at most $(1-\varepsilon)^n \le e^{-\varepsilon n}$. Summing over $|\mathcal{H}|$ candidates shows that
 
 $$n \ge \frac{1}{\varepsilon}\left(\ln|\mathcal{H}| + \ln\frac{1}{\delta}\right)$$
 
-samples suffice to drive the probability of *any* consistent-but-bad hypothesis below $\delta$. For infinite classes, $\ln|\mathcal{H}|$ is replaced by the VC dimension (the "fundamental theorem of statistical learning": finite VC dimension $\iff$ PAC-learnable).
+samples make it unlikely (probability below $\delta$) that any hypothesis that fits the training data perfectly still has error above $\varepsilon$.
 
-#### Cross-Validation
+### VC Dimension
 
-Bounds tell us what is *possible*; cross-validation tells us what is *happening* on our data. **k-fold cross-validation** splits the data into $k$ folds, trains on $k-1$ of them, validates on the held-out fold, and averages over all $k$ choices. It gives a nearly unbiased estimate of out-of-sample risk while using every example for both training and validation. Leave-one-out ($k = n$) is the extreme low-bias, high-variance end; $k = 5$ or $10$ is the usual practical compromise.
+For infinite binary classes, $\ln|\mathcal{H}|$ is replaced by the **VC dimension** $d_{VC}$, the size of the largest point set that $\mathcal{H}$ can **shatter** (label in all $2^{d_{VC}}$ ways). Linear classifiers in $\mathbb{R}^d$ have $d_{VC} = d + 1$. One standard form of the VC bound is
 
-<div class="advanced-note">
-  <i class="fas fa-graduation-cap"></i>
-  <p><strong>Looking for rigorous mathematical proofs?</strong> See our <a href="/docs/advanced/ai-mathematics/#statistical-learning-theory">Advanced AI Mathematics</a> page for PAC learning, VC dimension theory, and formal generalization bounds.</p>
-</div>
+$$R(h) \le \hat{R}_n(h) + \sqrt{\frac{d_{VC}\big(\ln(2n/d_{VC}) + 1\big) + \ln(4/\delta)}{n}}.$$
 
-### Optimization: Finding the Best Parameters
+The gap shrinks like $\sqrt{d_{VC}/n}$, so more capacity needs proportionally more data. The **fundamental theorem of statistical learning** says that a binary class is PAC-learnable if and only if its VC dimension is finite.
 
-Learning theory says a good hypothesis *exists* in the class; optimization is how we actually *find* it by minimizing the empirical risk.
+### Rademacher Complexity
 
-**Practical Optimization Techniques:**
-- **Gradient Descent**: The workhorse of machine learning optimization
-- **Stochastic Methods**: How to learn from large datasets efficiently
-- **Momentum and Acceleration**: Making optimization faster and more stable
+**Rademacher complexity** is a sharper capacity measure that depends on the data. Given samples $x_1, \dots, x_n$ and independent random signs $\sigma_i \in \{-1, +1\}$, the empirical Rademacher complexity of a real-valued class $\mathcal{F}$ is
 
-At the heart of training is a simple update rule: nudge each parameter $\theta$ a small step in the
-direction that most reduces the loss $\mathcal{L}$, scaled by the learning rate $\eta$:
+$$\hat{\mathfrak{R}}_n(\mathcal{F}) = \mathbb{E}_{\sigma}\left[\sup_{f \in \mathcal{F}} \frac{1}{n}\sum_{i=1}^{n} \sigma_i\, f(x_i)\right],$$
 
-$$\theta_{t+1} = \theta_t - \eta\,\nabla_\theta \mathcal{L}(\theta_t)$$
+which measures how well the class can correlate with random noise. For losses bounded in $[0, 1]$, with probability at least $1 - \delta$,
 
-Stochastic gradient descent (SGD) estimates $\nabla_\theta \mathcal{L}$ from a small mini-batch
-rather than the full dataset, trading a noisier gradient for vastly faster iterations. Optimizers
-like Adam adapt $\eta$ per parameter using running estimates of the gradient's mean and variance.
+$$R(h) \le \hat{R}_n(h) + 2\,\hat{\mathfrak{R}}_n(\mathcal{F}) + 3\sqrt{\frac{\ln(2/\delta)}{2n}}.$$
 
-#### Convexity: When Optimization Is Easy
+Here $\mathcal{F}$ is the loss class induced by $\mathcal{H}$. Because it adapts to the data distribution and handles real-valued outputs, Rademacher complexity gives the margin-based bounds used for SVMs and norm-based bounds for neural networks.
 
-A function $f$ is **convex** if its graph lies below every chord:
+### Comparing Capacity Measures
 
-$$f\big(\lambda x + (1-\lambda) y\big) \le \lambda f(x) + (1-\lambda) f(y), \quad \lambda \in [0,1].$$
+| Measure | Depends on data? | Typical use | Limitation |
+|---------|------------------|-------------|------------|
+| $\ln\lvert\mathcal{H}\rvert$ | No | Finite classes, rule learning | Useless for continuous parameters |
+| VC dimension | No | Binary classifiers, PAC theory | Worst-case; vacuous for large networks |
+| Rademacher complexity | Yes | Margin bounds, kernel methods | Hard to compute exactly for deep nets |
+| PAC-Bayes | Yes (via a posterior) | Stochastic or flat-minimum networks | Needs a prior and posterior over weights |
 
-Convexity is the property that makes optimization tractable: for a convex function, **every local minimum is a global minimum**, and a zero gradient certifies optimality. A twice-differentiable $f$ is convex iff its Hessian is positive semidefinite, $\nabla^2 f \succeq 0$. Linear regression (squared loss), logistic regression, and the SVM hinge loss all give convex objectives — which is why these classical methods are reliable. Deep networks are *non-convex*, riddled with saddle points; the surprise of deep learning is that gradient methods work well anyway (see the optimization-landscape discussion in [Neural Network Architectures](architectures.html)).
+Parameter-counting bounds are **vacuous** for modern networks: a network with more parameters than training points can fit random labels (Zhang et al., 2017), yet it generalizes on real labels. Explaining this requires norm-based, compression, or PAC-Bayes arguments, covered in [AI Mathematics](../../advanced/ai-mathematics/#statistical-learning-theory).
 
-For a convex $f$ with $L$-Lipschitz gradient (smoothness), gradient descent with step size $\eta = 1/L$ converges at rate $f(\theta_t) - f^\star = O(1/t)$; adding **strong convexity** (Hessian $\succeq \mu I$) upgrades this to a linear (geometric) rate $O\big((1 - \mu/L)^t\big)$.
+## Model Selection and Validation
 
-#### Stochastic Gradient Descent
+Bounds say what is possible. Held-out evaluation measures what is happening on a given dataset.
 
-Computing the full-batch gradient over millions of examples each step is wasteful. SGD replaces $\nabla \mathcal{L}$ with an unbiased estimate $\nabla \mathcal{L}_{B}$ from a mini-batch $B$:
+| Protocol | How it works | When to use |
+|----------|--------------|-------------|
+| Train / validation / test split | Fit on train, tune on validation, report once on test | Large datasets, deep learning |
+| $k$-fold cross-validation | Rotate each of $k$ folds as the validation set and average | Small and medium tabular data; $k = 5$ or $10$ is standard |
+| Leave-one-out | $k = n$ | Very small data; nearly unbiased but high variance and expensive |
+| Stratified $k$-fold | Folds keep class proportions | Imbalanced classification |
+| Grouped $k$-fold | All samples from one group (patient, user) stay in the same fold | Correlated samples |
+| Time-series split | Train on the past, validate on the future, in expanding windows | Temporal data; random shuffling leaks the future |
+| Nested cross-validation | Inner loop tunes hyperparameters, outer loop estimates error | Unbiased error estimate when tuning on small data |
 
-$$\theta_{t+1} = \theta_t - \eta_t\, \nabla_\theta \mathcal{L}_{B_t}(\theta_t), \qquad \mathbb{E}[\nabla \mathcal{L}_{B}] = \nabla \mathcal{L}.$$
+**Data leakage** is the most common way validation goes wrong. It happens whenever information from validation or test data reaches training, for example by fitting a scaler or feature selector on the full dataset, putting near-duplicate samples in different folds, or tuning repeatedly against the test set. Fitting all preprocessing inside the cross-validation loop, for instance with a scikit-learn `Pipeline`, prevents the first case:
 
-The gradient noise has two faces. It slows asymptotic convergence (in convex problems SGD with a decaying schedule $\sum \eta_t = \infty$, $\sum \eta_t^2 < \infty$ achieves $O(1/\sqrt{t})$ rather than $O(1/t)$), but it also acts as an implicit regularizer that helps escape saddle points and biases the iterate toward flat minima that generalize better.
+```python
+from sklearn.datasets import load_breast_cancer
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_val_score
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
-**Momentum** accumulates an exponentially decaying average of past gradients to dampen oscillation across steep, narrow valleys and accelerate along consistent directions:
+X, y = load_breast_cancer(return_X_y=True)
+
+# The scaler is refit on each training fold, so no statistics leak from validation folds.
+pipe = make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000))
+param_grid = {"logisticregression__C": [0.01, 0.1, 1, 10]}
+
+inner = StratifiedKFold(n_splits=5, shuffle=True, random_state=0)
+outer = StratifiedKFold(n_splits=5, shuffle=True, random_state=1)
+
+# Nested CV: GridSearchCV tunes C on inner folds; cross_val_score estimates error on outer folds.
+search = GridSearchCV(pipe, param_grid, cv=inner)
+scores = cross_val_score(search, X, y, cv=outer)
+print(f"accuracy: {scores.mean():.3f} +/- {scores.std():.3f}")
+```
+
+## Optimization
+
+Learning theory says a good hypothesis exists in the class. Optimization finds it by minimizing the (regularized) empirical risk $\mathcal{L}(\theta)$.
+
+### Gradient Descent and Convexity
+
+The basic update moves the parameters against the gradient with learning rate $\eta$:
+
+$$\theta_{t+1} = \theta_t - \eta\,\nabla_\theta \mathcal{L}(\theta_t).$$
+
+A function is **convex** if its graph lies below every chord:
+
+$$f\big(\lambda x + (1-\lambda) y\big) \le \lambda f(x) + (1-\lambda) f(y), \qquad \lambda \in [0,1].$$
+
+For convex functions every local minimum is global, and a zero gradient proves optimality. A twice-differentiable $f$ is convex if and only if its Hessian is positive semidefinite, $\nabla^2 f \succeq 0$. Least squares, logistic regression, and the SVM hinge loss are convex, which is why those methods train reliably. Deep networks are non-convex and full of saddle points, yet gradient methods still work well on them. [Deep Learning Theory](deep-learning-theory.html#the-optimization-landscape) discusses why.
+
+Convergence rates depend on the problem class. Here $L$ is the smoothness constant (Lipschitz constant of the gradient) and $\mu$ is the strong-convexity constant:
+
+| Setting | Method | Rate on $f(\theta_t) - f^\star$ |
+|---------|--------|----------------------------------|
+| Convex, $L$-smooth | Gradient descent, $\eta = 1/L$ | $O(1/t)$ |
+| Convex, $L$-smooth | Nesterov accelerated gradient | $O(1/t^2)$, optimal for first-order methods |
+| $\mu$-strongly convex, $L$-smooth | Gradient descent | $O\big((1 - \mu/L)^t\big)$, linear |
+| Convex, stochastic gradients | SGD with decaying $\eta_t$ | $O(1/\sqrt{t})$ |
+
+The ratio $\kappa = L/\mu$ is the **condition number**. Ill-conditioned problems, with long narrow valleys, converge slowly, and much of optimizer design (momentum, adaptive scaling, normalization layers, preconditioning) is about working around poor conditioning.
+
+### Stochastic Gradient Descent and Momentum
+
+Computing the full gradient over millions of examples at every step is wasteful. **SGD** uses an unbiased estimate from a mini-batch $B_t$:
+
+$$\theta_{t+1} = \theta_t - \eta_t\, \nabla_\theta \mathcal{L}_{B_t}(\theta_t), \qquad \mathbb{E}\big[\nabla \mathcal{L}_{B}\big] = \nabla \mathcal{L}.$$
+
+Gradient noise slows asymptotic convergence, but it also helps escape saddle points and biases training toward flatter minima, which tend to generalize better. The noise scale grows with $\eta / |B|$. This is why the learning rate is usually scaled up with batch size, roughly linearly for SGD, up to a critical batch size beyond which larger batches stop helping.
+
+**Momentum** keeps an exponentially decaying average of past gradients. It damps oscillation across steep directions and speeds progress along consistent ones:
 
 $$v_{t+1} = \beta\, v_t + \nabla_\theta \mathcal{L}(\theta_t), \qquad \theta_{t+1} = \theta_t - \eta\, v_{t+1}.$$
 
-Nesterov's accelerated gradient evaluates the gradient at the *look-ahead* point $\theta_t - \eta\beta v_t$, achieving the optimal $O(1/t^2)$ rate for smooth convex problems.
+**Nesterov momentum** evaluates the gradient at the look-ahead point $\theta_t - \eta\beta v_t$, which gives the accelerated rate in the table above.
 
-#### Adam and Adaptive Methods
+### Adam and AdamW
 
-**Adam** (Adaptive Moment Estimation) maintains running estimates of both the first moment (mean) $m_t$ and second moment (uncentered variance) $v_t$ of the gradient $g_t = \nabla_\theta \mathcal{L}(\theta_t)$:
+**Adam** keeps running estimates of the first moment $m_t$ and the uncentered second moment $v_t$ of the gradient $g_t$, both computed element-wise:
 
-$$m_t = \beta_1 m_{t-1} + (1 - \beta_1) g_t, \qquad v_t = \beta_2 v_{t-1} + (1 - \beta_2) g_t^2$$
+$$m_t = \beta_1 m_{t-1} + (1 - \beta_1)\, g_t, \qquad v_t = \beta_2 v_{t-1} + (1 - \beta_2)\, g_t^2.$$
 
-Because $m_0 = v_0 = 0$, these estimates are biased toward zero early in training; Adam corrects with $\hat{m}_t = m_t / (1 - \beta_1^t)$ and $\hat{v}_t = v_t / (1 - \beta_2^t)$, then takes a per-parameter step:
+Both start at zero, so early estimates are biased toward zero. Adam corrects them with $\hat{m}_t = m_t / (1 - \beta_1^t)$ and $\hat{v}_t = v_t / (1 - \beta_2^t)$. Dividing by $\sqrt{\hat{v}_t}$ gives each parameter its own step size: large where gradients are consistent and small where they are noisy.
 
-$$\theta_{t+1} = \theta_t - \eta\,\frac{\hat{m}_t}{\sqrt{\hat{v}_t} + \epsilon}$$
+**AdamW** (Loshchilov and Hutter, 2019) applies weight decay directly to the weights instead of adding an L2 term to the gradient. With plain Adam, an L2 penalty is rescaled by $\sqrt{\hat{v}_t}$ and no longer acts as uniform shrinkage:
 
-Dividing by $\sqrt{\hat{v}_t}$ gives each parameter its own effective learning rate — large for low-variance directions, small for noisy ones. Typical defaults are $\beta_1 = 0.9$, $\beta_2 = 0.999$, $\epsilon = 10^{-8}$. **AdamW** decouples weight decay from the adaptive step, restoring proper L2 regularization and improving generalization; it is the de facto optimizer for training transformers.
+$$\theta_{t+1} = \theta_t - \eta\left(\frac{\hat{m}_t}{\sqrt{\hat{v}_t} + \epsilon} + \lambda\,\theta_t\right).$$
 
-#### Regularization
+AdamW with $\beta_1 = 0.9$, $\beta_2$ between $0.95$ and $0.999$, and gradient clipping is the default optimizer for transformers. Its main drawback is memory: it stores two extra values per parameter.
 
-Regularization controls the variance term of the bias–variance tradeoff by penalizing complexity, shrinking the effective hypothesis class so the generalization bounds above tighten.
+### Learning-Rate Schedules
 
-- **L2 (ridge / weight decay)** adds $\frac{\lambda}{2}\lVert\theta\rVert_2^2$ to the loss, shrinking weights smoothly toward zero. The penalized least-squares solution is $\hat{\theta} = (X^\top X + \lambda I)^{-1} X^\top y$ — the $\lambda I$ term also fixes ill-conditioning.
-- **L1 (lasso)** adds $\lambda \lVert\theta\rVert_1$, whose non-smooth corners drive many weights *exactly* to zero, producing sparse, feature-selecting solutions.
-- **Early stopping** halts training before the model overfits — provably equivalent to L2 regularization for linear models.
-- **Dropout** randomly zeroes activations during training, approximating an ensemble over exponentially many sub-networks and discouraging brittle co-adaptation.
+The learning rate is the most important hyperparameter, and in modern training it changes over time.
 
-From a Bayesian view, L2 is a Gaussian prior on the weights and L1 a Laplace prior; the penalty strength $\lambda$ encodes prior confidence and is itself a hyperparameter chosen by cross-validation.
+- **Warmup** raises $\eta$ linearly over the first few hundred to few thousand steps. This avoids instability while Adam's second-moment estimates are still unreliable.
+- **Cosine decay** then lowers $\eta$ along a half cosine to a small final value. Warmup followed by cosine decay has long been the default for transformer pretraining.
+- **Warmup–stable–decay (WSD)**, also called trapezoidal, keeps $\eta$ constant for most of training and decays quickly at the end. Because training does not need a fixed end point, a run can be continued, or branched into several decay phases from one checkpoint, which is useful for scaling-law studies and continued pretraining.
+- **Step decay** and **one-cycle** schedules remain common for CNNs trained with SGD.
 
-<div class="advanced-note">
-  <i class="fas fa-graduation-cap"></i>
-  <p><strong>Want the convergence proofs?</strong> See <a href="/docs/advanced/ai-mathematics/">Advanced AI Mathematics</a> for SGD convergence analysis, the implicit-regularization story, and PAC-Bayes flat-minima bounds.</p>
-</div>
+### Newer Optimizers
+
+Since 2023 several alternatives to AdamW have been adopted in large-scale training.
+
+| Optimizer | Idea | Notes |
+|-----------|------|-------|
+| **Lion** (Chen et al., 2023) | Updates with the *sign* of an interpolated momentum | Found by program search; stores one state instead of two; needs a smaller learning rate than AdamW |
+| **Shampoo / SOAP** | Kronecker-factored preconditioning, an approximation to full-matrix AdaGrad | Stronger per-step progress at higher compute and memory cost; SOAP runs Adam in Shampoo's eigenbasis |
+| **Muon** (Jordan et al., 2024) | Orthogonalizes the momentum of each 2-D weight matrix with a few Newton–Schulz iterations, so the update has uniform singular values | Used for hidden-layer matrices, with AdamW for embeddings, output head, and scalar parameters. Moonshot AI's "Muon is Scalable for LLM Training" (2025) reported about 2x compute efficiency over AdamW in compute-optimal training |
+| **Schedule-Free** (Defazio et al., 2024) | Replaces the decay schedule with iterate averaging | No need to set the training length in advance |
+
+None of these has replaced AdamW everywhere. Reported gains depend heavily on how carefully the AdamW baseline was tuned. The theory behind these methods is covered in [AI Mathematics: adaptive and modern optimizers](../../advanced/ai-mathematics/#adaptive-and-modern-optimizers).
+
+## Regularization
+
+Regularization reduces the variance term by limiting effective capacity, which tightens the generalization bounds above.
+
+| Technique | Mechanism | Effect |
+|-----------|-----------|--------|
+| **L2 / ridge / weight decay** | Adds $\frac{\lambda}{2}\lVert\theta\rVert_2^2$ | Shrinks weights smoothly. For least squares, $\hat{\theta} = (X^\top X + \lambda I)^{-1} X^\top y$, and the $\lambda I$ term also fixes ill-conditioning |
+| **L1 / lasso** | Adds $\lambda \lVert\theta\rVert_1$ | The corners of the L1 ball push many weights to exactly zero, giving sparse models that select features |
+| **Elastic net** | Mix of L1 and L2 | Sparsity with stability when features are correlated |
+| **Early stopping** | Stops training when validation loss is lowest | For linear models trained by gradient descent, roughly equivalent to L2 |
+| **Dropout** | Randomly zeroes activations during training | Acts like an average over many subnetworks and discourages co-adaptation |
+| **Data augmentation** | Trains on label-preserving transformations | Encodes known invariances; often the strongest regularizer for vision and audio |
+| **Label smoothing** | Replaces one-hot targets with $1 - \epsilon$ on the true class | Discourages overconfident logits and improves calibration |
+
+From a Bayesian point of view, L2 regularization is MAP estimation with a Gaussian prior on the weights, and L1 corresponds to a Laplace prior. The strength $\lambda$ encodes how confident the prior is, and it is chosen by validation like any other hyperparameter.
 
 <div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/machine_learning_foundations.py">machine_learning_foundations.py</a>
+<i class="fas fa-code"></i> Generalization bounds and convex optimizers (proximal gradient, accelerated gradient, ADMM): <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/machine_learning_foundations.py">machine_learning_foundations.py</a>
 </div>
 
-For those ready to experiment with these concepts, here's how you might use them in practice:
+## Kernel Methods {#the-kernel-trick-making-linear-methods-powerful}
 
-```python
-# Example usage:
-from machine_learning_foundations import PACLearning, ConvexOptimization
+Linear models are convex, fast, and well understood, but they can only draw linear boundaries. Kernel methods keep the linear algorithm and change the feature space. For example, two classes arranged as concentric circles in $\mathbb{R}^2$ cannot be separated by a line, but adding the feature $\lVert x \rVert^2$ makes them separable by a plane.
 
-# Compute generalization bound
-vc_dim = 10
-n_samples = 1000
-delta = 0.05
-bound = PACLearning.vc_dimension_bound(vc_dim, n_samples, delta)
-print(f"Generalization bound: {bound:.4f}")
-```
+### The Kernel Trick
 
-### The Kernel Trick: Making Linear Methods Powerful
+Many algorithms, including the SVM, ridge regression, PCA, and $k$-means, can be written so they use the data only through inner products $\langle x_i, x_j \rangle$. If the inputs are mapped through a feature map $\phi: \mathcal{X} \to \mathcal{F}$ into a high- or even infinite-dimensional space, the same algorithm can run there without ever computing $\phi(x)$. It only needs a **kernel function**
 
-Linear methods are powerful but limited—what if your data isn't linearly separable? Kernel methods offer an elegant solution: instead of making the model more complex, we transform the data into a higher-dimensional space where linear separation becomes possible.
+$$k(x, x') = \langle \phi(x), \phi(x') \rangle.$$
 
-**Intuitive Understanding:**
+A symmetric function $k$ is a valid kernel if and only if every **Gram matrix** $K_{ij} = k(x_i, x_j)$ is positive semidefinite (**Mercer's condition**). In that case $k$ is the inner product of some feature map, whose feature space is a **reproducing kernel Hilbert space (RKHS)**. By the **representer theorem**, the minimizer of a regularized risk in the RKHS has the form $f(x) = \sum_i \alpha_i\, k(x_i, x)$, a weighted sum of kernels centered on the training points.
 
-Imagine trying to separate two classes of points on a 2D plane that form concentric circles. No straight line can separate them. But if we add a third dimension (say, the distance from the center), suddenly they become separable by a plane. That's the kernel trick in action!
+| Kernel | Formula | Feature space | Notes |
+|--------|---------|---------------|-------|
+| Linear | $\langle x, x' \rangle$ | The input space | Baseline; best when $d$ is large and $n$ is small |
+| Polynomial | $(\langle x, x' \rangle + c)^p$ | All monomials up to degree $p$ | Models feature interactions |
+| RBF (Gaussian) | $\exp\!\big(-\lVert x - x' \rVert^2 / 2\sigma^2\big)$ | Infinite-dimensional | Common default; bandwidth $\sigma$ sets how far each point's influence reaches |
+| Matérn | Depends on smoothness $\nu$ | Infinite-dimensional | Controls how smooth functions are; standard for Gaussian processes |
 
-#### The Trick Itself
+Kernel methods need the $n \times n$ Gram matrix, so exact solvers cost $O(n^2)$ memory and up to $O(n^3)$ time. **Random Fourier features** and the **Nyström** method approximate the kernel with an explicit low-dimensional feature map, which brings kernel methods back to linear-time training.
 
-Suppose a learning algorithm only ever touches the data through inner products $\langle x_i, x_j \rangle$. (Many do, including SVMs and ridge regression in dual form.) Then we can map the inputs through a feature map $\phi: \mathcal{X} \to \mathcal{F}$ into a high- (even infinite-) dimensional space and run the *same* linear algorithm there — but we never compute $\phi(x)$ explicitly. Instead we evaluate a **kernel function**
+### Support Vector Machines
 
-$$k(x, x') = \langle \phi(x), \phi(x') \rangle$$
-
-directly. This is the kernel trick: linear methods in a vast feature space at the cost of a cheap kernel evaluation in the original space. A function $k$ is a valid kernel iff it is symmetric and positive semidefinite — **Mercer's condition** — equivalently, for any finite set of points the **Gram matrix** $K_{ij} = k(x_i, x_j)$ is PSD. Mercer's theorem guarantees such a $k$ corresponds to *some* feature map.
-
-**Common Kernels and Their Uses:**
-- **RBF (Radial Basis Function)**: Good default choice, creates smooth decision boundaries
-
-$$k(x, x') = \exp\!\left(-\frac{\lVert x - x'\rVert^2}{2\sigma^2}\right)$$
-
-  The RBF (Gaussian) kernel corresponds to an *infinite-dimensional* feature space; the bandwidth $\sigma$ sets how far a single training point's influence reaches.
-- **Polynomial**: Useful when interactions between features matter, $k(x, x') = (\langle x, x'\rangle + c)^d$ — its features are all monomials of degree up to $d$.
-- **Linear**: $k(x, x') = \langle x, x'\rangle$, recovering the original linear method when data is already separable.
-
-#### Support Vector Machines
-
-The SVM is the canonical kernel method. For separable data it finds the hyperplane that **maximizes the margin** — the distance to the nearest points of either class — which is exactly the capacity-controlling, low-variance choice the Rademacher margin bounds reward. The (soft-margin) primal problem is
+The SVM is the standard kernel method. For separable data it finds the hyperplane with the largest **margin**, the distance to the nearest points of either class. A large margin is the low-capacity choice that Rademacher margin bounds favor. The soft-margin primal problem is
 
 $$\min_{w, b, \xi}\; \frac{1}{2}\lVert w \rVert^2 + C \sum_{i=1}^{n} \xi_i \quad \text{s.t.}\quad y_i\big(\langle w, \phi(x_i)\rangle + b\big) \ge 1 - \xi_i,\; \xi_i \ge 0,$$
 
-where the slack variables $\xi_i$ allow margin violations and $C$ trades margin width against training errors. The Lagrangian **dual** depends on the data only through inner products — which is where the kernel enters:
+where the slack variables $\xi_i$ allow margin violations and $C$ trades margin width against training errors. The Lagrangian dual uses the data only through inner products, which is where the kernel enters:
 
 $$\max_{\alpha}\; \sum_{i=1}^{n}\alpha_i - \frac{1}{2}\sum_{i,j} \alpha_i \alpha_j\, y_i y_j\, k(x_i, x_j) \quad \text{s.t.}\quad 0 \le \alpha_i \le C,\; \sum_i \alpha_i y_i = 0.$$
 
-The solution is sparse: only the **support vectors** (points on or inside the margin) have $\alpha_i > 0$, and the decision function $f(x) = \sum_i \alpha_i y_i\, k(x_i, x) + b$ sums over just those. The hinge loss $\max(0,\, 1 - y\,f(x))$ makes the whole objective convex, so the global optimum is found reliably by quadratic programming.
+The solution is sparse. Only the **support vectors**, the points on or inside the margin, have $\alpha_i > 0$, and the decision function $f(x) = \sum_i \alpha_i y_i\, k(x_i, x) + b$ sums over those points only. The problem is convex (equivalently, hinge loss $\max(0, 1 - y f(x))$ plus an L2 penalty), so its global optimum can be found reliably. Practical usage is covered on [Core ML Algorithms](core-ml-algorithms.html#support-vector-machines).
 
-<div class="advanced-note">
-  <i class="fas fa-graduation-cap"></i>
-  <p><strong>Want the mathematical theory?</strong> Explore <a href="/docs/advanced/ai-mathematics/#kernel-methods-and-rkhs">Reproducing Kernel Hilbert Spaces</a> and Mercer's theorem in our advanced mathematics section.</p>
-</div>
+Kernels also connect to deep learning. In the infinite-width limit, gradient-descent training of a neural network is kernel regression with the **neural tangent kernel**. See [Deep Learning Theory](deep-learning-theory.html#the-neural-tangent-kernel) and [AI Mathematics: kernel methods and RKHS](../../advanced/ai-mathematics/#kernel-methods-and-rkhs).
 
 <div class="code-reference">
-<i class="fas fa-code"></i> See kernel implementations: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/machine_learning_foundations.py#L142">machine_learning_foundations.py#KernelTheory</a>
+<i class="fas fa-code"></i> Kernel ridge regression, kernel PCA, and MMD: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/machine_learning_foundations.py#L162">machine_learning_foundations.py#KernelTheory</a>
 </div>
 
-## Beyond the Basics: Advanced Machine Learning Algorithms
+## Gaussian Processes
 
-As we push the boundaries of what machine learning can do, we need more sophisticated tools. These advanced algorithms tackle problems that simpler methods struggle with—uncertainty quantification, complex probability distributions, and learning from limited data.
+A **Gaussian process (GP)** is a probability distribution over functions in which any finite set of function values is jointly Gaussian. A GP regressor predicts both a value and its uncertainty, needs no architecture choices, and works well with little data. That makes GPs the standard surrogate model in **Bayesian optimization**, which is used for hyperparameter tuning and experimental design, and they are also used in geostatistics (as kriging), time series, and robotics.
 
-### Gaussian Processes: When You Need to Know Uncertainty
+### Prior and Posterior
 
-**What are Gaussian Processes?**
-
-Imagine you're trying to predict temperature throughout the day, but you only have measurements at a few times. A Gaussian Process not only gives you predictions for the missing times but also tells you how confident it is about each prediction. It's like having error bars on your predictions automatically.
-
-**Why use Gaussian Processes?**
-- **Uncertainty Estimates**: Know when your model is guessing vs. confident
-- **Few Data Points**: Works well with limited training data
-- **Flexible**: Can model complex, non-linear relationships
-- **No Architecture Decisions**: Unlike neural networks, no need to choose layer sizes
-
-#### The Math: A Distribution Over Functions
-
-A Gaussian process is a distribution over functions such that any finite collection of function values is jointly Gaussian. It is fully specified by a mean function $m(x)$ (usually taken as $0$) and a covariance/kernel function $k(x, x')$ — the *same* PSD kernels from the SVM section:
+A GP is specified by a mean function $m(x)$, usually $0$, and a covariance function $k(x, x')$. The covariance can be any of the positive-semidefinite kernels above:
 
 $$f(x) \sim \mathcal{GP}\big(m(x),\, k(x, x')\big).$$
 
-This is the function-space dual of the kernel trick: the GP prior is a Gaussian over the (possibly infinite-dimensional) feature weights, and $k$ is again the inner product of feature maps. Given noisy observations $y = f(X) + \varepsilon$ with $\varepsilon \sim \mathcal{N}(0, \sigma_n^2 I)$, the posterior at test points $X_\star$ is *also* Gaussian, with closed-form mean and covariance:
+GP regression is the Bayesian, function-space form of kernel ridge regression. With noisy observations $y = f(X) + \varepsilon$, $\varepsilon \sim \mathcal{N}(0, \sigma_n^2 I)$, the posterior at test inputs $X_\star$ is Gaussian with closed-form moments:
 
-$$\boldsymbol{\mu}_\star = K_{\star X}\big(K_{XX} + \sigma_n^2 I\big)^{-1} y$$
+$$\boldsymbol{\mu}_\star = K_{\star X}\big(K_{XX} + \sigma_n^2 I\big)^{-1} y,$$
 
-$$\boldsymbol{\Sigma}_\star = K_{\star\star} - K_{\star X}\big(K_{XX} + \sigma_n^2 I\big)^{-1} K_{X\star}$$
+$$\boldsymbol{\Sigma}_\star = K_{\star\star} - K_{\star X}\big(K_{XX} + \sigma_n^2 I\big)^{-1} K_{X\star}.$$
 
-Here $K_{XX}$, $K_{\star X}$, etc. are kernel Gram matrices between training and test inputs. The predictive mean is the model's best guess; the diagonal of $\boldsymbol{\Sigma}_\star$ gives the per-point variance — automatic error bars that *grow* far from the training data. Kernel hyperparameters (length scale, signal variance, noise $\sigma_n$) are fit by maximizing the **log marginal likelihood**
+The posterior mean equals the kernel ridge regression prediction with $\lambda = \sigma_n^2$. The diagonal of $\boldsymbol{\Sigma}_\star$ gives error bars that are narrow near the training data and grow back to the prior variance away from it.
 
-$$\log p(y \mid X) = -\tfrac{1}{2}\, y^\top \big(K_{XX} + \sigma_n^2 I\big)^{-1} y - \tfrac{1}{2}\log\big|K_{XX} + \sigma_n^2 I\big| - \tfrac{n}{2}\log 2\pi,$$
+### Hyperparameters and Scaling
 
-whose two data-dependent terms automatically balance fit against model complexity (the Occam's-razor determinant term). The cost is the $O(n^3)$ matrix inversion, which limits exact GPs to a few thousand points (hence sparse/inducing-point approximations).
+Kernel hyperparameters (length scale, signal variance, noise level) are fitted by maximizing the **log marginal likelihood**:
 
-**Common Applications:**
-- Hyperparameter tuning (Bayesian optimization)
-- Time series with uncertainty
-- Spatial data modeling
-- Robotics and control
+$$\log p(y \mid X) = -\tfrac{1}{2}\, y^\top \big(K_{XX} + \sigma_n^2 I\big)^{-1} y - \tfrac{1}{2}\log\big|K_{XX} + \sigma_n^2 I\big| - \tfrac{n}{2}\log 2\pi.$$
 
-Notably, an infinitely wide neural network at initialization is *exactly* a Gaussian process — the bridge that the Neural Tangent Kernel makes precise (see [Neural Network Architectures](architectures.html)).
-
-<div class="advanced-note">
-  <i class="fas fa-graduation-cap"></i>
-  <p><strong>Ready for the math?</strong> Dive into the <a href="/docs/advanced/ai-mathematics/">formal treatment of GPs</a> including prior/posterior distributions and marginal likelihood optimization.</p>
-</div>
-
-<div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/advanced_ml_algorithms.py#L13">advanced_ml_algorithms.py#GaussianProcess</a>
-</div>
+The first term rewards fitting the data. The log-determinant term penalizes flexible models, which gives a built-in Occam's razor without a validation set. An exact GP needs a Cholesky factorization that costs $O(n^3)$ time and $O(n^2)$ memory, which in practice limits exact GPs to tens of thousands of points. Larger problems use **sparse or inducing-point approximations** (for example SVGP), structured kernels, or GPU conjugate-gradient solvers such as GPyTorch.
 
 ```python
-# Example usage:
-from advanced_ml_algorithms import GaussianProcess
+import numpy as np
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
 
-# Define RBF kernel
-kernel = lambda x, y: np.exp(-0.5 * np.linalg.norm(x - y)**2)
+rng = np.random.default_rng(0)
+X_train = rng.uniform(0, 10, size=(25, 1))
+y_train = np.sin(X_train).ravel() + 0.1 * rng.standard_normal(25)
 
-# Fit GP
-gp = GaussianProcess(kernel)
-gp.fit(X_train, y_train)
+# Signal variance * RBF(length scale) + learned observation noise.
+kernel = ConstantKernel(1.0) * RBF(length_scale=1.0) + WhiteKernel(noise_level=0.1)
+gp = GaussianProcessRegressor(kernel=kernel, normalize_y=True, n_restarts_optimizer=5)
+gp.fit(X_train, y_train)          # maximizes the log marginal likelihood
 
-# Predict with uncertainty
-mean, std = gp.predict(X_test)
+X_test = np.linspace(0, 12, 200).reshape(-1, 1)
+mean, std = gp.predict(X_test, return_std=True)   # std grows beyond x = 10
+print(gp.kernel_)                 # fitted hyperparameters
 ```
 
-### Variational Inference: Making the Impossible Possible
+An infinitely wide neural network with random weights is exactly a GP (the NNGP correspondence), which is another link between kernels and deep learning.
 
-In the real world, we often face probability distributions too complex to work with directly. Variational inference offers a clever workaround: approximate the complex distribution with a simpler one that we can actually compute.
+<div class="code-reference">
+<i class="fas fa-code"></i> From-scratch GP and Bayesian optimization (EI, UCB, PI acquisition functions): <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/advanced_ml_algorithms.py#L14">advanced_ml_algorithms.py#GaussianProcess</a>
+</div>
 
-**The Big Idea:**
+## Variational Inference
 
-Think of it like trying to describe the shape of a cloud. The exact shape is too complex, so instead we might say "it looks like a rabbit." We're approximating something complex with something simpler that captures the essential features.
-
-#### From Integration to Optimization
-
-In Bayesian inference we want the posterior $p(z \mid x) = p(x, z) / p(x)$ over latent variables $z$, but the evidence $p(x) = \int p(x, z)\, dz$ is usually an intractable integral. Variational inference sidesteps it by positing a tractable family $q_\phi(z)$ (the *variational distribution*) and finding the member closest to the true posterior in **KL divergence**:
+Bayesian inference needs the posterior $p(z \mid x) = p(x, z) / p(x)$ over latent variables $z$. The evidence $p(x) = \int p(x, z)\, dz$ is usually an intractable integral. **Markov chain Monte Carlo** approximates the posterior by sampling, which is asymptotically exact but slow. **Variational inference (VI)** turns inference into optimization. It picks a tractable family $q_\phi(z)$ and finds the member closest to the posterior in KL divergence:
 
 $$\phi^\star = \arg\min_\phi\; \mathrm{KL}\big(q_\phi(z) \,\|\, p(z \mid x)\big).$$
 
-We can't evaluate that KL directly (it contains the unknown $p(x)$), but a short algebra step rewrites the log-evidence as
+### The Evidence Lower Bound
 
-$$\log p(x) = \underbrace{\mathbb{E}_{q_\phi}\big[\log p(x, z) - \log q_\phi(z)\big]}_{\text{ELBO}\,(\mathcal{L})} + \mathrm{KL}\big(q_\phi(z)\,\|\,p(z\mid x)\big).$$
+The KL above contains the unknown $p(x)$, but the log-evidence can be rewritten as
 
-Since KL $\ge 0$, the first term is a lower bound on the evidence — the **Evidence Lower BOund (ELBO)**. Because $\log p(x)$ is constant in $\phi$, *maximizing* the ELBO is equivalent to *minimizing* the KL: we have turned intractable integration into tractable optimization. The ELBO splits into an interpretable reconstruction-versus-regularization form,
+$$\log p(x) = \underbrace{\mathbb{E}_{q_\phi}\big[\log p(x, z) - \log q_\phi(z)\big]}_{\text{ELBO } \mathcal{L}(\phi)} + \mathrm{KL}\big(q_\phi(z)\,\|\,p(z\mid x)\big).$$
 
-$$\mathcal{L}(\phi) = \mathbb{E}_{q_\phi(z)}\big[\log p(x \mid z)\big] - \mathrm{KL}\big(q_\phi(z) \,\|\, p(z)\big),$$
+The KL term is non-negative, so the first term is a lower bound on $\log p(x)$: the **evidence lower bound (ELBO)**. The left side does not depend on $\phi$, so maximizing the ELBO is the same as minimizing the KL to the true posterior. The ELBO can also be written as a reconstruction term minus a regularizer:
 
-the first term rewarding explanations of the data, the second keeping $q$ close to the prior.
+$$\mathcal{L}(\phi) = \mathbb{E}_{q_\phi(z)}\big[\log p(x \mid z)\big] - \mathrm{KL}\big(q_\phi(z) \,\|\, p(z)\big).$$
 
-#### Mean-Field and the Reparameterization Trick
+The first term rewards latent codes that explain the data, and the second keeps $q$ close to the prior. Because it minimizes the **reverse** KL $\mathrm{KL}(q \,\|\, p)$, VI is *mode-seeking*: it tends to fit one mode of a multimodal posterior and to underestimate posterior variance.
 
-The classic **mean-field** approximation assumes the latent variables are independent, $q_\phi(z) = \prod_j q_j(z_j)$, which yields closed-form coordinate-ascent updates for conjugate models. For deep models we instead make $q_\phi$ a neural network and optimize the ELBO by stochastic gradient ascent. The catch is differentiating through the sampling step; the **reparameterization trick** expresses a sample as a deterministic function of $\phi$ and external noise — e.g. for a Gaussian $q_\phi = \mathcal{N}(\mu_\phi, \sigma_\phi^2)$,
+### Mean-Field, Amortization, and Reparameterization
 
-$$z = \mu_\phi + \sigma_\phi \odot \epsilon, \qquad \epsilon \sim \mathcal{N}(0, I),$$
+- **Mean-field VI** assumes the latent variables are independent, $q_\phi(z) = \prod_j q_j(z_j)$. For conjugate exponential-family models this gives closed-form coordinate-ascent updates, as in LDA topic models.
+- **Stochastic VI** optimizes the ELBO with mini-batch gradients, which scales to large datasets.
+- **Amortized VI** trains an encoder network to output $q_\phi(z \mid x)$ for any $x$, instead of fitting separate parameters for each data point.
+- The **reparameterization trick** makes sampling differentiable by writing a sample as a deterministic function of $\phi$ plus independent noise, for example $z = \mu_\phi + \sigma_\phi \odot \epsilon$ with $\epsilon \sim \mathcal{N}(0, I)$, which gives low-variance gradients.
 
-so gradients flow through $\mu_\phi$ and $\sigma_\phi$ with low variance. This is precisely the engine inside a **Variational Autoencoder (VAE)**, where an encoder network outputs $q_\phi(z \mid x)$ and a decoder outputs $p_\theta(x \mid z)$.
+Together, amortization and reparameterization make up the **variational autoencoder (VAE)**:
 
-**Where is it used?**
-- **Variational Autoencoders (VAEs)**: Generate new images or data
-- **Bayesian Deep Learning**: Neural networks that know what they don't know
-- **Topic Modeling**: Discover themes in large document collections
-- **Recommendation Systems**: Model user preferences with uncertainty
+```mermaid
+flowchart LR
+    X["input x"] --> ENC["encoder<br/>q_phi(z | x)"]
+    ENC --> MU["mean mu, std sigma"]
+    EPS["noise epsilon ~ N(0, I)"] --> Z
+    MU --> Z["z = mu + sigma * epsilon"]
+    Z --> DEC["decoder<br/>p_theta(x | z)"]
+    DEC --> XR["reconstruction"]
+    MU -. "KL(q || prior) term" .-> L["ELBO loss"]
+    XR -. "reconstruction term" .-> L
+```
 
-**Key Benefit**: Turns intractable probability problems into optimization problems we can solve.
-
-<div class="advanced-note">
-  <i class="fas fa-graduation-cap"></i>
-  <p><strong>Want the technical details?</strong> Learn about <a href="/docs/advanced/ai-mathematics/">ELBO derivation, mean-field approximation, and normalizing flows</a> in our advanced section.</p>
-</div>
+VI is also used in Bayesian neural networks, probabilistic programming (Pyro, NumPyro), and the latent space of latent diffusion models, which is produced by a VAE. For VAEs and diffusion in practice see [Generative Models](generative-models.html).
 
 <div class="code-reference">
-<i class="fas fa-code"></i> Full implementation: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/advanced_ml_algorithms.py#L94">advanced_ml_algorithms.py#VariationalInference</a>
+<i class="fas fa-code"></i> ELBO estimation and gradient-based VI: <a href="https://github.com/andrewaltimit/Documentation/blob/main/github-pages/code-examples/technology/ai/advanced_ml_algorithms.py#L94">advanced_ml_algorithms.py#VariationalInference</a>
 </div>
 
-## The Building Blocks: Core Machine Learning Algorithms
+## From Foundations to Algorithms
 
-Now that we understand the foundations, let's meet the algorithms that do the actual work. Each has its strengths and ideal use cases—choosing the right one is both an art and a science.
+The ideas on this page show up in each of the standard model families:
 
-| Algorithm | What it does |
-|-----------|-------------|
-| **Linear Regression** | Predicts a continuous target from one or more input features. |
-| **Logistic Regression** | Regression adapted for binary classification. |
-| **Decision Trees** | Recursively splits data on the most informative feature. |
-| **Support Vector Machines** | Finds the maximum-margin hyperplane separating classes. |
-| **Random Forests** | Ensembles many decision trees to improve accuracy and reduce variance. |
-| **Neural Networks** | Layered models inspired by biological neurons, capable of learning complex patterns. |
-
-These six algorithms are the workhorses of classical machine learning. Linear and logistic regression are the convex, low-variance baselines; decision trees and random forests are the flexible, low-bias nonparametric methods; SVMs apply the kernel trick for maximum-margin classification; and neural networks generalize all of them, scaling into the deep architectures that the rest of this section explores.
-
----
+| Family | Foundation it illustrates | Covered in |
+|--------|---------------------------|------------|
+| Linear and logistic regression | Convex ERM; L1/L2 regularization; MAP estimation | [Core ML Algorithms](core-ml-algorithms.html#linear-regression) |
+| Decision trees, random forests, boosting | Low-bias nonparametric models; variance reduction by ensembling | [Core ML Algorithms](core-ml-algorithms.html#ensemble-methods-the-big-idea) |
+| SVMs and kernel machines | Margin bounds; kernel trick; convex duality | [Kernel Methods](#the-kernel-trick-making-linear-methods-powerful) above |
+| Gaussian processes | Bayesian nonparametrics; marginal-likelihood model selection | [Gaussian Processes](#gaussian-processes) above |
+| Neural networks | Non-convex SGD; implicit regularization; double descent | [Deep Learning Theory](deep-learning-theory.html), [Architectures](architectures.html) |
+| VAEs and diffusion models | Variational inference; ELBO | [Generative Models](generative-models.html) |
 
 ## See Also
 
-- [Neural Network Architectures](architectures.html) — CNNs, RNNs, transformers, and multimodal models built on these foundations
-- [Generative Models](generative-models.html) — VAEs (variational inference in action), diffusion, and GANs
-- [Frontier Research & Ethics](frontier-and-ethics.html) — scaling laws and interpretability of large models
-- [AI Deep Dive (Lecture)](../ai-lecture-2023.html) — transformers and LLM internals in depth
-- [AI Mathematics](../../advanced/ai-mathematics/) — formal proofs for the theory above (PAC, RKHS, ELBO)
+- [Core ML Algorithms](core-ml-algorithms.html): linear models, trees, boosting, SVMs, and clustering in practice
+- [Loss Functions](loss-functions.html): the $\ell$ in the risk, for regression, classification, and ranking
+- [Deep Learning Theory](deep-learning-theory.html): backpropagation, optimization landscapes, and the neural tangent kernel
+- [Neural Network Architectures](architectures.html): CNNs, RNNs, transformers, and multimodal models
+- [Generative Models](generative-models.html): VAEs, diffusion models, and GANs
+- [Reinforcement Learning](reinforcement-learning.html): learning from reward instead of labels
+- [AI Mathematics](../../advanced/ai-mathematics/): formal proofs for PAC learning, RKHS theory, PAC-Bayes, and scaling laws

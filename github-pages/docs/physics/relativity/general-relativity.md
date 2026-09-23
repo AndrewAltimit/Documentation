@@ -1,369 +1,304 @@
 ---
 layout: docs
 title: "Relativity: General Relativity"
+description: "General relativity: the equivalence principle, spacetime curvature, the Einstein field equations, the Schwarzschild solution, the classical and modern experimental tests, and the theory's open problems."
 permalink: /docs/physics/relativity/general-relativity.html
 toc: true
 toc_sticky: true
 ---
 
-[Relativity](./)
+[Relativity](./) &raquo; General Relativity
 
 ## General Relativity
 
-General relativity, published in 1915, extends special relativity to include gravity and accelerated frames. It describes gravity not as a force but as the curvature of spacetime caused by mass and energy. Three principles underlie it:
-
-- **Equivalence principle** — the effects of gravity are locally indistinguishable from acceleration.
-- **General covariance** — the laws of physics take the same form in all coordinate systems.
-- **Spacetime curvature** — matter and energy curve spacetime, and that curvature guides motion.
-
-<div class="core-principles">
-  <div class="principle-cards">
-    <div class="principle-card equivalence">
-      <div class="principle-visual">
-        <svg viewBox="0 0 420 240" style="max-width: 500px; width: 100%;">
-          <!-- Define arrow markers -->
-          <defs>
-            <marker id="arrow-eq" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-              <path d="M0,0 L0,6 L9,3 z" fill="#c62828" />
-            </marker>
-            <marker id="arrow-eq-green" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-              <path d="M0,0 L0,6 L9,3 z" fill="#2e7d32" />
-            </marker>
-          </defs>
-
-          <!-- Title -->
-          <text x="210" y="20" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">Equivalence Principle</text>
-
-          <!-- Scenario A: Accelerating in space -->
-          <rect x="20" y="40" width="160" height="150" fill="#e3f2fd" stroke="#1976d2" stroke-width="3" rx="8" />
-          <text x="100" y="60" text-anchor="middle" font-size="14" font-weight="bold" fill="#1565c0">In Space</text>
-          <text x="100" y="78" text-anchor="middle" font-size="12" fill="#1976d2">(Accelerating rocket)</text>
-
-          <!-- Elevator box in space -->
-          <rect x="50" y="90" width="100" height="80" fill="#bbdefb" stroke="#1976d2" stroke-width="2" rx="3" />
-
-          <!-- Person in space elevator -->
-          <circle cx="100" cy="120" r="12" fill="#1976d2" />
-          <line x1="100" y1="132" x2="100" y2="155" stroke="#1976d2" stroke-width="3" />
-          <line x1="100" y1="140" x2="85" y2="150" stroke="#1976d2" stroke-width="3" />
-          <line x1="100" y1="140" x2="115" y2="150" stroke="#1976d2" stroke-width="3" />
-
-          <!-- Acceleration arrow (upward) -->
-          <line x1="100" y1="40" x2="100" y2="15" stroke="#2e7d32" stroke-width="4" marker-end="url(#arrow-eq-green)" />
-          <text x="125" y="25" font-size="14" font-weight="bold" fill="#2e7d32">a = g</text>
-
-          <!-- Felt force (downward on person) -->
-          <line x1="100" y1="158" x2="100" y2="185" stroke="#c62828" stroke-width="3" marker-end="url(#arrow-eq)" />
-          <text x="125" y="175" font-size="12" fill="#c62828">Feels weight</text>
-
-          <!-- Stars background indicator -->
-          <text x="35" y="105" font-size="16" fill="#555">*</text>
-          <text x="140" y="120" font-size="14" fill="#555">*</text>
-          <text x="55" y="165" font-size="12" fill="#555">*</text>
-
-          <!-- Equals sign -->
-          <text x="200" y="130" text-anchor="middle" font-size="36" font-weight="bold" fill="#333">=</text>
-
-          <!-- Scenario B: On Earth -->
-          <rect x="240" y="40" width="160" height="150" fill="#fff3e0" stroke="#e65100" stroke-width="3" rx="8" />
-          <text x="320" y="60" text-anchor="middle" font-size="14" font-weight="bold" fill="#e65100">On Earth</text>
-          <text x="320" y="78" text-anchor="middle" font-size="12" fill="#e65100">(Stationary in gravity)</text>
-
-          <!-- Elevator box on Earth -->
-          <rect x="270" y="90" width="100" height="80" fill="#ffe0b2" stroke="#e65100" stroke-width="2" rx="3" />
-
-          <!-- Person in Earth elevator -->
-          <circle cx="320" cy="120" r="12" fill="#e65100" />
-          <line x1="320" y1="132" x2="320" y2="155" stroke="#e65100" stroke-width="3" />
-          <line x1="320" y1="140" x2="305" y2="150" stroke="#e65100" stroke-width="3" />
-          <line x1="320" y1="140" x2="335" y2="150" stroke="#e65100" stroke-width="3" />
-
-          <!-- Gravity arrow -->
-          <line x1="320" y1="175" x2="320" y2="205" stroke="#c62828" stroke-width="4" marker-end="url(#arrow-eq)" />
-          <text x="350" y="195" font-size="14" font-weight="bold" fill="#c62828">g</text>
-
-          <!-- Felt force (downward on person) -->
-          <line x1="320" y1="158" x2="320" y2="185" stroke="#c62828" stroke-width="3" />
-          <text x="285" y="175" font-size="12" fill="#c62828">Feels weight</text>
-
-          <!-- Ground indicator -->
-          <rect x="250" y="195" width="140" height="10" fill="#8d6e63" />
-          <text x="320" y="225" text-anchor="middle" font-size="12" fill="#5d4037">Ground</text>
-
-          <!-- Caption -->
-          <text x="210" y="235" text-anchor="middle" font-size="13" fill="#555" font-style="italic">Locally indistinguishable experiences</text>
-        </svg>
-      </div>
-    </div>
-    
-    <div class="principle-card curvature">
-      <div class="principle-visual">
-        <svg viewBox="0 0 420 280" style="max-width: 500px; width: 100%;">
-          <!-- Title -->
-          <text x="210" y="25" text-anchor="middle" font-size="18" font-weight="bold" fill="#2c3e50">Spacetime Curvature by Mass</text>
-
-          <!-- Define gradient for mass -->
-          <defs>
-            <radialGradient id="massGradient" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="#ef5350" />
-              <stop offset="100%" stop-color="#b71c1c" />
-            </radialGradient>
-            <marker id="arrow-curve" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
-              <path d="M0,0 L0,6 L8,3 z" fill="#1976d2" />
-            </marker>
-          </defs>
+**General relativity** (GR) is Einstein's theory of gravitation, completed in November 1915. It replaces Newton's instantaneous force with geometry: mass and energy curve four-dimensional spacetime, and freely falling bodies follow the straightest possible paths (geodesics) through that curved geometry. John Wheeler's summary is still the best one-line description: *spacetime tells matter how to move; matter tells spacetime how to curve.*
 
-          <!-- Curved spacetime grid - horizontal lines -->
-          <path d="M 30 60 Q 210 75, 390 60" stroke="#78909c" stroke-width="2" fill="none" />
-          <path d="M 30 90 Q 210 115, 390 90" stroke="#78909c" stroke-width="2" fill="none" />
-          <path d="M 30 120 Q 210 160, 390 120" stroke="#78909c" stroke-width="2" fill="none" />
-          <path d="M 30 150 Q 210 200, 390 150" stroke="#546e7a" stroke-width="2.5" fill="none" />
-          <path d="M 30 180 Q 210 220, 390 180" stroke="#78909c" stroke-width="2" fill="none" />
-          <path d="M 30 210 Q 210 235, 390 210" stroke="#78909c" stroke-width="2" fill="none" />
-          <path d="M 30 240 Q 210 250, 390 240" stroke="#78909c" stroke-width="2" fill="none" />
+This page covers the physical principles, the mathematical structure (metric, geodesics, curvature, field equations), the Schwarzschild solution and its consequences, the experimental record from Mercury's perihelion to the 2025 gravitational-wave tests, and the problems GR leaves open. It assumes [Special Relativity](special-relativity.html). The differential geometry is developed properly on [Tensor Formalism & the Field Equations](tensor-formalism.html); here it is stated and interpreted.
 
-          <!-- Curved spacetime grid - vertical lines -->
-          <path d="M 50 50 Q 55 150, 50 255" stroke="#78909c" stroke-width="2" fill="none" />
-          <path d="M 90 50 Q 100 150, 90 255" stroke="#78909c" stroke-width="2" fill="none" />
-          <path d="M 130 50 Q 150 150, 130 255" stroke="#78909c" stroke-width="2" fill="none" />
-          <path d="M 170 50 Q 195 155, 170 255" stroke="#78909c" stroke-width="2" fill="none" />
-          <path d="M 210 50 Q 210 160, 210 255" stroke="#546e7a" stroke-width="2.5" fill="none" />
-          <path d="M 250 50 Q 225 155, 250 255" stroke="#78909c" stroke-width="2" fill="none" />
-          <path d="M 290 50 Q 270 150, 290 255" stroke="#78909c" stroke-width="2" fill="none" />
-          <path d="M 330 50 Q 320 150, 330 255" stroke="#78909c" stroke-width="2" fill="none" />
-          <path d="M 370 50 Q 365 150, 370 255" stroke="#78909c" stroke-width="2" fill="none" />
+**Conventions.** Metric signature $(-,+,+,+)$; Greek indices run over $0$–$3$, Latin indices over spatial $1$–$3$; repeated indices are summed. Factors of $G$ and $c$ are kept on this page. The Schwarzschild radius is $r_s = 2GM/c^2$.
 
-          <!-- Central mass -->
-          <circle cx="210" cy="155" r="30" fill="url(#massGradient)" stroke="#b71c1c" stroke-width="3" />
-          <text x="210" y="162" text-anchor="middle" font-size="20" font-weight="bold" fill="white">M</text>
+## Physical Foundations
 
-          <!-- Object following geodesic -->
-          <circle cx="90" cy="90" r="8" fill="#1976d2" />
-          <path d="M 100 95 Q 150 130, 180 140" stroke="#1976d2" stroke-width="3" fill="none" stroke-dasharray="5,3" marker-end="url(#arrow-curve)" />
-          <text x="60" y="80" font-size="14" font-weight="bold" fill="#1976d2">Object</text>
-          <text x="60" y="95" font-size="12" fill="#1565c0">follows curved</text>
-          <text x="60" y="110" font-size="12" fill="#1565c0">geodesic</text>
+### The equivalence principle
 
-          <!-- Annotations -->
-          <text x="340" y="85" font-size="13" fill="#455a64">Flat spacetime</text>
-          <text x="340" y="100" font-size="13" fill="#455a64">(far from mass)</text>
+Galileo's observation that all bodies fall with the same acceleration means gravitational mass equals inertial mass. Einstein turned this coincidence into a principle. It comes in three strengths:
 
-          <text x="340" y="190" font-size="13" fill="#bf360c">Curved spacetime</text>
-          <text x="340" y="205" font-size="13" fill="#bf360c">(near mass)</text>
+| Version | Statement | Status |
+|---------|-----------|--------|
+| **Weak (WEP)** | The trajectory of a freely falling test body is independent of its composition and internal structure. | Verified to about $10^{-15}$ (MICROSCOPE satellite, final result 2022). |
+| **Einstein (EEP)** | WEP holds, *and* the outcome of any local non-gravitational experiment in a freely falling frame is independent of the frame's velocity and location. | Tested by clock-comparison, redshift, and Lorentz-invariance experiments. |
+| **Strong (SEP)** | EEP extended to gravitational experiments and to self-gravitating bodies. | Tested by lunar laser ranging (Nordtvedt effect) and pulsars in triple systems. GR satisfies SEP; most alternative theories do not. |
 
-          <!-- Caption -->
-          <text x="210" y="275" text-anchor="middle" font-size="14" fill="#555" font-style="italic">"Matter tells spacetime how to curve"</text>
-        </svg>
-      </div>
-    </div>
-  </div>
-</div>
+The operational content is that a small, freely falling laboratory is indistinguishable from an inertial frame in empty space, and a laboratory resting on a planet is indistinguishable from one accelerating in a rocket.
 
-### Einstein Field Equations
+<figure class="diagram">
+<svg viewBox="0 0 560 250" role="img" aria-label="Equivalence principle: an observer in a rocket accelerating at g feels the same weight as an observer standing on Earth" style="max-width: 560px; width: 100%; color: inherit;">
+  <defs>
+    <marker id="gr-eq-arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="currentColor"/>
+    </marker>
+  </defs>
+  <g fill="none" stroke="currentColor" stroke-width="2">
+    <!-- rocket cabin -->
+    <rect x="60" y="60" width="160" height="140" rx="6"/>
+    <path d="M60,60 L140,20 L220,60"/>
+    <path d="M100,200 L90,230 M180,200 L190,230" stroke-dasharray="4,3"/>
+    <!-- person A -->
+    <circle cx="140" cy="115" r="10"/>
+    <path d="M140,125 L140,165 M140,140 L125,152 M140,140 L155,152 M140,165 L130,195 M140,165 L150,195"/>
+    <!-- acceleration arrow -->
+    <path d="M40,190 L40,80" marker-end="url(#gr-eq-arrow)"/>
+    <!-- Earth cabin -->
+    <rect x="340" y="60" width="160" height="140" rx="6"/>
+    <path d="M320,200 L520,200" stroke-width="4"/>
+    <path d="M330,210 L345,200 M360,210 L375,200 M390,210 L405,200 M420,210 L435,200 M450,210 L465,200 M480,210 L495,200" stroke-width="1"/>
+    <circle cx="420" cy="115" r="10"/>
+    <path d="M420,125 L420,165 M420,140 L405,152 M420,140 L435,152 M420,165 L410,195 M420,165 L430,195"/>
+    <!-- gravity arrow -->
+    <path d="M540,80 L540,190" marker-end="url(#gr-eq-arrow)"/>
+    <!-- dropped balls -->
+    <circle cx="180" cy="100" r="5"/>
+    <circle cx="460" cy="100" r="5"/>
+    <path d="M180,110 L180,140 M460,110 L460,140" stroke-dasharray="3,3" marker-end="url(#gr-eq-arrow)"/>
+  </g>
+  <g fill="currentColor" font-size="13" text-anchor="middle">
+    <text x="140" y="245">Rocket in deep space, a = g</text>
+    <text x="420" y="245">Room at rest on Earth</text>
+    <text x="280" y="135" font-size="28">=</text>
+    <text x="22" y="140" transform="rotate(-90 22 140)">thrust a</text>
+    <text x="555" y="140" transform="rotate(90 555 140)">gravity g</text>
+  </g>
+</svg>
+<figcaption>No local experiment distinguishes the two cabins: a dropped ball "falls" at $g$ in both. A freely falling cabin is likewise indistinguishable from an inertial one far from all masses.</figcaption>
+</figure>
 
-The fundamental equation of general relativity equates spacetime geometry (left) to matter-energy content (right):
+Two consequences follow before any field equations are written down:
 
-$$R_{\mu\nu} - \frac{1}{2}g_{\mu\nu}R + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4}T_{\mu\nu}$$
+- **Light bends.** A light ray crossing an accelerating cabin traces a curved path in the cabin frame, so by equivalence it must also bend in a gravitational field.
+- **Clocks run slow deeper in a potential.** A photon climbing from floor to ceiling of an accelerating cabin is Doppler-redshifted; by equivalence, light climbing out of a gravitational well is redshifted by $\Delta\nu/\nu \approx -\Delta\Phi/c^2$.
 
-| Symbol | Name | Role |
-|--------|------|------|
-| $R_{\mu\nu}$ | Ricci curvature tensor | Spacetime curvature |
-| $g_{\mu\nu}$ | Metric tensor | Spacetime geometry |
-| $R$ | Scalar curvature | Trace of the Ricci tensor |
-| $\Lambda$ | Cosmological constant | Dark-energy term |
-| $G$ | Gravitational constant | $6.674 \times 10^{-11}\ \text{m}^3\text{kg}^{-1}\text{s}^{-2}$ |
-| $T_{\mu\nu}$ | Stress-energy tensor | Matter and energy content |
+Because gravity cannot be "transformed away" globally — two freely falling bodies on opposite sides of Earth accelerate toward each other — the equivalence principle is strictly *local*. What remains after all first-order effects are removed is **tidal acceleration**, and GR identifies tidal acceleration with spacetime curvature.
 
-#### Derivation from Action Principle
-The Einstein-Hilbert action:
+### General covariance
 
-$$S = \int d^4x \sqrt{-g} \left[\frac{R}{16\pi G} + \mathcal{L}_m\right]$$
+The laws of physics are written as tensor equations, which take the same form in every coordinate system. Coordinates in GR are labels with no intrinsic meaning; only invariants (proper times, proper distances, curvature scalars, the outcomes of measurements) are physical. Combined with the equivalence principle this gives a working recipe: take a law valid in special relativity, replace $\eta_{\mu\nu}$ with $g_{\mu\nu}$ and partial derivatives with covariant derivatives ("comma goes to semicolon"), and the result holds in curved spacetime.
 
-Where g = det(g_μν) and ℒ_m is the matter Lagrangian density.
+### Gravity as geometry
 
-Varying with respect to the metric:
+The two halves of the theory form a feedback loop, which is what makes GR nonlinear: the curvature produced by matter also carries energy that itself gravitates.
 
-$$\frac{\delta S}{\delta g^{\mu\nu}} = 0$$
+```mermaid
+graph LR
+    T["Matter and energy<br/>(stress-energy tensor)"] -->|"field equations"| G["Spacetime geometry<br/>(metric, curvature)"]
+    G -->|"geodesic equation"| M["Motion of matter<br/>and light"]
+    M -->|"moving matter changes<br/>the stress-energy"| T
+```
 
-Leads to:
+## Mathematical Structure
 
-$$R_{\mu\nu} - \frac{1}{2}g_{\mu\nu}R = \frac{8\pi G}{c^4}T_{\mu\nu}$$
+### The metric
 
-Where the stress-energy tensor is:
+All geometric information is encoded in the **metric tensor** $g_{\mu\nu}(x)$, a symmetric $4\times 4$ field that turns coordinate displacements into invariant intervals:
 
-$$T_{\mu\nu} = -\frac{2}{\sqrt{-g}} \frac{\delta(\sqrt{-g} \mathcal{L}_m)}{\delta g^{\mu\nu}}$$
+$$ds^2 = g_{\mu\nu}\,dx^\mu\,dx^\nu$$
 
-#### Curvature Tensors
-The Riemann curvature tensor:
+In flat spacetime with Cartesian coordinates it reduces to the Minkowski metric, $ds^2 = -c^2dt^2 + dx^2 + dy^2 + dz^2$. For a timelike worldline the elapsed **proper time** — what a clock carried along it reads — is $d\tau^2 = -ds^2/c^2$. At any single event one can always choose coordinates in which $g_{\mu\nu} = \eta_{\mu\nu}$ and its first derivatives vanish (locally inertial or Riemann normal coordinates); this is the mathematical form of the equivalence principle. The *second* derivatives cannot all be removed, and they are the curvature.
 
-$$R^\rho_{\sigma\mu\nu} = \partial_\mu\Gamma^\rho_{\nu\sigma} - \partial_\nu\Gamma^\rho_{\mu\sigma} + \Gamma^\rho_{\mu\lambda}\Gamma^\lambda_{\nu\sigma} - \Gamma^\rho_{\nu\lambda}\Gamma^\lambda_{\mu\sigma}$$
+### Geodesics: how matter moves
 
-The Ricci tensor (contraction of Riemann):
+A freely falling particle follows a **geodesic**, the worldline that extremizes (for timelike curves, maximizes) proper time between two events:
 
-$$R_{\mu\nu} = R^\rho_{\mu\rho\nu}$$
+$$\frac{d^2x^\mu}{d\tau^2} + \Gamma^\mu_{\alpha\beta}\,\frac{dx^\alpha}{d\tau}\frac{dx^\beta}{d\tau} = 0$$
 
-The scalar curvature:
+The **Christoffel symbols** of the Levi-Civita connection are built from first derivatives of the metric:
 
-$$R = g^{\mu\nu} R_{\mu\nu}$$
+$$\Gamma^\mu_{\alpha\beta} = \frac{1}{2}g^{\mu\nu}\left(\partial_\alpha g_{\nu\beta} + \partial_\beta g_{\nu\alpha} - \partial_\nu g_{\alpha\beta}\right)$$
 
-Bianchi identity ensures conservation:
+The $\Gamma$ terms play the role of the Newtonian gravitational force, but they are not tensors: they vanish in a freely falling frame, which is why a falling observer feels no force. Light follows **null geodesics** ($ds^2 = 0$), parameterized by an affine parameter rather than proper time.
 
-$$\nabla_\mu G^{\mu\nu} = 0$$
+**Newtonian limit.** For slow motion ($dx^i/d\tau \ll c$) in a weak, static field, the geodesic equation reduces to $\ddot{x}^i = -\partial_i \Phi$ provided
 
-Where G^μν = R^μν - ½g^μν R is the Einstein tensor.
+$$g_{00} \approx -\left(1 + \frac{2\Phi}{c^2}\right)$$
 
-The full differential-geometry development of these tensors — the covariant derivative, metric compatibility, the Weyl tensor, and the Bianchi identities in detail — is collected in [Graduate Formalism & Frontiers](advanced.html).
+where $\Phi$ is the Newtonian potential. Newtonian gravity is thus the statement that clocks run at a rate set by the local potential; for most everyday purposes the time part of the metric *is* gravity. (Derivation: [Tensor Formalism — The Newtonian Limit](tensor-formalism.html#the-newtonian-limit).)
 
-### The Metric Tensor
+### Curvature: tidal forces
 
-The metric tensor describes the geometry of spacetime:
+Curvature is measured by the **Riemann tensor**, which records how a vector changes when parallel-transported around a small closed loop:
 
-$$ds^2 = g_{\mu\nu} dx^\mu dx^\nu$$
+$$R^\rho{}_{\sigma\mu\nu} = \partial_\mu\Gamma^\rho_{\nu\sigma} - \partial_\nu\Gamma^\rho_{\mu\sigma} + \Gamma^\rho_{\mu\lambda}\Gamma^\lambda_{\nu\sigma} - \Gamma^\rho_{\nu\lambda}\Gamma^\lambda_{\mu\sigma}$$
 
-For flat spacetime (Minkowski metric, using the (−,+,+,+) signature):
+Its physical meaning is **geodesic deviation**: two neighbouring free-fall worldlines with tangent $u^\mu$ and separation $\xi^\mu$ accelerate relative to one another as
 
-$$ds^2 = -c^2dt^2 + dx^2 + dy^2 + dz^2$$
+$$\frac{D^2\xi^\mu}{d\tau^2} = R^\mu{}_{\nu\rho\sigma}\,u^\nu u^\rho \xi^\sigma$$
 
-### Schwarzschild Solution
+which in the Newtonian limit is the tidal equation $\ddot\xi^i = -(\partial_i\partial_j\Phi)\,\xi^j$. The Riemann tensor is the relativistic tidal tensor. Its contractions are the **Ricci tensor** $R_{\mu\nu} = R^\rho{}_{\mu\rho\nu}$ and the **Ricci scalar** $R = g^{\mu\nu}R_{\mu\nu}$. In four dimensions the Riemann tensor has 20 independent components: 10 are in the Ricci tensor (fixed locally by matter) and 10 in the trace-free **Weyl tensor**, which describes curvature that propagates through vacuum — tidal fields and gravitational waves.
 
-For a non-rotating, spherically symmetric mass:
+### The Einstein field equations
 
-$$ds^2 = -\left(1 - \frac{2GM}{rc^2}\right)c^2dt^2 + \left(1 - \frac{2GM}{rc^2}\right)^{-1}dr^2 + r^2(d\theta^2 + \sin^2\theta d\phi^2)$$
+The field equations relate curvature to the stress–energy tensor $T_{\mu\nu}$:
 
-This describes spacetime around stars, planets, and non-rotating black holes.
+$$G_{\mu\nu} + \Lambda g_{\mu\nu} = \frac{8\pi G}{c^4}\,T_{\mu\nu}, \qquad G_{\mu\nu} \equiv R_{\mu\nu} - \frac{1}{2}R\,g_{\mu\nu}$$
 
-#### Schwarzschild Radius
-The event horizon of a black hole:
+| Symbol | Name | Meaning |
+|--------|------|---------|
+| $g_{\mu\nu}$ | Metric | The geometry; the unknown being solved for |
+| $R_{\mu\nu}$, $R$ | Ricci tensor, Ricci scalar | Contractions of the Riemann curvature |
+| $G_{\mu\nu}$ | Einstein tensor | The unique divergence-free combination of $R_{\mu\nu}$, $R$, $g_{\mu\nu}$ |
+| $\Lambda$ | Cosmological constant | Curvature of empty space; observed $\Lambda \approx 1.1\times10^{-52}\ \text{m}^{-2}$ |
+| $T_{\mu\nu}$ | Stress–energy tensor | Energy density, momentum density, pressure, and stress |
+| $8\pi G/c^4$ | Coupling | $\approx 2.1\times10^{-43}\ \text{N}^{-1}$: spacetime is extremely stiff |
 
-$$r_s = \frac{2GM}{c^2}$$
+Key structural facts:
 
-**Reading the Schwarzschild metric.** Every term has a physical job. The factor $(1 - 2GM/rc^2)$ multiplying $dt^2$ is the gravitational time dilation: clocks deep in the well tick slower, and at $r = r_s$ it hits zero — time appears to freeze at the horizon as seen from far away. The same factor *inverted* in front of $dr^2$ stretches radial distances near the mass. Far from the mass ($r \gg r_s$) both factors approach 1 and the metric becomes flat Minkowski spacetime, recovering special relativity. For the Sun, $r_s \approx 3$ km; for Earth, about 9 mm — which is why we never notice these effects unless mass is crushed into a tiny volume.
+- **Conservation is built in.** The contracted Bianchi identity $\nabla_\mu G^{\mu\nu} = 0$ holds identically, so the equations force $\nabla_\mu T^{\mu\nu} = 0$. Local energy–momentum conservation, and with it the geodesic motion of small bodies, is a consequence of the field equations rather than an extra assumption.
+- **Counting.** There are 10 equations for the 10 components of $g_{\mu\nu}$, but the Bianchi identity leaves only 6 independent evolution equations; the remaining 4 degrees of freedom are the coordinate (gauge) choice. The 4 equations $G^{0\mu} = (8\pi G/c^4)T^{0\mu}$ contain no second time derivatives and act as **constraints** on initial data, as Gauss's law does in electromagnetism.
+- **Trace-reversed form.** Taking the trace and substituting back gives
+  $$R_{\mu\nu} = \frac{8\pi G}{c^4}\left(T_{\mu\nu} - \frac{1}{2}T\,g_{\mu\nu}\right) + \Lambda g_{\mu\nu}$$
+  In vacuum with $\Lambda = 0$ the equations are simply $R_{\mu\nu} = 0$ — which does *not* mean spacetime is flat, because the Weyl curvature is unconstrained.
+- **Nonlinearity.** Unlike Maxwell's equations, the field equations are nonlinear in $g_{\mu\nu}$, so solutions cannot be superposed. Exact solutions exist only with high symmetry; general problems such as black-hole mergers require [numerical relativity](../computational-physics/).
 
-### Gravitational Time Dilation
+**Action principle.** The same equations follow from varying the Einstein–Hilbert action with respect to $g^{\mu\nu}$:
 
-Clocks run slower in stronger gravitational fields:
+$$S = \frac{c^4}{16\pi G}\int \left(R - 2\Lambda\right)\sqrt{-g}\,d^4x \;+\; S_{\rm matter}, \qquad T_{\mu\nu} = -\frac{2}{\sqrt{-g}}\frac{\delta S_{\rm matter}}{\delta g^{\mu\nu}}$$
 
-$$\Delta t = \frac{\Delta\tau}{\sqrt{1 - 2GM/rc^2}}$$
+Lovelock's theorem (1971) shows that in four dimensions $G_{\mu\nu}$ and $\Lambda g_{\mu\nu}$ are the only divergence-free, second-order tensors built from the metric, which is why the field equations are essentially unique. The full variation is on [Tensor Formalism — The Einstein–Hilbert Action](tensor-formalism.html#route-2-the-einsteinhilbert-action).
 
-Where Δτ is the proper time at radius r.
+## The Schwarzschild Solution
 
-### Gravitational Redshift
+Karl Schwarzschild found the first exact solution in 1916: the vacuum field outside any static, spherically symmetric mass $M$.
 
-Light climbing out of a gravitational field is redshifted:
+$$ds^2 = -\left(1 - \frac{r_s}{r}\right)c^2dt^2 + \left(1 - \frac{r_s}{r}\right)^{-1}dr^2 + r^2\left(d\theta^2 + \sin^2\theta\,d\phi^2\right), \qquad r_s = \frac{2GM}{c^2}$$
 
-$$z = \frac{\sqrt{1 - 2GM/r_1c^2}}{\sqrt{1 - 2GM/r_2c^2}} - 1$$
+**Birkhoff's theorem** guarantees that this is the *unique* spherically symmetric vacuum solution, even if the source is pulsating or collapsing — so a spherical star cannot emit gravitational waves, and the exterior of the Sun, a neutron star, and a non-rotating black hole are described by the same metric.
 
-### Geodesics
+**Reading the metric.**
 
-Objects in free fall follow geodesics (shortest paths in curved spacetime):
+- The coordinate $r$ is defined so that a sphere at $r$ has area $4\pi r^2$; it is not the proper radial distance.
+- The factor $(1 - r_s/r)$ on $dt^2$ is gravitational time dilation: a static clock at $r$ ticks at rate $d\tau/dt = \sqrt{1 - r_s/r}$ relative to one at infinity.
+- The inverse factor on $dr^2$ stretches radial distances: the proper distance between two spheres exceeds the difference of their $r$ values.
+- For $r \gg r_s$ the metric approaches Minkowski with $g_{00} \approx -(1 + 2\Phi/c^2)$, $\Phi = -GM/r$, recovering Newton.
+- At $r = r_s$ the $g_{rr}$ component diverges, but this is a **coordinate singularity**: curvature invariants are finite there, and other coordinates (Eddington–Finkelstein, Kruskal–Szekeres) pass smoothly through. The surface $r = r_s$ is the **event horizon**. The genuine curvature singularity is at $r = 0$. See [Black Holes](black-holes.html).
 
-$$\frac{d^2x^\mu}{d\tau^2} + \Gamma^\mu_{\alpha\beta} \frac{dx^\alpha}{d\tau}\frac{dx^\beta}{d\tau} = 0$$
+For the Sun $r_s \approx 2.95$ km, for Earth $\approx 8.9$ mm, which is why relativistic corrections in the Solar System are of order $r_s/r \sim 10^{-6}$ to $10^{-9}$.
 
-Where Γ^μ_αβ are the Christoffel symbols describing the connection:
+### Characteristic radii
 
-$$\Gamma^\mu_{\alpha\beta} = \frac{1}{2}g^{\mu\nu}\left(\frac{\partial g_{\nu\alpha}}{\partial x^\beta} + \frac{\partial g_{\nu\beta}}{\partial x^\alpha} - \frac{\partial g_{\alpha\beta}}{\partial x^\nu}\right)$$
+Orbits in Schwarzschild spacetime differ qualitatively from Kepler orbits near the mass. The effective potential for radial motion has an extra attractive term $\propto -r_s L^2/r^3$ that dominates at small $r$, producing three landmark radii:
 
-**The whole theory in one sentence.** John Wheeler distilled general relativity to its core: *"Spacetime tells matter how to move; matter tells spacetime how to curve."* The first half is the geodesic equation — free objects follow the straightest available paths through curved spacetime, which we perceive as gravity. The second half is the Einstein field equation — the stress-energy tensor $T_{\mu\nu}$ on the right sources the curvature on the left. Gravity is not a force pulling objects off straight lines; it is the geometry that *defines* what "straight" means. An orbiting planet and a tossed apple are both coasting, force-free, through spacetime bent by mass.
+<figure class="diagram">
+<svg viewBox="0 0 600 170" role="img" aria-label="Schwarzschild characteristic radii: event horizon at r_s, photon sphere at 1.5 r_s, innermost stable circular orbit at 3 r_s" style="max-width: 600px; width: 100%; color: inherit;">
+  <g fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M40,120 L580,120"/>
+    <path d="M40,114 L40,126 M190,114 L190,126 M265,114 L265,126 M415,114 L415,126 M565,114 L565,126" />
+    <rect x="40" y="95" width="150" height="25" fill="currentColor" fill-opacity="0.25" stroke="none"/>
+    <path d="M190,40 L190,120" stroke-width="3"/>
+    <path d="M265,40 L265,120" stroke-dasharray="6,4"/>
+    <path d="M415,40 L415,120" stroke-dasharray="2,4"/>
+  </g>
+  <g fill="currentColor" font-size="13" text-anchor="middle">
+    <text x="40" y="145">0</text>
+    <text x="190" y="145">r_s</text>
+    <text x="265" y="145">1.5 r_s</text>
+    <text x="415" y="145">3 r_s</text>
+    <text x="565" y="145">4.5 r_s</text>
+    <text x="310" y="165">Schwarzschild radial coordinate r</text>
+    <text x="115" y="88">inside horizon</text>
+    <text x="190" y="32">event horizon</text>
+    <text x="265" y="20">photon sphere</text>
+    <text x="415" y="32">ISCO</text>
+    <text x="495" y="75">stable circular</text>
+    <text x="495" y="92">orbits allowed</text>
+    <text x="340" y="75">plunge region</text>
+  </g>
+</svg>
+<figcaption>Landmark radii of a Schwarzschild black hole. Stable circular orbits exist only outside the ISCO; between the photon sphere and the ISCO circular orbits are unstable; light itself can circle at the photon sphere.</figcaption>
+</figure>
 
-## Predictions and Confirmations
+| Radius | Value | Significance |
+|--------|-------|--------------|
+| Event horizon | $r_s = 2GM/c^2$ | Boundary from which no signal escapes to infinity |
+| Photon sphere | $\tfrac{3}{2}r_s = 3GM/c^2$ | Unstable circular light orbits; sets the size of a black-hole "shadow" ($\approx 2.6\,r_s$ in radius as seen from afar) |
+| Innermost stable circular orbit (ISCO) | $3r_s = 6GM/c^2$ | Inner edge of a thin accretion disk; matter inside plunges. Radiative efficiency of a disk ending here is about 5.7% of $mc^2$ |
 
-A theory earns trust by sticking its neck out. Relativity made bold, counterintuitive predictions decades before the technology existed to test them — and it has passed every test, often to extraordinary precision. The two lists below separate predictions of special relativity (high speeds) from those of general relativity (strong gravity).
+For a rotating (Kerr) black hole the ISCO moves inward for prograde orbits, down to $GM/c^2$ for maximal spin, raising the efficiency to about 42%.
 
-### Special Relativity Predictions
+### Gravitational time dilation and redshift
 
-1. **Time Dilation:** Confirmed in particle accelerators and cosmic ray muons
-2. **Length Contraction:** Indirectly confirmed through particle physics
-3. **Mass-Energy Equivalence:** Confirmed in nuclear reactions
-4. **Relativistic Doppler Effect:** Observed in astronomy
+A static clock at radius $r$ ticks slower than an identical clock at infinity:
 
-### General Relativity Predictions
+$$\frac{d\tau}{dt} = \sqrt{1 - \frac{r_s}{r}} \;\approx\; 1 - \frac{GM}{rc^2}$$
 
-1. **Perihelion Precession of Mercury:** 43 arcseconds per century
-2. **Gravitational Lensing:** Light bending around massive objects
-3. **Gravitational Waves:** Detected by LIGO in 2015
-4. **Black Holes:** First imaged by Event Horizon Telescope in 2019
-5. **Frame Dragging:** Confirmed by Gravity Probe B
-6. **Cosmological Expansion:** Foundation of modern cosmology
+Light emitted at radius $r_e$ and received by a static observer at $r_o$ is shifted by
 
-## Applications
+$$1 + z = \frac{\nu_e}{\nu_o} = \sqrt{\frac{1 - r_s/r_o}{1 - r_s/r_e}}$$
 
-### Technology
-- **GPS Navigation:** Requires both special and general relativistic corrections
-- **Particle Accelerators:** Design based on relativistic mechanics
-- **Electron Microscopes:** Relativistic corrections for high-energy electrons
+which is a redshift ($z > 0$) when the emitter is deeper in the well. In the weak-field limit $z \approx (\Phi_o - \Phi_e)/c^2$. At Earth's surface a height difference of $1$ m changes clock rates by about $1.1\times10^{-16}$ — now directly measurable: optical atomic clocks resolve the redshift across a single millimetre-scale atomic sample (JILA, 2022), and "relativistic geodesy" uses clock comparisons to measure height differences.
 
-### Astrophysics
-- **Black Hole Physics:** Understanding accretion disks and jets
-- **Neutron Stars:** Modeling extreme gravity environments
-- **Cosmology:** Big Bang theory and universe evolution
-- **Gravitational Wave Astronomy:** New window to observe the universe
+### Proper time and the clock examples
 
-### Fundamental Physics
-- **Quantum Field Theory:** Combines special relativity with quantum mechanics
-- **String Theory:** Attempts to unify general relativity with quantum mechanics
-- **Tests of Fundamental Symmetries:** Lorentz invariance tests
+Proper time is path-dependent: between two events, different worldlines accumulate different $\int d\tau$. Both special- and general-relativistic clock effects are instances of this single fact.
 
-## Paradoxes and Resolutions
+**The twin paradox.** Alice travels to a star $4$ light-years away at $v = 0.8c$ and returns; Bob stays home. With $\gamma = 1/\sqrt{1-0.8^2} = 5/3$, Bob's clock records $\Delta t = 10$ years and Alice's records $\Delta\tau = \Delta t/\gamma = 6$ years. The situation is not symmetric: Bob's worldline is a geodesic of flat spacetime (maximal proper time), Alice's is not. No gravity is needed to resolve it — see [Special Relativity](special-relativity.html).
 
-### Twin Paradox
-One twin travels at high speed and returns younger than the stationary twin. Resolution: The traveling twin experiences acceleration, breaking the symmetry — only the traveler changes inertial frames, so the situation was never symmetric.
-
-<div class="example-card">
-  <h4>Worked Example: how much younger?</h4>
-  <p>Suppose Alice flies to a star 4 light-years away at $v = 0.8c$ and returns, while Bob stays on Earth. At this speed the Lorentz factor is</p>
-  $$\gamma = \frac{1}{\sqrt{1 - 0.8^2}} = \frac{1}{\sqrt{0.36}} = 1.667.$$
-  <p>Bob measures the round trip as $\Delta t = 2 \times (4\ \text{ly}) / 0.8c = 10$ years. Alice's clock — her <em>proper time</em> along the traveling worldline — records</p>
-  $$\Delta\tau = \frac{\Delta t}{\gamma} = \frac{10\ \text{years}}{1.667} = 6\ \text{years}.$$
-  <p>Alice returns 4 years younger than Bob. There is no contradiction: Alice cannot turn the argument around, because she had to decelerate and reverse at the star, switching inertial frames, while Bob never did. The asymmetry is physical, not a matter of viewpoint.</p>
-</div>
-
-### Ladder Paradox
-A ladder moving at high speed appears contracted and fits in a smaller garage. Resolution: Relativity of simultaneity - the front and back of the ladder don't enter simultaneously in all frames.
-
-### Grandfather Paradox
-Time travel could allow changing the past. Resolution: Various theoretical solutions including self-consistent timelines or parallel universes.
-
-### Common Misconceptions
-
-- **"Nothing can move faster than light."** More precisely: no *information, energy, or massive object* can. Pure geometry can — the gap between two separating galaxies grows faster than $c$ in expanding spacetime, and a laser spot swept across the Moon can outrun light, because neither carries a signal.
-- **"Mass increases with speed."** An older convention; modern usage keeps the *rest mass* $m$ invariant and puts the speed dependence in momentum $p = \gamma m v$ and energy $E = \gamma m c^2$.
-- **"The twin paradox is a real paradox."** It isn't. Only the traveling twin changes frames (accelerates to turn around), so only the traveling twin ages less.
-- **"Time dilation means the moving clock is broken."** No clock malfunctions. Identical, perfect clocks measure different elapsed proper times along different worldlines — like two roads of different length between the same cities.
-- **"$E=mc^2$ only applies to nuclear bombs."** It applies to everything. A charged battery, a compressed spring, and a hot cup of coffee all weigh fractionally more than their de-energized counterparts; the effect is just immeasurably tiny outside nuclear and particle processes.
+**GPS.** Satellite clocks orbit at $r \approx 26{,}560$ km with $v \approx 3.87$ km/s. Their smaller potential depth makes them run *fast* by about $+45.7\ \mu\text{s/day}$ relative to ground clocks; their orbital speed makes them run *slow* by about $-7.2\ \mu\text{s/day}$. The net $+38.5\ \mu\text{s/day}$ would accumulate a ranging error of roughly $10$ km per day if uncorrected, so the satellite clocks are deliberately offset in frequency before launch.
 
 ## Experimental Tests
 
-### Classic Tests
-1. **Michelson-Morley Experiment:** Null result led to special relativity
-2. **Eddington's 1919 Eclipse:** Confirmed light bending
-3. **Pound-Rebka Experiment:** Gravitational redshift in Earth's field
-4. **Hafele-Keating Experiment:** Time dilation with atomic clocks on planes
+GR has passed every experimental test to date, across more than twenty orders of magnitude in field strength. The **parameterized post-Newtonian (PPN)** formalism quantifies Solar-System tests: metric theories are characterized by parameters such as $\gamma$ (space curvature per unit mass) and $\beta$ (nonlinearity), both equal to $1$ in GR.
 
-### Modern Precision Tests
-1. **Lunar Laser Ranging:** Tests equivalence principle
-2. **Gravity Probe A/B:** Tests frame dragging and geodetic effect
-3. **Pulsar Timing:** Tests general relativity in strong fields
-4. **LIGO/Virgo:** Direct detection of spacetime ripples
+### The classical tests
 
-## Limitations and Open Questions
+| Effect | GR prediction | Measured |
+|--------|---------------|----------|
+| **Perihelion precession** | $\Delta\phi = \dfrac{6\pi GM}{c^2 a(1-e^2)}$ per orbit; $42.98''$ per century for Mercury | Agrees to better than $10^{-3}$; the anomaly was known since Le Verrier (1859) and was GR's first success in 1915 |
+| **Light deflection** | $\delta = \dfrac{4GM}{c^2 b}$ — twice the Newtonian corpuscular value; $1.75''$ at the solar limb | Eddington's 1919 eclipse expedition (roughly 20% precision); VLBI of quasars now gives $\gamma$ to $\sim 10^{-4}$ |
+| **Gravitational redshift** | $z \approx \Delta\Phi/c^2$ | Pound–Rebka tower (1959); Gravity Probe A hydrogen maser (1976, $7\times10^{-5}$); Galileo satellites in eccentric orbits (2018, $\sim 2\times10^{-5}$) |
+| **Shapiro time delay** | Round-trip radar delay $\approx \dfrac{4GM}{c^3}\ln\dfrac{4r_1r_2}{b^2}$ | Cassini (2003): $\gamma - 1 = (2.1 \pm 2.3)\times10^{-5}$ |
 
-1. **Singularities:** General relativity predicts its own breakdown
-2. **Quantum Gravity:** No complete theory unifying GR with quantum mechanics
-3. **Dark Matter/Energy:** Unexplained observations requiring new physics
-4. **Information Paradox:** Black hole information loss problem
-5. **Cosmological Constant Problem:** Huge discrepancy with quantum predictions
+The factor of 2 in light deflection is instructive: half comes from the time part of the metric (the Newtonian-like part), half from the spatial curvature, so light bending tests space curvature directly.
 
-These open questions are pursued in detail — black-hole thermodynamics, the information paradox, gravitational waves, and quantum-gravity programs — in [Graduate Formalism & Frontiers](advanced.html).
+### Modern tests
 
----
+- **Frame dragging and geodetic precession.** Gravity Probe B (2011) measured gyroscope precession in Earth orbit: geodetic $6601.8 \pm 18.3$ mas/yr (GR: $6606.1$) and frame dragging $37.2 \pm 7.2$ mas/yr (GR: $39.2$). Laser-ranged satellites (LAGEOS, LARES) independently confirm Lense–Thirring precession.
+- **Binary pulsars.** The Hulse–Taylor pulsar (discovered 1974) showed orbital decay matching gravitational-wave emission (1993 Nobel Prize). The Double Pulsar PSR J0737−3039A/B now tests the quadrupole formula to about $10^{-4}$ and measures several independent relativistic effects in a single system (Kramer et al., 2021).
+- **Stars around Sagittarius A\*.** The GRAVITY collaboration measured the gravitational redshift of the star S2 at pericentre (2018) and its Schwarzschild orbital precession (2020), a strong-field test around a $4\times10^6\,M_\odot$ black hole.
+- **Black-hole imaging.** The Event Horizon Telescope imaged the shadows of M87\* (2019) and Sgr A\* (2022); ring diameters match the Kerr prediction to within about 10–20%.
+- **Gravitational waves.** Direct detections since 2015 test GR in the dynamical, strong-field regime: waveform consistency, ringdown spectroscopy, the speed of gravity (equal to $c$ to $\sim10^{-15}$ from GW170817), and, with the exceptionally loud GW250114 (2025), Hawking's area theorem and the first confident measurement of a ringdown overtone. See [Gravitational Waves](gravitational-waves.html).
+- **Cosmology.** The expansion history, the CMB, and structure growth are all modelled with GR; see [Relativistic Cosmology](cosmology.html). This is the regime where GR's predictions depend most on the unknown dark sector.
 
-## Continue
+## Beyond Schwarzschild
 
-**Previous:** [Special Relativity](special-relativity.html) — the postulates, Lorentz transformations, and $E=mc^2$. **Next:** [Graduate Formalism & Frontiers](advanced.html) — tensor calculus, exact solutions, and quantum gravity.
+The field equations support a small number of important exact solutions and a much larger set of approximation schemes:
+
+| Solution or method | Describes | Where covered |
+|--------------------|-----------|---------------|
+| Kerr (1963) | Rotating black holes; frame dragging, ergosphere | [Black Holes](black-holes.html#the-kerr-solution) |
+| Reissner–Nordström, Kerr–Newman | Charged (and rotating) black holes | [Black Holes](black-holes.html) |
+| FLRW | Homogeneous, isotropic expanding universe | [Cosmology](cosmology.html) |
+| de Sitter / anti-de Sitter | Maximally symmetric spacetimes with $\Lambda \neq 0$ | [Cosmology](cosmology.html#de-sitter-and-anti-de-sitter-space) |
+| Linearized gravity | Weak fields and gravitational waves | [Gravitational Waves](gravitational-waves.html) |
+| Post-Newtonian expansion | Slow-motion, weak-field systems (Solar System, early binary inspiral) | [Gravitational Waves](gravitational-waves.html#the-three-phases-inspiral-merger-ringdown) |
+| Numerical relativity | Fully nonlinear dynamics: mergers, collapse | [Computational Physics](../computational-physics/) |
+
+## Limitations and Open Problems
+
+GR is a classical field theory, and it predicts its own limits:
+
+- **Singularities.** The Penrose–Hawking singularity theorems show that, under reasonable energy conditions, gravitational collapse and the Big Bang produce geodesics that end in finite proper time. GR cannot describe what happens there.
+- **Quantum gravity.** Quantizing the metric perturbatively gives a non-renormalizable theory; GR is best understood as a low-energy effective field theory valid far below the Planck scale ($\sim 10^{19}$ GeV). See [Quantum Gravity](quantum-gravity.html).
+- **Black-hole information.** Hawking radiation appears to destroy information, in conflict with quantum unitarity. See [Black Holes — The Information Paradox](black-holes.html#the-information-paradox).
+- **The dark sector.** About 95% of the cosmic energy budget is attributed to dark matter and dark energy, detected only gravitationally. Whether these reflect new matter or a failure of GR on large scales is open; recent baryon-acoustic-oscillation data (DESI, 2025) mildly favour dark energy that evolves in time over a pure cosmological constant.
+- **The cosmological constant problem.** Naive quantum-field-theory estimates of vacuum energy exceed the observed $\Lambda$ by up to about 120 orders of magnitude.
 
 ## See Also
 
-- [Graduate Formalism & Frontiers](advanced.html) — the Riemann tensor, Kerr/FLRW solutions, and black-hole thermodynamics.
-- [String Theory](../string-theory/) — a leading candidate for quantum gravity.
-- [Computational Physics](../computational-physics/) — numerical relativity and gravitational-wave simulations.
-- [Physics Hub](../) — browse all physics topics.
+- [Special Relativity](special-relativity.html) — the flat-spacetime theory GR generalizes.
+- [Tensor Formalism & the Field Equations](tensor-formalism.html) — manifolds, connections, curvature, and derivations of the field equations.
+- [Black Holes](black-holes.html) — Schwarzschild and Kerr geometry, horizons, and black-hole thermodynamics.
+- [Relativistic Cosmology](cosmology.html) — GR applied to the universe as a whole.
+- [Gravitational Waves](gravitational-waves.html) — linearized gravity, radiation, and detection.
+- [Quantum Gravity](quantum-gravity.html) — where GR and quantum theory conflict.
+- [Graduate Topics Hub](advanced.html) — how the deep-dive pages fit together.
+- [Computational Physics](../computational-physics/) — numerical relativity.
+- [Physics Hub](../) — all physics topics.

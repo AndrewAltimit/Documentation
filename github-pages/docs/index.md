@@ -1,211 +1,163 @@
 ---
 layout: docs
 title: Complete Documentation Index
+description: Every page in Andrew's Notebook, grouped by section and topic, with the overview page for each topic and all of its sub-pages.
 toc: false  # Index pages typically don't need TOC
 ---
 
 <div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #4facfe 100%);">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">Documentation Index</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.92;">Every page, organized by category &mdash; from beginner guides to graduate-level theory.</p>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.92;">Every page on the site, grouped by section and topic.</p>
 </div>
 
-The complete listing of every page on the site, grouped by category &mdash; [Technology](#technology), [Architecture & Operations](#architecture--operations), [AI / ML](#aiml---generative-ai), [Physics](#physics), and the [specialized](#specialized-hubs) and [research](#research--advanced-topics) hubs. You can also browse the [visual topic map](topic-map.html) or [search](../search.html) directly.
+This is the complete listing of the site's content. Each table row is one topic: the **Overview** column links the page that introduces the topic and orients you, and the **Sub-pages** column lists every focused page that goes deeper. Rows run roughly from introductory to advanced within each section.
 
-<div class="tip-card" markdown="1">
-**New here? Start at a hub.** Each major area has a hub page that orients you and recommends a reading path: the [Quantum Computing Hub](quantum-computing/), [Distributed Systems Hub](distributed-systems/), [Performance Optimization Hub](optimization/), [AI/ML Hub](ai-ml/), and the [Physics Hub](physics/). The lists below are the full index; the hubs are the guided way in.
-</div>
+For guided entry points, see [Getting Started](../getting-started.html); for a picture of how topics depend on one another, see the [Topic Map](topic-map.html). The site [search](../search.html) indexes the main hub and overview pages, so this index is the reliable way to find a specific sub-page.
 
+| Section | What it covers | Hub |
+|---------|----------------|-----|
+| [Technology](#technology) | Containers, orchestration, cloud, IaC, version control, databases, networking, security | [Technology Hub](technology/) |
+| [Architecture & Operations](#architecture--operations) | Distributed systems, APIs, event-driven design, observability, testing, performance | [Distributed Systems Hub](distributed-systems/) |
+| [AI & Machine Learning](#ai--machine-learning) | ML theory and architectures, plus hands-on generative image models | [AI Hub](artificial-intelligence/) |
+| [Game Development & Graphics](#game-development--graphics) | Engines, rendering, shaders, multiplayer, XR | [Game Development](gamedev/) |
+| [Physics](#physics) | Classical mechanics through quantum field theory, string theory, and computation | [Physics Hub](physics/) |
+| [Theory & Research](#theory--research) | Graduate-level computer science and mathematics | [Advanced Topics Hub](advanced/) |
+| [Reference](#reference--navigation) | Cheat sheets and navigation aids | [Quick Reference](reference/) |
 
 ## Technology
 
-Infrastructure, DevOps, cloud, security, and game/real-time development.
+The software delivery stack, from the packets and rows beneath an application to the pipelines and clouds that run it. The [Technology Hub](technology/) suggests reading orders.
 
-### Infrastructure & DevOps
+### Infrastructure and DevOps
 
-<div class="command-grid">
-  <a href="technology/terraform/" class="nav-card"><h4><i class="fas fa-cubes"></i> Terraform</h4><p>Infrastructure as Code for multi-cloud provisioning.</p></a>
-  <a href="technology/docker/" class="nav-card"><h4><i class="fab fa-docker"></i> Docker</h4><p>Comprehensive containerization guide, images to networking.</p></a>
-  <a href="technology/docker-essentials.html" class="nav-card"><h4><i class="fas fa-terminal"></i> Docker Essentials</h4><p>Quick command reference for everyday Docker.</p></a>
-  <a href="technology/kubernetes/" class="nav-card"><h4><i class="fas fa-dharmachakra"></i> Kubernetes</h4><p>Production-grade container orchestration.</p></a>
-  <a href="technology/aws/" class="nav-card"><h4><i class="fab fa-aws"></i> AWS</h4><p>Amazon Web Services: compute, storage, and networking.</p></a>
-  <a href="technology/ci-cd/" class="nav-card"><h4><i class="fas fa-sync-alt"></i> CI/CD</h4><p>Continuous integration and deployment pipelines.</p></a>
-  <a href="technology/please-build.html" class="nav-card"><h4><i class="fas fa-hammer"></i> Please Build</h4><p>High-performance polyglot build system.</p></a>
-</div>
+| Topic | Overview | Sub-pages |
+|-------|----------|-----------|
+| Docker | [Docker](technology/docker/) · [Docker Essentials](technology/docker-essentials.html) (command cheat sheet) | [Fundamentals](technology/docker/fundamentals.html) · [Dockerfiles & CI/CD](technology/docker/dockerfiles.html) · [Networking](technology/docker/docker-networking.html) · [Storage & Security](technology/docker/storage-security.html) · [Registries & Supply-Chain Security](technology/docker/registry.html) · [Design Patterns](technology/docker/docker-design-patterns.html) · [Production Patterns](technology/docker/advanced.html) · [Container Runtimes & Alternatives](technology/container-runtimes.html) |
+| Kubernetes | [Kubernetes](technology/kubernetes/) | [Fundamentals: Architecture & Core Objects](technology/kubernetes/fundamentals.html) · [Networking & Configuration](technology/kubernetes/fundamentals-networking.html) · [Health & Resource Management](technology/kubernetes/fundamentals-resources.html) · [Workloads & Storage](technology/kubernetes/workloads.html) · [Stateful Workloads & Persistence](technology/kubernetes/persistence.html) · [Operations](technology/kubernetes/operations.html) · [Advanced Topics](technology/kubernetes/advanced.html) |
+| Terraform | [Terraform](technology/terraform/) | [Core Concepts](technology/terraform/core-concepts.html) · [State & Modules](technology/terraform/state-modules.html) · [Enterprise Patterns](technology/terraform/patterns.html) · [Advanced Topics & Troubleshooting](technology/terraform/advanced.html) |
+| AWS | [AWS Cloud Services](technology/aws/) | [Compute](technology/aws/compute.html) · [Storage](technology/aws/storage.html) · [Databases](technology/aws/databases.html) · [Networking & Content Delivery](technology/aws/networking.html) · [Security & Identity](technology/aws/security.html) · [Monitoring & Messaging](technology/aws/monitoring.html) · [Infrastructure as Code](technology/aws/iac.html) · [Cost Optimization](technology/aws/cost.html) · [Architecture Patterns](technology/aws/architecture.html) · [Troubleshooting](technology/aws/troubleshooting.html) |
+| CI/CD | [CI/CD](technology/ci-cd/) | [Platforms & Pipeline Design](technology/ci-cd/platforms-and-pipelines.html) · [Deployment Strategies](technology/ci-cd/deployment.html) · [Security, GitOps & Operations](technology/ci-cd/security-and-operations.html) |
+| Build systems and monorepos | [Monorepo Strategies](advanced/monorepo/) | [Monorepo Tooling & Build Systems](advanced/monorepo-tooling/) · [Scaling & Engineering](advanced/monorepo-scaling/) · [Please Build](technology/please-build.html) |
 
-### Development & Version Control
+### Version control
 
-<div class="command-grid">
-  <a href="technology/git/" class="nav-card"><h4><i class="fab fa-git-alt"></i> Git Version Control</h4><p>Core concepts, the object model, and workflows.</p></a>
-  <a href="technology/git-reference.html" class="nav-card"><h4><i class="fas fa-book"></i> Git Command Reference</h4><p>Comprehensive command-by-command guide.</p></a>
-  <a href="technology/branching.html" class="nav-card"><h4><i class="fas fa-code-branch"></i> Branching Strategies</h4><p>Git Flow, trunk-based, and release patterns.</p></a>
-  <a href="technology/database-design/" class="nav-card"><h4><i class="fas fa-database"></i> Database Design</h4><p>Relational and NoSQL modeling patterns.</p></a>
-</div>
+| Topic | Overview | Sub-pages |
+|-------|----------|-----------|
+| Git usage | [Git Crash Course](technology/git-crash-course.html) (learning path) · [Git Command Reference](technology/git-reference.html) (lookup) | [Branching Strategies](technology/branching.html) · [Advanced Branching Techniques](technology/advanced-branching-techniques.html) · [Conflict Resolution & Recovery](technology/git/conflict-and-recovery.html) · [Authentication & Access Control](technology/git/auth-and-access-control.html) |
+| Git internals | [Git Internals](technology/git/) | [Object Model & Storage](technology/git/object-model.html) · [Algorithms & Advanced Operations](technology/git/algorithms-and-operations.html) · [Protocols, Packs & Performance](technology/git/protocols-and-performance.html) |
 
-### Networking & Security
+### Data
 
-<div class="command-grid">
-  <a href="technology/networking/" class="nav-card"><h4><i class="fas fa-network-wired"></i> Networking</h4><p>TCP/IP, protocols, DNS, and modern architecture.</p></a>
-  <a href="technology/cybersecurity/" class="nav-card"><h4><i class="fas fa-shield-alt"></i> Cybersecurity</h4><p>Security principles and threat mitigation.</p></a>
-  <a href="technology/quantumcomputing.html" class="nav-card"><h4><i class="fas fa-atom"></i> Quantum Computing</h4><p>From qubits to algorithms and hardware.</p></a>
-</div>
+| Topic | Overview | Sub-pages |
+|-------|----------|-----------|
+| Databases | [Database Crash Course](technology/database-crash-course.html) · [Database Design](technology/database-design/) | [Data Modeling & Normalization](technology/database-design/modeling.html) · [Indexing & Query Execution](technology/database-design/indexing-and-queries.html) · [Transactions & Concurrency](technology/database-design/transactions-and-concurrency.html) · [Storage Engines & Recovery](technology/database-design/storage-internals.html) · [ORMs & Data-Access Patterns](technology/database-design/orm-patterns.html) · [Schema Evolution & Migrations](technology/database-design/schema-evolution-and-migrations.html) · [Operations & Monitoring](technology/database-design/operations-and-monitoring.html) |
+| Distributed and NoSQL data | [Distributed & NoSQL Databases](technology/database-design/distributed-and-nosql.html) | [NoSQL Data Models](technology/database-design/nosql-data-models.html) · [Replication & Consensus](technology/database-design/replication-and-consensus.html) · [Distributed Transactions](technology/database-design/distributed-transactions.html) |
 
-### Game & Real-Time Development
+### Networking and security
 
-<div class="command-grid">
-  <a href="technology/unreal.html" class="nav-card"><h4><i class="fas fa-gamepad"></i> Unreal Engine</h4><p>UE5 development with Nanite, Lumen, and MetaSounds.</p></a>
-  <a href="gamedev/" class="nav-card"><h4><i class="fas fa-dice-d20"></i> Game Development</h4><p>Engines, the game loop, ECS, and architecture.</p></a>
-  <a href="graphics/3d-rendering.html" class="nav-card"><h4><i class="fas fa-cube"></i> 3D Graphics &amp; Rendering</h4><p>Rasterization, shading, and the GPU pipeline.</p></a>
-  <a href="vr-ar/" class="nav-card"><h4><i class="fas fa-vr-cardboard"></i> VR / AR Development</h4><p>Immersive spatial computing fundamentals.</p></a>
-  <a href="ai-ml/game-ai.html" class="nav-card"><h4><i class="fas fa-robot"></i> Game AI</h4><p>Pathfinding, behavior trees, and decision-making.</p></a>
-</div>
+| Topic | Overview | Sub-pages |
+|-------|----------|-----------|
+| Networking | [Networking](technology/networking/) | [Layers & Addressing](technology/networking/fundamentals.html) · [Routing & Switching](technology/networking/routing.html) · [Transport & Application Protocols](technology/networking/transport-and-protocols.html) · [Wireless & Mobile](technology/networking/wireless-and-mobile.html) · [Performance, QoS & Security](technology/networking/performance-and-security.html) · [Programmable Networks (SDN/NFV/P4)](technology/networking/programmable-networks.html) · [Cloud Networking](technology/networking/cloud-networking.html) · [Modern Architecture & Frontiers](technology/networking/modern-architecture.html) |
+| Cybersecurity | [Cybersecurity](technology/cybersecurity/) | [Cryptography](technology/cybersecurity/cryptography.html) · [Attacks & Network Defense](technology/cybersecurity/attacks-and-defense.html) · [Application Security](technology/cybersecurity/application-and-cloud-security.html) · [Cloud & Container Security](technology/cybersecurity/cloud-and-container-security.html) · [Security Operations](technology/cybersecurity/security-operations.html) · [Incident Response & Forensics](technology/cybersecurity/incident-response.html) · [Foundations, Operations & Research](technology/cybersecurity/operations-and-response.html) · [Privacy Engineering](technology/cybersecurity/privacy-engineering.html) · [Compliance & Governance](technology/cybersecurity/compliance-and-governance.html) |
 
-### Artificial Intelligence (Conceptual)
+### Quantum computing
 
-<div class="command-grid">
-  <a href="technology/ai-fundamentals-simple.html" class="nav-card"><h4><i class="fas fa-lightbulb"></i> AI Fundamentals — Simplified</h4><p>A no-math introduction to how AI works.</p></a>
-  <a href="technology/ai/" class="nav-card"><h4><i class="fas fa-brain"></i> Artificial Intelligence</h4><p>Comprehensive technical overview.</p></a>
-  <a href="technology/ai/deep-learning-architectures.html" class="nav-card"><h4><i class="fas fa-network-wired"></i> Deep Learning Architectures</h4><p>CNNs, transformers, and modern network design.</p></a>
-  <a href="technology/ai/reinforcement-learning.html" class="nav-card"><h4><i class="fas fa-gamepad"></i> Reinforcement Learning</h4><p>Policies, value functions, and reward shaping.</p></a>
-  <a href="technology/ai-lecture-2023.html" class="nav-card"><h4><i class="fas fa-graduation-cap"></i> AI Deep Dive</h4><p>Advanced concepts and research directions.</p></a>
-</div>
+| Topic | Overview | Sub-pages |
+|-------|----------|-----------|
+| Quantum computing | [Quantum Computing Hub](quantum-computing/) | [Quantum Computing](technology/quantumcomputing.html) (qubits to hardware) · [QM: Quantum Computing](physics/quantum-mechanics/qm-computing.html) (the physics) · [Quantum Algorithms Research](advanced/quantum-algorithms-research/) (complexity and error correction) |
 
 ## Architecture & Operations
 
-How services talk to each other, prove they work, and stay observable in production. These cross-cutting areas pair with the [Distributed Systems Hub](distributed-systems/) and [Infrastructure & DevOps](#infrastructure--devops) above.
+How services communicate, stay correct under failure, and remain observable and fast in production.
 
-### Observability
+| Topic | Overview | Sub-pages |
+|-------|----------|-----------|
+| Distributed systems | [Distributed Systems Hub](distributed-systems/) | [Consensus & Coordination](distributed-systems/consensus-and-coordination.html) · [Replication Strategies](distributed-systems/replication-strategies.html) · [Failure Detection & Gossip](distributed-systems/failure-detection.html) · [Service Discovery & Configuration](distributed-systems/service-discovery.html) · [Resilience Patterns](distributed-systems/resilience-patterns.html) · [Client-Side Consistency & Sync](distributed-systems/client-side-consistency.html) · [Microservices & Event-Driven Architecture](distributed-systems/microservices-and-event-driven.html) · [Observability](distributed-systems/observability.html) · [Testing & Chaos Engineering](distributed-systems/testing-distributed-systems.html) · [Distributed Systems Theory](advanced/distributed-systems-theory/) |
+| API design | [API Design & Communication](api-design/) | [REST](api-design/rest.html) · [GraphQL](api-design/graphql.html) · [gRPC & Protocol Buffers](api-design/grpc-and-protobuf.html) · [Async & Event-Driven APIs](api-design/async-and-events.html) |
+| Event-driven architecture | [Event-Driven Architecture](event-driven/) | [Message Brokers & Streaming](event-driven/message-brokers.html) · [Patterns: Sagas, CQRS & Event Sourcing](event-driven/patterns.html) |
+| Observability | [Observability](observability/) | [Metrics & Monitoring](observability/metrics.html) · [Logging](observability/logging.html) · [Distributed Tracing](observability/tracing.html) |
+| Software testing | [Software Testing & QA](testing/) | [Unit & Integration](testing/unit-and-integration.html) · [Advanced Strategies: Property-Based, Fuzz & Chaos](testing/advanced-testing.html) |
+| Performance | [Performance Optimization](optimization/) | [Algorithmic Optimization](optimization/algorithmic-optimization.html) · [CPU Profiling & Tuning](optimization/cpu-optimization.html) · [Memory Optimization](optimization/memory-optimization.html) · [GPU Optimization](optimization/gpu-optimization.html) · [Network & I/O Optimization](optimization/network-io-optimization.html) · [Platform-Specific Tuning](optimization/platform-tuning.html) |
 
-<div class="command-grid">
-  <a href="observability/" class="nav-card"><h4><i class="fas fa-eye"></i> Observability Hub</h4><p>Metrics, logs, and traces — inferring internal state from telemetry.</p></a>
-  <a href="observability/metrics.html" class="nav-card"><h4><i class="fas fa-chart-line"></i> Metrics</h4><p>Time series, the RED/USE methods, and alerting.</p></a>
-  <a href="observability/logging.html" class="nav-card"><h4><i class="fas fa-file-alt"></i> Logging</h4><p>Structured, high-cardinality event records.</p></a>
-  <a href="observability/tracing.html" class="nav-card"><h4><i class="fas fa-route"></i> Distributed Tracing</h4><p>Following a request across service boundaries.</p></a>
-</div>
+## AI & Machine Learning
 
-### API Design & Communication
+Two complementary tracks. The **conceptual track** under Technology explains how machine learning works, from a no-math introduction to learning theory. The **generative AI track** is hands-on: diffusion image models, the tools that drive them, and how to run them in production. The [Artificial Intelligence Hub](artificial-intelligence/) connects both.
 
-<div class="command-grid">
-  <a href="api-design/" class="nav-card"><h4><i class="fas fa-file-signature"></i> API Design Hub</h4><p>Choosing and designing the contracts between services.</p></a>
-  <a href="api-design/rest.html" class="nav-card"><h4><i class="fas fa-exchange-alt"></i> REST</h4><p>Resource modeling, HTTP semantics, and versioning.</p></a>
-  <a href="api-design/graphql.html" class="nav-card"><h4><i class="fas fa-project-diagram"></i> GraphQL</h4><p>Schema design, resolvers, and the N+1 problem.</p></a>
-  <a href="api-design/grpc-and-protobuf.html" class="nav-card"><h4><i class="fas fa-bolt"></i> gRPC &amp; Protobuf</h4><p>Binary contracts and streaming RPC.</p></a>
-  <a href="api-design/async-and-events.html" class="nav-card"><h4><i class="fas fa-stream"></i> Async &amp; Events</h4><p>Asynchronous, message-based communication.</p></a>
-</div>
+### Machine learning concepts
 
-### Software Testing & QA
+| Topic | Overview | Sub-pages |
+|-------|----------|-----------|
+| Introductions | [AI Fundamentals](technology/ai-fundamentals-simple.html) (no math) | [AI Deep Dive: Language Models & Transformers](technology/ai-lecture-2023.html) |
+| Machine learning | [AI & Machine Learning](technology/ai/) | [ML Foundations](technology/ai/ml-foundations.html) · [Core ML Algorithms](technology/ai/core-ml-algorithms.html) · [Loss Functions & Objectives](technology/ai/loss-functions.html) · [ML & Deep Learning](technology/ai/architectures.html) · [Deep Learning Architectures](technology/ai/deep-learning-architectures.html) · [Deep Learning Theory](technology/ai/deep-learning-theory.html) |
+| Beyond supervised learning | [Generative Models](technology/ai/generative-models.html) | [Reinforcement Learning](technology/ai/reinforcement-learning.html) · [Fine-Tuning & Transfer Learning](technology/ai/fine-tuning.html) · [Frontier Research & Ethics](technology/ai/frontier-and-ethics.html) · [Advanced AI Mathematics](advanced/ai-mathematics/) |
 
-<div class="command-grid">
-  <a href="testing/" class="nav-card"><h4><i class="fas fa-vial"></i> Testing Hub</h4><p>The testing discipline from unit assertions to chaos.</p></a>
-  <a href="testing/unit-and-integration.html" class="nav-card"><h4><i class="fas fa-layer-group"></i> Unit &amp; Integration</h4><p>The base and middle of the test pyramid.</p></a>
-  <a href="testing/advanced-testing.html" class="nav-card"><h4><i class="fas fa-flask-vial"></i> Advanced Testing</h4><p>Property-based, fuzz, and chaos engineering.</p></a>
-</div>
+### Generative AI (diffusion models)
 
-### Event-Driven Architecture
+| Topic | Overview | Sub-pages |
+|-------|----------|-----------|
+| Foundations | [AI/ML Hub](ai-ml/) | [Stable Diffusion Fundamentals](ai-ml/stable-diffusion-fundamentals.html) · [Model Types Explained](ai-ml/model-types.html) (checkpoints, LoRAs, VAEs, embeddings) · [Output Formats: Image to 3D](ai-ml/output-formats.html) |
+| Base models | [Base Models Comparison](ai-ml/base-models-comparison.html) | [SDXL](ai-ml/sdxl-guide.html) · [Stable Diffusion 3](ai-ml/sd3-guide.html) · [FLUX](ai-ml/flux-guide.html) · [Pony & Community Fine-Tunes](ai-ml/pony-and-finetunes.html) |
+| Tools and control | [ComfyUI Guide](ai-ml/comfyui-guide.html) | [ControlNet](ai-ml/controlnet.html) · [Inpainting & Image Editing](ai-ml/inpainting-editing.html) · [LoRA Training](ai-ml/lora-training.html) · [Advanced Techniques & Workflows](ai-ml/advanced-techniques.html) |
+| Production | [Production Pipelines & Automation](ai-ml/production-pipelines.html) | [Optimization & Performance](ai-ml/optimization-guide.html) · [Model Compression](ai-ml/model-compression.html) · [MLOps & Production](ai-ml/mlops-production.html) |
 
-<div class="command-grid">
-  <a href="event-driven/" class="nav-card"><h4><i class="fas fa-broadcast-tower"></i> Event-Driven Hub</h4><p>Systems that react to facts rather than commands.</p></a>
-  <a href="event-driven/message-brokers.html" class="nav-card"><h4><i class="fas fa-inbox"></i> Message Brokers</h4><p>Kafka, queues, and log-based delivery.</p></a>
-  <a href="event-driven/patterns.html" class="nav-card"><h4><i class="fas fa-sitemap"></i> Patterns</h4><p>Choreography, sagas, CQRS, and event sourcing.</p></a>
-</div>
+## Game Development & Graphics
 
-## AI/ML - Generative AI
-
-Hands-on generative AI: diffusion models, training, and production workflows. New to this area? Begin at the [AI/ML Hub](ai-ml/).
-
-### Getting Started
-
-<div class="command-grid">
-  <a href="ai-ml/" class="nav-card"><h4><i class="fas fa-compass"></i> AI/ML Overview</h4><p>The hub — start here for all generative-AI content.</p></a>
-  <a href="ai-ml/stable-diffusion-fundamentals.html" class="nav-card"><h4><i class="fas fa-image"></i> Stable Diffusion Fundamentals</h4><p>Core diffusion concepts explained.</p></a>
-  <a href="ai-ml/base-models-comparison.html" class="nav-card"><h4><i class="fas fa-balance-scale"></i> Base Models Comparison</h4><p>SD 1.5, SDXL, FLUX, and SD3 compared.</p></a>
-</div>
-
-### Tools & Workflows
-
-<div class="command-grid">
-  <a href="ai-ml/comfyui-guide.html" class="nav-card"><h4><i class="fas fa-project-diagram"></i> ComfyUI Guide</h4><p>Node-based visual workflow creation.</p></a>
-  <a href="ai-ml/lora-training.html" class="nav-card"><h4><i class="fas fa-sliders-h"></i> LoRA Training</h4><p>Fine-tune your own models efficiently.</p></a>
-  <a href="ai-ml/controlnet.html" class="nav-card"><h4><i class="fas fa-crosshairs"></i> ControlNet</h4><p>Precise structural control over generation.</p></a>
-</div>
-
-### Going Deeper
-
-<div class="command-grid">
-  <a href="ai-ml/model-types.html" class="nav-card"><h4><i class="fas fa-layer-group"></i> Model Types Explained</h4><p>LoRAs, embeddings, VAEs, and checkpoints.</p></a>
-  <a href="ai-ml/output-formats.html" class="nav-card"><h4><i class="fas fa-photo-video"></i> Output Formats</h4><p>Image, video, and audio generation.</p></a>
-  <a href="ai-ml/advanced-techniques.html" class="nav-card"><h4><i class="fas fa-magic"></i> Advanced Techniques</h4><p>Professional, production-grade workflows.</p></a>
-</div>
+| Topic | Overview | Sub-pages |
+|-------|----------|-----------|
+| Game development | [Game Development](gamedev/) | [Multiplayer Networking](gamedev/multiplayer-networking.html) · [Procedural Content Generation](gamedev/procedural-generation.html) · [Game AI](ai-ml/game-ai.html) · [UI/UX & Menu Architecture](gamedev/ui-design.html) · [Audio Design](gamedev/audio-design.html) · [Save Systems & Persistence](gamedev/save-systems.html) · [Testing & QA](gamedev/testing-qa.html) · [Monetization & Business Models](gamedev/monetization.html) |
+| Graphics | [3D Graphics & Rendering](graphics/3d-rendering.html) | [Shader Programming](graphics/shaders.html) · [GPU Optimization](optimization/gpu-optimization.html) |
+| Engines and XR | [Unreal Engine](technology/unreal.html) | [VR & AR Development](vr-ar/) |
 
 ## Physics
 
-First-principles treatments pairing rigorous math with physical intuition. The [Physics Hub](physics/) suggests guided reading paths.
+First-principles treatments that pair the formalism with physical intuition. Each topic's overview page states its prerequisites; the [Physics Hub](physics/) suggests reading orders.
 
-### Classical Physics
+### Classical physics
 
-<div class="command-grid">
-  <a href="physics/classical-mechanics/" class="nav-card"><h4><i class="fas fa-atom"></i> Classical Mechanics</h4><p>Newton's laws through Lagrangian and Hamiltonian formalism.</p></a>
-  <a href="physics/thermodynamics.html" class="nav-card"><h4><i class="fas fa-fire"></i> Thermodynamics</h4><p>Heat, work, entropy, and the four laws.</p></a>
-  <a href="physics/statistical-mechanics/" class="nav-card"><h4><i class="fas fa-dice"></i> Statistical Mechanics</h4><p>From microscopic randomness to macroscopic law.</p></a>
-</div>
+| Topic | Overview | Sub-pages |
+|-------|----------|-----------|
+| Classical mechanics | [Classical Mechanics](physics/classical-mechanics/) | [Newtonian Mechanics & Conservation Laws](physics/classical-mechanics/newtonian.html) · [Oscillations & Waves](physics/classical-mechanics/waves.html) · [Lagrangian & Hamiltonian Mechanics](physics/classical-mechanics/lagrangian-hamiltonian.html) · [Rigid Body Dynamics](physics/classical-mechanics/rigid-body-dynamics.html) · [Chaos & Nonlinear Dynamics](physics/classical-mechanics/chaos-and-computational.html) · [Geometric Formalism](physics/classical-mechanics/geometric-mechanics.html) · [Computational Methods](physics/classical-mechanics/computational-classical-mechanics.html) |
+| Fluids | [Fluid Mechanics](physics/fluid-mechanics.html) | [Finite Elements & Fluid Dynamics](physics/computational-physics/fem-and-cfd.html) (numerical) |
+| Thermodynamics | [Thermodynamics](physics/thermodynamics.html) | [Advanced Topics](physics/thermodynamics-advanced.html) |
+| Statistical mechanics | [Statistical Mechanics](physics/statistical-mechanics/) | [Classical & Quantum Statistical Mechanics](physics/statistical-mechanics/classical-and-quantum.html) · [Phase Transitions & Graduate Formalism](physics/statistical-mechanics/phase-transitions-and-advanced.html) |
 
-### Modern Physics
+### Relativity and gravitation
 
-<div class="command-grid">
-  <a href="physics/relativity/" class="nav-card"><h4><i class="fas fa-clock"></i> Relativity</h4><p>Special and general relativity, spacetime, and gravity.</p></a>
-  <a href="physics/quantum-mechanics/" class="nav-card"><h4><i class="fas fa-wave-square"></i> Quantum Mechanics</h4><p>Wave functions, uncertainty, and entanglement.</p></a>
-</div>
+| Topic | Overview | Sub-pages |
+|-------|----------|-----------|
+| Relativity | [Relativity](physics/relativity/) | [Special Relativity](physics/relativity/special-relativity.html) · [General Relativity](physics/relativity/general-relativity.html) · [Tensor Formalism & the Field Equations](physics/relativity/tensor-formalism.html) · [Black Holes](physics/relativity/black-holes.html) · [Gravitational Waves](physics/relativity/gravitational-waves.html) · [Relativistic Cosmology](physics/relativity/cosmology.html) · [Graduate Topics](physics/relativity/advanced.html) · [Toward Quantum Gravity](physics/relativity/quantum-gravity.html) |
 
-### Advanced & Computational
+### Quantum physics
 
-<div class="command-grid">
-  <a href="physics/condensed-matter/" class="nav-card"><h4><i class="fas fa-cube"></i> Condensed Matter</h4><p>Solids, superconductors, and topological materials.</p></a>
-  <a href="physics/quantum-field-theory.html" class="nav-card"><h4><i class="fas fa-project-diagram"></i> Quantum Field Theory</h4><p>Fields, particles, and the Standard Model.</p></a>
-  <a href="physics/string-theory/" class="nav-card"><h4><i class="fas fa-infinity"></i> String Theory</h4><p>Extra dimensions and quantum gravity.</p></a>
-  <a href="physics/computational-physics/" class="nav-card"><h4><i class="fas fa-laptop-code"></i> Computational Physics</h4><p>Numerical methods, Monte Carlo, and simulation.</p></a>
-</div>
+| Topic | Overview | Sub-pages |
+|-------|----------|-----------|
+| Quantum mechanics | [Quantum Mechanics](physics/quantum-mechanics/) | [States, Operators & Dynamics](physics/quantum-mechanics/formalism.html) · [Systems & Phenomena](physics/quantum-mechanics/systems-and-phenomena.html) · [Bell's Theorem & Experimental Tests](physics/quantum-mechanics/bell-inequalities-and-tests.html) · [Computing & Advanced Topics](physics/quantum-mechanics/computing-and-advanced.html) (sub-hub) · [Advanced Formalism](physics/quantum-mechanics/qm-advanced-formalism.html) · [Computational Methods](physics/quantum-mechanics/qm-computational-methods.html) · [Quantum Computing](physics/quantum-mechanics/qm-computing.html) · [Research Frontiers](physics/quantum-mechanics/qm-research-frontiers.html) |
+| Quantum field theory | [Quantum Field Theory](physics/quantum-field-theory.html) | [Canonical Quantization](physics/qft-quantization.html) · [Path Integrals & Methods](physics/qft-methods.html) · [Renormalization & the RG](physics/renormalization.html) · [Gauge Theories & the Standard Model](physics/gauge-and-standard-model.html) · [Modern Frontiers](physics/qft-frontiers.html) |
+| String theory | [String Theory](physics/string-theory/) | [D-Branes, Dualities & M-Theory](physics/string-theory/dualities-and-branes.html) · [Graduate Formalism](physics/string-theory/string-theory-formalism.html) · [Criticisms & Research Frontiers](physics/string-theory/frontiers-and-formalism.html) |
 
-## Specialized Hubs
+### Matter and computation
 
-Curated landing pages that gather related material across the site and recommend a path through it.
+| Topic | Overview | Sub-pages |
+|-------|----------|-----------|
+| Condensed matter | [Condensed Matter Physics](physics/condensed-matter/) | [Lattice Dynamics & Phonons](physics/condensed-matter/lattice-dynamics.html) · [Metals & Magnetism](physics/condensed-matter/metals-and-magnetism.html) · [Superconductivity, Quantum Hall & Topological Phases](physics/condensed-matter/emergent-phases.html) · [Disorder & Localization](physics/condensed-matter/disorder-and-localization.html) · [Experimental Techniques](physics/condensed-matter/experimental-techniques.html) · [Graduate-Level Formalism](physics/condensed-matter/advanced-formalism.html) |
+| Computational physics | [Computational Physics](physics/computational-physics/) | [Monte Carlo & Molecular Dynamics](physics/computational-physics/monte-carlo-and-md.html) · [Finite Elements & Fluid Dynamics](physics/computational-physics/fem-and-cfd.html) · [Quantum Computational Methods](physics/computational-physics/quantum-methods.html) · [Electronic Structure Beyond DFT](physics/computational-physics/electronic-structure-beyond-dft.html) · [Parallel & High-Performance Computing](physics/computational-physics/hpc-and-ml.html) · [Machine Learning for Physics](physics/computational-physics/ml-for-physics.html) · [Visualization, Libraries & Best Practices](physics/computational-physics/tools-and-practices.html) |
 
-<div class="command-grid">
-  <a href="quantum-computing/" class="nav-card"><h4><i class="fas fa-atom"></i> Quantum Computing Hub</h4><p>Theory-to-hardware: qubits, algorithms, and cloud platforms.</p></a>
-  <a href="distributed-systems/" class="nav-card"><h4><i class="fas fa-network-wired"></i> Distributed Systems Hub</h4><p>Consensus, consistency, and resilient architecture patterns.</p></a>
-  <a href="distributed-systems/resilience-patterns.html" class="nav-card"><h4><i class="fas fa-heart-pulse"></i> Resilience Patterns</h4><p>Retries, circuit breakers, bulkheads, and backpressure.</p></a>
-  <a href="optimization/" class="nav-card"><h4><i class="fas fa-tachometer-alt"></i> Performance Optimization</h4><p>Profiling, bottleneck analysis, and scaling.</p></a>
-  <a href="optimization/gpu-optimization.html" class="nav-card"><h4><i class="fas fa-microchip"></i> GPU Optimization</h4><p>Kernels, memory hierarchy, and throughput tuning.</p></a>
-  <a href="artificial-intelligence/" class="nav-card"><h4><i class="fas fa-brain"></i> Artificial Intelligence Hub</h4><p>Comprehensive AI resources and orientation.</p></a>
-</div>
+## Theory & Research
 
-## Research & Advanced Topics
+Graduate-level, proof-oriented pages. Each opens with its prerequisites and the intuition behind the formalism. The [Advanced Topics Hub](advanced/) groups them into reading paths.
 
-Graduate-level, proof-oriented material. Each page frames its prerequisites and intuition before the formalism.
-
-<div class="command-grid">
-  <a href="advanced/" class="nav-card"><h4><i class="fas fa-flask"></i> Advanced Topics Hub</h4><p>The research section's index and reading paths.</p></a>
-  <a href="advanced/ai-mathematics/" class="nav-card"><h4><i class="fas fa-square-root-alt"></i> AI Mathematics</h4><p>Statistical learning theory and optimization landscapes.</p></a>
-  <a href="advanced/distributed-systems-theory/" class="nav-card"><h4><i class="fas fa-ban"></i> Distributed Systems Theory</h4><p>Impossibility results and formal verification.</p></a>
-  <a href="advanced/quantum-algorithms-research/" class="nav-card"><h4><i class="fas fa-microchip"></i> Quantum Algorithms Research</h4><p>Complexity, error correction, and NISQ algorithms.</p></a>
-  <a href="advanced/monorepo/" class="nav-card"><h4><i class="fas fa-code-branch"></i> Monorepo Strategies</h4><p>Build graphs, caching, and large-repo engineering.</p></a>
-</div>
+| Area | Pages |
+|------|-------|
+| Computation and complexity | [Automata Theory & Formal Languages](advanced/automata-and-formal-languages/) · [Computational Complexity Theory](advanced/complexity-theory/) · [Approximation Algorithms & Hardness](advanced/approximation-algorithms/) |
+| Information and security | [Information & Coding Theory](advanced/information-coding-theory/) · [Cryptography: Foundations & Post-Quantum](advanced/cryptography/) |
+| Mathematical structures | [Category Theory & Type Theory](advanced/category-and-type-theory/) · [Topology & Geometry in Computation](advanced/topology-and-geometry-in-computation/) |
+| Applied theory | [Advanced AI Mathematics](advanced/ai-mathematics/) · [Distributed Systems Theory](advanced/distributed-systems-theory/) · [Quantum Algorithms Research](advanced/quantum-algorithms-research/) |
 
 ## Reference & Navigation
 
-<div class="command-grid">
-  <a href="reference/" class="nav-card"><h4><i class="fas fa-list"></i> Quick Reference Guide</h4><p>CLI commands, physics constants, Big-O, regex, and checklists.</p></a>
-  <a href="topic-map.html" class="nav-card"><h4><i class="fas fa-sitemap"></i> Topic Map</h4><p>Visual navigation across every knowledge domain.</p></a>
-  <a href="../search.html" class="nav-card"><h4><i class="fas fa-search"></i> Search</h4><p>Full-text search across the whole site.</p></a>
-</div>
-
----
-
-## Where This Site Goes Deep
-
-Most of the site is reference-grade, but a few areas go well past the usual cheat-sheet treatment. If you want to see what the documentation can do, start here:
-
-- **Generative AI** — Stable Diffusion 3 and FLUX architectures, flow matching, and production workflows
-- **Kubernetes** — current production patterns: workloads, storage, operations, and advanced scheduling
-- **Git internals** — how commits, refs, and the object model actually work, plus security practices
-- **Quantum** — a theory-to-hardware path spanning quantum mechanics, algorithms, and cloud platforms
-- **Physics** — first-principles treatments from classical mechanics through quantum field theory
-- **Research hub** — proof-oriented pages on [learning theory](advanced/ai-mathematics/), [consensus](advanced/distributed-systems-theory/), and [quantum algorithms](advanced/quantum-algorithms-research/)
+| Page | Use it for |
+|------|------------|
+| [Quick Reference Guide](reference/) | Git, Docker, kubectl, and AWS CLI commands; physics constants and equations; Big-O tables; regex and pre-flight checklists |
+| [Getting Started](../getting-started.html) | How the site is organized, page types, and starting points by role |
+| [Topic Map](topic-map.html) | Interactive prerequisite map and role-based reading paths |
+| [Search](../search.html) | Keyword search over the main hub and overview pages |

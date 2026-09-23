@@ -2,7 +2,7 @@
 layout: docs
 title: Quantum Field Theory
 permalink: /docs/physics/quantum-field-theory.html
-description: How quantum mechanics and special relativity combine into fields whose excitations are particles — a hub linking quantization, gauge theory and the Standard Model, renormalization, methods, and the modern frontier.
+description: "Hub for quantum field theory: why relativity and quantum mechanics require fields, how a QFT calculation goes from Lagrangian to measured number, and a guide to the pages on quantization, gauge theory, renormalization, methods and current research."
 hide_title: true
 toc: true
 toc_sticky: true
@@ -17,94 +17,101 @@ toc_icon: "cog"
 
 [Physics](./) &raquo; Quantum Field Theory
 
-Quantum Field Theory (QFT) combines quantum mechanics with special relativity to describe the fundamental forces and particles of nature, treating particles as excited states of quantum fields that permeate spacetime. Where quantum mechanics describes a fixed number of particles, QFT lets particles be *created and destroyed* — exactly what happens when an electron and positron annihilate into light, or when a photon converts into matter. The fundamental object is no longer the particle but the **field**, and particles are its ripples. This hub sets up that core picture, then routes to dedicated pages for the machinery:
-
-- **Fields are fundamental** — a particle is a localized excitation of a field filling all space, like a ripple on a pond.
-- **Particle number changes** — creation and annihilation operators let particles appear and disappear, as relativity demands.
-- **Symmetry dictates forces** — demanding local gauge symmetry *forces* the existence of the force-carrying bosons.
-- **Renormalization tames infinities** — physics depends on the energy scale probed; "running" couplings absorb the divergences.
+**Quantum field theory** (QFT) is the framework that combines quantum mechanics with special relativity. Its basic objects are fields defined throughout spacetime. Particles are the quantized excitations of those fields and can be created and destroyed. QFT is the language of the Standard Model of particle physics, which is the most precisely tested theory in science. It is also used throughout condensed matter physics, statistical mechanics and cosmology. This hub explains why fields are needed, gives an outline of how a QFT calculation proceeds, and links to five pages that develop the subject in detail.
 
 ## Why Fields?
 
-Non-relativistic quantum mechanics describes a fixed number of particles, each with its own wave function. That picture breaks the moment relativity enters. Einstein's $E = mc^2$ means energy can be converted into matter: collide two electrons hard enough and you can produce extra electron–positron pairs; let a high-energy photon pass an atomic nucleus and it can materialize into a particle and its antiparticle. A theory built on a fixed particle count simply cannot describe these processes.
+Non-relativistic quantum mechanics describes a fixed number of particles with a wavefunction $\psi(\mathbf{x}_1, \ldots, \mathbf{x}_N, t)$. Relativity breaks that description in three ways:
 
-The resolution is to make the **field** primary. Instead of "an electron, located here," QFT posits an electron *field* filling all of spacetime; an electron is a quantized excitation — a ripple — in that field. Because a field has no fixed number of ripples, particle number is free to change. Each species of particle in nature gets its own field:
+- **Particle number is not conserved.** Because $E = mc^2$, energy can become matter. A high-energy photon near a nucleus can convert into an electron-positron pair, and colliders routinely produce dozens of new particles per collision. A fixed-$N$ Hilbert space cannot describe these processes.
+- **Single-particle relativistic wave equations fail.** The Klein-Gordon and Dirac equations, read as wavefunction equations, have negative-energy solutions and, for Klein-Gordon, no positive probability density.
+- **Causality requires antiparticles.** A relativistic particle's propagation amplitude is non-zero outside the light cone. Measurements at spacelike separation commute only because a particle going one way cancels an antiparticle going the other.
 
-- **Electron field** → electrons and positrons
-- **Electromagnetic field** → photons
-- **Quark fields** → quarks and antiquarks
-- **Higgs field** → Higgs bosons
+A quantum field solves all three problems. Each species has a field operator $\phi(x)$ at every spacetime point. Quantizing a free field turns each momentum mode into a harmonic oscillator, and the quanta of those oscillators are the particles. Particle number can therefore change, the negative-frequency modes describe antiparticles, and field operators at spacelike separation commute ([microcausality](qft-quantization.html#microcausality)). Identical-particle statistics follow as well: every electron in the universe is an excitation of the same electron field, which is why electrons are exactly identical. Bose or Fermi statistics is fixed by the spin, through the spin-statistics theorem.
 
-Quantizing a field turns each of its momentum modes into a quantum harmonic oscillator; the quanta of those oscillators *are* the particles, created and destroyed by ladder operators. The vacuum is the state with no quanta — yet it is not empty, because those oscillators retain zero-point energy and fluctuate. From this single idea grow the gauge principle (forces from symmetry), the Standard Model, renormalization, and the entire calculational apparatus of modern particle physics. The pages below develop each in turn.
+| Field | Spin | Quanta | Role in the Standard Model |
+|-------|------|--------|----------------------------|
+| Dirac / Weyl fermion fields | 1/2 | quarks, leptons and their antiparticles | matter |
+| Gauge fields | 1 | photon, $W^\pm$, $Z$, 8 gluons | forces, via the gauge principle |
+| Higgs field | 0 | Higgs boson (125 GeV) | electroweak symmetry breaking, masses |
+| (Metric perturbation) | 2 | graviton | gravity as an effective field theory; not part of the Standard Model |
 
-### The Big Picture: From Fields to Forces
+## How a QFT Calculation Works
+
+Almost every quantitative result in particle physics follows the same pipeline. The pages linked below each cover part of it.
+
+```mermaid
+graph TD
+    SYM["Symmetries: Lorentz, gauge group, global symmetries"] --> LAG["Lagrangian: most general local terms allowed"]
+    LAG --> QUANT["Quantize: canonical operators or path integral"]
+    QUANT --> RULES["Feynman rules: propagators and vertices"]
+    RULES --> TREE["Tree diagrams: classical approximation"]
+    RULES --> LOOPS["Loop diagrams: quantum corrections"]
+    LOOPS --> RENORM["Regularize and renormalize"]
+    RENORM --> RUN["Renormalization group: run couplings to the right scale"]
+    TREE --> AMP["Amplitude M"]
+    RUN --> AMP
+    AMP --> OBS["Cross sections, decay rates, g-2, spectra"]
+    OBS --> EXP["Compare with experiment"]
+    NP["Non-perturbative: lattice, EFT, dualities"] --> OBS
+```
+
+The gauge principle has a particular role in this pipeline. Requiring the Lagrangian to be invariant under *local* symmetry transformations requires the existence of force-carrying gauge fields:
 
 ```mermaid
 graph LR
-    SYM["Local gauge symmetry"] --> GF["Gauge fields (force carriers)"]
-    GF --> EM["U(1): photon — QED"]
-    GF --> WK["SU(2): W, Z bosons — weak"]
-    GF --> ST["SU(3): gluons — QCD"]
-    MAT["Matter fields (quarks, leptons)"] --> INT["Interactions"]
-    GF --> INT
-    HIGGS["Higgs field"] --> MASS["Mass generation"]
-    EM --> SM["Standard Model"]
+    SYM["Local gauge symmetry"] --> GF["Gauge fields"]
+    GF --> EM["U(1): photon (QED)"]
+    GF --> WK["SU(2) x U(1): W, Z (electroweak)"]
+    GF --> ST["SU(3): gluons (QCD)"]
+    MAT["Matter fields: quarks, leptons"] --> SM["Standard Model"]
+    HIGGS["Higgs field"] -->|"breaks SU(2) x U(1) to U(1)"| SM
+    EM --> SM
     WK --> SM
     ST --> SM
-    MASS --> SM
-    style SYM fill:#11998e,color:#fff
-    style SM fill:#38ef7d,color:#222
-    style HIGGS fill:#ccf,color:#222
 ```
 
-## Explore Quantum Field Theory
+**Conventions used on these pages.** Natural units $\hbar = c = 1$. Mostly-minus metric $\mathrm{diag}(+,-,-,-)$, so on-shell momenta satisfy $p^2 = m^2$. Relativistic state normalization $\langle\mathbf{p}|\mathbf{q}\rangle = 2E_p(2\pi)^3\delta^3(\mathbf{p}-\mathbf{q})$. These are the conventions of Peskin & Schroeder and Schwartz.
 
-The subject splits naturally into five focused pages. They are arranged in a sensible reading order below — start with quantization to see *what a quantum field is*, build up to gauge theory and the Standard Model, learn how renormalization keeps the answers finite, pick up the path-integral toolkit, and finish at the modern frontier.
+## Pages in This Section
 
-<div class="command-grid">
-  <a href="qft-quantization.html" class="nav-card">
-    <h4><i class="fas fa-wave-square"></i> 1. Canonical Quantization</h4>
-    <p>Promoting classical fields to operators: Klein–Gordon and Dirac fields, ladder operators, the vacuum, and the Feynman propagators that glue diagrams together.</p>
-  </a>
-  <a href="gauge-and-standard-model.html" class="nav-card">
-    <h4><i class="fas fa-shield-alt"></i> 2. Gauge Theories &amp; the Standard Model</h4>
-    <p>How local symmetry forces the existence of forces — QED, QCD, Yang–Mills theory, electroweak unification, the Higgs mechanism, and the full $SU(3)\times SU(2)\times U(1)$ Lagrangian.</p>
-  </a>
-  <a href="renormalization.html" class="nav-card">
-    <h4><i class="fas fa-ruler"></i> 3. Renormalization &amp; the RG</h4>
-    <p>Why loop integrals diverge, how regularization and counterterms extract finite physics, and how the renormalization group makes couplings run with energy scale.</p>
-  </a>
-  <a href="qft-methods.html" class="nav-card">
-    <h4><i class="fas fa-calculator"></i> 4. Path Integrals &amp; Methods</h4>
-    <p>The calculational engine: Feynman's sum over histories, generating functionals, perturbation theory and Feynman diagrams, and effective field theory as a working tool.</p>
-  </a>
-  <a href="qft-frontiers.html" class="nav-card">
-    <h4><i class="fas fa-rocket"></i> 5. Modern Frontiers</h4>
-    <p>Scattering-amplitude methods, AdS/CFT and holography, anomalies and instantons, entanglement in field theory, and the bridges toward quantum gravity.</p>
-  </a>
-</div>
+The pages are listed in a suggested reading order. The first two establish what fields are and where forces come from. The next two provide the tools for finite, tractable calculations. The last page assumes all of the others.
 
-**Suggested reading order:** [Quantization](qft-quantization.html) → [Gauge theory & the Standard Model](gauge-and-standard-model.html) → [Renormalization](renormalization.html) → [Path integrals & methods](qft-methods.html) → [Modern frontiers](qft-frontiers.html). The first two establish what fields are and how forces arise; renormalization and methods supply the tools that make calculations finite and tractable; the frontiers page assumes all of it.
+| # | Page | Covers | Builds on |
+|---|------|--------|-----------|
+| 1 | [Canonical Quantization](qft-quantization.html) | Klein-Gordon, Dirac and Maxwell fields; Fock space; microcausality; spin-statistics; Feynman propagators; the interaction picture | quantum harmonic oscillator, special relativity |
+| 2 | [Gauge Theories & the Standard Model](gauge-and-standard-model.html) | the gauge principle; QED; Yang-Mills; QCD; electroweak unification; the Higgs mechanism; the full $SU(3)\times SU(2)\times U(1)$ theory | 1 |
+| 3 | [Renormalization & the RG](renormalization.html) | UV divergences; power counting; dimensional regularization; counterterms and schemes; running couplings; the Wilsonian RG; the EFT viewpoint | 1, 4 (Feynman rules) |
+| 4 | [Path Integrals & Methods](qft-methods.html) | path integrals; generating functionals; Wick's theorem; LSZ; Feynman rules; a worked cross section; loop techniques; BRST; EFT in practice | 1 |
+| 5 | [Modern Frontiers](qft-frontiers.html) | on-shell amplitudes; AdS/CFT; anomalies; entanglement; connections to quantum gravity | all of the above |
 
-## Key Takeaways
+Pages 3 and 4 can be read in either order. Readers who want to see a complete calculation before the subtleties of loops can read the methods page first.
 
-- **Fields, not particles.** The fundamental degrees of freedom are quantum fields; particles are their quantized excitations, created and destroyed by ladder operators.
-- **Symmetry generates forces.** Promoting a global symmetry to a local (gauge) one forces the introduction of gauge bosons — the photon, $W/Z$, and gluons.
-- **The Standard Model works.** $SU(3)\times SU(2)\times U(1)$ plus the Higgs reproduces every confirmed particle measurement, including the electron $g\!-\!2$ to 12 digits.
-- **Renormalization is physics.** Infinities are absorbed into scale-dependent couplings; the renormalization group tells you how physics changes with energy.
-- **Two equivalent formulations.** Canonical quantization and the path integral give the same physics; the path integral connects directly to statistical mechanics.
-- **The frontier is open.** Dark matter, neutrino masses, the hierarchy problem, and quantum gravity all point beyond the Standard Model.
+## Status of the Theory (2026)
+
+**Tested successes.**
+
+- **Electron magnetic moment.** Measured to 0.13 parts per trillion (2023) and matched by five-loop QED. The comparison is now the most precise determination of the fine-structure constant, $\alpha^{-1} = 137.035\,999\,166(15)$.
+- **Muon magnetic moment.** Fermilab's final measurement (2025, 127 ppb) agrees with the 2025 Standard Model prediction, which uses lattice QCD for the hadronic contribution. This removes what had been a long-standing anomaly of about $5\sigma$. See [renormalization: precision status](renormalization.html#precision-status-2026).
+- **The strong coupling.** Asymptotic freedom and the running of $\alpha_s$ have been confirmed across energy scales from about 1 GeV to several TeV. The world average is $\alpha_s(M_Z) = 0.1180 \pm 0.0009$ (PDG 2025).
+- **The Higgs boson** (discovered 2012). Its couplings to $W$, $Z$ and the third-generation fermions have been measured in agreement with the Standard Model, to about 5-10% in the best-measured channels. There is also evidence for its decay to muons, the first sign of a Higgs coupling to a second-generation fermion.
+
+**Open problems.** Several observations point beyond the Standard Model as a QFT: neutrino masses, dark matter, the baryon asymmetry of the universe, the smallness of the Higgs mass ([hierarchy problem](renormalization.html#open-problems)) and of the cosmological constant, the strong CP problem, and the absence of a UV-complete quantum theory of gravity. On the mathematical side, no interacting four-dimensional QFT has yet been constructed rigorously, and the Yang-Mills mass gap remains a Millennium Prize problem.
+
+## Further Reading
+
+- M. Peskin and D. Schroeder, *An Introduction to Quantum Field Theory* (1995). The standard graduate text, and the source of the conventions used here.
+- M. Schwartz, *Quantum Field Theory and the Standard Model* (2014). A modern treatment with strong coverage of EFT and renormalization.
+- M. Srednicki, *Quantum Field Theory* (2007). Built around the path integral; uses the mostly-plus metric.
+- A. Zee, *Quantum Field Theory in a Nutshell* (2nd ed., 2010). A conceptual first pass.
+- S. Weinberg, *The Quantum Theory of Fields*, vols. I-III (1995-2000). Derives QFT from symmetry and the S-matrix.
+- D. Tong, *Lectures on Quantum Field Theory* (Cambridge, freely available online). A concise introduction.
 
 ## See Also
 
-- [Canonical Quantization](qft-quantization.html) — start here: scalar and Dirac fields, the vacuum, and propagators.
-- [Gauge Theories & the Standard Model](gauge-and-standard-model.html) — forces from symmetry, QED, QCD, and the Higgs mechanism.
-- [Renormalization & the RG](renormalization.html) — taming divergences and the running of couplings.
-- [Path Integrals & Methods](qft-methods.html) — the sum over histories and the diagrammatic engine.
-- [Modern Frontiers](qft-frontiers.html) — amplitudes, holography, anomalies, and quantum gravity.
-- [Quantum Mechanics](quantum-mechanics/) — the non-relativistic foundation that QFT generalizes.
-- [Relativity](relativity/) — special relativity is what makes field theories Lorentz-invariant.
-- [Statistical Mechanics](statistical-mechanics/) — finite-temperature field theory and the path-integral connection.
-- [Condensed Matter Physics](condensed-matter/) — field-theoretic methods in many-body systems.
-- [String Theory](string-theory/) — extending point particles to strings for quantum gravity.
-- [Physics Hub](index.html) — browse all physics topics.
+- [Quantum Mechanics](quantum-mechanics/): the non-relativistic theory that QFT generalizes.
+- [Relativity](relativity/): the Lorentz symmetry that constrains every field theory.
+- [Statistical Mechanics](statistical-mechanics/): the Euclidean path integral as a partition function; critical phenomena.
+- [Condensed Matter Physics](condensed-matter/): field-theoretic methods for many-body systems.
+- [Quantum Gravity](relativity/quantum-gravity.html) and [String Theory](string-theory/): approaches to going beyond QFT.
+- [Physics Hub](index.html): all physics topics.

@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Classical Mechanics: Chaos & Nonlinear Dynamics"
+description: "Deterministic chaos in classical systems: Lyapunov exponents, Poincaré sections, KAM theory and the standard map, strange attractors, bifurcations and routes to chaos, practical diagnostics, and data-driven forecasting."
 permalink: /docs/physics/classical-mechanics/chaos-and-computational.html
 toc: true
 toc_sticky: true
@@ -9,321 +10,390 @@ hide_title: true
 
 [Classical Mechanics](./) &raquo; Chaos &amp; Nonlinear Dynamics
 
-Sensitive dependence, Lyapunov exponents, Poincaré sections, bifurcations, KAM theory, strange attractors, and the routes to chaos. The related geometric machinery lives in [Geometric Formalism](geometric-mechanics.html), and the numerical machinery in [Computational Methods](computational-classical-mechanics.html).
+**Deterministic chaos** is irregular, effectively unpredictable motion produced by equations with no randomness in them. This page covers how chaos is defined and measured (Lyapunov exponents, Poincaré sections), how it appears in conservative systems (KAM theory, the standard map, Arnold diffusion) and in dissipative ones (strange attractors), the bifurcation routes by which regular motion turns chaotic, the diagnostics used on real data, and recent data-driven forecasting methods. The symplectic geometry that underlies Hamiltonian chaos is developed in [Geometric Formalism](geometric-mechanics.html); the integrators needed to simulate chaotic systems faithfully are in [Computational Methods](computational-classical-mechanics.html).
 
-## When Predictability Breaks Down
+## Determinism without predictability
 
-### The End of the Clockwork Universe
+Laplace's demon expressed the eighteenth-century view that exact knowledge of the present fixes the entire future. Poincaré's work on the gravitational three-body problem in the 1890s showed where this breaks down in practice: near certain unstable orbits the three-body dynamics produces a tangle of trajectories "so complicated that I cannot even attempt to draw it." The equations remain deterministic, but any error in the initial state, however small, is amplified until it dominates the prediction.
 
-For centuries after Newton, physicists believed the universe was a clockwork: fix the initial positions and momenta exactly, and the entire future and past follow from the equations of motion. Laplace gave this its sharpest expression — a sufficiently powerful intellect, knowing every particle's state, "would embrace in the same formula the movements of the greatest bodies of the universe and those of the tiniest atom."
+Two ingredients are needed:
 
-The discovery that demolished this picture came not from new forces but from old ones examined carefully. Poincaré, attacking the gravitational three-body problem in the 1890s, found that even this simple deterministic system could behave in a way "so complicated that I cannot even attempt to draw it." The system is perfectly deterministic — there is no randomness in the equations — yet its trajectories are so sensitive to initial conditions that any uncertainty, however small, is amplified until prediction becomes worthless. This is **deterministic chaos**: lawful but unpredictable.
+- **Nonlinearity.** In a linear system, the difference between two solutions is itself a solution of the same linear equation, so errors can grow at most at the rate of the fastest normal mode, and there is no mechanism for folding a growing error back into a bounded region. Linear systems cannot be chaotic.
+- **Enough dimensions.** For a continuous-time autonomous flow, the Poincaré–Bendixson theorem rules out chaos in a two-dimensional phase space: bounded trajectories must approach a fixed point or a periodic orbit. Chaos needs a phase space of at least three dimensions. A periodically driven one-degree-of-freedom oscillator qualifies, because the drive phase acts as a third coordinate. Discrete-time maps have no such restriction: the one-dimensional logistic map is chaotic.
 
-The crucial enabler is **nonlinearity**. A linear system's response is proportional to its input, so small errors stay small. A nonlinear system can feed its output back on itself, stretching and folding nearby trajectories until they diverge exponentially. Chaos is impossible in a linear autonomous system; it requires either nonlinearity or, in driven systems, at least three effective dimensions of phase space (the Poincaré–Bendixson theorem forbids chaos in a continuous autonomous flow on the plane).
+### Sensitive dependence and the predictability horizon
 
-### Sensitive Dependence on Initial Conditions
-
-The defining signature of chaos is **sensitive dependence on initial conditions** — popularly, the *butterfly effect*. Two trajectories that start a distance $\delta_0$ apart separate, on average, exponentially:
-
-$$
-|\delta(t)| \approx |\delta_0|\, e^{\lambda t},
-$$
-
-with $\lambda > 0$. Because the divergence is exponential, the time over which prediction remains useful grows only **logarithmically** with the precision of your initial data. Improving your measurement of the initial state by a factor of ten buys you only a fixed additional increment $\tau \sim \lambda^{-1}\ln 10$ of predictability — never a proportional one. This is why long-range weather forecasting hits a hard horizon (roughly two weeks) no matter how good the instruments become.
-
-Sensitive dependence is not mere instability: a freely expanding gas is unstable but not chaotic. Chaos requires the stretching to be combined with **folding** that keeps the motion bounded — trajectories diverge locally yet remain confined to a finite region of phase space, repeatedly brought back near one another. The combination of stretching and folding is what manufactures the fractal geometry of strange attractors discussed below.
-
-## Quantifying Chaos: Lyapunov Exponents
-
-The **Lyapunov exponent** makes "exponential divergence" precise. For a trajectory $Z(t)$ and an infinitesimal perturbation $\delta Z(t)$, the largest (maximal) Lyapunov exponent is
+Two trajectories that start a small distance $\delta_0$ apart in a chaotic system separate, on average, exponentially:
 
 $$
-\lambda = \lim_{t \to \infty} \lim_{|\delta Z_0| \to 0} \frac{1}{t} \ln\!\left(\frac{|\delta Z(t)|}{|\delta Z_0|}\right).
+|\delta(t)| \approx |\delta_0|\, e^{\lambda t}, \qquad \lambda > 0 .
 $$
 
-- **$\lambda > 0$** — neighboring trajectories diverge exponentially: the system is **chaotic**.
-- **$\lambda = 0$** — marginal separation, characteristic of regular (quasi-periodic) motion and the boundaries between behaviors.
-- **$\lambda < 0$** — perturbations decay: the trajectory is attracted to a fixed point or limit cycle.
-
-An $n$-dimensional system has a full **Lyapunov spectrum** $\lambda_1 \geq \lambda_2 \geq \cdots \geq \lambda_n$, one exponent for each independent direction in which a small ball of initial conditions is stretched or compressed. The volume of that ball evolves as $e^{(\sum_i \lambda_i) t}$, so:
-
-- For a **Hamiltonian (conservative) system**, Liouville's theorem forces phase-space volume to be conserved, hence $\sum_i \lambda_i = 0$. The exponents come in pairs $\pm\lambda$ (symplectic symmetry): every stretching direction is matched by an equal compression.
-- For a **dissipative system**, $\sum_i \lambda_i < 0$ — volumes contract onto an attractor — yet one $\lambda_i$ can still be positive, producing a *strange attractor* (contraction overall, but stretching in at least one direction).
-
-The reciprocal $1/\lambda_1$ is the **Lyapunov time**, the characteristic timescale on which prediction degrades. For the inner Solar System it is roughly 5 million years; for a typical turbulent flow, a fraction of a second.
-
-**Computing the maximal exponent in practice.** Integrate two trajectories started a tiny distance $\delta_0$ apart, let them evolve for a short time, measure the new separation $\delta_1$, accumulate $\ln(\delta_1/\delta_0)$, then *renormalize* — pull the second trajectory back to distance $\delta_0$ along the separation direction — and repeat. Averaging the logarithms over many such steps gives $\lambda_1$ without the perturbation saturating at the attractor's size. The double-pendulum script below uses the simpler (un-renormalized) version, valid only in the early exponential-growth window before saturation.
-
-## Poincaré Sections
-
-A continuous flow in $n$-dimensional phase space is hard to visualize. The **Poincaré section** (or first-return map) reduces it to a discrete map in one fewer dimension by recording only where the trajectory pierces a chosen surface:
-
-1. Choose a **surface of section** $\Sigma$ transverse to the flow (for a driven oscillator, often "stroboscopic" sampling once per drive period; for an autonomous system, a hyperplane such as $q_2 = 0$ with $\dot q_2 > 0$).
-2. Record each successive intersection $x_0, x_1, x_2, \dots$ of the trajectory with $\Sigma$.
-3. Study the resulting **return map** $x_{k+1} = P(x_k)$.
-
-The return map $P$ inherits the key dynamical properties of the flow but is far easier to analyze and plot. The structure that appears on the section diagnoses the motion at a glance:
-
-| What you see on $\Sigma$ | What the motion is |
-|--------------------------|--------------------|
-| A single point | Periodic orbit (period = section spacing) |
-| A finite set of points | Periodic orbit of higher period / subharmonic |
-| A closed curve | Quasi-periodic motion on an invariant torus (KAM) |
-| A scattered "cloud" filling an area | Chaotic motion (a chaotic sea) |
-
-For a Hamiltonian system the Poincaré map is **area-preserving** (a consequence of the symplectic structure), which strongly constrains what can appear: islands of regular curves embedded in a chaotic sea, with no attractors. This is the canvas on which KAM theory is read.
-
-## KAM Theory: Order Inside Chaos
-
-Just when chaos seems to dissolve all hope of understanding, the **Kolmogorov–Arnold–Moser (KAM) theorem** restores a remarkable amount of order. It addresses a sharp question: when you perturb an *integrable* system (one with as many conserved quantities as degrees of freedom, whose motion winds around invariant tori), does the regular motion survive, or does it shatter into chaos?
-
-An integrable Hamiltonian written in **action–angle variables** $H_0(I)$ has motion confined to nested tori, each labeled by its actions $I$ and traversed with frequencies $\omega(I) = \partial H_0/\partial I$. KAM concerns the perturbed system
+If a forecast is useful only while the error stays below a tolerance $\Delta$, the **predictability horizon** is
 
 $$
-H(I, \theta) = H_0(I) + \varepsilon H_1(I, \theta).
+t_{\text{pred}} \approx \frac{1}{\lambda} \ln\frac{\Delta}{\delta_0} .
 $$
 
-**KAM theorem (informal).** If
+The horizon grows only logarithmically with the precision of the initial data: a tenfold better measurement buys a fixed extra $\lambda^{-1}\ln 10$ of forecast time, never a proportional one. This is why midlatitude weather has an intrinsic predictability limit of roughly two weeks regardless of instrument quality.
 
-1. the frequency map is **non-degenerate**, $\det\!\left(\partial^2 H_0 / \partial I^2\right) \neq 0$ (frequencies genuinely vary with the actions);
-2. the perturbation $\varepsilon$ is **sufficiently small**; and
-3. the frequencies are **sufficiently irrational**, satisfying a **Diophantine condition** $|\omega \cdot k| \geq \gamma\, |k|^{-\tau}$ for all integer vectors $k \neq 0$,
+Exponential separation alone is not chaos: trajectories in a linear saddle also diverge exponentially, but they simply run off to infinity. Chaos combines **stretching** (local divergence) with **folding** that keeps the motion bounded, so nearby trajectories are repeatedly separated and re-mixed within a finite region. Stretching and folding are what build the fractal structure of strange attractors and the chaotic seas of Hamiltonian systems.
 
-then **most** invariant tori survive — they are merely deformed slightly, not destroyed. The motion on them remains quasi-periodic.
+## Lyapunov exponents
 
-The reason rational-frequency tori are the fragile ones is **resonance**. When the frequencies are commensurate ($\omega \cdot k = 0$ for some integer $k$), the perturbation drives the system in step with its own motion, and the resulting **small denominators** $1/(\omega \cdot k)$ in the perturbation series blow up. KAM's deep technical achievement (a super-convergent Newton-type iteration) is to show that the Diophantine "very irrational" tori are protected from these resonances and persist. Between the surviving tori, near each resonance, lies a thin chaotic layer; as $\varepsilon$ grows these layers widen and merge, and the last KAM tori break down — the **transition to global chaos** (governed quantitatively by Chirikov's resonance-overlap criterion and, for the most robust "golden-ratio" torus, Greene's residue method).
-
-**Why the Solar System survives.** The Solar System is mildly chaotic — the planets' positions have a Lyapunov time of only a few million years — yet it has not flown apart in 4.6 billion years. KAM theory explains why: most of the planetary tori are protected, so the chaos is confined to thin resonant layers rather than spreading globally. Regular and chaotic motion coexist, and the regular majority keeps the system bounded.
-
-**Applications of KAM and resonance theory:**
-
-- **Asteroid belt structure** — the **Kirkwood gaps** are emptied at mean-motion resonances with Jupiter (e.g. the 3:1 gap), exactly where KAM tori are destroyed and chaotic transport flings asteroids onto planet-crossing orbits.
-- **Particle accelerators and storage rings** — long-term beam stability is the survival of KAM tori in the transverse phase space; the *dynamic aperture* is set by where they break.
-- **Magnetic confinement fusion** — nested magnetic flux surfaces in a tokamak/stellarator are KAM tori of the field-line "flow"; their destruction at resonant surfaces causes the field lines (and heat) to wander out.
-
-## Strange Attractors
-
-In a **dissipative** system, phase-space volumes contract, so long-term motion collapses onto an **attractor**. The familiar attractors are simple — a fixed point (a damped pendulum coming to rest) or a limit cycle (a clock's steady tick). But when the dynamics is chaotic, the attractor becomes a **strange attractor**: a bounded set on which motion is aperiodic, exhibits sensitive dependence ($\lambda_1 > 0$), and has a **fractal** (non-integer) dimension.
-
-The strangeness reconciles two apparently contradictory facts. Dissipation contracts volumes, so the attractor has zero volume; yet sensitive dependence stretches trajectories apart, so it cannot be a smooth low-dimensional surface. The resolution is the **stretch-and-fold** mechanism: the flow repeatedly stretches the attracting set in the unstable direction and folds it back to stay bounded, building an infinitely layered, self-similar (fractal) structure — like dough kneaded forever.
-
-The canonical example is the **Lorenz system**, distilled by Edward Lorenz in 1963 from a model of atmospheric convection:
+The **maximal Lyapunov exponent** makes exponential divergence precise. For a trajectory $Z(t)$ and an infinitesimal perturbation $\delta Z(t)$ evolved by the linearized equations,
 
 $$
-\dot{x} = \sigma(y - x), \qquad \dot{y} = x(\rho - z) - y, \qquad \dot{z} = xy - \beta z,
+\lambda_1 = \lim_{t \to \infty} \frac{1}{t} \ln\frac{|\delta Z(t)|}{|\delta Z(0)|} .
 $$
 
-with classic parameters $\sigma = 10$, $\beta = 8/3$, $\rho = 28$. Its trajectory traces the famous two-lobed "butterfly," orbiting one wing an unpredictable number of times before crossing to the other.
+| Sign of $\lambda_1$ | Behavior |
+|---|---|
+| $\lambda_1 > 0$ | Chaotic: nearby trajectories diverge exponentially |
+| $\lambda_1 = 0$ | Marginal: periodic or quasi-periodic motion (separation grows at most polynomially) |
+| $\lambda_1 < 0$ | Stable: perturbations decay onto a fixed point or limit cycle |
 
-**Hallmarks of a strange attractor:**
+An $n$-dimensional system has a full **Lyapunov spectrum** $\lambda_1 \geq \lambda_2 \geq \cdots \geq \lambda_n$, one exponent per independent direction in which a small ball of initial conditions is stretched or squeezed. Phase-space volume evolves as $e^{(\sum_i \lambda_i)t}$, which constrains the spectrum:
 
-- **Bounded but non-periodic** — the trajectory never repeats and never escapes to infinity.
-- **Sensitive dependence** — a positive maximal Lyapunov exponent (for the Lorenz attractor, $\lambda_1 \approx 0.9\,\text{bit/time}$).
-- **Fractal dimension** — the Lorenz attractor's correlation/Kaplan–Yorke dimension is $\approx 2.06$, neither a 2D surface nor a 3D volume. The Kaplan–Yorke formula $D_{KY} = k + (\sum_{i=1}^{k}\lambda_i)/|\lambda_{k+1}|$ ties this dimension directly to the Lyapunov spectrum.
-- **Self-similarity** — magnifying a cross-section reveals the same layered Cantor-set structure at every scale.
+- **Hamiltonian systems** preserve phase-space volume (Liouville's theorem), so $\sum_i \lambda_i = 0$. More strongly, symplecticity forces the exponents to come in pairs $\pm\lambda_i$. For an autonomous Hamiltonian flow, the direction along the trajectory and the direction across energy surfaces together contribute one pair of zero exponents, and each additional independent conserved quantity contributes another pair.
+- **Dissipative systems** contract volume, so $\sum_i \lambda_i < 0$, yet $\lambda_1$ can still be positive. Contraction in some directions combined with stretching in another is the signature of a strange attractor.
+- Every bounded trajectory of an autonomous flow that does not settle to a fixed point has at least one zero exponent, for perturbations along the trajectory itself.
 
-Other touchstones include the **Rössler attractor** (a single fold, simpler than Lorenz) and the **Hénon map**, a 2D dissipative map whose attractor displays the fractal layering with crystal clarity.
+The reciprocal $1/\lambda_1$ is the **Lyapunov time**. Representative values:
 
-## Bifurcations and the Routes to Chaos
+| System | Lyapunov time or exponent |
+|---|---|
+| Lorenz system ($\sigma=10$, $\rho=28$, $\beta=8/3$) | spectrum $\approx (0.906,\ 0,\ -14.57)$ per time unit |
+| Inner Solar System (Laskar's secular integrations) | about 5 million years |
+| Double pendulum released from horizontal ($m = l = 1$) | $\lambda_1 \approx 0.85\ \text{s}^{-1}$ (computed below) |
 
-Chaos rarely appears all at once. As a control parameter is tuned, a system passes through a sequence of **bifurcations** — qualitative changes in the structure of its attractors — and there are only a few universal **routes** by which regular motion gives way to chaos.
+### Computing the spectrum
 
-### Bifurcations
+Direct integration of two nearby trajectories fails after a few Lyapunov times because their separation saturates at the size of the attractor. The standard fix is the **Benettin algorithm**: integrate the reference trajectory together with a perturbation (either a second nearby trajectory or, better, the tangent-space variational equations), and every interval $\tau$ record $\ln(|\delta_k|/|\delta_0|)$ and rescale the perturbation back to size $\delta_0$ along its current direction. The average of the logged growth rates converges to $\lambda_1$. For the full spectrum, evolve $n$ tangent vectors and re-orthonormalize them with a QR decomposition at each step; the logarithms of the diagonal of $R$ give the individual exponents.
 
-A **bifurcation** occurs where the number or stability of fixed points or periodic orbits changes as a parameter $\mu$ crosses a critical value. The elementary local bifurcations are:
+Finite-time Lyapunov exponents (FTLEs), computed over a fixed window rather than in the long-time limit, are also useful on their own. Their ridges in a fluid flow mark **Lagrangian coherent structures**, the moving barriers that organize transport in ocean currents and atmospheric flows.
 
-| Bifurcation | What changes |
-|-------------|--------------|
-| **Saddle-node (fold)** | A stable and an unstable fixed point collide and annihilate (motion suddenly has nowhere to settle). |
-| **Transcritical** | Two fixed points cross and exchange stability. |
-| **Pitchfork** | One fixed point loses stability and gives birth to two new stable ones (symmetry breaking). |
-| **Hopf** | A fixed point loses stability and spawns a limit cycle — onset of sustained oscillation. |
-| **Period-doubling (flip)** | A periodic orbit of period $T$ becomes unstable and is replaced by one of period $2T$. |
+## Poincaré sections
 
-The **logistic map** $x_{n+1} = r\,x_n(1 - x_n)$ is the canonical laboratory. As $r$ increases past $3$, the stable fixed point period-doubles to a 2-cycle, then a 4-cycle, 8-cycle, $\dots$, with successive doublings crowding together and accumulating at $r_\infty \approx 3.5699$, beyond which the orbit is chaotic (interrupted by periodic windows).
+A continuous flow in a high-dimensional phase space is hard to visualize. A **Poincaré section** reduces it to a discrete map in one fewer dimension:
 
-### Universality: the Feigenbaum constants
+1. Choose a **surface of section** $\Sigma$ that the flow crosses transversally. For a periodically driven oscillator, sample once per drive period (a stroboscopic map). For an autonomous system, use a hyperplane such as $q_2 = 0$ with $\dot q_2 > 0$.
+2. Record each successive intersection $x_0, x_1, x_2, \ldots$ with $\Sigma$.
+3. Study the **return map** $x_{k+1} = P(x_k)$.
 
-The period-doubling cascade is **universal**. The ratio of successive parameter intervals between doublings converges to a number independent of the specific map:
+For a two-degree-of-freedom Hamiltonian system, fixing the energy leaves a three-dimensional energy surface, and the section is a two-dimensional plane that can be plotted directly. The pattern on it diagnoses the motion:
+
+| Pattern on $\Sigma$ | Motion |
+|---|---|
+| A single point | Periodic orbit |
+| A finite set of points | Periodic orbit of higher period |
+| A smooth closed curve | Quasi-periodic motion on an invariant torus |
+| A chain of small closed curves | Motion on an island around a stable resonant orbit |
+| A scattered cloud filling an area | Chaotic motion |
+
+For Hamiltonian flows the return map is **area-preserving**, a consequence of the symplectic structure. It therefore has no attractors: regular islands and chaotic regions coexist indefinitely, which is the picture KAM theory explains.
+
+## Hamiltonian chaos and KAM theory
+
+### Integrable systems and invariant tori
+
+A Hamiltonian system with $n$ degrees of freedom is **integrable** if it has $n$ independent conserved quantities in involution (mutually Poisson-commuting). By the Arnold–Liouville theorem, bounded motion then lies on $n$-dimensional invariant tori, and **action–angle variables** $(I, \theta)$ exist in which $H = H_0(I)$ and each angle advances uniformly at frequency $\omega(I) = \partial H_0/\partial I$. Motion on a torus is periodic when the frequencies are commensurate and quasi-periodic otherwise. The Kepler problem, the free rigid body, and any one-degree-of-freedom conservative system are integrable. Generic systems are not.
+
+### The KAM theorem
+
+The **Kolmogorov–Arnold–Moser theorem** (Kolmogorov 1954; proofs by Arnold 1963 and Moser 1962) answers what happens to the tori under a small non-integrable perturbation
 
 $$
-\delta = \lim_{n \to \infty} \frac{r_{n} - r_{n-1}}{r_{n+1} - r_{n}} = 4.669201\ldots,
+H(I, \theta) = H_0(I) + \varepsilon H_1(I, \theta) .
 $$
 
-the **Feigenbaum constant**, accompanied by a spatial scaling constant $\alpha = 2.502907\ldots$. These same numbers govern the period-doubling route in fluid convection, nonlinear circuits, and driven oscillators — physically unrelated systems share the *same* quantitative approach to chaos, a triumph of the renormalization-group idea applied to dynamics.
+**Theorem (informal).** Suppose
 
-### The principal routes to chaos
+1. the unperturbed system is **non-degenerate**, $\det\left(\partial^2 H_0 / \partial I^2\right) \neq 0$, so that the frequencies genuinely vary with the actions;
+2. the perturbation is small enough, $\varepsilon < \varepsilon_0$; and
+3. the torus frequencies satisfy a **Diophantine condition** $|k \cdot \omega| \geq \gamma\, |k|^{-\tau}$ for every nonzero integer vector $k$.
 
-1. **Period-doubling (Feigenbaum) cascade** — an infinite sequence of period-doublings accumulating at a finite parameter value; the most thoroughly understood route.
-2. **Quasi-periodicity (Ruelle–Takens–Newhouse)** — successive Hopf bifurcations add incommensurate frequencies; after typically two or three, the motion on the torus breaks into a strange attractor. This displaced the older Landau picture of turbulence as infinitely many superposed frequencies.
-3. **Intermittency (Pomeau–Manneville)** — long stretches of nearly regular ("laminar") motion are interrupted by irregular bursts at unpredictable times; the bursts become more frequent as the parameter is pushed past a saddle-node bifurcation of the periodic orbit.
+Then the Diophantine tori survive, slightly deformed, and carry quasi-periodic motion. They fill a set whose relative measure tends to 1 as $\varepsilon \to 0$ (the excluded fraction shrinks roughly like $\sqrt{\varepsilon}$).
 
-In Hamiltonian systems the analogue is the **KAM route** described above: as the perturbation grows, the last invariant tori break, chaotic layers merge, and the regular sea is overtaken by a chaotic one.
+The resonant tori, where $k \cdot \omega = 0$ for some integer $k$, are the fragile ones. Perturbation theory for them produces **small denominators** $1/(k \cdot \omega)$ that make the series diverge. KAM circumvents this with a rapidly converging Newton-type iteration that works only on sufficiently irrational tori. What happens at the resonances is described by the **Poincaré–Birkhoff theorem**: a resonant torus breaks into an alternating chain of stable (elliptic) and unstable (hyperbolic) periodic orbits. The elliptic orbits are surrounded by small islands, and the stable and unstable manifolds of the hyperbolic orbits intersect transversally in a **homoclinic tangle**, which generates a thin chaotic layer. As $\varepsilon$ grows, these layers widen and merge.
 
-## Worked Example: the Double Pendulum
+### The standard map
 
-The double pendulum is the cleanest mechanical system that is chaotic at the kitchen table. Each rod alone is a regular pendulum; coupled, the four-dimensional phase space supports a positive Lyapunov exponent at moderate energy. The script below integrates two copies started $0.001$ rad apart and exhibits, in one figure, every diagnostic on this page: the phase-space portrait, a Poincaré section, the exponential divergence that measures the Lyapunov exponent, and an energy-conservation check confirming the dynamics is genuinely Hamiltonian (chaotic, not merely sloppy numerics).
+The **Chirikov standard map** is the simplest model of this whole story. It is the stroboscopic map of a rotor kicked periodically with strength $K$:
+
+$$
+I_{n+1} = I_n + K \sin\theta_n, \qquad \theta_{n+1} = \theta_n + I_{n+1} \pmod{2\pi} .
+$$
+
+<figure class="diagram">
+<svg viewBox="0 0 440 440" role="img" aria-labelledby="sm-title" style="max-width:460px;width:100%;height:auto">
+<title id="sm-title">Phase portrait of the Chirikov standard map at K = 0.9716: a large central island of invariant curves, chains of smaller islands, and a chaotic sea between them</title>
+<image href="{{ '/images/chaos-and-computational-standard-map.png' | relative_url }}" x="40" y="10" width="390" height="390"/>
+<rect x="40" y="10" width="390" height="390" fill="none" stroke="currentColor" stroke-width="1.2"/>
+<text x="40" y="416" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">0</text>
+<text x="430" y="416" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">2&#960;</text>
+<text x="235" y="432" font-size="12" font-family="inherit" fill="currentColor" text-anchor="middle">&#952; (angle)</text>
+<text x="34" y="404" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">&#8722;&#960;</text>
+<text x="34" y="18" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">&#960;</text>
+<text x="16" y="205" font-size="12" font-family="inherit" fill="currentColor" text-anchor="middle" transform="rotate(-90 16 205)">I (action)</text>
+</svg>
+<figcaption>Standard map at $K \approx K_c = 0.9716$, 160 orbits of 1500 iterations each. Closed curves are surviving KAM tori and island chains around stable resonances; the speckled region is a single connected chaotic sea. At this value the last rotational invariant circle is just breaking.</figcaption>
+</figure>
+
+- For $K = 0$ the map is integrable: every horizontal line $I = \text{const}$ is an invariant circle.
+- For small $K$, most circles survive (KAM), with island chains at rational rotation numbers and thin chaotic layers around them.
+- Rotational invariant circles span the full angle range and act as barriers: while any survive, $I$ cannot grow without bound. Greene's residue method places the breakup of the last one, the circle with golden-mean rotation number, at $K_c \approx 0.9716$.
+- For $K > K_c$ the chaotic layers connect, and $I$ diffuses without bound. The **Chirikov resonance-overlap criterion** gives a quick estimate of this transition: global chaos sets in roughly when neighboring resonance widths exceed their spacing.
+
+Chirikov's criterion and the standard map are used as working models in accelerator physics, plasma confinement, and comet dynamics.
+
+### Arnold diffusion
+
+With two degrees of freedom, the two-dimensional KAM tori divide each three-dimensional energy surface into separate regions. Chaotic orbits trapped between two surviving tori cannot escape. With three or more degrees of freedom the tori no longer divide the energy surface, and the resonance layers form a connected web. Orbits can drift along this web arbitrarily far in action space, however small $\varepsilon$ is. This is **Arnold diffusion**. It is extremely slow (typically exponentially slow in $1/\varepsilon$), so KAM gives practical but not absolute stability for systems with many degrees of freedom.
+
+### Consequences in physical systems
+
+- **Solar System stability.** The planetary orbits are chaotic, with a Lyapunov time of about 5 million years for the inner planets, so their precise positions cannot be computed beyond roughly 50 million years into the past or future. The chaos is nonetheless confined: in Laskar and Gastineau's 2009 ensemble of 2,501 integrations, only about 1% led to Mercury's eccentricity growing large enough for close encounters or collisions within the Sun's remaining 5-billion-year main-sequence lifetime.
+- **Kirkwood gaps.** The main asteroid belt is depleted at mean-motion resonances with Jupiter (3:1, 5:2, 7:3, 2:1). Chaotic transport in these resonances pumps asteroids onto planet-crossing orbits, which is also the main delivery route for meteorites.
+- **Chaotic rotation.** Saturn's moon Hyperion, irregularly shaped and on an eccentric orbit, tumbles chaotically. Spin–orbit resonance overlap predicted this, and Voyager and Cassini imaging confirmed it.
+- **Particle accelerators.** The *dynamic aperture* of a storage ring, the region of transverse phase space where particles survive for millions of turns, is set by where KAM tori break down under the nonlinear fields of the magnets.
+- **Magnetic confinement fusion.** Magnetic field lines in a tokamak or stellarator form a Hamiltonian system. Nested flux surfaces are its KAM tori, and resonant perturbations create magnetic islands and stochastic regions through which heat leaks out.
+
+## Dissipative chaos: strange attractors
+
+In a dissipative system phase-space volume contracts, so long-term motion settles onto an **attractor** of lower dimension. A fixed point (a damped pendulum at rest) and a limit cycle (a clock's steady tick) are regular attractors. When the dynamics on the attractor is chaotic, the attractor is **strange**: bounded, aperiodic, sensitive to initial conditions ($\lambda_1 > 0$), and of **fractal** (non-integer) dimension.
+
+The fractal geometry resolves an apparent contradiction. Dissipation drives the attractor's volume to zero, but stretching prevents it from being a smooth lower-dimensional surface. The flow repeatedly stretches the attracting set in the unstable direction and folds it back onto itself, producing an infinitely layered, Cantor-set-like cross-section.
+
+The canonical example is the **Lorenz system** (1963), a three-mode truncation of convection in a fluid layer heated from below:
+
+$$
+\dot{x} = \sigma(y - x), \qquad \dot{y} = x(\rho - z) - y, \qquad \dot{z} = xy - \beta z .
+$$
+
+At the classic parameters $\sigma = 10$, $\rho = 28$, $\beta = 8/3$, trajectories trace the two-lobed "butterfly," circling one lobe an irregular number of times before switching to the other. The phase-space contraction rate is constant, $\nabla \cdot \dot{\mathbf{x}} = -(\sigma + 1 + \beta) \approx -13.67$, which matches the sum of the Lyapunov spectrum. In 2002 Warwick Tucker gave a computer-assisted proof that the Lorenz attractor exists and is genuinely strange, resolving Smale's 14th problem.
+
+The **Kaplan–Yorke dimension** links fractal geometry to the Lyapunov spectrum. With $k$ the largest index for which $\lambda_1 + \cdots + \lambda_k \geq 0$,
+
+$$
+D_{KY} = k + \frac{\sum_{i=1}^{k} \lambda_i}{|\lambda_{k+1}|} .
+$$
+
+For Lorenz, $D_{KY} \approx 2 + 0.906/14.57 \approx 2.06$: slightly more than a surface, far less than a volume.
+
+| Attractor | Type | Notes |
+|---|---|---|
+| Lorenz | 3D flow | Two-lobed butterfly, $D \approx 2.06$ |
+| Rössler | 3D flow | A single stretch-and-fold band, the simplest continuous-time strange attractor |
+| Hénon map | 2D map | $x_{n+1} = 1 - a x_n^2 + y_n$, $y_{n+1} = b x_n$; fractal layering visible directly, $D \approx 1.26$ at $a = 1.4$, $b = 0.3$ |
+| Duffing oscillator | Driven 2D (3D extended) | Forced nonlinear spring $\ddot x + \delta \dot x + \alpha x + \beta x^3 = \gamma\cos\omega t$ |
+| Chua circuit | Electronic | First strange attractor observed in a physical circuit built for the purpose |
+
+## Bifurcations and routes to chaos
+
+Chaos rarely appears all at once. As a control parameter $\mu$ is varied, a system passes through **bifurcations**, parameter values where the number or stability of its fixed points and periodic orbits changes.
+
+| Bifurcation | What happens as $\mu$ crosses the critical value | Normal form |
+|---|---|---|
+| Saddle-node (fold) | A stable and an unstable fixed point collide and annihilate | $\dot x = \mu - x^2$ |
+| Transcritical | Two fixed points pass through each other and exchange stability | $\dot x = \mu x - x^2$ |
+| Pitchfork (supercritical) | A symmetric fixed point goes unstable and two stable ones branch off | $\dot x = \mu x - x^3$ |
+| Hopf (supercritical) | A stable focus goes unstable and a small limit cycle is born | $\dot r = \mu r - r^3$, $\dot\phi = \omega$ |
+| Period-doubling (flip) | A periodic orbit of period $T$ goes unstable and one of period $2T$ appears | $x_{n+1} = -(1+\mu)x_n + x_n^3$ |
+
+Subcritical versions of the pitchfork and Hopf bifurcations produce sudden jumps and hysteresis instead of gradual onset.
+
+### Universality: the logistic map and Feigenbaum constants
+
+The **logistic map** $x_{n+1} = r x_n (1 - x_n)$ on $[0, 1]$ is the standard example of a period-doubling cascade:
+
+<figure class="diagram">
+<svg viewBox="0 0 640 360" role="img" aria-labelledby="bif-title" style="max-width:700px;width:100%;height:auto">
+<title id="bif-title">Bifurcation diagram of the logistic map for r from 2.8 to 4: a single branch splits at r = 3, again near 3.449, cascades to chaos at about 3.5699, with a period-3 window near 3.83</title>
+<image href="{{ '/images/chaos-and-computational-logistic-bifurcation.png' | relative_url }}" x="60" y="20" width="560" height="280" preserveAspectRatio="none"/>
+<line x1="60" y1="300" x2="620" y2="300" stroke="currentColor" stroke-width="1.2"/>
+<line x1="60" y1="20" x2="60" y2="300" stroke="currentColor" stroke-width="1.2"/>
+<line x1="60" y1="300" x2="60" y2="305" stroke="currentColor"/><text x="60" y="318" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">2.8</text>
+<line x1="153" y1="300" x2="153" y2="305" stroke="currentColor"/><text x="153" y="318" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">3.0</text>
+<line x1="247" y1="300" x2="247" y2="305" stroke="currentColor"/><text x="247" y="318" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">3.2</text>
+<line x1="340" y1="300" x2="340" y2="305" stroke="currentColor"/><text x="340" y="318" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">3.4</text>
+<line x1="433" y1="300" x2="433" y2="305" stroke="currentColor"/><text x="433" y="318" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">3.6</text>
+<line x1="527" y1="300" x2="527" y2="305" stroke="currentColor"/><text x="527" y="318" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">3.8</text>
+<line x1="620" y1="300" x2="620" y2="305" stroke="currentColor"/><text x="620" y="318" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">4.0</text>
+<text x="52" y="304" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">0</text>
+<text x="52" y="24" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">1</text>
+<text x="340" y="345" font-size="12" font-family="inherit" fill="currentColor" text-anchor="middle">control parameter r</text>
+<text x="30" y="160" font-size="12" font-family="inherit" fill="currentColor" text-anchor="middle" transform="rotate(-90 30 160)">long-run x</text>
+<line x1="419" y1="20" x2="419" y2="300" stroke="currentColor" stroke-dasharray="4 4" opacity="0.6"/>
+<text x="415" y="292" font-size="11" font-family="inherit" fill="currentColor" text-anchor="end">r&#8734; &#8776; 3.5699</text>
+<text x="541" y="14" font-size="11" font-family="inherit" fill="currentColor" text-anchor="middle">period-3 window</text>
+</svg>
+<figcaption>Logistic map $x_{n+1} = r x_n (1 - x_n)$: each vertical slice shows the values visited after transients die out. Period doubling accumulates at $r_\infty$; beyond it, chaotic bands are punctuated by periodic windows.</figcaption>
+</figure>
+
+The fixed point is stable for $1 < r < 3$. At $r = 3$ it gives way to a 2-cycle, at $r = 1 + \sqrt{6} \approx 3.449$ to a 4-cycle, then an 8-cycle, and so on. The doublings accumulate at $r_\infty \approx 3.5699$, beyond which the motion is chaotic for most $r$, interrupted by periodic windows such as the period-3 window starting at $r = 1 + \sqrt{8} \approx 3.828$. At $r = 4$ the map is conjugate to a shift and has $\lambda = \ln 2$ exactly.
+
+Feigenbaum (1978) discovered that the cascade is **universal**. The spacing of successive doubling thresholds shrinks geometrically with ratio
+
+$$
+\delta = \lim_{n \to \infty} \frac{r_n - r_{n-1}}{r_{n+1} - r_n} = 4.669201\ldots,
+$$
+
+and the branch widths scale by $\alpha = 2.502907\ldots$. The same constants hold for any smooth one-dimensional map with a single quadratic maximum. Experiments in Rayleigh–Bénard convection, nonlinear electronic circuits, and driven lasers measure the same values. The explanation is a renormalization-group fixed point in the space of maps, the same idea that explains universality at continuous phase transitions.
+
+### The principal routes
+
+```mermaid
+flowchart LR
+    R["Regular motion<br/>fixed point or periodic orbit"]
+    R -->|"period-doubling cascade<br/>(Feigenbaum)"| C
+    R -->|"Hopf, then second Hopf to a 2-torus,<br/>torus breakdown (Ruelle-Takens-Newhouse)"| C
+    R -->|"saddle-node of a periodic orbit,<br/>laminar phases with bursts (Pomeau-Manneville)"| C
+    R -->|"Hamiltonian: KAM tori break,<br/>chaotic layers merge"| H
+    C["Dissipative chaos<br/>strange attractor"]
+    H["Hamiltonian chaos<br/>chaotic sea, no attractor"]
+```
+
+1. **Period doubling.** An infinite sequence of period-doublings accumulating at a finite parameter value, governed by the Feigenbaum constants.
+2. **Quasi-periodicity (Ruelle–Takens–Newhouse).** Successive Hopf bifurcations add incommensurate frequencies, and after two or three of them the motion on the torus typically breaks up into a strange attractor. This replaced Landau's older picture of turbulence as the superposition of ever more independent frequencies.
+3. **Intermittency (Pomeau–Manneville).** Just past a saddle-node bifurcation of a periodic orbit, long nearly periodic ("laminar") phases are interrupted by irregular bursts. The mean laminar duration scales as $(\mu - \mu_c)^{-1/2}$ for the type-I case.
+4. **Crises.** A chaotic attractor collides with an unstable periodic orbit or its basin boundary and suddenly expands, merges with another attractor, or disappears, leaving long chaotic transients.
+
+In Hamiltonian systems there are no attractors. The analogous route is the progressive breakup of KAM tori described above.
+
+## Diagnosing chaos in practice
+
+Real data rarely comes with equations. The standard toolkit:
+
+| Diagnostic | What it measures | Notes |
+|---|---|---|
+| Largest Lyapunov exponent | Rate of divergence of nearby states | From equations (Benettin) or from data (Rosenstein and Kantz algorithms); noise biases it upward |
+| Poincaré section or return map | Geometry of the recurrent dynamics | Needs a good choice of section |
+| Power spectrum | Frequency content | Periodic: sharp lines. Quasi-periodic: lines at combination frequencies. Chaotic: broadband continuum. Noise is also broadband, so this is not conclusive alone |
+| Correlation dimension (Grassberger–Procaccia) | Fractal dimension of the attractor | Needs long, clean time series; easily fooled by noise and short records |
+| Delay embedding (Takens 1981) | Reconstructs the attractor from a single observable using the vectors $(s(t), s(t-\tau), \ldots)$ | Embedding dimension $m > 2D$ suffices generically |
+| 0–1 test (Gottwald–Melbourne 2004) | Growth of a derived 2D random-walk-like process | Returns about 0 for regular and about 1 for chaotic data; no embedding needed |
+| Surrogate-data tests | Whether apparent structure exceeds that of a matched linear stochastic process | Guards against mistaking colored noise for chaos |
+
+**Chaos control.** An unstable periodic orbit embedded in a strange attractor can be stabilized with tiny, well-timed parameter adjustments each time the trajectory passes near it (the Ott–Grebogi–Yorke method, 1990). Because a strange attractor contains infinitely many such orbits, a chaotic system can be switched among many behaviors with little control effort. The idea has been demonstrated in lasers, electronic circuits, chemical reactions, and cardiac tissue.
+
+## Data-driven modeling and forecasting
+
+Machine learning now plays a large role in modeling chaotic systems. None of these methods escapes the Lyapunov horizon. What they can do is approach it more cheaply, or produce calibrated ensembles instead of a single forecast.
+
+- **Reservoir computing.** A fixed random recurrent network with only a trained linear readout. Pathak, Ott and collaborators (2018) used it to forecast the spatiotemporally chaotic Kuramoto–Sivashinsky equation for several Lyapunov times and to reproduce the system's long-term statistics and Lyapunov spectrum.
+- **Sparse identification of nonlinear dynamics (SINDy).** Brunton, Proctor and Kutz (2016) fit $\dot x = \Theta(x)\,\Xi$ by sparse regression over a library of candidate terms $\Theta(x)$. The result is an interpretable model, and it recovers the Lorenz equations from simulated trajectories.
+- **Koopman and dynamic mode decomposition.** These methods represent nonlinear dynamics by a linear operator acting on observables. They work well for quasi-periodic dynamics and less well once the spectrum becomes continuous, as it does under chaos.
+- **Machine-learned weather prediction.** Weather is the most important chaotic forecasting problem. Google DeepMind's GraphCast (*Science*, 2023) matched or beat the ECMWF deterministic forecast on most verification targets. Its ensemble successor GenCast (*Nature*, 2024) produces 15-day probabilistic forecasts that beat ECMWF's operational ensemble on 97% of 1,320 evaluated targets. Operational centers now run such models alongside physics-based ones. They still show the familiar growth of forecast spread with lead time, because the atmosphere's predictability limit belongs to the system, not to the model.
+
+Structure-preserving networks for conservative dynamics, such as Hamiltonian and Lagrangian neural networks, are covered in [Computational Methods](computational-classical-mechanics.html#structure-preserving-machine-learning).
+
+## Worked example: the double pendulum
+
+The double pendulum is the simplest everyday mechanical system that becomes chaotic. At small amplitude it is nearly linear: two coupled normal modes with quasi-periodic motion. Released from horizontal, it has a positive Lyapunov exponent. The script below computes three diagnostics from this page for both regimes: the largest Lyapunov exponent (Benettin renormalization), a Poincaré section, and an energy-conservation check. The energy check confirms that the divergence comes from the dynamics and not from integration error.
 
 ```python
 import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 
-def double_pendulum_derivatives(t, state, m1, m2, l1, l2, g):
-    """Compute derivatives for the double pendulum.
+M1 = M2 = 1.0          # masses (kg)
+L1 = L2 = 1.0          # rod lengths (m)
+G = 9.81               # gravity (m/s^2)
+TOL = dict(method="DOP853", rtol=1e-10, atol=1e-12)
 
-    State convention: [theta1, z1, theta2, z2], where z_i = d(theta_i)/dt.
-    The explicit equations of motion below follow the canonical
-    double-pendulum Lagrangian derivation (see, e.g., the standard
-    Matplotlib double-pendulum example / Wikipedia formulas).
-    """
-    theta1, z1, theta2, z2 = state
+def rhs(t, s):
+    """Equations of motion; state s = (theta1, omega1, theta2, omega2)."""
+    th1, w1, th2, w2 = s
+    d = th2 - th1
+    c, sn = np.cos(d), np.sin(d)
+    den1 = (M1 + M2) * L1 - M2 * L1 * c * c
+    den2 = (L2 / L1) * den1
+    dw1 = (M2 * L1 * w1**2 * sn * c + M2 * G * np.sin(th2) * c
+           + M2 * L2 * w2**2 * sn - (M1 + M2) * G * np.sin(th1)) / den1
+    dw2 = (-M2 * L2 * w2**2 * sn * c
+           + (M1 + M2) * (G * np.sin(th1) * c - L1 * w1**2 * sn - G * np.sin(th2))) / den2
+    return [w1, dw1, w2, dw2]
 
-    # Angle difference: theta2 - theta1
-    delta = theta2 - theta1
-    c, s = np.cos(delta), np.sin(delta)
+def energy(s):
+    th1, w1, th2, w2 = s
+    T = (0.5 * (M1 + M2) * (L1 * w1)**2 + 0.5 * M2 * (L2 * w2)**2
+         + M2 * L1 * L2 * w1 * w2 * np.cos(th1 - th2))
+    V = -(M1 + M2) * G * L1 * np.cos(th1) - M2 * G * L2 * np.cos(th2)
+    return T + V
 
-    dydt = np.zeros_like(state)
-    dydt[0] = z1  # dtheta1/dt
-    dydt[2] = z2  # dtheta2/dt
+def max_lyapunov(s0, d0=1e-8, tau=0.5, n_renorm=400, seed=0):
+    """Benettin two-trajectory estimate of the largest Lyapunov exponent (1/s)."""
+    s = np.asarray(s0, float)
+    v = np.random.default_rng(seed).normal(size=4)
+    v *= d0 / np.linalg.norm(v)
+    log_sum = 0.0
+    for _ in range(n_renorm):
+        a = solve_ivp(rhs, (0, tau), s, **TOL).y[:, -1]
+        b = solve_ivp(rhs, (0, tau), s + v, **TOL).y[:, -1]
+        sep = b - a
+        dist = np.linalg.norm(sep)
+        log_sum += np.log(dist / d0)
+        s, v = a, sep * (d0 / dist)      # renormalize along the stretched direction
+    return log_sum / (n_renorm * tau)
 
-    # dz1/dt
-    den1 = (m1 + m2)*l1 - m2*l1*c*c
-    dydt[1] = (m2*l1*z1*z1*s*c
-               + m2*g*np.sin(theta2)*c
-               + m2*l2*z2*z2*s
-               - (m1 + m2)*g*np.sin(theta1)) / den1
+def poincare_section(s0, t_max=2000.0):
+    """Record (theta2, omega2) each time theta1 passes 0 with omega1 > 0."""
+    def cross(t, s):
+        return np.sin(s[0])
+    cross.direction = 1
+    sol = solve_ivp(rhs, (0, t_max), s0, events=cross, **TOL)
+    pts = sol.y_events[0]
+    pts = pts[np.cos(pts[:, 0]) > 0]                  # keep theta1 = 0, not pi
+    return np.mod(pts[:, 2] + np.pi, 2 * np.pi) - np.pi, pts[:, 3]
 
-    # dz2/dt
-    den2 = (l2/l1)*den1
-    dydt[3] = (-m2*l2*z2*z2*s*c
-               + (m1 + m2)*g*np.sin(theta1)*c
-               - (m1 + m2)*l1*z1*z1*s
-               - (m1 + m2)*g*np.sin(theta2)) / den2
+cases = {"low energy (10 deg, 10 deg)": [np.radians(10), 0, np.radians(10), 0],
+         "high energy (90 deg, 90 deg)": [np.pi / 2, 0, np.pi / 2, 0]}
 
-    return dydt
-
-# Parameters
-m1 = m2 = 1.0
-l1 = l2 = 1.0
-g = 9.81
-
-# Initial conditions - small perturbation shows chaos
-theta1_0 = np.pi/2
-theta2_0 = np.pi/2
-z1_0 = 0
-z2_0 = 0
-
-# Solve for two slightly different initial conditions
-state0_1 = [theta1_0, z1_0, theta2_0, z2_0]
-state0_2 = [theta1_0 + 0.001, z1_0, theta2_0, z2_0]  # Small perturbation
-
-t_span = (0, 20)
-t_eval = np.linspace(*t_span, 2000)
-
-sol1 = solve_ivp(double_pendulum_derivatives, t_span, state0_1, 
-                 args=(m1, m2, l1, l2, g), t_eval=t_eval, 
-                 method='DOP853', rtol=1e-10)
-
-sol2 = solve_ivp(double_pendulum_derivatives, t_span, state0_2, 
-                 args=(m1, m2, l1, l2, g), t_eval=t_eval, 
-                 method='DOP853', rtol=1e-10)
-
-# Plot phase space and divergence
-fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-
-# Phase space trajectories
-ax = axes[0, 0]
-ax.plot(sol1.y[0], sol1.y[1], 'b-', alpha=0.7, label='Original')
-ax.plot(sol2.y[0], sol2.y[1], 'r-', alpha=0.7, label='Perturbed')
-ax.set_xlabel(r'$\theta_1$')
-ax.set_ylabel(r'$\dot{\theta}_1$')
-ax.set_title('Phase Space: Pendulum 1')
-ax.legend()
-ax.grid(True, alpha=0.3)
-
-# Poincaré section
-ax = axes[0, 1]
-# Sample when theta2 crosses zero with positive velocity
-crossings = np.where(np.diff(np.sign(sol1.y[2])) > 0)[0]
-ax.scatter(sol1.y[0][crossings], sol1.y[1][crossings], c='b', s=10, alpha=0.5)
-ax.set_xlabel(r'$\theta_1$')
-ax.set_ylabel(r'$\dot{\theta}_1$')
-ax.set_title('Poincaré Section')
-ax.grid(True, alpha=0.3)
-
-# Lyapunov exponent estimation
-ax = axes[1, 0]
-divergence = np.sqrt((sol1.y[0] - sol2.y[0])**2 + 
-                    (sol1.y[1] - sol2.y[1])**2)
-log_divergence = np.log(divergence + 1e-15)
-ax.semilogy(sol1.t, divergence)
-ax.set_xlabel('Time (s)')
-ax.set_ylabel('Phase Space Distance')
-ax.set_title('Sensitive Dependence on Initial Conditions')
-ax.grid(True, alpha=0.3)
-
-# Energy conservation check
-ax = axes[1, 1]
-# Calculate total energy
-theta1, z1, theta2, z2 = sol1.y
-c = np.cos(theta1 - theta2)
-T = 0.5*m1*(l1*z1)**2 + 0.5*m2*((l1*z1)**2 + (l2*z2)**2 + 
-    2*l1*l2*z1*z2*c)
-V = -m1*g*l1*np.cos(theta1) - m2*g*(l1*np.cos(theta1) + 
-    l2*np.cos(theta2))
-E = T + V
-
-ax.plot(sol1.t, E - E[0], 'g-')
-ax.set_xlabel('Time (s)')
-ax.set_ylabel('Energy Error')
-ax.set_title('Energy Conservation')
-ax.grid(True, alpha=0.3)
-
+fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
+for ax, (label, s0) in zip(axes, cases.items()):
+    lam = max_lyapunov(s0)
+    sol = solve_ivp(rhs, (0, 200), s0, **TOL)
+    drift = np.max(np.abs(energy(sol.y) - energy(np.array(s0))))
+    th2, w2 = poincare_section(s0)
+    print(f"{label}: lambda_max = {lam:.3f} 1/s, max |dE| = {drift:.1e} J")
+    ax.plot(th2, w2, ".", ms=2)
+    ax.set(title=f"{label}\nlambda_max = {lam:.2f} 1/s",
+           xlabel=r"$\theta_2$ (rad)", ylabel=r"$\dot\theta_2$ (rad/s)")
 plt.tight_layout()
 plt.show()
-
-# Estimate Lyapunov exponent
-from scipy import stats
-# Linear fit to log divergence in growth region
-t_fit = sol1.t[100:500]  # Avoid initial transient and saturation
-log_div_fit = log_divergence[100:500]
-slope, intercept, r_value, p_value, std_err = stats.linregress(t_fit, log_div_fit)
-print(f"Estimated Lyapunov exponent: {slope:.4f} s^-1")
-print(f"R-squared: {r_value**2:.4f}")
 ```
 
 <details>
-<summary><b>Expected Output</b></summary>
+<summary><b>Expected output</b></summary>
 <br>
-The figure has four panels:
-<ol>
-<li><b>Phase space</b> — the original (blue) and perturbed (red) trajectories overlap at first, then visibly diverge as the chaos amplifies the tiny initial difference.</li>
-<li><b>Poincaré section</b> — the scattered cloud of crossing points (rather than a clean curve) signals chaotic, non-quasi-periodic motion.</li>
-<li><b>Sensitive dependence (log scale)</b> — the phase-space distance between the two runs grows roughly exponentially before saturating at the attractor's size; the slope of the early region is the maximal Lyapunov exponent.</li>
-<li><b>Energy conservation</b> — total energy stays flat, confirming the divergence is genuine chaos, not integration error.</li>
-</ol>
-The printed Lyapunov exponent is positive (its precise value depends on the fitting window), the quantitative signature of chaos.
+Printed values from a reference run (SciPy 1.18):
+<pre>
+low energy (10 deg, 10 deg): lambda_max = 0.006 1/s, max |dE| = 1.0e-10 J
+high energy (90 deg, 90 deg): lambda_max = 0.848 1/s, max |dE| = 2.3e-07 J
+</pre>
+The low-energy exponent is zero within the accuracy of a finite run, and its Poincaré section traces a closed curve (quasi-periodic motion on a torus). The high-energy case gives a clearly positive exponent, a Lyapunov time of about 1.2 s, and a section that scatters over an area (a chaotic sea). The energy error is many orders of magnitude smaller than the energy scale $mgl \approx 10$ J in both cases, so the divergence is not a numerical artifact.
 </details>
 
-## Applications
+The script uses a high-order adaptive Runge–Kutta method at tight tolerance, which is appropriate for runs of a few thousand oscillations. For much longer integrations of conservative systems, a symplectic method keeps the energy error bounded instead of slowly drifting; see [Computational Methods](computational-classical-mechanics.html).
 
-Chaos and nonlinear dynamics are not a curiosity confined to textbook pendulums; the same mechanisms shape systems across science and engineering. A brief, non-exhaustive tour:
+## Where chaos matters
 
-- **Celestial mechanics** — the three-body problem, the chaotic tumbling of Saturn's moon Hyperion, the long-term (in)stability of planetary orbits, and the Lyapunov time of the Solar System.
-- **Weather and climate** — Lorenz's convection model is the origin of the field; the finite predictability horizon of weather is a direct consequence of a positive Lyapunov exponent.
-- **Fluid dynamics** — the onset of turbulence via the quasi-periodic and period-doubling routes; mixing as the macroscopic face of stretch-and-fold.
-- **Engineering** — buckling and vibration of nonlinear structures, chaos in driven electronic (Chua) circuits, and the deliberate exploitation of chaos for secure communication and for **chaos control** (stabilizing an unstable periodic orbit embedded in a strange attractor via tiny feedback, the OGY method).
-- **Biology and medicine** — cardiac arrhythmias and neuronal firing as nonlinear oscillators; population dynamics described by the very logistic map whose bifurcation cascade defines a route to chaos.
+| Field | Examples |
+|---|---|
+| Celestial mechanics | Three-body problem, chaotic zones around resonances, long-term planetary stability, chaotic transport of asteroids and comets |
+| Atmosphere and climate | Two-week weather predictability limit, ensemble forecasting, Lorenz-type low-order models |
+| Fluid dynamics | Transition to turbulence, chaotic advection and mixing in laminar flows (stretch-and-fold at small scales) |
+| Engineering | Nonlinear vibration and buckling, rattling in gear trains, chaotic Chua and Colpitts circuits, chaos control |
+| Plasma and accelerator physics | Magnetic islands and stochastic field lines, dynamic aperture of storage rings |
+| Biology and medicine | Cardiac arrhythmias, neuronal bursting, population dynamics (logistic and Ricker maps) |
+| Statistical mechanics | Chaos as the microscopic justification for ergodicity and mixing; see [Statistical Mechanics](../statistical-mechanics/) |
 
-For the *numerical* tools needed to simulate these systems faithfully over long times — symplectic and variational integrators, and the analysis of energy drift — see the [Computational Methods](computational-classical-mechanics.html) page. For the *geometric* structures (symplectic forms, phase-space flow, Liouville's theorem) underlying area-preserving maps and KAM tori, see [Geometric Formalism](geometric-mechanics.html).
+## See also
 
-## See Also
-
-- [Geometric Formalism](geometric-mechanics.html) — symplectic geometry, phase-space flow, and Liouville's theorem that make Hamiltonian Poincaré maps area-preserving and underpin KAM tori.
-- [Computational Methods](computational-classical-mechanics.html) — symplectic and variational integrators for simulating chaotic and Hamiltonian systems without spurious energy drift.
-- [Lagrangian &amp; Hamiltonian Mechanics](lagrangian-hamiltonian.html) — action-angle variables and phase space, the setting in which KAM theory and Poincaré sections are formulated.
-- [Newtonian Mechanics](newtonian.html) — the equations of motion (e.g. the double pendulum) that become chaotic once they are nonlinear.
-- [Statistical Mechanics](../statistical-mechanics/) — how chaotic microscopic dynamics underpins ergodicity and the approach to equilibrium.
-- [Classical Mechanics Hub](./) — back to the overview.
+- [Geometric Formalism](geometric-mechanics.html): symplectic structure, Liouville's theorem, and the Arnold–Liouville theorem behind invariant tori and area-preserving maps.
+- [Computational Methods](computational-classical-mechanics.html): symplectic and variational integrators for long simulations of chaotic Hamiltonian systems.
+- [Lagrangian &amp; Hamiltonian Mechanics](lagrangian-hamiltonian.html): phase space, canonical transformations, and action–angle variables.
+- [Oscillations &amp; Waves](waves.html): the linear and weakly nonlinear oscillators that chaos theory generalizes.
+- [Statistical Mechanics](../statistical-mechanics/): how chaotic microscopic dynamics underpins ergodicity and the approach to equilibrium.
+- [Classical Mechanics Hub](./): back to the overview.
