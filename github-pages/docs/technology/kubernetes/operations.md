@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Kubernetes: Operations"
+description: "Day-two Kubernetes operations: kubectl techniques, Helm 4, sidecar and init-container patterns, in-cluster observability, systematic troubleshooting, cluster upgrades and a production checklist."
 permalink: /docs/technology/kubernetes/operations.html
 toc: true
 toc_sticky: true
@@ -9,284 +10,389 @@ hide_title: true
 
 [Kubernetes](./) &raquo; Operations
 
-Day-to-day cluster management: kubectl, Helm package management, observability wiring, troubleshooting techniques, and production best practices.
+This page covers running workloads on a cluster once the fundamentals are in place: using **kubectl** effectively, packaging applications with **Helm**, the standard **multi-container pod patterns**, wiring up **observability** inside the cluster, **troubleshooting** by symptom, **upgrading** clusters safely, and a **production readiness checklist**. Commands and APIs are current for Kubernetes v1.35–v1.37 and Helm 4.
 
-## kubectl Mastery: Command-Line Kubernetes
+## kubectl
 
-kubectl is your primary interface for managing Kubernetes clusters. This section covers the commands you will use most often, organized by task.
+`kubectl` is a client for the Kubernetes API. Every command ultimately issues REST calls to the API server, so anything it can do can also be done by CI systems, GitOps controllers or your own code.
 
-**Before you begin**: kubectl needs to know which cluster to talk to. This is configured through contexts, which combine a cluster, user, and namespace.
+### Contexts and kubeconfig
 
-### Essential kubectl Commands
-
-| Task | Command |
-|------|---------|
-| See what is running | `kubectl get pods` |
-| Get more details | `kubectl describe pod <name>` |
-| View logs | `kubectl logs <pod-name>` |
-| Execute in container | `kubectl exec -it <pod> -- /bin/sh` |
-| Apply configuration | `kubectl apply -f manifest.yaml` |
-| Delete resources | `kubectl delete -f manifest.yaml` |
-
-### Working with Multiple Clusters
+kubectl reads its configuration from `~/.kube/config`, or from the files listed in the `KUBECONFIG` environment variable (colon-separated; they are merged). A kubeconfig holds **clusters** (API endpoint and CA), **users** (credentials, often an exec plugin that fetches short-lived cloud tokens), and **contexts** that pair a cluster, a user and a default namespace.
 
 ```bash
-# List available contexts
-kubectl config get-contexts
-
-# Switch to a different cluster
-kubectl config use-context production-cluster
-
-# Set default namespace for current context
-kubectl config set-context --current --namespace=production
+kubectl config get-contexts                               # list; * marks the current one
+kubectl config use-context prod-eu                        # switch cluster
+kubectl config set-context --current --namespace=shop     # change the default namespace
+kubectl --context staging -n shop get pods                # one-off override
+kubectl auth whoami                                       # which identity the API server sees
+kubectl auth can-i create deployments -n shop             # check an RBAC permission
 ```
 
-### Viewing Resources
+Accidentally running a command against the wrong cluster is a classic incident. Mitigations: show the context in your shell prompt, give production contexts distinctive names, and use read-only credentials by default.
+
+### Reading State
 
 ```bash
-# List resources with extra info
-kubectl get pods -o wide
-kubectl get all -n production
-
-# Watch for changes in real-time
-kubectl get pods -w
-
-# Filter by labels
-kubectl get pods -l environment=production
-kubectl get pods -l 'tier in (frontend, backend)'
+kubectl get pods -o wide                          # node and IP columns
+kubectl get deploy,sts,ds,svc -n shop             # several kinds at once
+kubectl get pods -w                               # stream changes
+kubectl get pod web-0 -o yaml                     # full object, including status
+kubectl describe pod web-0                        # human summary plus recent events
+kubectl events -n shop --for pod/web-0            # events for one object, oldest first
+kubectl explain deployment.spec.strategy          # built-in API reference
+kubectl api-resources                             # every kind the cluster serves
 ```
 
-### Creating and Updating Resources
+Output can be shaped for scripts and quick reports:
 
 ```bash
-# Apply configuration (create or update)
-kubectl apply -f deployment.yaml
+# Names only
+kubectl get pods -o name
 
-# Quick edits via patch
-kubectl patch deployment nginx -p '{"spec":{"replicas":5}}'
+# JSONPath: pod name and node, one per line
+kubectl get pods -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.nodeName}{"\n"}{end}'
 
-# Edit in your default editor
-kubectl edit deployment nginx
+# Custom columns: image of the first container
+kubectl get pods -o custom-columns=NAME:.metadata.name,IMAGE:.spec.containers[0].image
+
+# Server-side filtering on fields and labels
+kubectl get pods -A --field-selector=status.phase=Pending
+kubectl get pods -l 'app.kubernetes.io/name in (web,api)' --sort-by=.status.startTime
 ```
 
-### Debugging and Troubleshooting
+### Changing State
+
+| Style | Commands | Use for |
+|-------|----------|---------|
+| **Declarative** | `apply -f`, `apply -k`, `diff`, `delete -f` | Anything that should be reproducible; the normal path |
+| **Imperative with a manifest** | `create -f`, `replace -f` | One-off objects; `replace` when you need a full overwrite |
+| **Imperative** | `scale`, `set image`, `patch`, `edit`, `label`, `annotate`, `rollout` | Emergencies and experiments; the change is not in version control |
 
 ```bash
-# View pod logs
-kubectl logs mypod
-kubectl logs mypod --previous  # crashed container
-kubectl logs -f -l app=nginx   # follow all matching pods
+kubectl diff -f manifests/                        # preview changes against the live cluster
+kubectl apply --server-side -f manifests/         # field-ownership-aware apply
+kubectl apply -k overlays/prod                    # Kustomize, built into kubectl
+kubectl patch deployment web --type=merge -p '{"spec":{"replicas":5}}'
+kubectl rollout restart deployment/web            # re-create pods (e.g. to pick up a new Secret)
+```
 
-# Execute commands in container
-kubectl exec -it mypod -- /bin/sh
+Generate manifests instead of writing them from scratch with `--dry-run=client -o yaml`:
 
-# Port forward for local testing
-kubectl port-forward svc/myservice 8080:80
+```bash
+kubectl create deployment web --image=nginx:1.29 --dry-run=client -o yaml > web.yaml
+kubectl create secret generic db --from-literal=password='s3cret' --dry-run=client -o yaml
+kubectl create configmap app-config --from-file=config.yaml --dry-run=client -o yaml
+kubectl get secret db -o jsonpath='{.data.password}' | base64 -d     # read a Secret value
+```
 
-# Check resource usage
-kubectl top pods --sort-by=memory
+If a GitOps controller (Argo CD, Flux) manages the cluster, imperative changes are reverted at the next sync; change Git instead.
+
+### Debugging Commands
+
+```bash
+kubectl logs web-0                          # current container
+kubectl logs web-0 --previous               # the container instance that just crashed
+kubectl logs -f -l app.kubernetes.io/name=web --all-containers --since=10m --prefix
+kubectl exec -it web-0 -c app -- sh         # shell in a running container
+kubectl port-forward svc/web 8080:80        # local access to a Service or pod
+kubectl cp web-0:/tmp/heap.hprof ./heap.hprof
+kubectl top pods --sort-by=memory           # live usage (needs metrics-server)
 kubectl top nodes
 ```
 
-### Secrets and ConfigMaps
+Many production images are **distroless** and contain no shell, so `exec` is useless. `kubectl debug` solves this by adding an **ephemeral container** — with whatever tools you choose — to the running pod, optionally sharing the process namespace of a target container:
 
 ```bash
-# Create secret from literal value
-kubectl create secret generic db-creds --from-literal=password=mypass
+# Attach a toolbox to a running pod, sharing the 'app' container's process namespace
+kubectl debug -it web-0 --image=busybox:1.37 --target=app
 
-# Decode a secret value
-kubectl get secret db-creds -o jsonpath="{.data.password}" | base64 -d
+# Copy a crashing pod with a different command so you can inspect it
+kubectl debug web-0 -it --copy-to=web-0-debug --container=app -- sh
 
-# Create configmap from file
-kubectl create configmap app-config --from-file=config.yaml
+# Shell on a node: the node's root filesystem is mounted at /host
+kubectl debug node/worker-3 -it --image=ubuntu:24.04 --profile=sysadmin
 ```
 
-### Power User Tips
+### Node Maintenance
 
-**Useful aliases** (add to your shell config):
 ```bash
-alias k='kubectl'
-alias kgp='kubectl get pods'
-alias kaf='kubectl apply -f'
+kubectl cordon worker-3                     # stop scheduling new pods here
+kubectl drain worker-3 --ignore-daemonsets --delete-emptydir-data --timeout=10m
+# ... patch, reboot, replace ...
+kubectl uncordon worker-3
 ```
 
-**JSONPath for extracting data**:
+`drain` cordons the node and then **evicts** its pods through the Eviction API, which honours PodDisruptionBudgets: if evicting a pod would violate its PDB, drain waits and retries. DaemonSet pods are left in place (they would be recreated immediately), and `--delete-emptydir-data` acknowledges that `emptyDir` contents will be lost.
+
+### Productivity Tooling
+
+| Tool | Purpose |
+|------|---------|
+| Shell completion (`kubectl completion bash`, or `zsh`, `fish`) | Completes resource names, not just subcommands |
+| [Krew](https://krew.sigs.k8s.io/) | kubectl plugin manager (`kubectl krew install <plugin>`) |
+| `ctx` / `ns` plugins (kubectx, kubens) | Fast context and namespace switching |
+| `tree`, `neat`, `who-can` plugins | Ownership hierarchies, clean YAML output, reverse RBAC lookup |
+| **k9s** | Terminal UI for browsing and operating a cluster |
+| **stern** | Tail logs from many pods and containers at once, with colour per pod |
+
+## Helm
+
+**Helm** packages a set of Kubernetes manifests as a versioned, parameterised **chart**. Installing a chart with a set of **values** produces a **release**; Helm records each release revision (as a Secret in the release's namespace) so it can upgrade, diff and roll back as a unit.
+
+```mermaid
+flowchart LR
+    C["Chart<br/>templates/ + values.yaml"] --> R["Render<br/>Go templates"]
+    V["Your values<br/>-f prod.yaml, --set"] --> R
+    R --> M["Kubernetes manifests"]
+    M -->|"apply (server-side in Helm 4)"| API["kube-apiserver"]
+    M --> S[("Release record<br/>Secret sh.helm.release.v1.*")]
+```
+
+| Concept | Meaning |
+|---------|---------|
+| **Chart** | A directory or archive of templates, default values and metadata (`Chart.yaml`) |
+| **Values** | Configuration merged over the chart's `values.yaml`; later `-f` files and `--set` flags win |
+| **Release** | One installed instance of a chart in a namespace, with numbered revisions |
+| **Repository** | Where charts are published: an HTTP index or, increasingly, an **OCI registry** |
+
+### Helm 4
+
+Helm 4.0 was released in November 2025, the first major version in six years. Most Helm 3 charts and releases work unchanged. Notable differences:
+
+- **Server-side apply** is the default for new releases, so Helm participates in field ownership alongside controllers and other tools (releases created by Helm 3 keep client-side apply on upgrade).
+- Resource readiness for `--wait` uses **kstatus**, the same status logic used by other tooling, giving more accurate "is it ready" answers for complex resources.
+- Plugins — including post-renderers and getters — run through a new plugin system with an optional **WebAssembly** runtime.
+- Charts can be installed **by OCI digest** (`oci://registry.example.com/charts/app@sha256:...`) for supply-chain pinning.
+- Flag renames: `--atomic` becomes `--rollback-on-failure`, `--force` becomes `--force-replace` (the old names still work with a deprecation warning).
+
+Helm 3 received its final feature release in September 2026 and gets security fixes only until February 2027, so new work should target Helm 4.
+
+### Everyday Commands
+
 ```bash
-# Get all pod names
-kubectl get pods -o jsonpath='{.items[*].metadata.name}'
+# Install or upgrade in one idempotent command (the usual CI form)
+helm upgrade --install web ./charts/web -n shop --create-namespace \
+  -f values/prod.yaml --set image.tag=1.8.2 --wait --rollback-on-failure
+
+helm template web ./charts/web -f values/prod.yaml   # render locally, apply nothing
+helm lint ./charts/web
+helm list -A                                          # releases in all namespaces
+helm history web -n shop                              # revisions
+helm rollback web 3 -n shop                           # back to revision 3
+helm get values web -n shop                           # values in effect
+helm uninstall web -n shop
+
+# Charts from an OCI registry — no 'helm repo add' needed
+helm install cache oci://registry.example.com/charts/redis --version 20.1.0
+
+# Charts from a classic HTTP repository
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+helm search repo prometheus-community/kube-prometheus-stack --versions
 ```
 
-**Node management**:
-```bash
-# Prepare node for maintenance
-kubectl drain node1 --ignore-daemonsets --delete-emptydir-data
-kubectl uncordon node1  # make schedulable again
+Always pin `--version` for third-party charts; an unpinned install silently picks up a new major version the next time CI runs. Chart sources also change hands — for example, in August 2025 Bitnami moved most of its free container images to an unmaintained "legacy" repository, leaving many widely used charts pointing at images that no longer receive updates — so keep an internal mirror of charts and images you depend on.
 
-# Mark node unschedulable (no drain)
-kubectl cordon node1
+### Chart Layout and Templates
+
+```text
+charts/web/
+├── Chart.yaml          # name, version (chart), appVersion (application), dependencies
+├── values.yaml         # defaults, documented
+├── values.schema.json  # optional JSON Schema; validates user values
+├── templates/
+│   ├── _helpers.tpl    # named templates (labels, names)
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   └── NOTES.txt       # printed after install
+└── charts/             # vendored dependencies
 ```
 
-### kubectl Plugins with Krew
+{% raw %}
+```yaml
+# templates/deployment.yaml (excerpt)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "web.fullname" . }}
+  labels:
+    {{- include "web.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  template:
+    spec:
+      containers:
+      - name: web
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+```
+{% endraw %}
 
-Krew is a plugin manager for kubectl. Popular plugins:
+### Helm Practices
 
-| Plugin | Purpose |
-|--------|---------|
-| `ctx` | Quickly switch contexts |
-| `ns` | Quickly switch namespaces |
-| `tree` | Show resource hierarchy |
-| `neat` | Clean up YAML output |
+| Practice | Why |
+|----------|-----|
+| Keep one values file per environment in version control | Reviewable, reproducible configuration |
+| Add a `values.schema.json` | Typos in values fail fast instead of rendering silently wrong manifests |
+| Render and diff before upgrading (`helm template`, the `helm-diff` plugin) | See exactly what will change |
+| Pin chart versions and image tags (or digests) | Reproducible installs |
+| Do not store secrets in values files | Use External Secrets, Sealed Secrets or SOPS instead |
+| Let a GitOps controller run Helm in production | Continuous drift correction and an audit trail |
 
-Install krew and a plugin:
-```bash
-kubectl krew install ctx
-kubectl ctx production  # switch context
+**Helm or Kustomize?** Helm templates and versions whole applications and is the standard way to distribute third-party software. **Kustomize** (built into `kubectl apply -k`) patches plain YAML with overlays and has no templating language or release state. Many teams use both: Helm for vendor charts, Kustomize overlays for their own services — and Argo CD and Flux support each natively.
+
+## Multi-Container Pod Patterns
+
+A pod can hold several containers that share its network namespace and volumes. The patterns below are the standard reasons to use more than one.
+
+| Pattern | Implemented as | Purpose | Examples |
+|---------|----------------|---------|----------|
+| **Init container** | `initContainers` entry (runs to completion, in order) | Setup that must finish before the app starts | Schema migration, fetching config, waiting for a dependency |
+| **Sidecar** | `initContainers` entry with `restartPolicy: Always` | Helper that runs for the pod's whole life | Log shipper, service-mesh proxy, secrets refresher |
+| **Ambassador** | Sidecar that proxies outbound traffic | Hide connection details from the app | Cloud SQL proxy, local API gateway |
+| **Adapter** | Sidecar that translates output | Normalise interfaces | Exporting app stats as Prometheus metrics |
+
+### Native Sidecars
+
+Before v1.28, sidecars were ordinary entries in `containers`, which caused two long-standing problems: there was no guarantee the sidecar started before the app (so a mesh proxy might not be ready for the app's first request), and a sidecar kept a Job's pod running forever after the main container finished. **Native sidecars** — init containers with `restartPolicy: Always`, stable since v1.33 — fix both.
+
+```mermaid
+sequenceDiagram
+    participant I as init: migrate
+    participant S as sidecar: log-shipper
+    participant A as container: app
+    Note over I,A: Pod start
+    I->>I: run to completion
+    S->>S: start (startupProbe passes)
+    A->>A: start
+    Note over S,A: both run, the sidecar restarts independently if it crashes
+    Note over I,A: Pod termination
+    A->>A: SIGTERM, exit
+    S->>S: SIGTERM after app has stopped
 ```
 
-## Best Practices: Production Checklist
+Init containers and sidecars start in the order listed; a sidecar counts as started once it is running and its `startupProbe` (if any) passes, and only then does the next entry start. On shutdown, sidecars are stopped after the main containers, in reverse order. In a Job, sidecars do not block completion.
 
-Before going to production, verify your setup against these categories:
+```yaml
+spec:
+  initContainers:
+  - name: migrate                      # classic init container: runs once, must succeed
+    image: registry.example.com/app:1.8.2
+    command: ["./migrate", "--up"]
+  - name: log-shipper                  # native sidecar
+    image: fluent/fluent-bit:4.0
+    restartPolicy: Always
+    volumeMounts:
+    - {name: logs, mountPath: /var/log/app}
+  containers:
+  - name: app
+    image: registry.example.com/app:1.8.2
+    volumeMounts:
+    - {name: logs, mountPath: /var/log/app}
+  volumes:
+  - name: logs
+    emptyDir: {}
+```
 
-### Resource Management
+Where possible, prefer writing logs to stdout and letting a node-level agent collect them (below) over a per-pod log sidecar; sidecars cost CPU and memory in every replica.
 
-| Practice | Why It Matters |
-|----------|----------------|
-| Set resource requests/limits | Prevents resource starvation and runaway costs |
-| Use namespaces | Isolate environments and teams |
-| Label everything consistently | Enables filtering, monitoring, and cost allocation |
-| Implement ResourceQuotas | Prevents one team from consuming all resources |
+## Observability
 
-### High Availability
+Probes answer a binary question — restart or not, route or not (see [Health &amp; Resource Management](fundamentals-resources.html#probes)). Operating a system means answering *why*: why latency rose, which release introduced errors, what a pod logged before it was evicted. That needs the three telemetry signals, correlated.
 
-| Practice | Why It Matters |
-|----------|----------------|
-| Run 3+ replicas | Survives node failures |
-| Use pod anti-affinity | Spreads pods across nodes/zones |
-| Define PodDisruptionBudgets | Controls how many pods can be down during updates |
-| Implement health probes | Ensures traffic only goes to healthy pods |
+| Signal | Answers | Cost profile |
+|--------|---------|--------------|
+| **Metrics** | How much, how fast, how full? Rates, percentiles, saturation | Cheap per series; cost grows with label cardinality |
+| **Logs** | What exactly happened in this request or pod? | Expensive at volume; one record per event |
+| **Traces** | Where did the time go across services? | Sampled; high detail per request |
 
-### Security
+The platform-neutral concepts — metric types and PromQL, logging architectures, OpenTelemetry and SLOs — are covered in the [Observability](../../observability/) section. This section is the Kubernetes-specific wiring.
 
-| Practice | Why It Matters |
-|----------|----------------|
-| Enable RBAC with least privilege | Limits blast radius of compromised accounts |
-| Use NetworkPolicies | Prevents lateral movement between services |
-| Run as non-root | Reduces container escape impact |
-| Scan images for vulnerabilities | Catches known issues before deployment |
+### Metrics
 
-### Observability
-
-| Practice | Why It Matters |
-|----------|----------------|
-| Centralize logs | Enables debugging after pod deletion |
-| Expose metrics | Enables alerting and capacity planning |
-| Implement distributed tracing | Debugs latency across services |
-| Set up alerts | Catches issues before users notice |
-
-## Observability: Seeing Inside the Cluster
-
-Health probes tell Kubernetes whether to *restart* or *route to* a pod (covered in [Workloads &amp; Storage](workloads.html#observability-understanding-application-health)), but they answer a binary question. Operating a cluster means answering *why* — why is latency up, which release introduced the error, what was this pod logging the moment before it was evicted. That requires the **three pillars of observability**: metrics, logs, and traces.
-
-| Pillar | Answers | Cardinality | Typical retention |
-|--------|---------|-------------|-------------------|
-| **Metrics** | "What is happening, and how much?" (rates, percentiles, saturation) | Low — aggregated numbers | Weeks to months (cheap) |
-| **Logs** | "What exactly happened in this request/pod?" | High — one entry per event | Days to weeks (expensive) |
-| **Traces** | "Where did the time go across services?" | High — sampled | Days |
-
-The pillars are complementary, not redundant. A metric tells you the p99 latency spiked; a trace shows you which downstream call caused it; the logs from that span's service tell you the underlying error. Modern tooling (OpenTelemetry, exemplars, Grafana) is increasingly about *correlating* the three so you can pivot between them with one click.
-
-> **Where this fits:** Kubernetes is one source of telemetry, not the whole story. The platform-level concepts — metric types and PromQL, the ELK/Loki logging stacks, OpenTelemetry and sampling — are covered in depth in the [Observability hub](../../observability/). This section is the *Kubernetes-specific* wiring: what to deploy in-cluster and how the pieces connect.
-
-### The Metrics Pipeline
-
-Two distinct things both get called "metrics" in Kubernetes, and conflating them is a common source of confusion:
+Two different things are called "metrics" in Kubernetes:
 
 ```mermaid
 flowchart LR
     subgraph cluster["In-cluster"]
-        K[kubelet / cAdvisor] -->|node & container<br/>CPU, mem| MS[metrics-server]
-        MS -->|resource metrics API| HPA[HPA / kubectl top]
-        Pods[App /metrics endpoints] -->|scrape| Prom[Prometheus]
-        KSM[kube-state-metrics] -->|object state:<br/>deploys, pods, jobs| Prom
-        NE[node-exporter] -->|host-level metrics| Prom
+        K["kubelet / cAdvisor"] -->|"container CPU & memory"| MS["metrics-server"]
+        MS -->|"metrics.k8s.io"| HPA["HPA, kubectl top"]
+        App["App /metrics"] -->|scrape| Prom["Prometheus"]
+        KSM["kube-state-metrics"] -->|"object state"| Prom
+        NE["node-exporter"] -->|"host metrics"| Prom
+        K -->|"cAdvisor, kubelet"| Prom
     end
-    Prom -->|remote_write| LTS[(Long-term store<br/>Thanos / Mimir / Cortex)]
-    Prom --> Graf[Grafana]
-    Prom --> AM[Alertmanager]
-    AM --> Pager[PagerDuty / Slack]
+    Prom -->|remote_write| LTS[("Long-term store<br/>Thanos / Mimir")]
+    Prom --> Graf["Grafana"]
+    Prom --> AM["Alertmanager"] --> Pager["PagerDuty / Slack"]
 ```
 
-| Component | Role | Used by |
-|-----------|------|---------|
-| **metrics-server** | Lightweight, *in-memory* current CPU/memory only | `kubectl top`, the Horizontal Pod Autoscaler |
-| **kube-state-metrics** | Exports the *state* of API objects (desired vs ready replicas, pod phase, job status) | Prometheus / alerting |
-| **node-exporter** | Host-level metrics (disk, filesystem, network, load) | Prometheus |
-| **Prometheus** | Scrapes and stores the time series; evaluates alert rules | Grafana, Alertmanager |
+| Component | Role | Consumed by |
+|-----------|------|-------------|
+| **metrics-server** | In-memory, latest-value CPU and memory per pod and node; no history | HPA, VPA, `kubectl top` |
+| **kube-state-metrics** | Converts API object state into series (desired vs available replicas, pod phase, restarts, Job status) | Prometheus alerts and dashboards |
+| **node-exporter** | Host metrics: disk, filesystem, network, load, pressure stall information | Prometheus |
+| **Prometheus** | Scrapes, stores and evaluates alert rules | Grafana, Alertmanager |
 
-`metrics-server` is **not** a monitoring system — it keeps no history and is only there to feed the autoscaler and `kubectl top`. Real monitoring is Prometheus (or a hosted equivalent). The conventional way to install the whole Prometheus + Grafana + Alertmanager bundle is the `kube-prometheus-stack` Helm chart:
+metrics-server is not a monitoring system. The usual way to install real monitoring is the `kube-prometheus-stack` chart, which bundles the **Prometheus Operator**, Prometheus, Alertmanager, Grafana, node-exporter, kube-state-metrics and a set of default dashboards and alerts:
 
 ```bash
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm install monitoring prometheus-community/kube-prometheus-stack \
+helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
   -n monitoring --create-namespace
 ```
 
-That chart ships the **Prometheus Operator**, which lets you describe scrape targets declaratively with `ServiceMonitor`/`PodMonitor` custom resources instead of editing a central Prometheus config:
+The operator adds CRDs so scrape targets are declared next to the application rather than in a central config file:
 
 ```yaml
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: app-metrics
+  name: web
   labels:
-    release: monitoring        # must match the Prometheus' serviceMonitorSelector
+    release: monitoring          # must match the Prometheus serviceMonitorSelector
 spec:
   selector:
     matchLabels:
-      app: myapp               # selects Services labelled app=myapp
+      app.kubernetes.io/name: web
   endpoints:
-  - port: metrics              # the named Service port exposing /metrics
+  - port: metrics                # named Service port serving /metrics
     interval: 30s
 ```
 
-**What to measure.** Two complementary mental models cover most needs:
+Two checklists cover most instrumentation: **RED** for request-driven services (Rate, Errors, Duration) and **USE** for resources (Utilization, Saturation, Errors). Keep label values bounded — status code, route template, method — and never put user IDs, request IDs or raw URLs in metric labels; each unique label combination is a separate time series.
 
-- **RED** (for request-driven services): **R**ate, **E**rrors, **D**uration. Good for "is my API healthy?"
-- **USE** (for resources): **U**tilization, **S**aturation, **E**rrors. Good for "is this node/disk/queue a bottleneck?"
+### Logs
 
-Beware **cardinality**: every unique combination of label values is a separate time series. Putting a user ID, request ID, or full URL in a Prometheus label can explode memory and bring the server down. Keep labels bounded (status code, route template, method) and push high-cardinality detail into logs or traces instead.
-
-### Log Aggregation
-
-A pod's logs live on the node only while the pod exists. The moment a pod is deleted, rescheduled, or its node is replaced, `kubectl logs` returns nothing — exactly when you most need the post-mortem. **Centralized log aggregation** ships every container's stdout/stderr off-node into a queryable store before that happens.
-
-The architecture is consistent across stacks: a lightweight **collector** runs as a DaemonSet (one per node), tails `/var/log/containers/*.log`, enriches each line with Kubernetes metadata (namespace, pod, labels), and forwards it to a backend.
+Container stdout and stderr are written by the runtime to files under `/var/log/pods/` on the node and are rotated there. They disappear when the pod is deleted or the node is replaced — precisely when a post-mortem needs them. A node agent, run as a **DaemonSet**, tails those files, enriches each line with pod metadata and ships it off the node.
 
 ```mermaid
 flowchart LR
-    subgraph node["Each node (DaemonSet)"]
-        Logs[/var/log/containers/*.log] --> Agent[Fluent Bit / Vector]
+    subgraph node["Every node (DaemonSet)"]
+        F["/var/log/pods/*"] --> Ag["Fluent Bit / Grafana Alloy /<br/>Vector / OTel Collector"]
     end
-    Agent -->|enrich + parse| Backend{Backend}
-    Backend --> Loki[(Loki)]
-    Backend --> ES[(Elasticsearch)]
-    Loki --> Graf[Grafana]
-    ES --> Kib[Kibana]
+    Ag -->|"+ namespace, pod, labels"| B{"Backend"}
+    B --> L[("Loki")]
+    B --> ES[("Elasticsearch /<br/>OpenSearch")]
+    B --> V[("Managed: CloudWatch,<br/>Cloud Logging, ...")]
 ```
 
-| Stack | Collector | Store | UI | Trade-off |
-|-------|-----------|-------|----|-----------|
-| **EFK / ELK** | Fluentd or Fluent Bit | Elasticsearch | Kibana | Full-text indexing, powerful queries, but storage- and memory-hungry |
-| **Loki** | Promtail / Fluent Bit | Loki | Grafana | Indexes only labels (not the log body) — far cheaper, "like Prometheus for logs" |
-| **Vector** | Vector (agent + aggregator) | any of the above | depends on sink | High-throughput, vendor-neutral routing/transform layer |
+| Stack | Agent | Store | Trade-off |
+|-------|-------|-------|-----------|
+| **Loki** | Grafana Alloy, Fluent Bit or OTel Collector | Loki on object storage | Indexes only labels, so storage is cheap; queries scan log content |
+| **EFK / OpenSearch** | Fluent Bit (Fluentd for heavy transformation) | Elasticsearch or OpenSearch | Full-text index; powerful queries, but storage- and memory-hungry |
+| **Vector** | Vector agent and aggregator | Any | High-throughput, vendor-neutral routing and transformation layer |
 
-**Fluent Bit** has largely displaced the heavier Fluentd as the node agent: it is written in C, uses a few MB of RAM, and is the default collector in most managed offerings. A minimal Fluent Bit pipeline that tails container logs, attaches Kubernetes metadata, and ships to Loki:
+Grafana's **Promtail** reached end of life on 2 March 2026; **Grafana Alloy** is its replacement. Fluent Bit remains the most common lightweight agent. A minimal Fluent Bit pipeline to Loki:
 
 ```ini
 [INPUT]
     Name              tail
     Path              /var/log/containers/*.log
-    Parser            cri
+    multiline.parser  cri
     Tag               kube.*
 
 [FILTER]
@@ -297,362 +403,251 @@ flowchart LR
 
 [OUTPUT]
     Name              loki
-    Match             *
-    Host              loki.monitoring.svc
-    Labels            job=fluentbit, $kubernetes['namespace_name']
+    Match             kube.*
+    Host              loki-gateway.monitoring.svc
+    Labels            job=fluent-bit, $kubernetes['namespace_name']
 ```
 
-**Operational practices that matter more than the stack choice:**
+Practices matter more than the choice of stack:
 
-- **Log structured JSON**, not free-form text. `{"level":"error","msg":"...","order_id":123}` is filterable; `ERROR something broke (order 123)` is not.
-- **Propagate a correlation/request ID** through every service so a single user request can be reassembled from logs across pods.
-- **Set retention and sampling.** Logs are the most expensive pillar. Keep verbose `debug` logs for hours, `error` logs for weeks, and drop or sample the highest-volume noise at the collector.
-- **Strip PII at the edge.** Use a collector filter to redact emails, tokens, and card numbers *before* they land in long-term storage.
+- **Log structured JSON** (`{"level":"error","msg":"payment failed","order_id":123}`), not free text.
+- **Propagate a trace or request ID** and log it, so one request can be followed across services — and linked to its trace.
+- **Set retention per level** and drop or sample high-volume noise at the agent; logs are usually the most expensive signal.
+- **Redact secrets and personal data at the agent**, before anything reaches long-term storage.
 
-### Distributed Tracing
+### Traces
 
-Metrics say latency is high; logs say each service looks fine in isolation. A **distributed trace** stitches together the single user request as it fans out across services, so you can see *where* the time actually went.
+A **trace** follows one request across services; each unit of work is a **span** with a start, duration and parent. **Context propagation**, normally the W3C `traceparent` header, carries the trace ID from hop to hop.
 
-The vocabulary:
-
-- A **trace** is one end-to-end request, identified by a `trace_id`.
-- A **span** is one unit of work within it (an HTTP handler, a DB query), with a start time, duration, and parent span.
-- **Context propagation** carries the `trace_id`/`span_id` between services, conventionally in the W3C `traceparent` HTTP header, so the next hop knows it is part of the same trace.
-
-```mermaid
-flowchart LR
-    A[api-gateway<br/>span] --> B[orders-svc<br/>span]
-    B --> C[postgres<br/>span]
-    B --> D[payments-svc<br/>span]
-    D --> E[stripe call<br/>span]
-```
-
-**OpenTelemetry (OTel)** is the vendor-neutral standard that now underpins this space. Applications are instrumented once with the OTel SDK (or auto-instrumentation agents), emit spans over OTLP, and an **OpenTelemetry Collector** — typically a Deployment, plus an optional per-node DaemonSet — receives, batches, samples, and *exports* to whichever backend you choose. Because OTel decouples instrumentation from the backend, you can swap Jaeger for Tempo without touching application code.
-
-| Backend | Notes |
-|---------|-------|
-| **Jaeger** | The CNCF reference tracing backend; rich UI, mature |
-| **Grafana Tempo** | Cheap object-storage backend, integrates trace→log→metric pivots in Grafana |
-| **Zipkin** | Older, lightweight, still widely supported |
-
-A trimmed OTel Collector config showing the receive → process → export pipeline:
+**OpenTelemetry (OTel)** is the standard for instrumentation and transport. Applications emit spans (and increasingly metrics and logs) over OTLP to an **OpenTelemetry Collector**, typically deployed as a gateway Deployment plus an optional per-node DaemonSet. The OpenTelemetry Operator can also inject auto-instrumentation into pods by annotation. Because the collector decouples instrumentation from storage, backends — Jaeger, Grafana Tempo, or a commercial service — can be changed without touching application code.
 
 ```yaml
+# OpenTelemetry Collector (contrib distribution): keep errors and slow traces, sample the rest
 receivers:
   otlp:
     protocols:
-      grpc:                       # apps push spans here on :4317
+      grpc: {endpoint: 0.0.0.0:4317}
+      http: {endpoint: 0.0.0.0:4318}
 processors:
-  batch: {}
-  tail_sampling:                  # keep all errors + slow traces, sample the rest
+  tail_sampling:
+    decision_wait: 10s
     policies:
-    - name: errors
-      type: status_code
-      status_code: { status_codes: [ERROR] }
+    - {name: errors, type: status_code, status_code: {status_codes: [ERROR]}}
+    - {name: slow,   type: latency,     latency: {threshold_ms: 500}}
+    - {name: sample, type: probabilistic, probabilistic: {sampling_percentage: 5}}
+  batch: {}
 exporters:
-  otlp/jaeger:
-    endpoint: jaeger-collector.monitoring.svc:4317
+  otlp/tempo:
+    endpoint: tempo.monitoring.svc:4317
+    tls: {insecure: true}
 service:
   pipelines:
     traces:
-      receivers:  [otlp]
+      receivers: [otlp]
       processors: [tail_sampling, batch]
-      exporters:  [otlp/jaeger]
+      exporters: [otlp/tempo]
 ```
 
-**Sampling** is the key operational lever: tracing every request at scale is prohibitively expensive, so you sample. *Head sampling* decides at the start (simple, but may discard the rare failing request); *tail sampling* (above) buffers the whole trace and keeps it only if it errored or was slow — far more useful for debugging, at the cost of collector memory.
+**Head sampling** decides at the first span and is cheap but can discard the rare failing request; **tail sampling** (above) buffers whole traces and keeps the interesting ones, at the cost of collector memory and the requirement that all spans of a trace reach the same collector instance.
 
-### Dashboards and Alerting
+### Alerting
 
-Collecting telemetry is worthless if no one looks at it. The last mile is **dashboards** (for humans investigating) and **alerts** (for machines waking humans up).
-
-**Grafana** is the de-facto dashboarding layer; it queries Prometheus (metrics), Loki (logs), and Tempo/Jaeger (traces) as data sources in one pane, enabling the trace→log→metric pivots described above. Define dashboards as code (JSON or the Grafana Operator's `GrafanaDashboard` CRD) so they live in version control alongside the app.
-
-**Alerting** in the Prometheus world is a two-stage split:
-
-1. **Prometheus** evaluates `PrometheusRule` expressions and *fires* an alert when a condition holds for a duration.
-2. **Alertmanager** *routes* firing alerts — deduplicating, grouping, silencing, and dispatching to PagerDuty, Slack, email, etc.
+Prometheus evaluates rules and fires alerts; **Alertmanager** deduplicates, groups, silences and routes them. With the operator, rules are `PrometheusRule` objects:
 
 {% raw %}
 ```yaml
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: app-slo-rules
+  name: web-slo
   labels:
     release: monitoring
 spec:
   groups:
-  - name: availability
+  - name: web.availability
     rules:
-    - alert: HighErrorRate
+    - alert: WebHighErrorRate
       expr: |
-        sum(rate(http_requests_total{status=~"5.."}[5m]))
-          / sum(rate(http_requests_total[5m])) > 0.05
-      for: 10m                    # must hold 10 min to avoid flapping
+        sum(rate(http_requests_total{job="web",code=~"5.."}[5m]))
+          / sum(rate(http_requests_total{job="web"}[5m])) > 0.05
+      for: 10m
       labels:
         severity: page
       annotations:
-        summary: "5xx error rate above 5% for {{ $labels.service }}"
+        summary: "web 5xx ratio above 5% ({{ $value | humanizePercentage }})"
+    - alert: PodCrashLooping
+      expr: increase(kube_pod_container_status_restarts_total[15m]) > 3
+      labels:
+        severity: ticket
 ```
 {% endraw %}
 
-**Alert on symptoms, not causes.** Page on what users feel — error rate, latency SLO burn, request failures — not on every transient CPU spike. The most effective approach ties alerts to **SLOs**: define a target (e.g. 99.9% of requests succeed), then alert on the *error budget burn rate*, which fires fast for catastrophic outages and slowly for gradual degradation while suppressing the noise that causes alert fatigue. (SLO theory is developed further in the [Observability hub](../../observability/).)
+Page on **symptoms users feel** — error rate, latency, SLO error-budget burn — and send cause-level signals (CPU, restarts, disk) to tickets or dashboards. Burn-rate alerting against an SLO is described in [Observability](../../observability/).
 
-## Helm: Kubernetes Package Manager
+## Troubleshooting
 
-Managing dozens of YAML files for a single application becomes unwieldy. Helm solves this by packaging related resources into **charts** that can be versioned, shared, and customized.
-
-**When to use Helm**:
-- Deploying complex applications with many resources
-- Sharing application configurations across teams
-- Managing different configurations for different environments
-- Installing third-party applications (databases, monitoring tools)
-
-### Core Concepts
-
-| Concept | Description |
-|---------|-------------|
-| **Chart** | Package of Kubernetes resources |
-| **Release** | An installed instance of a chart |
-| **Values** | Configuration that customizes a chart |
-| **Repository** | Collection of charts |
-
-### Chart Structure
-```
-mychart/
-├── Chart.yaml      # Metadata (name, version)
-├── values.yaml     # Default configuration
-├── templates/      # Kubernetes manifests with templating
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   └── _helpers.tpl
-└── charts/         # Dependencies
-```
-
-### Common Helm Commands
+Work from the outside in: find what is unhealthy, read what Kubernetes already knows about it (status, conditions, events), then look inside the container.
 
 ```bash
-# Install a chart
-helm install myrelease ./mychart
-
-# Install with custom values
-helm install myrelease ./mychart -f production-values.yaml
-
-# Preview what would be installed
-helm install myrelease ./mychart --dry-run
-
-# Upgrade an existing release
-helm upgrade myrelease ./mychart
-
-# Rollback to previous version
-helm rollback myrelease 1
-
-# List installed releases
-helm list
-
-# Uninstall a release
-helm uninstall myrelease
+kubectl get pods -A | grep -Ev 'Running|Completed'      # anything not obviously fine
+kubectl get pods -A --field-selector=status.phase=Pending
+kubectl events -A --types=Warning                       # recent warnings, cluster-wide
+kubectl describe pod <pod>                              # conditions, last state, events
+kubectl logs <pod> --previous                           # output of the crashed instance
 ```
-
-### Using Public Charts
-
-```bash
-# Add a chart repository
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
-
-# Search for charts
-helm search repo postgresql
-
-# Install from repository
-helm install mydb bitnami/postgresql -f values.yaml
-```
-
-### Helm Best Practices
-
-| Practice | Benefit |
-|----------|---------|
-| Use `--dry-run` before install | Catch errors early |
-| Keep values in version control | Track configuration changes |
-| Use separate values files per environment | Clean separation of concerns |
-| Run `helm lint` before commits | Validate chart syntax |
-
-## Common Patterns: Proven Architectural Approaches
-
-These patterns appear repeatedly in successful Kubernetes deployments. Understanding when to use each helps you design better systems.
-
-### Multi-Container Pod Patterns
-
-| Pattern | Purpose | Example Use Case |
-|---------|---------|------------------|
-| **Sidecar** | Extend/enhance main container | Log forwarding, service mesh proxy |
-| **Ambassador** | Proxy outbound connections | Database proxy, API gateway |
-| **Adapter** | Standardize output format | Convert logs to Prometheus metrics |
-| **Init Container** | Run setup before main container | Database migrations, wait for dependencies |
-
-### Sidecar Pattern
-
-A helper container runs alongside your application, sharing storage or network:
-
-```yaml
-spec:
-  containers:
-  - name: app
-    image: myapp:latest
-    volumeMounts:
-    - name: logs
-      mountPath: /var/log/app
-  - name: log-forwarder
-    image: fluentbit:latest
-    volumeMounts:
-    - name: logs
-      mountPath: /var/log/app
-  volumes:
-  - name: logs
-    emptyDir: {}
-```
-
-**Common sidecars**: Logging agents, service mesh proxies (Envoy), security agents.
-
-### Init Containers
-
-Init containers run to completion before the main container starts:
-
-```yaml
-spec:
-  initContainers:
-  - name: wait-for-db
-    image: busybox
-    command: ['sh', '-c', 'until nc -z db 5432; do sleep 2; done']
-  - name: migrate
-    image: myapp:latest
-    command: ['./migrate.sh']
-  containers:
-  - name: app
-    image: myapp:latest
-```
-
-**Common uses**: Database migrations, waiting for dependencies, fetching configuration.
-
-
-## Troubleshooting: When Things Go Wrong
-
-When something breaks, a systematic approach saves time. Start broad, then narrow down. The flowchart below maps a pod's reported status to the command that explains it and the most likely root cause:
 
 ```mermaid
 flowchart TD
-    Start([Pod not healthy]) --> Status{Pod status?}
-    Status -->|ImagePullBackOff| IP["describe pod →<br/>wrong image / missing<br/>registry credentials"]
-    Status -->|CrashLoopBackOff| CL["logs --previous →<br/>app crash, OOM,<br/>or bad config"]
-    Status -->|Pending| PD["describe pod →<br/>no resources or<br/>PVC unbound"]
-    Status -->|Running but no traffic| SVC["get endpoints →<br/>selector does not<br/>match pod labels"]
+    Start(["Pod not working"]) --> Ph{"STATUS column"}
+    Ph -->|"Pending"| P1{"Scheduled?<br/>(describe: events)"}
+    P1 -->|"FailedScheduling"| P2["Insufficient resources,<br/>taints, affinity, spread,<br/>unbound PVC"]
+    P1 -->|"scheduled"| P3["Pulling images or<br/>running init containers"]
+    Ph -->|"ImagePullBackOff /<br/>ErrImagePull"| I1["Wrong name or tag,<br/>private registry without<br/>imagePullSecrets, rate limit"]
+    Ph -->|"CreateContainerConfigError"| C1["Missing ConfigMap / Secret<br/>or key"]
+    Ph -->|"CrashLoopBackOff"| CL{"Last state<br/>(describe)"}
+    CL -->|"OOMKilled, 137"| O1["Memory limit too low<br/>or leak"]
+    CL -->|"Error, exit 1"| O2["App error: logs --previous"]
+    CL -->|"killed by liveness"| O3["Probe too aggressive<br/>or app wedged"]
+    Ph -->|"Running, not Ready"| R1["Readiness probe failing:<br/>describe events, app logs"]
+    Ph -->|"Running + Ready,<br/>no traffic"| S1["Service selector, ports,<br/>NetworkPolicy, DNS"]
+    Ph -->|"Terminating forever"| T1["Finalizer or<br/>unreachable node"]
 ```
 
-### Quick Diagnostic Commands
+### Symptom Reference
+
+| Status / symptom | First look | Usual causes | Fix |
+|------------------|-----------|--------------|-----|
+| `Pending` + `FailedScheduling` | `describe pod` events | Requests exceed free allocatable; untolerated taint; unsatisfiable affinity or spread; PVC unbound or in the wrong zone | Adjust requests or constraints; add nodes; fix StorageClass (`WaitForFirstConsumer`) |
+| `ImagePullBackOff` / `ErrImagePull` | `describe pod` events | Typo in image or tag; missing `imagePullSecrets`; registry rate limit; architecture mismatch (`exec format error` appears later, as a crash) | Correct reference; create pull secret; mirror images |
+| `CreateContainerConfigError` | `describe pod` | Referenced ConfigMap, Secret or key does not exist | Create it or mark the reference `optional: true` |
+| `CrashLoopBackOff` | `logs --previous`, last state and exit code | Application error, bad config, OOM, failing liveness probe | Depends on exit code (below) |
+| `Running` but `0/1` Ready | `describe pod` (readiness failures) | App not listening on the probed port or path; dependency down | Fix probe or app; confirm with `port-forward` |
+| `Evicted` | `describe pod`, node conditions | Node memory or disk pressure | Set accurate requests; clean up node disk; see [eviction](fundamentals-resources.html#node-pressure-eviction) |
+| Stuck `Terminating` | `get pod -o yaml` (finalizers, node) | Finalizer whose controller is gone; node unreachable | Fix the controller; as a last resort remove the finalizer or `delete --force --grace-period=0` |
+| Node `NotReady` | `describe node`, kubelet logs (`journalctl -u kubelet`) | kubelet or runtime down, disk full, network partition, expired certificates | Repair or replace the node |
+
+### Container Exit Codes
+
+| Exit code | Meaning | Typical cause |
+|-----------|---------|---------------|
+| 0 | Success | A long-running container that exits 0 still gets restarted under `restartPolicy: Always` |
+| 1, 2 | Application error | Check logs |
+| 126 / 127 | Command not executable / not found | Wrong `command`, missing binary in a slim image |
+| 137 | Killed by SIGKILL (128 + 9) | `OOMKilled`, or liveness failure after the grace period |
+| 139 | Segmentation fault (128 + 11) | Native crash; architecture or library mismatch |
+| 143 | Terminated by SIGTERM (128 + 15) | Normal shutdown, or liveness restart handled gracefully |
+
+### Service Connectivity
+
+When pods are healthy but a Service does not answer, test each hop:
 
 ```bash
-# What is unhealthy?
-kubectl get pods --all-namespaces | grep -v Running
-kubectl get events --sort-by='.lastTimestamp' -A
+# 1. Does the Service select any Ready pods?
+kubectl get endpointslices -l kubernetes.io/service-name=web -o wide
+kubectl get pods -l app.kubernetes.io/name=web --show-labels
 
-# Why is this pod unhealthy?
-kubectl describe pod <pod-name>
-kubectl logs <pod-name> --previous
+# 2. Does targetPort match the container's listening port?
+kubectl get svc web -o jsonpath='{.spec.ports}'
+
+# 3. Does DNS resolve and the port answer from inside the cluster?
+kubectl run nettest --rm -it --restart=Never --image=busybox:1.37 -- \
+  sh -c 'nslookup web.shop.svc.cluster.local && wget -qO- -T 3 http://web.shop:80/'
+
+# 4. Is a NetworkPolicy blocking it?
+kubectl get networkpolicy -n shop
 ```
 
-### Common Issues Quick Reference
+Empty EndpointSlices mean the selector matches nothing or no matching pod is Ready. DNS failures point to CoreDNS (`kubectl -n kube-system logs -l k8s-app=kube-dns`). Timeouts with correct endpoints usually mean a NetworkPolicy or a pod listening on `127.0.0.1` instead of `0.0.0.0`.
 
-| Issue | Symptom | First Command | Likely Cause |
-|-------|---------|---------------|--------------|
-| **ImagePullBackOff** | Pod stuck pulling image | `kubectl describe pod <name>` | Wrong image name, missing credentials |
-| **CrashLoopBackOff** | Pod keeps restarting | `kubectl logs <pod> --previous` | App crash, OOM, bad config |
-| **Pending** | Pod not scheduling | `kubectl describe pod <name>` | Insufficient resources, no matching nodes |
-| **OOMKilled** | Container killed | `kubectl describe pod <name>` | Memory limit too low |
+## Cluster Upgrades
 
-### ImagePullBackOff
+Kubernetes ships three minor releases a year, and each is supported with patches for about a year (v1.35, v1.36 and v1.37 as of September 2026). Clusters therefore need a minor upgrade roughly every four months to stay supported; managed services add "extended support" at extra cost for those that fall behind.
 
-The image cannot be pulled. Check:
-1. Is the image name correct?
-2. Does the registry require authentication?
+The **version skew policy** constrains the order:
 
-```bash
-# Create registry credentials
-kubectl create secret docker-registry regcred \
-  --docker-server=<registry> \
-  --docker-username=<user> \
-  --docker-password=<pass>
+| Component | Allowed relative to kube-apiserver |
+|-----------|-----------------------------------|
+| kube-apiserver instances (HA) | Within one minor version of each other during an upgrade |
+| kube-controller-manager, kube-scheduler | Same minor or one older |
+| kubelet, kube-proxy | Same minor or up to three older; never newer |
+| kubectl | One minor older, same, or one newer |
+
+```mermaid
+flowchart LR
+    A["Check release notes and<br/>deprecated API usage"] --> B["Upgrade control plane<br/>one minor at a time"]
+    B --> C["Upgrade add-ons<br/>(CNI, CSI, CoreDNS, ingress)"]
+    C --> D["Roll node pools:<br/>surge new nodes, drain old"]
+    D --> E["Verify workloads,<br/>then repeat for next minor"]
 ```
 
-### CrashLoopBackOff
+- **Find removed APIs before they bite.** Each release may stop serving deprecated API versions. The API server exposes `apiserver_requested_deprecated_apis` metrics and returns warnings to clients; tools such as `pluto` and `kubent` scan manifests and Helm releases.
+- **Upgrade one minor version at a time** for the control plane; nodes may lag, within the skew limits above.
+- **Replace rather than patch nodes** where possible: create nodes on the new version and drain the old ones.
+- **Protect availability with PodDisruptionBudgets**, which `drain` and node autoscalers respect:
 
-The container starts but crashes. Debug with:
-
-```bash
-kubectl logs <pod-name> --previous
-kubectl describe pod <pod-name>
+```yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web
+spec:
+  minAvailable: 2                # or maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web
+  unhealthyPodEvictionPolicy: AlwaysAllow   # don't let already-broken pods block drains
 ```
 
-Common fixes:
-- Increase memory limits if OOMKilled
-- Extend `initialDelaySeconds` on probes if app needs time to start
-- Check environment variables and config
+A PDB that can never be satisfied — `minAvailable` equal to the replica count, or a single-replica Deployment with `maxUnavailable: 0` — blocks every drain and stalls upgrades.
 
-### Pending Pods
+Notable changes to check when upgrading into the current releases include: the `Endpoints` API deprecation (v1.33) in favour of EndpointSlices; the retirement of the community **ingress-nginx** controller, which received no further releases or security fixes after March 2026 (migrate to a Gateway API implementation or another controller; `ingress2gateway` converts manifests); and the deprecation of cgroup v1 in v1.35, from which release the kubelet refuses to start on a cgroup v1 host unless `failCgroupV1: false` is set — node images must use cgroup v2.
 
-Pod cannot be scheduled. Check events in:
+## Production Readiness Checklist
 
-```bash
-kubectl describe pod <pod-name>
-```
+| Area | Practice | Why |
+|------|----------|-----|
+| **Resources** | Requests on every container; memory limits; LimitRange defaults and ResourceQuotas per namespace | Predictable scheduling and eviction; no noisy neighbours |
+| | Right-size from real usage (VPA in recommendation mode, dashboards) | Over-requesting wastes money; under-requesting causes evictions |
+| **Availability** | ≥ 2–3 replicas, spread across zones with topology spread constraints | Survive node and zone loss |
+| | PodDisruptionBudgets on every replicated service | Safe drains and upgrades |
+| | Readiness probes on everything that takes traffic; startup probes for slow starters | Zero-downtime rollouts |
+| | Graceful shutdown: handle `SIGTERM`, `preStop` delay where needed | No dropped requests during rollouts |
+| **Delivery** | Images pinned by tag and digest; manifests in Git, applied by GitOps or CI | Reproducible, auditable changes |
+| | Progressive delivery (canary or blue/green) for critical services | Limit blast radius of bad releases |
+| **Security** | RBAC least privilege; no cluster-admin for workloads; short-lived credentials | Contain compromise |
+| | Pod Security Standards `restricted` where possible; non-root; read-only root filesystem; drop capabilities | Reduce container-escape impact |
+| | Default-deny NetworkPolicies per namespace | Prevent lateral movement |
+| | Image scanning and signature verification (e.g. Sigstore cosign with an admission policy) | Supply-chain integrity |
+| | Secrets from an external manager; encryption at rest for etcd | Limit secret exposure |
+| **Observability** | Metrics, centralized logs and traces; dashboards per service | Diagnose after the fact |
+| | SLO-based alerts routed to an on-call rotation | Actionable paging |
+| **Recovery** | etcd snapshots (self-managed) and application-level backups (e.g. Velero); tested restores | A backup that has never been restored is a hope |
+| | Documented upgrade cadence within the supported window | Stay on patched versions |
 
-Common causes:
-- **Insufficient resources**: Scale down other workloads or add nodes
-- **Node selector/affinity**: No matching nodes exist
-- **PVC pending**: Storage class or capacity issue
+Security controls are expanded in [Workloads &amp; Storage](workloads.html#workload-security) and backups in [Stateful Workloads &amp; Persistence](persistence.html#snapshots-backup-and-disaster-recovery).
 
-### Service Not Reachable
+## Certifications
 
-Debug network issues:
+The CNCF and Linux Foundation offer five Kubernetes certifications, all taken online with a remote proctor:
 
-```bash
-# Check if service has endpoints
-kubectl get endpoints <service-name>
+| Certification | Format | Focus | Prerequisite |
+|---------------|--------|-------|--------------|
+| **KCNA** — Kubernetes and Cloud Native Associate | Multiple choice | Concepts and the cloud-native ecosystem | None |
+| **KCSA** — Kubernetes and Cloud Native Security Associate | Multiple choice | Security concepts and threat model | None |
+| **CKAD** — Certified Kubernetes Application Developer | Hands-on, live clusters | Building, configuring and exposing applications | None |
+| **CKA** — Certified Kubernetes Administrator | Hands-on, live clusters | Installing, operating and troubleshooting clusters | None |
+| **CKS** — Certified Kubernetes Security Specialist | Hands-on, live clusters | Hardening clusters, supply chain, runtime security | An active CKA |
 
-# Test from inside cluster
-kubectl run debug --rm -it --image=busybox -- wget -O- <service>:<port>
-```
-
-If endpoints are empty, the service selector does not match any pod labels.
-
-## Certification Path
-
-If you want to validate your Kubernetes skills, consider these certifications:
-
-| Certification | Focus | Prerequisites |
-|---------------|-------|---------------|
-| **CKA** | Cluster administration, troubleshooting | None |
-| **CKAD** | Application development, configuration | None |
-| **CKS** | Security hardening, runtime security | CKA required |
-
-All exams are hands-on, performance-based tests where you solve real Kubernetes problems in a live environment.
-
-## Key Takeaways
-
-- **kubectl is the workhorse.** Master `get`, `describe`, `logs`, and `exec` — they answer most "what is happening?" questions. Contexts and namespaces keep you pointed at the right cluster.
-- **Helm packages complexity.** Charts turn dozens of manifests into one versioned, parameterized unit; use `--dry-run` and per-environment values files.
-- **Diagnose systematically.** Start broad (`get pods`, `get events`), then narrow with `describe` and `logs --previous`. The pod status (ImagePullBackOff, CrashLoopBackOff, Pending) tells you where to look first.
-- **Production is a checklist.** Resource limits, 3+ replicas with anti-affinity, RBAC, health probes, and centralized logs are non-negotiable before going live.
-
-The key to Kubernetes mastery is practice. Start with simple deployments, gradually add complexity, and always follow the principle of declarative configuration: describe what you want, and let Kubernetes make it happen.
+Holding all five at once earns the "Kubestronaut" title. The performance-based exams reward speed with kubectl: imperative generators (`--dry-run=client -o yaml`), `kubectl explain`, and the official documentation (which is available during the exam).
 
 ---
 
 ## See Also
 
-- [Fundamentals](fundamentals.html) - Pods, Deployments, Services, and cluster architecture
-- [Workloads &amp; Storage](workloads.html) - StatefulSets, persistent volumes, RBAC, and autoscaling
-- [Advanced Topics](advanced.html) - CRDs, Operators, service mesh, GitOps, and certifications
-- [Observability](../../observability/) - The three pillars in depth: metrics &amp; PromQL, logging stacks, OpenTelemetry tracing, and SLOs
-- [Docker Essentials](../docker-essentials.html) - Quick container command reference
-- [CI/CD](../ci-cd/) - Automating deployments into your cluster
+- [Fundamentals](fundamentals.html) — architecture, Pods, Deployments, Services
+- [Health &amp; Resource Management](fundamentals-resources.html) — probes, requests and limits, eviction, autoscaling
+- [Workloads &amp; Storage](workloads.html) — StatefulSets, DaemonSets, Jobs, RBAC and Pod Security
+- [Advanced Topics](advanced.html) — CRDs and Operators, service mesh, GitOps
+- [Observability](../../observability/) — metrics, logging and tracing in depth; SLOs
+- [Docker Essentials](../docker-essentials.html) — container command reference
+- [CI/CD](../ci-cd/) — automating delivery into the cluster

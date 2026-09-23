@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: CI/CD
+description: "Continuous integration, delivery, and deployment: what they are, how a modern pipeline is structured, and where to go for platforms, rollout strategies, and pipeline security."
 permalink: /docs/technology/ci-cd/
 toc: false
 hide_title: true
@@ -11,169 +12,127 @@ hide_title: true
   <p style="font-size: 1.1rem; margin-top: 0.5rem; opacity: 0.9;">Continuous integration and deployment: from code to production</p>
 </div>
 
-CI/CD turns software delivery from a risky, manual process into an automated, reliable pipeline. Automatically building, testing, and deploying every change lets teams release faster, catch bugs in minutes instead of weeks, and free developers from manual deployment toil — a safety net that makes it safe to ship many times a day.
+**CI/CD** is the practice of building, testing, and releasing software through an automated pipeline that runs on every change. Instead of batching weeks of work into a risky manual release, each commit is integrated into the main line, verified by machines within minutes, and promoted toward production by the same repeatable process. This hub defines the terms, shows the shape of a modern pipeline, and links to the detailed pages on platforms, deployment strategies, and pipeline security.
 
-## What is CI/CD?
+## Terminology
 
-The three terms are often conflated:
+The three terms are frequently conflated. They describe successively longer stretches of the path from commit to user.
 
-- **Continuous Integration (CI)** — developers merge changes frequently (often several times a day), and each merge triggers an automated build and test run.
-- **Continuous Deployment (CD)** — every change that passes all tests is deployed to production automatically, with no manual gate.
-- **Continuous Delivery** — the same, except the final promotion to production requires a manual approval.
+| Practice | What is automated | Where it stops |
+|----------|------------------|----------------|
+| **Continuous Integration (CI)** | Every change is merged to a shared main line at least daily, and each merge triggers a build plus automated tests. | A verified build artifact. |
+| **Continuous Delivery** | Every verified artifact is automatically deployed to production-like environments and kept *releasable* at all times. | A human decides *when* to push to production. |
+| **Continuous Deployment** | Every change that passes the pipeline goes to production with no manual gate. | Production. |
 
-### The Restaurant Kitchen Analogy
+CI is a prerequisite for either form of CD, and it delivers most of its value on its own: a team can run strong CI for years before automating production releases. The distinction between delivery and deployment is purely the final promotion step. Many teams practice continuous deployment for stateless services and continuous delivery for anything touching schemas, billing, or regulated data.
 
-A traditional release is one chef cooking an entire meal alone, with no one tasting it until it reaches the customer — if anything is wrong, the whole meal is remade. CI/CD is a kitchen where many chefs work in parallel, each dish is tasted the moment it's ready (CI), approved dishes go straight out (CD), and the kitchen runs continuously, serving many orders at once.
+A related idea is **trunk-based development**: short-lived branches (hours to a day or two) merged frequently into `main`, with unfinished work hidden behind [feature flags](deployment.html#feature-flags) instead of long-running branches. CI only works as intended when integration is actually continuous. See [Branching Strategies](../branching.html) for how branch models interact with pipelines.
 
-### The Pipeline at a Glance
+## Anatomy of a Pipeline
 
-A commit flows through automated stages, each a gate that must pass before the next runs. The split between Delivery and Deployment is simply whether the final promotion to production is manual or automatic.
+A pipeline is a sequence of **stages**, each acting as a gate: if a stage fails, later stages do not run. Fast, cheap checks run first so most failures surface within a few minutes.
 
 ```mermaid
 flowchart LR
-    COMMIT["git push / PR"] --> BUILD["Build"]
-    BUILD --> TEST["Test and Lint"]
-    TEST --> SCAN["Security Scan"]
-    SCAN --> STAGE["Deploy to Staging"]
-    STAGE --> GATE{"Approval?"}
-    GATE -->|manual = Delivery| PROD["Deploy to Production"]
-    GATE -->|automatic = Deployment| PROD
-    PROD --> MON["Monitor and Rollback if needed"]
-    style BUILD fill:#e3f2fd,stroke:#1565c0
-    style TEST fill:#e3f2fd,stroke:#1565c0
-    style SCAN fill:#e3f2fd,stroke:#1565c0
-    style STAGE fill:#e8f5e9,stroke:#2e7d32
-    style PROD fill:#e8f5e9,stroke:#2e7d32
+    COMMIT["Commit / PR"] --> BUILD["Build<br/>compile, package"]
+    BUILD --> TEST["Test<br/>unit, lint, types"]
+    TEST --> SCAN["Security<br/>SCA, SAST, secrets"]
+    SCAN --> ART[("Artifact registry<br/>signed + SBOM")]
+    ART --> STAGE["Deploy to staging<br/>integration / E2E"]
+    STAGE --> GATE{"Promote?"}
+    GATE -->|"human approval<br/>(Continuous Delivery)"| PROD["Progressive rollout<br/>to production"]
+    GATE -->|"automatic<br/>(Continuous Deployment)"| PROD
+    PROD --> OBS["Observe<br/>metrics, SLOs"]
+    OBS -.->|"regression"| RB["Automated rollback"]
 ```
 
----
+Several principles apply regardless of platform:
 
-## Getting Started
+- **Build once, promote everywhere.** The artifact that passed tests (a container image digest, a signed binary) is the exact artifact deployed to staging and production. Rebuilding per environment silently invalidates earlier test results.
+- **Everything as code.** Pipeline definitions, infrastructure, and deployment manifests live in version control and are reviewed like application code.
+- **Fast feedback.** A PR pipeline that takes longer than roughly 10 minutes starts to be ignored or batched around. Caching, parallelism, and test selection are how you keep it short (see [Platforms & Pipeline Design](platforms-and-pipelines.html#keeping-pipelines-fast)).
+- **Least privilege.** Pipelines hold production credentials and publish artifacts that everyone downstream trusts, which makes them a high-value target. Short-lived OIDC credentials and pinned dependencies are the baseline (see [Security, GitOps & Operations](security-and-operations.html)).
+- **Reversibility.** Every deployment strategy should have an automated path back to the previous version.
 
-You can stand up a working pipeline in well under an hour, then deepen it over the following weeks.
+## A Minimal Pipeline
 
-### Your First Pipeline (30 Minutes)
+A small but realistic GitHub Actions workflow for a Node.js service. It runs CI on every pull request and push, cancels superseded runs, and deploys from `main` into a protected `production` environment. That environment can require reviewers, which is what turns this from continuous deployment into continuous delivery.
 
-Build a simple CI/CD pipeline for a Node.js application using GitHub Actions:
-
+{% raw %}
 ```yaml
-# .github/workflows/ci-cd.yml
-name: CI/CD Pipeline
+# .github/workflows/ci.yml
+name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+
+# Default the GITHUB_TOKEN to read-only; widen per job only where needed.
+permissions:
+  contents: read
+
+# A new push to the same branch cancels the run already in progress.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # Job 1: Continuous Integration
   test:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24        # current Active LTS
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        cache: 'npm'
-
-    - name: Install dependencies
-      run: npm ci
-
-    - name: Run linter
-      run: npm run lint
-
-    - name: Run tests
-      run: npm test
-
-    - name: Build application
-      run: npm run build
-
-  # Job 2: Continuous Deployment
   deploy:
-    needs: test  # Only run if tests pass
+    needs: test                   # only runs if every test step passed
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-
+    environment: production       # protection rules / required reviewers apply here
+    permissions:
+      contents: read
+      id-token: write             # mint an OIDC token for keyless cloud auth
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Deploy to production
-      run: |
-        # Your deployment commands here
-        echo "Deploying to production..."
+      - uses: actions/checkout@v6
+      - run: ./scripts/deploy.sh
 ```
+{% endraw %}
 
-**Understanding the pipeline flow:**
+For a supply-chain-hardened version of this workflow, pin each `uses:` reference to a full commit SHA rather than a tag. The [security page](security-and-operations.html#hardening-github-actions) explains why.
 
-1. **Trigger**: Code pushed to main/develop or PR opened
-2. **Checkout**: Pipeline gets latest code
-3. **Setup**: Install required tools (Node.js)
-4. **Dependencies**: Install project dependencies
-5. **Quality Checks**: Run linter for code standards
-6. **Tests**: Execute automated tests
-7. **Build**: Compile/bundle the application
-8. **Deploy**: If on main branch and tests pass, deploy
+## Maturity Path
 
-**Quick-start checklist:**
+Pipelines are usually built up incrementally. A common progression:
 
-- [ ] Create `.github/workflows/` directory
-- [ ] Add workflow YAML file
-- [ ] Define trigger events (push, PR, schedule)
-- [ ] Set up build environment
-- [ ] Add test commands
-- [ ] Configure deployment (if ready)
-- [ ] Commit and push to see it run
+| Stage | Capabilities | Signals it is working |
+|-------|-------------|------------------------|
+| **1. Automated build and test** | Pipeline on every PR; unit tests and lint; branch protection requiring green checks | Broken builds on `main` become rare and are fixed within an hour |
+| **2. Quality and security gates** | Dependency and secret scanning; integration tests; automatic deploy to a staging environment | Vulnerable dependencies and leaked keys are caught before merge |
+| **3. Fast and reliable** | Caching, parallel/sharded tests, flaky-test quarantine, merge queue | PR feedback under ~10 minutes; reruns are the exception |
+| **4. Safe production release** | Immutable signed artifacts, progressive delivery (canary or blue-green), automated rollback, OIDC credentials | Deploys are routine, several per day, with low change-fail rate |
+| **5. Measured and self-service** | DORA metrics, GitOps, reusable pipeline templates or an internal platform | Teams onboard new services without bespoke pipeline work |
 
-### A Four-Week Path to Production
+## Guides in This Section
 
-Once the first pipeline runs, expand it incrementally:
-
-| Week | Focus | Tasks |
-|------|-------|-------|
-| **1 — Foundation** | Get a pipeline running | Choose a platform, create a "Hello World" pipeline, add basic tests, set up notifications |
-| **2 — Expansion** | Add quality gates | Add linting, enable branch protection, create a staging deployment, add security scanning |
-| **3 — Optimization** | Make it fast and safe | Implement caching, parallelize tests, add performance tests, build deployment rollback |
-| **4 — Production Ready** | Operate with confidence | Set up monitoring, implement blue-green deployment, add compliance checks, document runbooks |
-
----
-
-## Explore the Guides
-
-<div class="command-grid">
-  <div class="nav-card">
-    <h4><i class="fas fa-sitemap"></i> <a href="platforms-and-pipelines.html">Platforms & Pipeline Design</a></h4>
-    <p>Popular CI/CD platforms compared, pipeline design patterns, and testing strategies.</p>
-  </div>
-  <div class="nav-card">
-    <h4><i class="fas fa-exchange-alt"></i> <a href="deployment.html">Deployment Strategies</a></h4>
-    <p>Blue-green, canary, rolling deployments, and feature flags for releasing safely.</p>
-  </div>
-  <div class="nav-card">
-    <h4><i class="fas fa-shield-alt"></i> <a href="security-and-operations.html">Security, GitOps & Operations</a></h4>
-    <p>Securing pipelines, monitoring and observability, GitOps, IaC integration, and advanced topics.</p>
-  </div>
-</div>
-
----
-
-## Key Takeaways
-
-- **CI and CD are distinct.** CI integrates and tests every change automatically; CD takes passing builds the rest of the way to staging or production. You can adopt CI long before full CD.
-- **Fast feedback is the point.** The value is catching problems in minutes, not days. Parallelize tests, fail fast, and keep pipelines quick enough that developers trust them.
-- **Deploy strategies manage risk.** Blue-green, canary, and rolling deployments trade speed for safety in different ways; pair them with automated rollback so a bad release is reversible.
-- **Secure the supply chain.** Pipelines hold secrets and ship artifacts. Scan dependencies, sign artifacts, generate SBOMs, and grant least-privilege credentials to runners.
-
----
+| Page | Covers |
+|------|--------|
+| [Platforms & Pipeline Design](platforms-and-pipelines.html) | GitHub Actions, GitLab CI/CD, Jenkins, CircleCI and others compared; pipeline topologies (linear, DAG, matrix); caching and speed; testing strategy |
+| [Deployment Strategies](deployment.html) | Recreate, rolling, blue-green, canary, and feature flags; progressive delivery with Argo Rollouts and the Gateway API; database migrations; rollback |
+| [Security, GitOps & Operations](security-and-operations.html) | Pipeline threat model, secrets and OIDC, hardening GitHub Actions, SLSA provenance, signing and SBOMs, GitOps, IaC pipelines, DORA metrics, troubleshooting |
 
 ## See Also
 
 - [Git Version Control](../git/) — the commits that trigger every pipeline
-- [Branching Strategies](../branching.html) — workflow patterns that shape your pipeline
-- [Docker](../docker/) — containerization for consistent build environments
-- [Kubernetes](../kubernetes/) — orchestration and automated deployments
-- [Terraform](../terraform/) — infrastructure as code for automated provisioning
-- [Cybersecurity](../cybersecurity/) — securing the pipeline and its secrets
+- [Branching Strategies](../branching.html) — branch models and how they shape pipelines
+- [Docker](../docker/) — reproducible build environments and container artifacts
+- [Kubernetes](../kubernetes/) — the platform most rollout strategies target
+- [Terraform](../terraform/) — infrastructure as code in the pipeline
+- [Monorepo Architecture](../../advanced/monorepo/) — affected-target builds and CI at scale
+- [Cybersecurity](../cybersecurity/) — broader context for pipeline and supply-chain security

@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Docker
+description: "Docker and OCI containers: fundamentals, storage and security, Dockerfiles, networking, registries and supply-chain security, and production patterns."
 permalink: /docs/technology/docker/
 toc: false
 hide_title: true
@@ -11,75 +12,64 @@ hide_title: true
   <p style="font-size: 1.1rem; margin-top: 0.5rem; opacity: 0.9;">Build, ship, and run anywhere</p>
 </div>
 
-Docker solves the "it works on my machine" problem by packaging applications with all their dependencies into lightweight, portable units that run identically across development, testing, and production.
+Docker is a platform for building, distributing, and running applications as **containers**: isolated Linux processes that carry their own filesystem, packaged as portable, content-addressed **images**. The Docker Engine (open source, from the Moby project), the `docker` CLI, BuildKit, and Compose together cover the whole path from source code to a running service, and the image and runtime formats they use are the vendor-neutral [OCI](https://opencontainers.org/) standards shared with Kubernetes, Podman, and every major cloud.
 
-## Why Learn Docker?
+This section documents Docker as it stands in late 2026 (Docker Engine 29.x). The guides follow the life of an image:
 
-Containers buy four things: **environment consistency** (the same behavior on a laptop and in production), **fast onboarding** (a new contributor runs one `docker run` instead of spending days configuring tools), **efficient resource use** (higher density than virtual machines), and **simple deployments** (package once, deploy anywhere). They are the foundation of modern application delivery for developers and operations engineers alike.
+```mermaid
+flowchart LR
+    SRC["Source + Dockerfile"] -->|"docker build<br/>(BuildKit)"| IMG["Image"]
+    IMG -->|"docker push"| REG[("Registry")]
+    REG -->|"docker pull"| HOST["Host"]
+    HOST -->|"docker run /<br/>docker compose up"| CTR["Containers"]
+    CTR --- VOL[("Volumes")]
+    CTR --- NET(["Networks"])
+```
 
----
+## Guides
 
-## Learning Path
+| # | Guide | Covers |
+|---|-------|--------|
+| 1 | [Fundamentals](fundamentals.html) | Images vs. containers, engine architecture (dockerd, containerd, runc), namespaces and cgroups, layers and copy-on-write, lifecycle, everyday commands, Compose |
+| 2 | [Storage &amp; Security](storage-security.html) | Volumes, bind mounts, tmpfs, image mounts, backups; image, build, runtime, and host hardening; secrets; troubleshooting |
+| 3 | [Dockerfiles &amp; CI/CD](dockerfiles.html) | Dockerfile instructions, multi-stage builds, BuildKit features, build performance, GitHub Actions and GitLab pipelines |
+| 4 | [Networking](docker-networking.html) | Network drivers, DNS service discovery, port publishing, overlay and macvlan, network security |
+| 5 | [Registries &amp; Supply Chain](registry.html) | OCI registries, tags vs. digests, choosing a registry, signing (cosign, Notation), SBOMs, scanning, SLSA provenance |
+| 6 | [Design Patterns](docker-design-patterns.html) | Multi-container composition patterns, hardened images, runtime security in production |
+| 7 | [Advanced Patterns](advanced.html) | Compose in production, Docker Swarm, reference architectures, choosing an orchestration level |
+| 8 | [Container Runtimes](../container-runtimes.html) | The OCI specs, runc, containerd, CRI-O, gVisor, Kata Containers, Firecracker, Wasm |
 
-Work through the guides in order, or jump to the one matching your task.
+For a one-page command cheat sheet, see [Docker Essentials](../docker-essentials.html); it is a quick reference rather than a step in the sequence above.
 
-<div class="command-grid">
-  <div class="nav-card">
-    <h4><a href="fundamentals.html">1. Fundamentals</a></h4>
-    <p>Start here. Images vs containers, essential commands, image layering, containers vs VMs, and bridge networking basics.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="storage-security.html">2. Storage &amp; Security</a></h4>
-    <p>Persist data with volumes, bind mounts, and tmpfs; choose network drivers; harden containers; install and troubleshoot.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="dockerfiles.html">3. Dockerfiles &amp; CI/CD</a></h4>
-    <p>Write and optimize Dockerfiles, multi-stage builds, Docker Swarm, and pipelines with GitHub Actions and GitLab.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="docker-networking.html">4. Networking</a></h4>
-    <p>Network drivers, DNS-based service discovery, port publishing, multi-host overlays, and locking the network down.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="registry.html">5. Registries &amp; Supply Chain</a></h4>
-    <p>Distribute images through registries, pin by digest, and prove what you ship with signing, SBOMs, scanning, and provenance.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="docker-design-patterns.html">6. Design Patterns</a></h4>
-    <p>Multi-container composition patterns, hardened images, and runtime security for production workloads.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="advanced.html">7. Advanced Patterns</a></h4>
-    <p>Production architectures, real case studies, design patterns, and WebAssembly as a next-gen container runtime.</p>
-  </div>
-  <div class="nav-card">
-    <h4><a href="../container-runtimes.html">8. Container Runtimes</a></h4>
-    <p>Beyond Docker: the OCI spec, runc/containerd/CRI-O, sandboxed runtimes (gVisor, Kata), Firecracker microVMs, and Wasm.</p>
-  </div>
-</div>
+## Containers and Virtual Machines
 
-<p style="margin-top: 1.5rem; padding: 0.75rem 1rem; border-left: 4px solid #0066cc; background: rgba(0, 102, 204, 0.08); border-radius: 4px;"><strong><span style="display: inline-block; background: #0066cc; color: white; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; padding: 0.15rem 0.5rem; border-radius: 3px; vertical-align: middle;">QUICK REFERENCE</span> <a href="../docker-essentials.html">Docker Essentials</a></strong> is a side-by-side command cheat sheet, <em>not</em> a step in the sequential path above. Keep it open while you work through the guides.</p>
+Containers share the host kernel; virtual machines each run their own. That single difference drives the trade-offs:
 
----
+| Property | Containers | Virtual machines |
+|----------|------------|------------------|
+| Startup time | Milliseconds to seconds | Seconds to minutes |
+| Memory overhead | Close to the process itself | Full guest OS per VM |
+| Disk footprint | Megabytes (shared layers) | Gigabytes per guest |
+| Isolation boundary | Kernel namespaces, cgroups, seccomp, LSMs | Hardware virtualization |
+| Guest OS | Same kernel family as host | Any |
+| Typical use | Microservices, CI jobs, dense packing of trusted workloads | Legacy systems, different OSes, hard multi-tenancy |
 
-## Key Capabilities
+Sandboxed runtimes (gVisor, Kata Containers, Firecracker) blur the line by giving each container a VM-grade boundary; see [Container Runtimes](../container-runtimes.html).
 
-Containers are lightweight (they share the host kernel), start in seconds rather than minutes, and run consistently anywhere. The contrast with virtual machines makes the trade-offs concrete:
+## What Changed Recently
 
-| Capability | Containers | Virtual Machines |
-|------------|------------|------------------|
-| Startup time | Seconds | Minutes |
-| Memory overhead | Minimal (shared kernel) | High (full OS per VM) |
-| Disk usage | MBs | GBs |
-| Isolation level | Process-level | Hardware-level |
-| Best for | Microservices, CI/CD | Legacy apps, different OS |
+Material written before 2024 is often out of date on these points:
 
----
+- **Docker Engine 29** (November 2025) made the **containerd image store** the default for new installations, removed **Docker Content Trust** from the CLI (use cosign or Notation instead), deprecated **cgroup v1**, and added an experimental **nftables** firewall backend.
+- **BuildKit** has been the default builder since Engine 23.0; `DOCKER_BUILDKIT=1` is unnecessary.
+- **Compose V2** (`docker compose`, with a space) replaced the Python `docker-compose`; the `version:` key in `compose.yaml` is obsolete, and `docker compose watch` provides a file-sync development loop.
+- **Supply-chain attestations** (SBOM and SLSA provenance) can be generated by BuildKit and attached to images; Docker Hardened Images ship them for common base images.
+- **Docker Hub** limits pulls per 6-hour window (100 unauthenticated, 200 for authenticated free accounts), so CI should authenticate or use a mirror.
 
 ## See Also
 
-- [Docker Essentials](../docker-essentials.html) - Quick command reference
+- [Docker Essentials](../docker-essentials.html) - Command reference
 - [Container Runtimes](../container-runtimes.html) - Runtimes beyond Docker
 - [Kubernetes](../kubernetes/) - Container orchestration
-- [AWS ECS](../aws/compute.html) - Managed container service
-- [CI/CD](../ci-cd/) - Continuous deployment
+- [AWS Compute](../aws/compute.html) - ECS, Fargate, and EKS
+- [CI/CD](../ci-cd/) - Build and deployment pipelines

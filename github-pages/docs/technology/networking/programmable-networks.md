@@ -1,6 +1,6 @@
 ---
 layout: docs
-title: "Networking: Programmable Networks (SDN/NFV/P4)"
+title: "Networking: Programmable Networks (SDN, P4, eBPF, SRv6)"
 permalink: /docs/technology/networking/programmable-networks.html
 toc: true
 toc_sticky: true
@@ -8,530 +8,512 @@ toc_sticky: true
 
 [Networking](./) &raquo; Programmable Networks
 
-<!-- Custom styles are now loaded via main.scss -->
+A traditional router or switch bundles three things in one closed box: the **data plane** that forwards packets, the **control plane** that decides where they go, and fixed silicon that determines which protocols the box can understand. Programmable networking separates these and exposes each through an open interface. This page covers the main technologies in that shift: software-defined networking (SDN) for the control plane, P4 for switch pipelines, eBPF and XDP for the host data plane, network function virtualization (NFV) for middleboxes, and label- and segment-based forwarding (MPLS, Segment Routing, SRv6) with the overlays and IPv6 transition mechanisms that carry modern traffic.
 
-For decades a network device bundled three things in one box: the **data plane** that forwards packets, the **control plane** that decides where they go, and fixed silicon that dictated which protocols it understood. The defining trend of modern networking is pulling those apart and turning each into software you can program. This page traces that shift — separating the control and data planes with SDN, replacing hardware appliances with software in NFV, defining packet processing itself with P4, and the label- and segment-based forwarding fabrics (MPLS, SR, SRv6) that carry this traffic at scale — and closes with the IPv6 transition that underpins much of it.
+## From Appliances to Software
 
-The Python listings throughout this page are *illustrative* — compact models that show the logic of each idea rather than production code.
-
-## Networks Become Software
-
-A traditional router or switch is a vertically integrated, closed appliance: the vendor ships the forwarding silicon, the routing software, and the management interface as one unit, and you take what you are given. Programmable networking decomposes that monolith along three axes:
-
-| Layer | Traditional | Programmable | Technology |
+| Layer | Traditional | Programmable | Technologies |
 |-------|-------------|--------------|------------|
-| Control plane | Distributed, per-device, vendor firmware | Centralized, open, software | SDN (OpenFlow, P4Runtime) |
-| Network functions | Dedicated hardware appliances | Software on commodity servers | NFV (VNFs, service chains) |
-| Data plane | Fixed-function ASIC | Reconfigurable pipeline | P4 |
-| Forwarding fabric | Per-hop IP lookup | Label / segment forwarding | MPLS, SR, SRv6 |
+| Control plane | Distributed routing protocols in vendor firmware on every box | Logically centralized controller, or open routing stacks | SDN controllers, OpenFlow, P4Runtime, gNMI; FRRouting |
+| Network operating system | Vendor-integrated | Open NOS on merchant silicon ("white box") | SONiC, Linux-based NOSes |
+| Switch data plane | Fixed-function ASIC | Reconfigurable match-action pipeline | P4 |
+| Host data plane | Kernel network stack | Verified programs attached to kernel hooks, or kernel bypass | eBPF/XDP, DPDK |
+| Network functions | Dedicated hardware appliances | Software on commodity servers or Kubernetes | NFV (VNFs, CNFs), service chaining |
+| Forwarding fabric | Independent IP lookup at every hop | Path or service encoded in the packet | MPLS, Segment Routing, SRv6 |
 
-The recurring theme is **disaggregation**: separate the thing that decides from the thing that forwards, separate the function from the box, and expose each through an open, programmable interface.
+The recurring idea is **disaggregation**: separate the component that decides from the component that forwards, separate the function from the box, and put an open, programmable interface between them.
 
-## SDN: Programming the Control Plane
+## Software-Defined Networking
 
-Traditional networks are like city streets with fixed traffic lights. **Software-Defined Networking (SDN)** makes networks programmable, like having smart traffic lights that adapt to real-time conditions. It does this by separating the control plane from the data plane: a centralized controller computes forwarding decisions and pushes them down to simple switches. SDN has evolved well beyond data centers to enable 5G network slicing, edge-computing orchestration, and AI-driven network optimization.
+**Software-defined networking** (SDN) moves the control plane out of individual devices into a logically centralized controller that has a global view of the network, computes forwarding state, and installs it in comparatively simple switches.
 
-### The Three-Plane Model
+### Architecture
 
+```mermaid
+flowchart TB
+    subgraph APP["Application plane"]
+        TE["Traffic engineering"]
+        SEC["Access policy / firewall"]
+        MON["Monitoring"]
+    end
+    subgraph CTRL["Control plane"]
+        C["SDN controller cluster<br/>topology, path computation, policy"]
+    end
+    subgraph DP["Data plane"]
+        S1["Switch"]
+        S2["Switch"]
+        S3["Switch"]
+    end
+    APP <-->|"Northbound API (REST, gRPC)"| CTRL
+    CTRL <-->|"Southbound API (OpenFlow, P4Runtime, gNMI, NETCONF)"| DP
 ```
-         +-----------------------------------------+
-         |          Application Plane              |
-         |  (traffic engineering, firewall apps,   |
-         |   load balancing, network monitoring)   |
-         +-----------------------------------------+
-                  ^                       |
-   Northbound API |  (REST / gRPC)        v
-         +-----------------------------------------+
-         |            Control Plane                |
-         |   SDN controller (ONOS, OpenDaylight)   |
-         |   topology, path computation, policy    |
-         +-----------------------------------------+
-                  ^                       |
-   Southbound API | (OpenFlow / P4Runtime / NETCONF)
-         +-----------------------------------------+
-         |             Data Plane                  |
-         |   "dumb" switches that match-and-act    |
-         |   on flow rules pushed from above       |
-         +-----------------------------------------+
-```
 
-**Components**:
-- **Controller**: Centralized management (ONOS, OpenDaylight, Ryu, Faucet). Maintains a global view of the topology and computes forwarding decisions.
-- **Southbound API**: Controller to switches (OpenFlow 1.5+, P4Runtime, NETCONF/YANG, gNMI).
-- **Northbound API**: Applications to controller (REST, gRPC). Lets a traffic-engineering or security app express intent without touching individual devices.
-- **Intent-based networking**: Declarative network management — describe *what* you want ("tenant A must never reach tenant B"), not *how* to wire the flow rules.
+- The **controller** (historically ONOS, OpenDaylight, Ryu, Faucet) maintains the topology and computes forwarding decisions.
+- The **southbound API** programs devices: OpenFlow for flow tables, P4Runtime for P4 pipelines, and NETCONF or gNMI with YANG models for configuration and telemetry.
+- The **northbound API** lets applications express what they want (a path with a latency bound, isolation between tenants) without touching individual devices. **Intent-based networking** pushes this further: operators declare an outcome and the system derives, applies, and continuously verifies the configuration.
 
 ### OpenFlow and the Match-Action Abstraction
 
-OpenFlow was the protocol that launched SDN (McKeown et al., 2008). Its core abstraction is the **flow table**: an ordered list of entries, each consisting of
+OpenFlow (McKeown et al., 2008) launched SDN. Its abstraction is the **flow table**, an ordered list of entries, each with:
 
-- a **match** over packet header fields (Ethernet src/dst, VLAN, IP src/dst, TCP/UDP ports, ingress port, ...),
-- a set of **actions** (forward to a port, drop, rewrite a field, push/pop a tag, send to controller),
-- a **priority** (highest-priority matching entry wins),
-- **counters** (packets/bytes), and **timeouts** (idle and hard).
+- a **match** over header fields (ingress port, Ethernet addresses, VLAN, IP addresses, TCP/UDP ports, and so on),
+- **actions** (output to a port, drop, rewrite a field, push or pop a tag, send to the controller),
+- a **priority** (the highest-priority matching entry wins),
+- **counters** and **timeouts** (idle and hard).
 
-A packet entering a switch is matched against the table top-down. If it matches an entry, the actions execute. If it matches nothing, the default behavior (in modern OpenFlow, an explicit table-miss entry) usually sends it to the controller as a **packet-in** message. The controller decides what to do, optionally installs a new flow entry via a **flow-mod** message so future packets of that flow are handled in hardware at line rate, and emits a **packet-out** for the current packet. This "first packet to the controller, rest in the fast path" pattern is the heart of reactive SDN.
+A packet that matches no entry hits the **table-miss** entry, which usually sends it to the controller in a **packet-in** message. The controller decides what to do, installs a rule with a **flow-mod** so later packets of the flow stay in the hardware fast path, and releases the current packet with a **packet-out**:
 
-OpenFlow 1.1+ generalized the single table into a **multi-table pipeline** with a metadata register carried between tables and a **group table** for multipath, multicast, and fast failover. The cost of the centralized model is the controller's reachability and scale — production deployments run controller clusters and pre-install proactive flows to avoid a packet-in storm.
-
-In practice, an SDN controller learns the topology, installs flow rules into switches, and handles the packets that don't yet match any rule. The following model implements that core loop — MAC learning, flow installation, and shortest-path computation with a backup path:
-
-```python
-class SDNController:
-    """Software-Defined Network Controller"""
-    
-    def __init__(self):
-        self.switches = {}
-        self.topology = nx.Graph()
-        self.flow_tables = defaultdict(list)
-        self.packet_in_handlers = []
-        self.statistics = defaultdict(lambda: {'packets': 0, 'bytes': 0})
-        
-    def handle_switch_connect(self, switch_id, features):
-        """Handle switch connection"""
-        self.switches[switch_id] = {
-            'features': features,
-            'ports': features['ports'],
-            'flow_table_size': 0
-        }
-        
-        # Install default flows
-        self.install_default_flows(switch_id)
-        
-    def install_flow(self, switch_id, match, actions, priority=0, idle_timeout=0):
-        """Install OpenFlow rule"""
-        flow_mod = {
-            'match': match,
-            'actions': actions,
-            'priority': priority,
-            'idle_timeout': idle_timeout,
-            'cookie': random.randint(1, 2**32)
-        }
-        
-        self.flow_tables[switch_id].append(flow_mod)
-        
-        # Send to switch
-        self.send_flow_mod(switch_id, flow_mod)
-        
-    def handle_packet_in(self, switch_id, port, packet_data):
-        """Handle packet not matching any flow"""
-        # Parse packet
-        packet = self.parse_packet(packet_data)
-        
-        # Learn source MAC
-        self.mac_learning(switch_id, packet['src_mac'], port)
-        
-        # Find destination
-        out_port = self.find_destination(switch_id, packet['dst_mac'])
-        
-        if out_port:
-            # Install flow for future packets
-            match = {
-                'eth_dst': packet['dst_mac'],
-                'eth_src': packet['src_mac']
-            }
-            actions = [{'type': 'output', 'port': out_port}]
-            
-            self.install_flow(switch_id, match, actions, priority=1, 
-                            idle_timeout=300)
-            
-            # Send current packet
-            self.packet_out(switch_id, packet_data, out_port)
-        else:
-            # Flood
-            self.packet_out(switch_id, packet_data, 'FLOOD')
-            
-    def calculate_paths(self):
-        """Calculate all shortest paths in topology"""
-        paths = {}
-        
-        for src in self.topology.nodes():
-            for dst in self.topology.nodes():
-                if src != dst:
-                    try:
-                        # Primary path
-                        path = nx.shortest_path(self.topology, src, dst, 
-                                              weight='weight')
-                        
-                        # Backup path (node-disjoint)
-                        temp_graph = self.topology.copy()
-                        # Remove intermediate nodes from primary path
-                        for node in path[1:-1]:
-                            temp_graph.remove_node(node)
-                            
-                        backup_path = None
-                        try:
-                            backup_path = nx.shortest_path(temp_graph, src, dst,
-                                                         weight='weight')
-                        except nx.NetworkXNoPath:
-                            pass
-                            
-                        paths[(src, dst)] = {
-                            'primary': path,
-                            'backup': backup_path
-                        }
-                    except nx.NetworkXNoPath:
-                        paths[(src, dst)] = {'primary': None, 'backup': None}
-                        
-        return paths
+```mermaid
+sequenceDiagram
+    participant H1 as Host A
+    participant SW as Switch
+    participant C as Controller
+    H1->>SW: First packet of a new flow
+    Note over SW: No matching entry (table miss)
+    SW->>C: packet-in (headers, ingress port)
+    C->>SW: flow-mod (match, actions, idle timeout)
+    C->>SW: packet-out (forward this packet)
+    SW->>SW: Later packets match the new entry at line rate
 ```
 
-### Reactive vs. Proactive, Centralized vs. Distributed
+OpenFlow 1.1 and later generalized the single table into a **multi-table pipeline** with metadata passed between tables, and added **group tables** for multipath, multicast, and fast failover. The last specification, OpenFlow 1.5.1, dates from 2015.
 
-Two design choices dominate real SDN deployments:
+A reactive learning switch shows the controller's side of the loop:
 
-- **Reactive flow installation** sends the first packet of every new flow to the controller, which installs a rule on demand. It uses table space efficiently but adds latency to flow setup and makes the controller a bottleneck under churn.
-- **Proactive flow installation** pre-computes and pushes rules before traffic arrives (e.g. full-mesh forwarding in a data-center fabric). It avoids per-flow controller round-trips at the cost of larger flow tables.
+```python
+from collections import defaultdict
 
-Likewise, the "centralized" controller is logically central but physically a **cluster** — controllers like ONOS use a distributed store (Raft/Atomix) so the global view survives a controller failure. This is the modern reconciliation between SDN's logically-centralized model and the fault tolerance that distributed routing protocols gave you for free.
+class LearningSwitchApp:
+    """Reactive L2 learning switch, the 'hello world' of SDN controllers.
 
-> For the distributed routing protocols SDN replaces — OSPF, BGP, and per-hop shortest-path forwarding — see [Routing & Switching](routing.html).
+    The controller sees only table misses (packet-in). It learns which port
+    each source MAC is behind and, once the destination is known, installs
+    a flow so the switch forwards the rest of the traffic itself."""
 
-## P4: Programming the Data Plane
+    def __init__(self, channel):
+        self.channel = channel                  # sends flow-mod / packet-out
+        self.mac_to_port = defaultdict(dict)    # switch id -> {mac: port}
 
-SDN lets us program the *control* plane, but the switches themselves still only understand protocols baked into their silicon — an OpenFlow switch can only match the header fields its ASIC was built to parse. **P4** (Programming Protocol-independent Packet Processors) goes further: it lets us define how switches parse and process packets. Imagine customizing not just traffic rules, but how traffic is *understood*. This makes it possible to deploy new protocols without new hardware, do in-network computing (processing data as it flows), and build advanced telemetry.
+    def on_switch_connect(self, dpid):
+        # Table-miss entry: lowest priority, match everything, punt to controller
+        self.channel.flow_mod(dpid, priority=0, match={}, actions=["CONTROLLER"])
+
+    def on_packet_in(self, dpid, in_port, src, dst, frame):
+        table = self.mac_to_port[dpid]
+        table[src] = in_port                    # learn where src lives
+        out_port = table.get(dst)
+        if out_port is None:                    # unknown destination: flood
+            self.channel.packet_out(dpid, frame, actions=["FLOOD"])
+            return
+        self.channel.flow_mod(dpid, priority=10,
+                              match={"in_port": in_port, "eth_dst": dst},
+                              actions=[f"OUTPUT:{out_port}"], idle_timeout=300)
+        self.channel.packet_out(dpid, frame, actions=[f"OUTPUT:{out_port}"])
+```
+
+### Design Choices
+
+| Choice | Option A | Option B |
+|---|---|---|
+| Flow installation | **Reactive**: first packet of each flow goes to the controller. Economical with table space; adds setup latency and makes the controller a bottleneck under churn. | **Proactive**: rules computed and pushed before traffic arrives. No per-flow round trips; needs larger tables and full knowledge of expected traffic. |
+| Controller placement | **Centralized** view, implemented as a replicated cluster (ONOS uses Raft-based distributed stores) so the view survives failures | **Hybrid**: distributed routing protocols keep basic reachability; the controller only overrides selected paths |
+
+Production networks overwhelmingly choose proactive installation and hybrid control, because a data plane that depends on a reachable controller for every new flow is fragile.
+
+### SDN in Practice
+
+Pure OpenFlow networks, with dumb switches and a central brain, remained a niche. The SDN idea succeeded in other forms:
+
+- **Wide-area traffic engineering.** Google's B4 (2013) and Microsoft's SWAN (2013) use central controllers to allocate inter-data-centre WAN capacity, running links far hotter than distributed routing would allow.
+- **Overlay and cloud networking.** Cloud VPCs and platforms such as VMware NSX implement tenant networks in software on the hosts, with a controller programming virtual switches; see [Cloud Networking](cloud-networking.html).
+- **SD-WAN.** Enterprise branch networks steer traffic across broadband, LTE, and MPLS links under central policy.
+- **Controllers speaking routing protocols.** In provider networks the "controller" is often a path computation element (PCE) that learns topology through BGP-LS and programs Segment Routing policies with PCEP or BGP, leaving the distributed IGP in place.
+- **Model-driven management.** gNMI, gNOI, and OpenConfig YANG models give a vendor-neutral, programmable interface for configuration and streaming telemetry.
+- **Open network operating systems.** SONiC, originally from Microsoft and now a Linux Foundation project, runs on switches from many vendors and is widely deployed in hyperscale data centres.
+
+Institutionally, the Open Networking Foundation, which stewarded OpenFlow, ONOS, and P4, merged into the Linux Foundation in December 2023.
+
+> The distributed routing protocols that SDN complements or replaces (OSPF, BGP, per-hop shortest-path forwarding) are covered in [Routing & Switching](routing.html).
+
+## P4: Programming the Switch Pipeline
+
+OpenFlow can only match the header fields its switch ASIC was built to parse. **P4** (Programming Protocol-independent Packet Processors; Bosshart et al., 2014) goes a level lower: the program defines which headers exist, how they are parsed, and what tables process them. New protocols can then be deployed without new silicon.
 
 ### The PISA Pipeline
 
-P4 targets the **Protocol-Independent Switch Architecture (PISA)**, a reconfigurable pipeline with four stages:
+P4 programs target the **Protocol-Independent Switch Architecture** (PISA) or a variation of it:
 
-1. **Parser** — a programmable state machine that walks the packet header-by-header, extracting fields into typed headers. You declare the grammar; the parser is protocol-agnostic.
-2. **Ingress match-action** — a series of tables, each matching extracted fields and invoking actions (modify headers, set metadata, choose an egress port, drop).
-3. **Egress match-action** — a second set of tables applied after the switch's queueing/replication, useful for per-output-port rewrites and multicast.
-4. **Deparser** — reassembles the (possibly modified) headers back onto the wire.
-
-The compiler maps your P4 program onto the target (a Tofino ASIC, a SmartNIC, BMv2 software switch, or an FPGA). The control plane populates the tables at runtime over **P4Runtime** (a gRPC API), giving you the same controller/data-plane split as OpenFlow, but with a data plane whose very structure you defined.
-
-```python
-class P4DataPlane:
-    """Define custom packet processing behavior in switches.
-    
-    Use cases:
-    - New protocols without hardware changes
-    - In-network computing (processing data as it flows)
-    - Advanced telemetry and monitoring
-    """
-    
-    def __init__(self):
-        self.tables = {}
-        self.actions = {}
-        self.parsers = {}
-        self.metadata = {}
-        
-    def define_parser(self):
-        """Define packet parser in P4 style"""
-        parser_def = '''
-        parser MyParser(packet_in packet,
-                       out headers hdr,
-                       inout metadata meta,
-                       inout standard_metadata_t standard_metadata) {
-            
-            state start {
-                transition parse_ethernet;
-            }
-            
-            state parse_ethernet {
-                packet.extract(hdr.ethernet);
-                transition select(hdr.ethernet.etherType) {
-                    0x0800: parse_ipv4;
-                    0x86DD: parse_ipv6;
-                    default: accept;
-                }
-            }
-            
-            state parse_ipv4 {
-                packet.extract(hdr.ipv4);
-                transition select(hdr.ipv4.protocol) {
-                    6: parse_tcp;
-                    17: parse_udp;
-                    default: accept;
-                }
-            }
-            
-            state parse_tcp {
-                packet.extract(hdr.tcp);
-                transition accept;
-            }
-        }
-        '''
-        return parser_def
-        
-    def define_match_action_table(self, name, match_fields, actions, size=1024):
-        """Define match-action table"""
-        self.tables[name] = {
-            'match_fields': match_fields,
-            'actions': actions,
-            'entries': {},
-            'default_action': None,
-            'size': size
-        }
-        
-    def add_table_entry(self, table_name, match_values, action_name, action_params):
-        """Add entry to match-action table"""
-        if table_name not in self.tables:
-            raise ValueError(f"Table {table_name} not found")
-            
-        # Create match key
-        match_key = tuple(match_values)
-        
-        # Add entry
-        self.tables[table_name]['entries'][match_key] = {
-            'action': action_name,
-            'params': action_params
-        }
-        
-    def process_packet(self, packet):
-        """Process packet through P4 pipeline"""
-        # Parse packet
-        headers = self.parse_packet(packet)
-        metadata = {'ingress_port': packet.ingress_port}
-        
-        # Ingress pipeline
-        headers, metadata = self.ingress_pipeline(headers, metadata)
-        
-        # Egress decision
-        if metadata.get('drop', False):
-            return None
-            
-        # Egress pipeline
-        headers, metadata = self.egress_pipeline(headers, metadata)
-        
-        # Deparse
-        output_packet = self.deparse_packet(headers)
-        
-        return output_packet, metadata.get('egress_port')
+```mermaid
+flowchart LR
+    IN["Packet in"] --> PA["Programmable parser<br/>(state machine)"]
+    PA --> IG["Ingress match-action stages"]
+    IG --> TM["Traffic manager<br/>(queues, replication)"]
+    TM --> EG["Egress match-action stages"]
+    EG --> DP["Deparser"]
+    DP --> OUT["Packet out"]
+    CP["Control plane via P4Runtime"] -.->|"populate tables"| IG
+    CP -.-> EG
 ```
 
-### Match Kinds and What the Data Plane Can Do
+1. The **parser** is a state machine that extracts headers into typed structures; the programmer defines the protocol graph.
+2. **Ingress match-action** stages look up extracted fields in tables and run actions (rewrite headers, set metadata, choose an egress port, drop).
+3. The **traffic manager** queues, schedules, and replicates packets (fixed function).
+4. **Egress match-action** stages apply per-output-port processing.
+5. The **deparser** serializes the possibly modified headers back onto the wire.
 
-P4 tables match on different **match kinds** that map to different silicon:
+The P4 compiler maps the program onto a target (a switch ASIC, SmartNIC or DPU, FPGA, or a software switch such as BMv2), and the control plane fills tables at runtime through **P4Runtime**, a gRPC API.
 
-- `exact` — hash table lookup (e.g. exact destination MAC).
-- `lpm` — longest-prefix match, the IP-routing primitive (a TCAM or algorithmic LPM).
-- `ternary` — masked match for ACLs and firewall rules (TCAM).
-- `range` — port-range matching.
+### A Minimal P4 Program
 
-Beyond simple forwarding, the programmable data plane enables **in-network computing**: stateful registers and counters let a switch maintain per-flow state, implement load-balancing or caching, run sketches for heavy-hitter detection, or aggregate data for distributed training — all at terabit line rate. A flagship application is **In-band Network Telemetry (INT)**, where each switch on the path appends its queue depth, timestamp, and hop latency into a metadata stack, giving per-packet, per-hop visibility impossible with traditional sampling.
+The program below, written against the `v1model` architecture used by the BMv2 reference software switch, parses Ethernet and IPv4 and forwards by longest-prefix match on the destination address, decrementing the TTL and recomputing the header checksum:
 
-The limits are real, though: a hardware P4 pipeline runs each table at most once per packet, has bounded stages and memory, and offers no loops — it trades generality for line-rate determinism. Software targets (BMv2) lift these limits but at orders-of-magnitude lower throughput.
+```text
+#include <core.p4>
+#include <v1model.p4>
 
-## NFV: Network Functions Become Software
+const bit<16> TYPE_IPV4 = 0x0800;
 
-Why buy expensive hardware firewalls, routers, and load balancers when software can do the job? **Network Function Virtualization (NFV)** transforms these appliances into software (Virtual Network Functions, or VNFs) running on standard servers. The payoff is deploying new services in minutes instead of months, scaling them up and down on demand, cutting hardware costs, and chaining functions together (firewall → IDS → load balancer) as a **service function chain**.
+header ethernet_t {
+    bit<48> dstAddr;
+    bit<48> srcAddr;
+    bit<16> etherType;
+}
 
-### The NFV Architecture (ETSI)
+header ipv4_t {
+    bit<4>  version;    bit<4>  ihl;       bit<8>  diffserv;
+    bit<16> totalLen;   bit<16> identification;
+    bit<3>  flags;      bit<13> fragOffset;
+    bit<8>  ttl;        bit<8>  protocol;  bit<16> hdrChecksum;
+    bit<32> srcAddr;    bit<32> dstAddr;
+}
 
-The ETSI NFV reference architecture separates three concerns:
+struct headers_t  { ethernet_t ethernet; ipv4_t ipv4; }
+struct metadata_t { }
 
-- **NFVI (Infrastructure)** — the compute, storage, and network (often a cloud/OpenStack/Kubernetes substrate) on which functions run.
-- **VNFs** — the virtualized functions themselves (a virtual firewall, vRouter, vBNG, 5G UPF, ...), packaged as VMs or, increasingly, containers (then called CNFs — Cloud-native Network Functions).
-- **MANO (Management and Orchestration)** — the orchestrator, VNF managers, and Virtualized Infrastructure Manager that instantiate, scale, heal, and chain VNFs according to descriptors.
-
-NFV and SDN are complementary: NFV virtualizes *what* the function is, while SDN programs *how* traffic is steered between functions. Together they enable **Service Function Chaining (SFC)** — pushing a packet through an ordered list of VNFs (encoded with NSH, the Network Service Header, or with SRv6) regardless of where each VNF physically runs.
-
-```python
-class VirtualNetworkFunction:
-    """Transform hardware network appliances into flexible software.
-    
-    Benefits:
-    - Deploy new services in minutes, not months
-    - Scale up/down based on demand
-    - Reduce hardware costs
-    - Enable service chaining (firewall → IDS → load balancer)
-    """
-    
-    def __init__(self, cpu_cores=1, memory_mb=1024):
-        self.cpu_cores = cpu_cores
-        self.memory_mb = memory_mb
-        self.rx_queue = queue.Queue()
-        self.tx_queue = queue.Queue()
-        self.statistics = {
-            'packets_processed': 0,
-            'packets_dropped': 0,
-            'processing_time_ms': []
+parser MyParser(packet_in pkt, out headers_t hdr,
+                inout metadata_t meta, inout standard_metadata_t std) {
+    state start {
+        pkt.extract(hdr.ethernet);
+        transition select(hdr.ethernet.etherType) {
+            TYPE_IPV4: parse_ipv4;
+            default:   accept;
         }
-        
-    def process_packet(self, packet):
-        """Override in subclasses"""
-        raise NotImplementedError
-        
-    def run(self):
-        """Main processing loop"""
-        while True:
-            try:
-                packet = self.rx_queue.get(timeout=0.001)
-                start_time = time.time()
-                
-                # Process packet
-                result = self.process_packet(packet)
-                
-                if result:
-                    self.tx_queue.put(result)
-                    self.statistics['packets_processed'] += 1
-                else:
-                    self.statistics['packets_dropped'] += 1
-                    
-                # Record processing time
-                proc_time = (time.time() - start_time) * 1000
-                self.statistics['processing_time_ms'].append(proc_time)
-                
-            except queue.Empty:
-                continue
+    }
+    state parse_ipv4 {
+        pkt.extract(hdr.ipv4);
+        transition accept;
+    }
+}
 
-class VirtualFirewall(VirtualNetworkFunction):
-    """Stateful firewall VNF"""
-    
-    def __init__(self, rules_file=None, **kwargs):
-        super().__init__(**kwargs)
-        self.rules = self.load_rules(rules_file)
-        self.connection_table = {}
-        self.connection_timeout = 300  # seconds
-        
-    def process_packet(self, packet):
-        """Apply firewall rules"""
-        # Check established connections
-        conn_key = self.get_connection_key(packet)
-        
-        if conn_key in self.connection_table:
-            # Update timestamp
-            self.connection_table[conn_key]['last_seen'] = time.time()
-            return packet
-            
-        # Check rules
-        for rule in self.rules:
-            if self.match_rule(packet, rule):
-                if rule['action'] == 'allow':
-                    # Add to connection table
-                    self.connection_table[conn_key] = {
-                        'created': time.time(),
-                        'last_seen': time.time(),
-                        'packets': 1
-                    }
-                    return packet
-                else:
-                    return None  # Drop
-                    
-        # Default deny
-        return None
+control MyIngress(inout headers_t hdr, inout metadata_t meta,
+                  inout standard_metadata_t std) {
+    action drop() { mark_to_drop(std); }
 
-class ServiceFunctionChain:
-    """Chain multiple VNFs"""
-    
-    def __init__(self):
-        self.vnfs = []
-        self.links = []
-        
-    def add_vnf(self, vnf):
-        """Add VNF to chain"""
-        self.vnfs.append(vnf)
-        
-        # Create link queues
-        if len(self.vnfs) > 1:
-            link_queue = queue.Queue()
-            self.links.append(link_queue)
-            
-            # Connect previous VNF output to current input
-            self.vnfs[-2].tx_queue = link_queue
-            self.vnfs[-1].rx_queue = link_queue
-            
-    def deploy(self):
-        """Deploy service chain"""
-        threads = []
-        
-        for vnf in self.vnfs:
-            thread = threading.Thread(target=vnf.run)
-            thread.daemon = True
-            thread.start()
-            threads.append(thread)
-            
-        return threads
+    action ipv4_forward(bit<48> nextHopMac, bit<9> port) {
+        std.egress_spec      = port;
+        hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
+        hdr.ethernet.dstAddr = nextHopMac;
+        hdr.ipv4.ttl         = hdr.ipv4.ttl - 1;
+    }
+
+    table ipv4_lpm {
+        key            = { hdr.ipv4.dstAddr: lpm; }
+        actions        = { ipv4_forward; drop; }
+        size           = 1024;
+        default_action = drop();
+    }
+
+    apply {
+        if (hdr.ipv4.isValid() && hdr.ipv4.ttl > 1) {
+            ipv4_lpm.apply();
+        } else {
+            drop();
+        }
+    }
+}
+
+control MyVerifyChecksum(inout headers_t hdr, inout metadata_t meta) { apply { } }
+control MyEgress(inout headers_t hdr, inout metadata_t meta,
+                 inout standard_metadata_t std) { apply { } }
+
+control MyComputeChecksum(inout headers_t hdr, inout metadata_t meta) {
+    apply {
+        update_checksum(hdr.ipv4.isValid(),
+            { hdr.ipv4.version, hdr.ipv4.ihl, hdr.ipv4.diffserv,
+              hdr.ipv4.totalLen, hdr.ipv4.identification, hdr.ipv4.flags,
+              hdr.ipv4.fragOffset, hdr.ipv4.ttl, hdr.ipv4.protocol,
+              hdr.ipv4.srcAddr, hdr.ipv4.dstAddr },
+            hdr.ipv4.hdrChecksum, HashAlgorithm.csum16);
+    }
+}
+
+control MyDeparser(packet_out pkt, in headers_t hdr) {
+    apply { pkt.emit(hdr.ethernet); pkt.emit(hdr.ipv4); }
+}
+
+V1Switch(MyParser(), MyVerifyChecksum(), MyIngress(), MyEgress(),
+         MyComputeChecksum(), MyDeparser()) main;
 ```
 
-### Making Software Forwarding Fast
+The program defines the *shape* of the `ipv4_lpm` table but none of its entries; a controller installs routes at runtime over P4Runtime, exactly as a routing daemon would program a conventional FIB.
 
-A naive VNF that copies every packet through the kernel networking stack cannot keep up with a 10/40/100 GbE NIC. NFV in production leans on **fast-path** techniques:
+### Match Kinds
 
-- **DPDK (Data Plane Development Kit)** — poll-mode drivers that bypass the kernel, pin packet processing to dedicated cores, and use hugepages and lockless ring buffers to push tens of millions of packets per second from userspace.
-- **eBPF / XDP** — run a verified program in the kernel at the earliest receive hook (the driver), dropping or redirecting packets before the stack touches them. Projects like Cilium and Katran build L3/L4 load balancers and firewalls this way.
-- **SR-IOV** — hardware partitions one physical NIC into many virtual functions, giving each VNF near-native I/O without a software switch in the path.
+| Match kind | Semantics | Typical hardware | Used for |
+|---|---|---|---|
+| `exact` | Key equals value | Hash table in SRAM | MAC tables, tunnel IDs, flow state |
+| `lpm` | Longest matching prefix wins | TCAM or algorithmic LPM | IP routing |
+| `ternary` | Value and mask, with priority | TCAM | ACLs, firewall rules, classification |
+| `range` | Key within an interval | TCAM (expanded) | Port ranges |
 
-These are the same ideas that let a P4 SmartNIC or a kernel eBPF program do "in-network" work — the boundary between "the network" and "the server" has largely dissolved.
+### What a Programmable Data Plane Enables
 
-## Label and Segment Forwarding: MPLS, SR, and SRv6
+- **In-band Network Telemetry (INT).** Each switch appends its identity, queue depth, and timestamps to packets as they pass, giving per-packet, per-hop visibility of where latency accumulates, far beyond what sampled counters can show.
+- **In-network computing.** Stateful registers let switches keep per-flow state and run algorithms at line rate: count-min sketches for heavy-hitter detection, load balancing, key-value caching (NetCache), and aggregation of gradients for distributed training (SwitchML).
+- **Custom protocols and encapsulations** deployed as software updates rather than hardware refreshes.
 
-Per-hop IP forwarding makes an independent longest-prefix-match decision at every router, which is flexible but offers little control over *which* path a flow takes. Label- and segment-based forwarding instead encode the path (or a service) into the packet, so the network's interior just follows instructions.
+The constraints are what make line rate possible: a hardware pipeline has a fixed number of stages, each table is applied at most once per packet, memory per stage is small, and there are no unbounded loops. Software targets remove these limits at orders of magnitude lower throughput.
 
-### MPLS (Multiprotocol Label Switching)
+### Status in 2026
 
-**MPLS** forwards packets based on short, fixed-length **labels** rather than full routing-table lookups. An ingress router (the **Label Edge Router**, LER) classifies a packet into a **Forwarding Equivalence Class** and pushes a 4-byte label header (the "shim") between L2 and L3. Interior routers (**Label Switch Routers**, LSRs) do a fast exact-match lookup on the label, **swap** it for the next-hop label, and forward — never re-examining the IP header. The egress LER **pops** the label and forwards normally.
+The language is stable: the current P4<sub>16</sub> specification is version 1.2.5 (October 2024), and P4Runtime reached version 1.5.0 in February 2026. The hardware landscape has shifted. Intel's Tofino line was the flagship programmable switch ASIC, but Intel stopped developing new Tofino generations in 2023; its software development kit has since been released as open source (`open-p4studio`). P4 activity has moved toward SmartNICs and DPUs (with the **Portable NIC Architecture**, PNA), FPGAs, and software targets, including backends of the reference compiler `p4c` that generate DPDK and eBPF code. The P4 project is now hosted by the Linux Foundation.
 
-The label header carries a 20-bit label, a 3-bit traffic-class (QoS) field, a bottom-of-stack bit (labels can be stacked), and a TTL. Stacking enables hierarchy: an outer label selects the tunnel, an inner label selects the VPN or service.
+## eBPF and XDP: The Programmable Host
 
-Benefits:
-- **Traffic engineering** — explicit **Label-Switched Paths (LSPs)** can be pinned along non-shortest routes (via RSVP-TE) to balance load or honor latency constraints.
-- **QoS** — the traffic-class field lets each hop apply per-class queueing without deep inspection.
-- **VPN services** — **L3VPN** (BGP/MPLS, RFC 4364) and **L2VPN/VPLS** let a provider carry many customers' overlapping address spaces over one core using the label stack.
-- **Reduced lookups** — exact-match label swap is simpler and faster than recursive IP LPM (less relevant on modern hardware, but historically the point).
+**eBPF** lets verified programs run inside the Linux kernel, attached to hooks throughout the network stack, without writing kernel modules. The kernel's **verifier** proves each program terminates and only accesses memory it is allowed to, then a JIT compiles it to native code. Programs keep state and communicate with user space through **maps** (hash tables, arrays, ring buffers).
 
-### Segment Routing (SR)
+| Hook | Runs | Typical use |
+|---|---|---|
+| XDP (eXpress Data Path) | In the NIC driver, before the kernel allocates a socket buffer | DDoS dropping, L4 load balancing, fast forwarding (`XDP_DROP`, `XDP_TX`, `XDP_REDIRECT`) |
+| tc (traffic control) ingress/egress | After the socket buffer exists, with full packet metadata | Container networking, policy enforcement, NAT, shaping |
+| Socket and cgroup hooks | At `connect()`, `sendmsg()`, and socket operations | Service load balancing without per-packet NAT, per-workload policy |
+| kprobes, tracepoints | Anywhere in the kernel | Observability: per-connection RTT, retransmissions, drops with reasons |
 
-**Segment Routing** keeps the label/forwarding idea but removes MPLS's signaling baggage (no RSVP-TE or LDP state in the core). The source encodes the path as an ordered list of **segments** — instructions like "go to node X" (a *node* segment) or "traverse link L" (an *adjacency* segment). Interior routers hold no per-flow tunnel state; they just execute the segment on top of the stack and pop it. This **source routing** model scales because the network state lives in the packet, not in the routers.
+A complete XDP program that drops UDP traffic to port 9999 before it reaches the kernel stack:
 
-Segments are advertised as **SIDs (Segment IDs)** in the IGP (OSPF/IS-IS extensions), so a controller or the ingress node can compute and impose an explicit path with nothing more than the existing link-state database.
+```c
+// SPDX-License-Identifier: GPL-2.0
+#include <linux/bpf.h>
+#include <linux/if_ether.h>
+#include <linux/in.h>
+#include <linux/ip.h>
+#include <linux/udp.h>
+#include <bpf/bpf_helpers.h>
+#include <bpf/bpf_endian.h>
+
+SEC("xdp")
+int drop_udp_9999(struct xdp_md *ctx)
+{
+    void *data     = (void *)(long)ctx->data;
+    void *data_end = (void *)(long)ctx->data_end;
+
+    /* Every pointer must be bounds-checked, or the verifier rejects the program */
+    struct ethhdr *eth = data;
+    if ((void *)(eth + 1) > data_end || eth->h_proto != bpf_htons(ETH_P_IP))
+        return XDP_PASS;
+
+    struct iphdr *ip = (void *)(eth + 1);
+    if ((void *)(ip + 1) > data_end || ip->protocol != IPPROTO_UDP)
+        return XDP_PASS;
+
+    struct udphdr *udp = (void *)ip + ip->ihl * 4;
+    if ((void *)(udp + 1) > data_end)
+        return XDP_PASS;
+
+    return udp->dest == bpf_htons(9999) ? XDP_DROP : XDP_PASS;
+}
+
+char LICENSE[] SEC("license") = "GPL";
+```
+
+```bash
+clang -O2 -g -target bpf -c xdp_drop.c -o xdp_drop.o
+ip link set dev eth0 xdp obj xdp_drop.o sec xdp     # attach (native mode)
+ip link set dev eth0 xdp off                        # detach
+```
+
+eBPF is now a mainstream data plane in its own right. **Cilium**, a CNCF graduated project, implements Kubernetes networking, network policy, load balancing, and observability entirely in eBPF; Meta's **Katran** is an XDP-based L4 load balancer; large CDNs drop DDoS traffic with XDP; and the `netkit` device (Linux 6.7) gives containers an eBPF-programmable interface with host-level performance. See [Kubernetes](../kubernetes/) for the CNI context.
+
+## Network Function Virtualization
+
+**Network function virtualization** (NFV) replaces dedicated appliances (firewalls, load balancers, broadband gateways, mobile packet cores) with software running on commodity servers. Functions can be deployed in minutes, scaled with demand, and chained together.
+
+### The ETSI Reference Architecture
+
+```mermaid
+flowchart TB
+    subgraph MANO["Management and orchestration (MANO)"]
+        NFVO["NFV orchestrator"]
+        VNFM["VNF manager"]
+        VIM["Virtualized infrastructure manager<br/>(OpenStack, Kubernetes)"]
+        NFVO --> VNFM --> VIM
+    end
+    subgraph FUNCS["Network functions"]
+        V1["vFirewall"]
+        V2["vRouter"]
+        V3["5G UPF"]
+    end
+    NFVI["NFV infrastructure: compute, storage, network"]
+    FUNCS --> NFVI
+    VNFM -.->|lifecycle| FUNCS
+    VIM -.->|resources| NFVI
+```
+
+- **NFVI** is the compute, storage, and network substrate.
+- **VNFs** are the functions themselves, originally packaged as virtual machines. The industry has largely moved to **CNFs** (cloud-native network functions) packaged as containers and managed by Kubernetes, with projects such as Nephio automating their deployment.
+- **MANO** instantiates, scales, heals, and chains functions from declarative descriptors.
+
+The 5G core is NFV's largest success: its functions (AMF, SMF, UPF, and others) are specified as services and are typically deployed as CNFs; see [Wireless & Mobile](wireless-and-mobile.html).
+
+NFV and SDN are complementary. NFV virtualizes *what* a function is; SDN or segment routing steers *how* traffic reaches it. **Service function chaining** (SFC) sends a flow through an ordered list of functions (for example firewall, then IDS, then load balancer) regardless of where each runs, encoding the chain with the Network Service Header (NSH, RFC 8300) or an SRv6 segment list.
+
+### Fast Packet Processing
+
+A function that moves every packet through the general-purpose kernel stack cannot keep up with a 100 Gb/s NIC (about 148 million minimum-size packets per second). Production NFV relies on:
+
+| Technique | How it works | Trade-off |
+|---|---|---|
+| DPDK | Poll-mode user-space drivers bypass the kernel; dedicated cores, hugepages, lockless rings | Very high throughput; cores spin at 100% and the kernel's tools and stack are bypassed |
+| eBPF/XDP | Processing in the driver, inside the kernel | Keeps kernel integration and tooling; constrained programming model |
+| SR-IOV | NIC exposes many virtual functions assigned directly to VMs or containers | Near-native I/O; live migration and policy enforcement become harder |
+| SmartNICs and DPUs | Offload switching, encryption, storage, and whole virtual switches to the NIC's own processors (NVIDIA BlueField, AMD Pensando, Intel IPU, AWS Nitro) | Frees host CPUs and isolates the infrastructure from tenants; vendor-specific programming models |
+
+## Label and Segment Forwarding
+
+Plain IP forwarding makes an independent longest-prefix-match decision at every router. That is robust but gives little control over *which* path a flow takes. Label and segment forwarding encode a path or a service into the packet so the core simply follows instructions.
+
+### MPLS
+
+**Multiprotocol Label Switching** forwards on short labels rather than IP addresses. A 32-bit label stack entry sits between the layer-2 and layer-3 headers:
+
+| Field | Bits | Purpose |
+|---|---|---|
+| Label | 20 | Forwarding identifier, meaningful only to the receiving router |
+| Traffic Class (TC) | 3 | QoS class (formerly "EXP") |
+| Bottom of Stack (S) | 1 | Set on the last entry; labels can be stacked |
+| TTL | 8 | Loop protection, copied from or to the IP TTL |
+
+```mermaid
+flowchart LR
+    CE1["Customer<br/>site A"] --> PE1["Ingress PE<br/>push label 100"]
+    PE1 -->|"100"| P1["P router<br/>swap 100 to 200"]
+    P1 -->|"200"| P2["Penultimate P<br/>pop"]
+    P2 -->|"IP"| PE2["Egress PE<br/>IP lookup"]
+    PE2 --> CE2["Customer<br/>site B"]
+```
+
+The ingress **label edge router** classifies a packet into a forwarding equivalence class and **pushes** a label; each **label switching router** **swaps** it with an exact-match lookup; the label is **popped** at or just before the egress (penultimate-hop popping). Labels are distributed by LDP, or by RSVP-TE for explicitly routed traffic-engineering tunnels.
+
+MPLS remains the backbone of service-provider networks because of what the label stack enables:
+
+- **Traffic engineering**: explicit label-switched paths pinned along non-shortest routes to balance load or meet latency constraints.
+- **VPNs**: BGP/MPLS **L3VPN** (RFC 4364) carries many customers' overlapping address spaces across one core, with an outer transport label and an inner VPN label. For layer-2 services, **EVPN** (RFC 7432) has largely replaced VPLS.
+- **Fast reroute**: precomputed backup paths restore traffic within about 50 ms of a link failure.
+
+### Segment Routing
+
+**Segment Routing** (SR, RFC 8402) keeps source routing through labels but removes the per-tunnel signalling state of LDP and RSVP-TE. The ingress node encodes a path as an ordered list of **segments**; transit routers execute the top segment and move to the next, holding no per-flow state.
+
+- A **prefix (node) segment** means "go to node X by the shortest path" (loose routing).
+- An **adjacency segment** means "leave through this specific link" (strict routing).
+- Segments are advertised as **segment identifiers** (SIDs) by IS-IS or OSPF extensions, so any head end or controller can build explicit paths from the link-state database. Prefix SIDs are indices into a network-wide label block (the SRGB); adjacency SIDs are local to one router.
 
 ```python
-def build_sr_label_stack(path, sid_map, node_sids, adj_sids):
-    """Translate an explicit hop list into an SR-MPLS label stack.
+def sr_mpls_label_stack(path, prefix_sid, adj_sid, srgb_base=16000):
+    """Turn an explicit hop list into an SR-MPLS label stack (top label first).
 
-    node_sids: {node -> prefix-SID label}
-    adj_sids:  {(a, b) -> adjacency-SID label}  (link-local)
-    A node-SID routes by shortest path to that node; an adjacency-SID
-    pins a specific link. Mixing them gives loose or strict source routes.
+    prefix_sid: {node: index}  -> label srgb_base + index, shortest path to node
+    adj_sid:    {(a, b): label} -> local label that forces the a->b link
+    Hops listed in adj_sid are pinned (strict); others use shortest paths (loose).
     """
     stack = []
-    for i in range(len(path) - 1):
-        a, b = path[i], path[i + 1]
-        if (a, b) in adj_sids:
-            stack.append(adj_sids[(a, b)])   # strict: this exact link
+    for a, b in zip(path, path[1:]):
+        if (a, b) in adj_sid:
+            stack.append(adj_sid[(a, b)])
         else:
-            stack.append(node_sids[b])       # loose: shortest path to b
-    # Stack is imposed top-to-bottom; top label is the first instruction.
+            stack.append(srgb_base + prefix_sid[b])
     return stack
+
+# Force the R2->R3 link, then reach R5 by shortest path
+print(sr_mpls_label_stack(["R1", "R2", "R3", "R5"],
+                          prefix_sid={"R2": 2, "R3": 3, "R5": 5},
+                          adj_sid={("R2", "R3"): 24023}))
+# [16002, 24023, 16005]
 ```
 
-Segment Routing has two data planes:
+A real head end compresses this further, emitting a prefix SID only where the shortest path would diverge from the intended one. Because paths are just lists, SR also enables **TI-LFA** (topology-independent loop-free alternate) fast reroute, where each router precomputes a repair segment list that protects against any single link or node failure.
 
-- **SR-MPLS** — segments are MPLS labels, reusing existing MPLS hardware with a much simpler control plane.
-- **SRv6** — segments are full IPv6 addresses carried in an IPv6 extension header (the **Segment Routing Header**, SRH). Because each SID is a 128-bit IPv6 address, a SID can encode not just "where" but "what to do" — a **network program** (RFC 8986 "SRv6 Network Programming"): forwarding, VPN decapsulation, service-chaining a packet through a VNF, and more. SRv6 unifies overlay (VPN), underlay (TE), and service chaining into one IPv6-native mechanism, which is why it has become a centerpiece of 5G transport and modern provider cores.
+SR has two data planes:
 
-> SRv6 builds directly on IPv6 extension headers — see the IPv6 section below for the header machinery it depends on.
+- **SR-MPLS**: segments are MPLS labels, reusing existing MPLS hardware with a simpler control plane.
+- **SRv6**: segments are IPv6 addresses carried in a **Segment Routing Header** (SRH, RFC 8754).
 
-## IPv6 Transition
+### SRv6 Network Programming
 
-IPv6 is the substrate SRv6 and much of modern transport assume, but the world still runs enormous amounts of IPv4. **Transition mechanisms** let the two coexist during the long migration. They fall into three families:
+In SRv6 a SID is a 128-bit IPv6 address structured as **locator:function:argument**. The locator is a routable prefix that brings the packet to a node; the function tells that node what to do with it. RFC 8986 defines the standard behaviours:
 
-- **Dual stack** — hosts and routers run IPv4 and IPv6 simultaneously, choosing per-destination (typically via *Happy Eyeballs*, RFC 8305, racing A and AAAA). Conceptually the cleanest approach, but it doubles the addressing/operational burden and does nothing to relieve IPv4 exhaustion.
-- **Tunneling** — carry IPv6 over an IPv4 network (or vice versa) by encapsulation: **6to4** and **6rd** (auto-derive an IPv6 prefix from an IPv4 address), **Teredo** (IPv6 through IPv4 NAT via UDP), and **GRE / manual tunnels** in provider cores. Useful to bridge IPv6 islands across legacy IPv4 transit.
-- **Translation** — rewrite headers between families: **NAT64** + **DNS64** let IPv6-only clients reach IPv4-only servers (DNS64 synthesizes a AAAA record inside a well-known prefix `64:ff9b::/96`; NAT64 translates the resulting IPv6 flow to IPv4). **464XLAT** combines a stateless client-side translator with a stateful provider NAT64 so IPv6-only mobile networks can still carry IPv4-only applications.
+| Behaviour | Action at the node owning the SID |
+|---|---|
+| End | Endpoint: advance to the next segment in the SRH and forward |
+| End.X | Advance and send out a specific adjacency (the SRv6 adjacency SID) |
+| End.DT4 / End.DT6 / End.DT46 | Decapsulate and look up the inner packet in a VRF table (L3VPN) |
+| End.DX2 | Decapsulate and send the inner Ethernet frame out an interface (L2VPN) |
+| H.Encaps | Head end: wrap the packet in an outer IPv6 header with an SRH |
 
-The IPv6 header itself simplifies the data plane in ways that complement programmable networking: a fixed 40-byte base header, no in-network fragmentation (PMTUD is mandatory), no header checksum, and a chain of **extension headers** for options. That extension-header chain is exactly what SRv6 reuses to carry its segment list — making IPv6 not just the next addressing scheme but the programmable transport layer beneath SR.
+Because a SID can mean "deliver to VPN 42" or "send through this firewall", SRv6 unifies the underlay (traffic engineering), overlay (VPN), and service chaining in one IPv6-native mechanism with no MPLS in the core, which has made it attractive for 5G transport. Its main cost was header size: a list of full 128-bit SIDs is large. **Compressed SIDs** (RFC 9800, June 2025) pack several short micro-SIDs into one 128-bit container, bringing overhead close to that of MPLS.
 
-## SRv6, eBPF, and the Convergence
+### Overlays: VXLAN, Geneve, and EVPN
 
-Several of the threads above are converging in production today:
+Data-centre and cloud networks carry tenant layer-2 and layer-3 networks over a routed IP fabric using encapsulation:
 
-- **SRv6 (Segment Routing over IPv6)** — simplified network programming, source-routed traffic engineering, and IPv6-native service chaining in one mechanism, increasingly the default for 5G transport.
-- **eBPF** — programmable kernel networking without modules, powering load balancers, firewalls, and observability (Cilium, Katran, Pixie). The server's kernel has become a programmable data plane in its own right.
-- **In-network computing** — P4-programmable switches and SmartNICs that offload caching, load balancing, telemetry, and aggregation into the fabric.
-- **AI/ML in networking** — controllers that predict congestion, auto-tune paths, and detect anomalies on top of the global view SDN exposes.
+- **VXLAN** (RFC 7348) wraps Ethernet frames in UDP (port 4789) with a 24-bit network identifier, allowing about 16 million segments instead of 4,094 VLANs.
+- **Geneve** (RFC 8926) generalizes this with extensible option fields and is used by several cloud and virtual-switch implementations.
+- **BGP EVPN** is the control plane: instead of flooding to learn MAC addresses, tunnel endpoints advertise MAC and IP bindings through BGP, enabling distributed gateways and multi-homing.
 
-The common thread is the one this page opened with: every layer of the network — control plane, data plane, network function, and forwarding fabric — is becoming software you can change.
+## The IPv6 Transition
+
+SRv6 and much modern infrastructure assume IPv6, yet the internet still runs both protocols. Close to half of Google's users now reach it over IPv6, with mobile networks and some national markets well above that, while many enterprise and legacy networks remain IPv4-only. Transition mechanisms fall into three families:
+
+| Family | Mechanism | How it works | Status |
+|---|---|---|---|
+| Dual stack | Hosts run both protocols | Clients race IPv6 and IPv4 connections and prefer IPv6 (Happy Eyeballs, RFC 8305) | The default for most networks; does not relieve IPv4 address scarcity |
+| Tunnelling | 6in4, GRE | IPv6 carried inside IPv4 across legacy segments | Still used for manual tunnels |
+| | 6to4, Teredo | Automatic tunnels derived from IPv4 addresses | Obsolete; 6to4 anycast deprecated (RFC 7526), Teredo disabled by default |
+| | DS-Lite (RFC 6333) | IPv4 carried over an IPv6-only access network to a provider NAT | Used by some broadband ISPs |
+| Translation | NAT64 + DNS64 (RFC 6146, 6147) | IPv6-only clients reach IPv4-only servers through a stateful translator | Standard on IPv6-only mobile networks |
+| | 464XLAT (RFC 6877) | Client-side stateless translator plus provider NAT64, so IPv4-only applications work on IPv6-only networks | Deployed by major mobile carriers; built into Android |
+| | MAP-E / MAP-T | Stateless sharing of IPv4 addresses across subscribers | Used by some ISPs |
+
+NAT64 with DNS64 is the core of IPv6-only access:
+
+```mermaid
+sequenceDiagram
+    participant C as IPv6-only client
+    participant D as DNS64 resolver
+    participant N as NAT64 gateway
+    participant S as IPv4-only server 192.0.2.33
+    C->>D: AAAA? legacy.example
+    Note over D: No AAAA record exists, only A 192.0.2.33
+    D-->>C: AAAA 64:ff9b::c000:221 (synthesized)
+    C->>N: IPv6 packet to 64:ff9b::c000:221
+    N->>S: IPv4 packet from pool address to 192.0.2.33
+    S-->>N: IPv4 reply
+    N-->>C: IPv6 reply
+```
+
+The trend is toward **IPv6-only** networks with translation at the edge. The **IPv6-mostly** pattern lets dual-stack-capable clients signal (via DHCPv4 option 108, RFC 8925) that they can operate without IPv4, so the network assigns IPv4 addresses only to devices that still need them.
+
+The IPv6 header also suits programmable forwarding: a fixed 40-byte base header, no router fragmentation (sources rely on path-MTU discovery), no header checksum, and a chain of **extension headers**. SRv6 uses exactly that extension-header mechanism to carry its segment list.
+
+## Convergence
+
+The technologies on this page are converging on one model. Switch pipelines are programmed in P4, host data planes in eBPF, NICs run their own programmable offloads, network functions run as containers, and paths and services are expressed as SRv6 segment lists computed by controllers from streaming telemetry. Every layer of the network, from control plane to NIC, has become software that can be versioned, tested, and rolled back, which is why network verification and safe automated change are now among the field's most active areas (see [Modern Architecture & Frontiers](modern-architecture.html#other-active-areas)).
 
 ## See Also
 
-- [Routing & Switching](routing.html) — the classical distributed control plane SDN replaces, plus OSPF and BGP.
-- [Transport & Protocols](transport-and-protocols.html) — QUIC, TCP, and the protocols riding over these fabrics.
-- [Performance, QoS & Security](performance-and-security.html) — the metrics, queueing, and defenses these architectures build on.
-- [Modern & Future Networking](modern-architecture.html) — cloud-networking primitives and the research frontier built on programmable networks.
-- [AWS](../aws/) — VPC, Direct Connect, and managed load balancers in a real cloud.
-- [Kubernetes](../kubernetes/) — cluster networking, CNI plugins, and eBPF-based dataplanes.
+- [Routing & Switching](routing.html) — the distributed control plane: OSPF, BGP, and per-hop forwarding
+- [Transport & Application Protocols](transport-and-protocols.html) — TCP, QUIC, and the protocols carried over these fabrics
+- [Performance, QoS & Security](performance-and-security.html) — queueing, QoS, and the telemetry that programmable data planes extend
+- [Modern Architecture & Frontiers](modern-architecture.html) — traffic models, AI-cluster fabrics, and the research frontier
+- [Cloud Networking](cloud-networking.html) — VPCs and load balancers built on these ideas
+- [Kubernetes](../kubernetes/) — cluster networking, CNI plugins, and eBPF data planes

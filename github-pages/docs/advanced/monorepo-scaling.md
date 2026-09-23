@@ -3,7 +3,7 @@ layout: docs
 title: "Monorepos: Scaling & Engineering"
 permalink: /docs/advanced/monorepo-scaling/
 parent: "Advanced Topics"
-description: "Engineering large monorepos: build graphs and affected-target analysis, distributed remote execution, dependency visibility rules, code ownership, CI at scale, and VCS scaling"
+description: "Keeping a large monorepo fast: build graphs and affected-target analysis, content-addressed caching, distributed and remote execution, dependency boundaries, code ownership, change-driven CI and merge queues, and Git scaling"
 hide_title: true
 toc: true
 toc_sticky: true
@@ -11,475 +11,514 @@ toc_sticky: true
 
 # Monorepos: Scaling &amp; Engineering
 
-[Advanced Topics](./) &raquo; Monorepos: Scaling &amp; Engineering
+[Advanced Topics](../) &raquo; Monorepos: Scaling &amp; Engineering
 
 <div class="advanced-note" markdown="1">
-**Advanced engineering deep-dive.** This page is for platform, build, and infrastructure engineers who already run a monorepo and need it to stay fast as it grows past the point where naïve "build everything" stops working. **Helpful background:** dependency graphs and topological ordering, distributed systems, content-addressed caching, and Git internals. For monorepo fundamentals, the polyrepo trade-off, and tool selection, start with [Monorepo Strategies and Management](../monorepo/). For pipeline basics see [CI/CD Pipelines](../../technology/ci-cd/); for the VCS mechanics see the [Git Reference](../../technology/git-reference.html).
+**Engineering deep-dive.** For platform, build, and infrastructure engineers running a monorepo that has outgrown "build everything on every push". **Background:** dependency graphs, content-addressed caching, basic distributed systems, and Git internals. Fundamentals and the polyrepo trade-off are in [Monorepo Strategies and Management](../monorepo/); tool-by-tool comparison is in [Tooling &amp; Build Systems](../monorepo-tooling/). Tool versions and commands on this page were checked in September 2026.
 </div>
 
-A monorepo's central problem is not *storage* — modern VCS can hold an enormous tree — it is **work amplification**. With *N* projects in one repository, the temptation is to rebuild and retest all *N* on every change, turning an O(1) edit into O(N) CI. Everything on this page is, at bottom, a technique to break that coupling: model the code as a graph, compute the small set a change actually affects, cache results so identical inputs are never recomputed, distribute the remaining work across many machines, and keep the working tree on disk small enough to clone and index. Get these right and a 100-engineer monorepo feels as fast as a single small repo; get them wrong and CI becomes the bottleneck that dooms the whole strategy.
+The scaling problem in a monorepo is not storage but **work amplification**. With $N$ projects in one repository, rebuilding and retesting everything on each change turns an $O(1)$ edit into $O(N)$ CI, and cost keeps growing with the repository even though a typical change touches a handful of projects. Each technique on this page breaks that coupling at a different layer:
 
-- **The graph is the substrate.** Every scaling technique — affected analysis, caching, remote execution, parallelism — is an operation on the project dependency DAG. Without an accurate graph, none of them are sound.
-- **Affected, not everything.** A change touches a set of files; those map to nodes; the transitive reverse-dependency closure of those nodes is the only work that must run. Everything else is provably unaffected.
-- **Push work off the laptop.** Remote execution turns a build into a distributed map over a worker pool; remote caching means an input built anywhere is built once, ever, across the whole org.
-- **Don't materialize what you don't need.** Sparse checkout and virtual filesystems let a developer see and edit a billion-file repo while only a few thousand files ever hit local disk.
+| Layer | Technique | What it bounds |
+|---|---|---|
+| Graph | Affected-target analysis | Work to the downstream closure of the change |
+| Results | Content-addressed caching | Recomputation to inputs never seen before, org-wide |
+| Compute | Distributed task execution, remote execution | Wall-clock time to the critical path |
+| Graph hygiene | Visibility rules, single-version policy, strict dependencies | Growth of the affected set over time |
+| Process | Change-driven CI, merge queues, flaky-test quarantine | CI cost and trunk breakage per merge |
+| VCS | Partial clone, sparse checkout, fsmonitor, virtual filesystems | Local disk and command latency to the area being worked on |
 
-## The Build Graph as the Unit of Scale
+The first three layers compose into a single pipeline, shown below. Every one of them depends on the build graph being accurate.
 
-Naïve monorepo CI scales linearly with repository size: every push reruns the full build and test suite, so cost grows as the repo grows even though an individual change rarely touches more than a handful of projects. The fix is to make the *graph* — not the repository — the unit of work.
+```mermaid
+flowchart LR
+    D["Diff<br/>base..head"] --> A["Affected analysis<br/>(reverse closure)"]
+    A --> K["Compute cache keys"]
+    K --> Q{"Remote cache<br/>hit?"}
+    Q -- "hit" --> R["Restore outputs"]
+    Q -- "miss" --> X["Schedule on agents /<br/>remote executors"]
+    X --> S["Upload outputs<br/>to cache"]
+    R --> G["Fan-in:<br/>single required check"]
+    S --> G
+```
 
-A monorepo's code is modelled as a directed acyclic graph (DAG) of **targets** (Bazel's term) or **projects/tasks** (Nx, Turborepo). Each node has:
+## The Build Graph
 
-- a set of **inputs** (source files, configuration, the versions of its dependencies' outputs, the toolchain),
-- a **command** that transforms those inputs, and
-- a set of **outputs** (compiled artifacts, test results, bundles).
-
-An edge `A -> B` means *B depends on A*: B's inputs include A's outputs. Acyclicity is non-negotiable — a cycle has no valid topological build order — which is why monorepo tools enforce "no circular dependencies" as a hard rule.
+A monorepo build is modeled as a directed acyclic graph (DAG) of **targets** (Bazel, Buck2, Pants) or **projects and tasks** (Nx, Turborepo). Each node has **inputs** (sources, configuration, dependencies' outputs, toolchain, relevant environment), a **command**, and **outputs** (artifacts, test results, bundles). An edge $A \to B$ means *B depends on A*. The graph must be acyclic, because a cycle has no valid build order; every monorepo tool rejects cycles.
 
 ```mermaid
 flowchart TD
-    utils["lib: utils"]
-    logging["lib: logging"]
-    api["lib: api-client"]
-    ui["lib: ui-components"]
-    web["app: web"]
-    admin["app: admin"]
-    utils --> logging
-    utils --> api
-    utils --> ui
-    api --> web
-    ui --> web
-    ui --> admin
+    utils["lib: utils"] --> logging["lib: logging"]
+    utils --> api["lib: api-client"]
+    utils --> ui["lib: ui-components"]
     logging --> api
-    web --> web_test["test: web e2e"]
-    admin --> admin_test["test: admin e2e"]
+    api --> web["app: web"]
+    ui --> web
+    ui --> admin["app: admin"]
+    web --> web_e2e["test: web e2e"]
+    admin --> admin_e2e["test: admin e2e"]
 ```
 
-### Affected-Target Analysis
+Graph granularity matters. **Package-level** graphs (Nx, Turborepo, Rush) are cheap to compute from manifests and imports but coarse: any change to a package invalidates all of it. **File- or action-level** graphs (Bazel, Buck2, Pants) are declared in `BUILD` files or inferred and are far more precise, at the cost of maintaining the declarations.
 
-The core algorithm of every scaling monorepo tool is **affected-target analysis**. Given a changeset (typically the diff between a feature branch and a merge base), it answers: *which targets must rebuild and retest?*
+### Affected-target analysis
 
-The procedure is:
+Given a changeset, which targets must rebuild and retest?
 
-1. **Map changed files to source nodes.** Each modified file belongs to exactly one project/package; that project is *directly affected*.
-2. **Compute the reverse-dependency (downstream) closure.** A change to a node invalidates every node that transitively depends on it, because their inputs include its outputs. This is a graph reachability problem on the *reversed* edges.
-3. **Add graph-structure changes.** Editing a `BUILD`/`project.json`/`package.json` can add or remove edges, so dependency-manifest changes are treated as affecting the project (and sometimes the whole graph).
+1. **Map changed files to owning nodes.** These are *directly affected*.
+2. **Take the downstream closure.** Everything that transitively depends on a changed node has changed inputs.
+3. **Handle graph edits.** Changes to `BUILD`, `project.json`, `package.json`, lockfiles, or toolchain configuration can add or remove edges or affect every node; tools treat them conservatively.
 
-Formally, let $G = (V, E)$ be the build graph with edge $u \to v$ meaning "*v* depends on *u*". Let $C \subseteq V$ be the set of directly-changed projects. The affected set is the closure under the reverse reachability relation:
+Formally, let $G = (V,E)$ with $u \to v$ meaning "$v$ depends on $u$", and let $C \subseteq V$ be the directly changed nodes. The affected set is
 
-$$
-A(C) = \{\, v \in V : \exists\, u \in C \text{ with a directed path } u \rightsquigarrow v \,\} \cup C
-$$
+$$A(C) = C \cup \{\, v \in V : \exists\, u \in C \text{ with a directed path from } u \text{ to } v \,\}.$$
 
-In words: a node is affected iff it *is* changed or *depends, transitively, on* something changed. Computing $A(C)$ is a multi-source breadth-first search from $C$ over $E$, running in $O(|V| + |E|)$ — linear in the graph, independent of how large the unaffected portion is.
+It is computed by a multi-source breadth-first search over the dependents adjacency list in $O(|V| + |E|)$, and in practice only the reachable part is visited.
 
 ```python
 from collections import deque
 
 def affected(changed, dependents):
-    """changed: set of directly-changed node ids.
-       dependents: adjacency where dependents[u] = nodes that depend on u.
-       Returns the transitive set of affected nodes (BFS over reverse edges)."""
+    """changed: directly changed node ids.
+    dependents[u]: nodes that depend directly on u.
+    Returns the downstream closure (changed nodes included)."""
     seen, queue = set(changed), deque(changed)
     while queue:
         node = queue.popleft()
-        for d in dependents.get(node, ()):  # who depends on `node`
+        for d in dependents.get(node, ()):
             if d not in seen:
                 seen.add(d)
                 queue.append(d)
     return seen
 ```
 
-The corresponding CLI invocations across tools:
+Tool invocations:
 
 ```bash
-# Nx: build/test only what the diff against main affects
-nx affected --target=build --base=origin/main --head=HEAD
-nx affected --target=test  --base=origin/main --head=HEAD
+# Nx
+nx affected -t build test lint --base=origin/main --head=HEAD
+nx show projects --affected --base=origin/main       # list only
 
-# Turborepo: filter by changed packages since a ref
-turbo run build --filter=...[origin/main]
-turbo run test  --filter=...[origin/main]
+# Turborepo 2.1+: compares against the default branch; in CI set the refs explicitly
+TURBO_SCM_BASE=origin/main TURBO_SCM_HEAD=HEAD turbo run build test --affected
+turbo run build --filter='...[origin/main]'           # older filter syntax, still supported
 
-# Bazel: query the reverse dependencies of changed targets, then build them
-bazel query "rdeps(//..., set($(git diff --name-only origin/main | \
-  sed 's|/[^/]*$||' | sort -u | sed 's|^|//|;s|$|/...|' )))" \
-  | xargs bazel test
+# Bazel: use a target-determination tool rather than hand-built rdeps queries
+bazel-diff generate-hashes -w "$PWD" -b "$(which bazel)" base.json    # at the base commit
+bazel-diff generate-hashes -w "$PWD" -b "$(which bazel)" head.json    # at the head commit
+bazel-diff get-impacted-targets -sh base.json -fh head.json -o impacted.txt
+bazel test --target_pattern_file=impacted.txt
 ```
+
+For Bazel, mapping file paths to packages with shell scripts and feeding them to `rdeps()` misses changes to `.bzl` macros, `MODULE.bazel`, toolchains, and flags. **bazel-diff** (hash-based, fast) and **target-determinator** (bazel-contrib; compares configured targets at both commits, slower but more precise) exist for this. Neither is perfect: hash-based tools can under-select, and configured-graph comparison can over-select changes such as comment-only edits.
 
 <div class="tip-card" markdown="1">
 #### Soundness depends on input completeness
-Affected analysis is only correct if the graph captures *every* input that can change a target's output. A test that reads an environment variable, a build that pulls the current Git SHA, or a generator that hits the network all create **hidden inputs** — edges the tool can't see. The result is a target that *should* be affected but isn't, so CI passes on a change that actually broke it. This is why hermetic build systems (Bazel, Buck2) sandbox actions and declare inputs explicitly: it is the only way to make affected analysis trustworthy at scale.
+Affected analysis is only correct if the graph captures every input that can change an output. A test that reads an environment variable, a build stamping the current Git SHA, a code generator that hits the network, or a script that globs outside its package are **hidden inputs**: edges the tool cannot see. The target should be affected but is not, and CI passes on a change that broke it. Hermetic systems (Bazel, Buck2) sandbox actions so undeclared inputs are unreadable; JavaScript task runners rely on explicit `inputs` and environment declarations in `nx.json` or `turbo.json`, which must be kept honest.
 </div>
 
-### Merge-Base Selection and `nx-set-shas`
+### Choosing the base commit
 
-Affected analysis needs the right comparison point. On a pull request, the base is the merge-base with the target branch. On `main` after a merge, the base should be the **last successfully-built commit**, not the immediate parent — otherwise a flaky or skipped CI run leaves a gap where some affected targets are never built. Nx ships `nrwl/nx-set-shas` for exactly this: it records the SHA of the last green pipeline and uses it as the base on subsequent runs.
+On a pull request the base is the merge-base with the target branch (clone with `fetch-depth: 0`, or at least enough history to resolve it). On the trunk after a merge, the base should be the **last commit whose CI succeeded**, not the parent: otherwise a failed or skipped run leaves changes that are never rebuilt. `nrwl/nx-set-shas` finds that commit via the GitHub API and exports `NX_BASE`/`NX_HEAD`; the same idea applies to any tool.
 
 ```yaml
-- uses: nrwl/nx-set-shas@v4
-  # sets NX_BASE = last successful main build, NX_HEAD = HEAD
-- run: nx affected --target=build --parallel=3
+- uses: actions/checkout@v4
+  with: { fetch-depth: 0 }
+- uses: nrwl/nx-set-shas@v5        # v5 runs on the node24 Actions runtime
+- run: npx nx affected -t build test lint
 ```
 
 ## Computation Caching: Build Once, Ever
 
-Affected analysis shrinks the *set* of targets to run. Caching ensures that even within that set, no target is recomputed if its inputs have not changed.
+Affected analysis shrinks the set of targets; caching ensures that no target in that set is recomputed for inputs already seen by anyone.
 
-### Content-Addressed Caching
+A target's **cache key** is a hash of everything that determines its output:
 
-Each cacheable target is reduced to a **cache key**: a hash of all of its inputs — source files, the resolved hashes of its dependencies' outputs, the command, environment, and toolchain version. Because the key is derived from inputs (it is *content-addressed*), identical inputs always map to the same key, and the key can be computed *before* running the command. The lookup is:
+$$\mathrm{key}(t) = \mathrm{hash}\big(\mathrm{srcs}(t),\ \mathrm{cmd}(t),\ \mathrm{env}(t),\ \mathrm{toolchain}(t),\ \{\mathrm{key}(d) : d \in \mathrm{deps}(t)\}\big).$$
 
-$$
-\mathrm{key}(t) = H\big(\mathrm{srcs}(t) \,\|\, \mathrm{cmd}(t) \,\|\, \mathrm{env}(t) \,\|\, \{\, \mathrm{key}(d) : d \in \mathrm{deps}(t)\,\}\big)
-$$
+Because dependency keys are folded in, a change to `utils` changes the key of `api-client`, then `web`: exactly the nodes affected analysis selects. **Caching and affected analysis are two views of the same hash.** Bazel refines this further: an action's key uses its dependencies' *output digests*, not their keys, so if a change to `utils` leaves its compiled output byte-identical (a comment edit, say), downstream actions still hit the cache. This "early cutoff" requires reproducible outputs.
 
-Note the recursion: a target's key folds in its dependencies' keys, so the hash propagates structurally up the graph. If `utils` changes, its key changes, which changes the key of `api-client`, which changes the key of `web` — exactly the targets affected analysis flagged. **Caching and affected analysis are two views of the same hash.**
+On a hit, the tool restores outputs and replays captured logs instead of running the command; a cached test run costs a download.
 
-```mermaid
-flowchart LR
-    inputs["inputs:\nsrc + deps' keys\n+ cmd + env"] --> H["H(...)"]
-    H --> key["cache key"]
-    key --> hit{"in cache?"}
-    hit -- "yes" --> restore["restore outputs\n+ replay logs"]
-    hit -- "no" --> run["run command"]
-    run --> store["store outputs\nunder key"]
-```
+### Local and remote caches
 
-On a cache hit the tool restores the stored outputs (and replays captured stdout/stderr so logs look identical) instead of running the command. A correctly-cached `test` target that hits is effectively free.
-
-### Local vs Remote Cache
-
-A **local cache** lives on one machine and helps an individual developer rebuild after switching branches. A **remote cache** is a shared, networked store (an object store like S3/GCS, or a managed service such as Nx Cloud or Turborepo Remote Cache) keyed by the same content hashes. With a remote cache, a target built by *any* developer or CI job is available to *everyone*: CI populates the cache on `main`, and a developer pulling the latest code gets warm artifacts for everything they didn't change.
+A **local cache** helps one machine across branch switches. A **remote cache** shares entries across every developer and CI job: trunk CI populates it, and developers pulling the trunk get warm results for everything they did not change.
 
 ```bash
-# Turborepo remote cache (managed or self-hosted)
-turbo login && turbo link              # managed Vercel cache
-# self-hosted: point at your own server
-TURBO_API=https://cache.internal TURBO_TOKEN=... turbo run build
+# Turborepo: Vercel Remote Cache, or any server implementing the open cache API
+turbo login && turbo link
+TURBO_API=https://cache.internal TURBO_TEAM=myteam TURBO_TOKEN=... turbo run build
 
-# Nx Cloud remote cache + distributed execution
-nx connect            # registers the workspace with Nx Cloud
+# Nx: Nx Cloud (or a self-hosted cache server implementing Nx's remote cache API)
+npx nx connect
 
-# Bazel remote cache over gRPC/HTTP (any REAPI-compatible backend)
-bazel build //... \
-  --remote_cache=grpcs://remote.internal:443 \
-  --remote_upload_local_results=true
+# Bazel: any Remote Execution API (REAPI) backend - bazel-remote, BuildBuddy,
+# EngFlow, NativeLink, Buildbarn, Buildfarm
+bazel build //... --remote_cache=grpcs://cache.internal:443
 ```
+
+Since Bazel 7, **Build without the Bytes** is the default (`--remote_download_outputs=toplevel`): intermediate outputs stay in the remote store and only the requested top-level artifacts are downloaded, which removes most network traffic from remote-cached builds.
 
 <div class="warning-card" markdown="1">
-#### Cache poisoning and the "read-only on PRs" rule
-A remote cache is only as trustworthy as the inputs that produced its entries. If a target has a hidden input (see above), two genuinely different builds can collide on one key, and a *wrong* artifact gets served forever. The standard mitigations: (1) make builds hermetic so keys are complete; (2) give untrusted contexts (PR builds from forks) **read-only** access to the cache, letting only trusted `main` CI *write* entries; and (3) scope cache writes by a signed token so a compromised PR cannot poison the shared cache.
+#### Cache poisoning
+A shared cache serves whatever was stored under a key. With a hidden input, two different builds can share one key and a wrong artifact is served until the key changes; a malicious writer can deliberately plant one. Standard mitigations: make keys complete (hermeticity); let only trusted trunk CI **write**, and give PR builds, especially from forks, **read-only** tokens; scope write tokens per pipeline; and for release artifacts, rebuild without the cache or verify provenance (for example SLSA attestations).
 </div>
 
-## Distributed and Remote Build Execution
+## Distributed and Remote Execution
 
-Caching and affected analysis reduce *total* work; **distributed execution** parallelizes the work that remains across many machines. Two distinct mechanisms are often conflated:
+Caching and affected analysis reduce total work. **Distribution** parallelizes what remains. Two mechanisms are often confused:
 
-| Mechanism | What is distributed | Granularity | Examples |
-|-----------|--------------------|-------------|----------|
-| **Distributed Task Execution (DTE)** | Whole targets/tasks of the build graph | Per-project (e.g. "build app A", "test lib B") | Nx Cloud DTE, Turborepo (via CI sharding) |
-| **Remote Execution (RE)** | Individual build *actions* (a single compiler/test invocation) | Per-action (one `.o` file, one test shard) | Bazel/Buck2 over the Remote Execution API (REAPI) |
+| Mechanism | Unit distributed | Coordination | Examples |
+|---|---|---|---|
+| **Distributed task execution (DTE)** | Whole tasks ("build app A", "test lib B") | Coordinator hands tasks to CI agents; outputs move via the remote cache | Nx Agents (Nx Cloud), CI sharding with Turborepo |
+| **Remote execution (RE)** | Individual actions (one compile, one test shard) | Client submits actions to a scheduler; workers read inputs from CAS | Bazel, Buck2, Pants over REAPI |
 
-### Distributed Task Execution
+### Distributed task execution
 
-DTE shards the affected target list across a pool of CI agents. A coordinator computes the graph, then hands each agent a slice respecting topological order — an agent cannot run `web`'s build until `ui` and `api` have been built (possibly by *other* agents), so completed outputs are exchanged through the remote cache.
+A coordinator computes the task graph and assigns tasks to agents in dependency order; an agent cannot start `web` until `ui` and `api-client` are built, possibly on other agents. In Nx the agent pool is declared in a versioned file and started with `start-nx-agents`:
 
 ```yaml
-# Nx Cloud DTE: one coordinator + N agents that pull tasks off a shared queue
-jobs:
-  main:
-    steps:
-      - run: nx-cloud start-ci-run --distribute-on="8 linux-medium"
-      - run: nx affected --target=build,test,lint --parallel=3
-      # agents started by nx-cloud pick up tasks; outputs flow via the cache
+# .nx/ci-config.yaml
+dte:
+  distribute-on: 8 linux-medium-js
 ```
 
-The speedup is bounded by the graph's **critical path** — the longest chain of dependent targets, which no amount of parallelism can shorten. If `utils -> api -> web -> web-e2e` is the longest dependent chain, the build cannot finish faster than the sum of those four durations regardless of how many agents you add. This is Amdahl's law applied to the build DAG: with $W$ total work, critical-path length $L$, and $p$ workers, makespan is bounded below by
+```yaml
+# CI job
+- run: npx nx-cloud start-nx-agents
+- run: npx nx affected -t build test lint e2e
+```
 
-$$
-T(p) \geq \max\!\left(L,\; \frac{W}{p}\right)
-$$
+The older form, `nx-cloud start-ci-run --distribute-on="..."`, still works but does not read `.nx/ci-config.yaml`; a workspace uses one or the other.
 
-so once $p \geq W/L$, adding workers buys nothing. Shortening the critical path (splitting a monolithic target, breaking a long dependency chain) is the only way past that floor — and is precisely why over-coupled graphs scale poorly even with a huge worker fleet.
+### The critical-path bound
 
-### Remote Execution (REAPI)
+With total work $W$, **critical path** length $L$ (the longest chain of dependent targets, weighted by duration), and $p$ workers, any schedule's makespan $T(p)$ satisfies
 
-Hermetic systems go finer-grained. Bazel and Buck2 decompose a build into thousands of individual **actions**, each a fully-declared `(input files, command, output files)` triple. Because actions are hermetic, any action can run on any worker in any order consistent with the DAG. The Remote Execution API standardizes this as three services:
+$$\max\!\left(L,\ \frac{W}{p}\right) \le T(p) \le \frac{W}{p} + L,$$
 
-1. **Content-Addressable Storage (CAS):** input/output blobs keyed by digest (`hash:size`).
-2. **Action Cache (AC):** maps an action's digest to its cached result.
-3. **Execution service:** schedules cache-missing actions onto a worker farm.
+where the upper bound is achieved by any greedy list scheduler (Graham, 1966; Brent). Once $p$ exceeds about $W/L$, more workers barely help. The only remaining lever is to shorten $L$: split a monolithic library, break long chains, or move slow end-to-end tests off the critical path. This is why over-coupled graphs scale poorly no matter how large the worker fleet.
+
+### Remote execution (REAPI)
+
+Hermetic build systems decompose a build into thousands of **actions**, each a fully declared (inputs, command, outputs) triple. The **Remote Execution API** (bazelbuild/remote-apis), shared by Bazel, Buck2, Pants, and others, defines:
+
+1. **Content-Addressable Storage (CAS):** blobs keyed by digest (hash and size), deduplicated across all builds.
+2. **Action Cache (AC):** maps an action digest to its result (output digests, exit code, logs).
+3. **Execution service:** schedules cache-missing actions onto a worker pool.
 
 ```mermaid
-flowchart LR
-    client["bazel client\n(builds action graph)"] --> ac{"Action Cache\nhit?"}
-    ac -- "hit" --> done["download outputs\nfrom CAS"]
-    ac -- "miss" --> exec["Execution service"]
-    exec --> worker["worker farm\n(runs action in sandbox)"]
-    worker --> cas["store outputs in CAS"]
-    cas --> done
+sequenceDiagram
+    participant C as Client (bazel / buck2)
+    participant AC as Action Cache
+    participant CAS as CAS
+    participant E as Execution service
+    participant W as Worker
+    C->>AC: GetActionResult(action digest)
+    alt cache hit
+        AC-->>C: output digests
+    else cache miss
+        C->>CAS: upload missing inputs (FindMissingBlobs, BatchUpdate)
+        C->>E: Execute(action digest)
+        E->>W: dispatch
+        W->>CAS: fetch inputs
+        W->>W: run in sandbox
+        W->>CAS: upload outputs
+        W->>AC: store ActionResult
+        E-->>C: ActionResult
+    end
+    C->>CAS: download top-level outputs only
 ```
 
-A developer on a laptop can drive a build whose compilation runs entirely on a remote farm of hundreds of cores, downloading only the final outputs they asked for. This is how Google/Meta-scale builds remain interactive: the client orchestrates, the farm computes, the CAS deduplicates.
+A laptop can drive a build whose compilation runs on thousands of remote cores, which is how Google-, Meta-, and Uber-scale builds remain interactive. The operational cost is running the farm (or buying it as a service), keeping worker images identical to the declared toolchain, and debugging actions that behave differently remotely than locally.
 
-## Dependency Management and Visibility Rules
+## Keeping the Graph Healthy
 
-Affected analysis presumes the graph is *accurate* and *acyclic*. At scale, the graph degrades unless actively governed — every undeclared dependency is a hidden input, and every accidental edge widens the affected set and the blast radius of a change.
+Affected analysis is only as good as the graph, and graphs degrade: every undeclared dependency is a hidden input, and every unnecessary edge enlarges the affected set of every change upstream of it.
 
-### Visibility / Module Boundary Rules
+### Visibility and module-boundary rules
 
-Without constraints, any project can import any other, and the graph drifts toward a fully-connected "big ball of mud" where every change rebuilds everything. **Visibility rules** declare which targets may depend on which, and CI fails the build when a forbidden edge appears.
+Without constraints, any project can import any other and the graph drifts toward a densely connected tangle where most changes rebuild most things. **Visibility rules** declare who may depend on what, and the build fails on a forbidden edge.
 
 ```python
-# Bazel: a target lists who is allowed to depend on it
+# Bazel BUILD file: only targets under //billing may depend on this
 java_library(
     name = "internal_impl",
     srcs = glob(["impl/*.java"]),
-    visibility = ["//billing:__subpackages__"],  # only billing/ may depend
+    visibility = ["//billing:__subpackages__"],
 )
 ```
 
-Nx encodes the same idea with **tags** and an ESLint rule that bans cross-boundary imports:
+Nx expresses the same rule with project **tags** and an ESLint rule (flat config, `eslint.config.mjs`):
 
-```jsonc
-// project.json — tag each project by type and scope
-{ "tags": ["type:feature", "scope:checkout"] }
+```js
+// eslint.config.mjs
+import nx from "@nx/eslint-plugin";
+
+export default [
+  ...nx.configs["flat/base"],
+  {
+    files: ["**/*.ts", "**/*.tsx"],
+    rules: {
+      "@nx/enforce-module-boundaries": ["error", {
+        depConstraints: [
+          { sourceTag: "type:feature",   onlyDependOnLibsWithTags: ["type:ui", "type:util"] },
+          { sourceTag: "scope:checkout", onlyDependOnLibsWithTags: ["scope:checkout", "scope:shared"] },
+        ],
+      }],
+    },
+  },
+];
 ```
 
-```jsonc
-// .eslintrc — enforce-module-boundaries
-"@nx/enforce-module-boundaries": ["error", {
-  "depConstraints": [
-    { "sourceTag": "type:feature", "onlyDependOnLibsWithTags": ["type:ui", "type:util"] },
-    { "sourceTag": "scope:checkout", "onlyDependOnLibsWithTags": ["scope:checkout", "scope:shared"] }
-  ]
-}]
+```json
+{ "name": "checkout-feature", "tags": ["type:feature", "scope:checkout"] }
 ```
 
-These rules do real architectural work: they keep the DAG shallow and well-layered, prevent feature teams from reaching into each other's internals, and bound the affected set so a `util` change does not accidentally cascade into unrelated domains because someone took an illicit shortcut.
+Boundary rules keep the DAG layered, stop teams reaching into each other's internals, and cap the blast radius of a low-level change.
 
-### Single-Version Policy
+### Single-version policy
 
-Large monorepos almost universally adopt a **single-version policy (SVP)**: at most one version of any third-party dependency exists in the tree. The benefits are structural — no "diamond" version conflicts, no duplicated transitive copies bloating bundles, atomic upgrades that are tested across every consumer at once. The cost is real too: upgrading a widely-used dependency means fixing every breakage in one (large) change, which is why monorepos invest heavily in automated codemods and large-scale-change tooling.
+Most large monorepos enforce a **single-version policy**: one version of each third-party dependency in the tree. It eliminates diamond conflicts and duplicate copies and makes every upgrade atomic and tested against all consumers. The cost is that upgrading a widely used dependency means fixing every consumer in one change, which is why large monorepos invest in codemods and large-scale-change tooling (Google's Rosie, for example, splits such changes into reviewable shards).
+
+In the JavaScript ecosystem, pnpm **catalogs** (pnpm 9.5+) declare each version once in the workspace file:
 
 ```yaml
-# pnpm catalogs: declare each dependency's version once, reference by name
-catalog:
-  react: ^18.2.0
-  typescript: ^5.4.0
+# pnpm-workspace.yaml
 packages:
-  - 'packages/*'
-  - 'apps/*'
+  - "apps/*"
+  - "packages/*"
+catalog:
+  react: ^19.1.0
+  typescript: ^5.9.0
 ```
 
-```jsonc
-// a package references the catalog version instead of pinning its own
+```json
 { "dependencies": { "react": "catalog:" } }
 ```
 
-Bazel's `bzlmod` (`MODULE.bazel`) enforces SVP at the build-system level by resolving the whole external dependency graph to a single version per module via Minimal Version Selection.
+Bazel resolves external dependencies with **Bzlmod** (`MODULE.bazel`) using Minimal Version Selection, producing one version per module across the graph. Bzlmod is mandatory from Bazel 9, which removed the legacy `WORKSPACE` mechanism.
 
-### Detecting Phantom and Undeclared Dependencies
+### Phantom dependencies
 
-A **phantom dependency** is a package a project imports but never declares — it works only because a hoisted `node_modules` happened to make it resolvable. Phantom deps are invisible to the graph, so affected analysis and caching silently miss them. Strict package managers (pnpm's non-flat `node_modules`, Rush's strict mode) and Bazel's sandboxing surface these by making undeclared imports *fail to resolve*, forcing every real edge into the declared graph.
+A **phantom dependency** is imported but never declared; it resolves only because a hoisted `node_modules` happened to contain it. It is invisible to the graph, so affected analysis and caching silently ignore it, and it breaks when the hoisting changes. pnpm's isolated `node_modules` layout, Yarn Plug'n'Play, Rush's strict mode, and Bazel's sandboxing make undeclared imports fail to resolve, forcing every real edge into the declared graph.
 
-## Code Ownership at Scale
+## Code Ownership
 
-One repository still needs many owners. `CODEOWNERS` maps path patterns to teams; the VCS host auto-requests review from the owning team and (with branch protection) blocks merge until they approve.
+One repository still has many owners. A `CODEOWNERS` file maps path patterns to teams; the host requests reviews from owners, and branch protection or rulesets can require their approval.
 
-```
-# .github/CODEOWNERS — last matching pattern wins
+```text
+# .github/CODEOWNERS - the LAST matching pattern wins
 *                          @org/platform-eng
 /apps/web/                 @org/web-team
-/apps/web/src/checkout/    @org/checkout-team   # more specific overrides
+/apps/web/src/checkout/    @org/checkout-team
 /packages/ui-components/   @org/design-system
 *.sql                      @org/data-platform
 /.github/                  @org/release-eng
 ```
 
-<div class="tip-card" markdown="1">
-#### Ownership scales with the graph, not just the tree
-`CODEOWNERS` is path-based, but the *meaningful* ownership boundary is the project graph. Aligning ownership to graph boundaries (each library/app owned by one team, boundary rules preventing cross-team reach-ins) means a change's required reviewers fall out naturally from the affected projects. Tooling like Nx's `nx affected --graph` or `bazel query 'rdeps(...)'` can surface *which teams* a change touches, so reviews are routed by impact rather than by accidental file location.
-</div>
+`CODEOWNERS` is path-based and flat: one owner set per file, no per-directory approval counts, and no inheritance rules beyond "last match wins". Very large repositories use hierarchical **OWNERS** files (Chromium, Google, Kubernetes via Prow), where each directory's file adds to its parents' owners and approval means an owner of every touched directory has approved. Whatever the mechanism, align ownership with graph boundaries: if each project has one owning team, the set of reviewers a change needs follows directly from the directly-changed projects, and the affected set tells you which downstream teams to notify.
 
-For finer control than `CODEOWNERS` offers — per-path minimum-approval counts, escalating sensitive directories — teams layer a policy file enforced in CI:
+## Change-Driven CI
 
-```typescript
-// ownership.config.ts — augments CODEOWNERS with approval thresholds
-export const ownership = {
-  rules: [
-    { pattern: 'packages/core/**',   owners: ['@core-team'],     minApprovals: 2 },
-    { pattern: 'infra/terraform/**', owners: ['@platform-eng'],  minApprovals: 2 },
-    { pattern: 'apps/**',            owners: ['@app-team'],       minApprovals: 1 },
-  ],
-};
-```
+A monorepo pipeline is driven by the change, not by the repository: compute the affected set, fan out across agents with caching, then converge on one result.
 
-## CI at Scale
+### Dynamic matrices
 
-Putting the pieces together, a monorepo CI pipeline is fundamentally different from a polyrepo pipeline: it is *change-driven*, not *repo-driven*. The shape is always the same — compute the affected set, fan it out across agents with caching, then converge.
-
-### Dynamic Matrix Generation
-
-Because the set of projects to build depends on the diff, the CI matrix must be *generated at runtime* rather than hard-coded:
+Because the set of jobs depends on the diff, the CI matrix is generated at runtime:
 
 {% raw %}
 ```yaml
 name: CI
-on: { pull_request: { branches: [main] } }
+on:
+  pull_request:
+    branches: [main]
 jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.affected.outputs.matrix }}
+      apps: ${{ steps.affected.outputs.apps }}
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }      # full history so merge-base resolves
-      - uses: nrwl/nx-set-shas@v4
+        with: { fetch-depth: 0 }
+      - uses: nrwl/nx-set-shas@v5
+      - run: npm ci
       - id: affected
-        run: |
-          APPS=$(nx show projects --affected --type app --json)
-          echo "matrix={\"app\":$APPS}" >> "$GITHUB_OUTPUT"
+        run: echo "apps=$(npx nx show projects --affected --type app --json)" >> "$GITHUB_OUTPUT"
 
   build:
     needs: setup
-    if: ${{ needs.setup.outputs.matrix != '{"app":[]}' }}
+    if: ${{ needs.setup.outputs.apps != '[]' }}
     strategy:
-      matrix: ${{ fromJson(needs.setup.outputs.matrix) }}
+      fail-fast: false
+      matrix:
+        app: ${{ fromJson(needs.setup.outputs.apps) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: nx build ${{ matrix.app }} --configuration=production
+      - run: npm ci
+      - run: npx nx build ${{ matrix.app }} --configuration=production
 ```
 {% endraw %}
 
-### The "Required Check" Problem
+### One required check
 
-Branch protection wants a *fixed* set of required status checks, but a change-driven pipeline produces a *variable* set of jobs (a CSS-only change may run zero build jobs). The reconciliation is a **fan-in / convergence job** that always runs and reports the aggregate result; it is the single required check, and it passes only if every dynamically-generated job it depends on passed (or was correctly skipped):
+Branch protection needs a fixed list of required checks, but a change-driven pipeline produces a variable set of jobs (a docs-only change may run none). The standard fix is a **fan-in job** that always runs and is the only required check:
 
 {% raw %}
 ```yaml
-  ci-success:                       # the one required status check
+  ci-success:
     needs: [build, test, lint]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          # fail if any needed job failed (skipped is OK; failure/cancel is not)
+      - name: Fail if any needed job failed or was cancelled (skipped is fine)
+        run: |
           [[ "${{ contains(needs.*.result, 'failure') }}" == "false" ]] || exit 1
           [[ "${{ contains(needs.*.result, 'cancelled') }}" == "false" ]] || exit 1
 ```
 {% endraw %}
 
-### Flaky-Test Management
+### Flaky tests
 
-At scale, even a 0.1%-flaky test fails constantly: across thousands of test targets run on every PR, the probability that *some* test flakes approaches one. If $n$ independent test targets each pass with probability $1 - f$, the chance a run is *flake-free* is $(1-f)^n$, which collapses toward zero as $n$ grows — a 0.1% flake rate over 2000 targets gives only $(0.999)^{2000} \approx 0.135$, i.e. roughly 86% of green-code runs fail spuriously. Monorepos therefore treat flakiness as a first-class scaling problem: automatic retries with quarantine, flaky-test detection from historical pass/fail data, and dashboards that demote chronically-flaky targets out of the required path until fixed.
+If $n$ independent test targets each fail spuriously with probability $f$, a run on correct code is fully green with probability $(1-f)^n \approx e^{-fn}$. At $f = 0.1\%$ and $n = 2000$ targets that is $e^{-2} \approx 0.135$: about 86% of runs on correct code fail somewhere. At scale, flakiness is a throughput problem, not an annoyance. Standard countermeasures:
 
-### Merge Queues
+- **Detect** from history: a target that both passed and failed on the same inputs (same cache key) is flaky by definition.
+- **Retry** failed tests once or twice, and record retried passes as flaky signals rather than hiding them.
+- **Quarantine** chronically flaky targets out of the required path, with an owner and a deadline.
+- **Select tests predictively**: Meta and Google have both described models trained on historical results that choose the tests most likely to catch a given change; combined with affected analysis this cuts test cost further.
 
-When many PRs target a busy `main`, testing each against a stale base is unsound — two individually-green PRs can conflict semantically once both land. A **merge queue** serializes integration: it tests each PR against the *prospective* `main` (with the PRs ahead of it already applied) before merging, optionally batching several together and bisecting on failure. Combined with affected analysis, the queue only reruns the targets a batch actually affects, keeping throughput high without sacrificing a green trunk.
+### Merge queues
+
+When many PRs land on a busy trunk, testing each against a stale base is unsound: two PRs green in isolation can break the trunk together. A **merge queue** tests each PR against the prospective trunk, meaning the current trunk plus every PR ahead of it in the queue, and merges only if that combination passes. Queues typically **batch** PRs and **bisect** a failing batch to evict the culprit.
+
+```mermaid
+sequenceDiagram
+    participant PR1
+    participant PR2
+    participant Q as Merge queue
+    participant CI
+    participant M as main
+    PR1->>Q: enqueue
+    PR2->>Q: enqueue
+    Q->>CI: test main + PR1
+    Q->>CI: test main + PR1 + PR2 (speculative)
+    CI-->>Q: main + PR1 passes
+    Q->>M: merge PR1
+    CI-->>Q: main + PR1 + PR2 fails
+    Q-->>PR2: removed from queue, author notified
+```
+
+GitHub merge queue (generally available since 2023), GitLab merge trains, and third-party services (Mergify, Aviator, Graphite, Trunk) implement this; Uber's SubmitQueue added probabilistic speculation over which pending changes will pass. Because queue runs are also change-driven, affected analysis keeps each run proportional to the batch rather than the repository.
 
 ## VCS Scaling: Keeping the Working Tree Tractable
 
-The final scaling axis is the version-control system itself. A repository with millions of files and deep history strains `git status`, `git checkout`, and clone times — operations that are linear in working-tree or history size. The techniques below decouple "what the repo contains" from "what hits local disk."
+The last axis is version control. Plain Git operations like `status`, `checkout`, and `clone` scale with working-tree or history size; at millions of files and years of history they become the bottleneck. The goal is to decouple *what the repository contains* from *what is on local disk and scanned per command*.
 
-### Partial and Shallow Clone
+```mermaid
+flowchart TB
+    R["Server: full history, all files"] --> PC["Partial clone<br/>all commits and trees; blobs on demand"]
+    PC --> SC["Sparse checkout (cone mode)<br/>only chosen directories written to disk"]
+    SC --> FS["fsmonitor + untracked cache<br/>status scans only changed paths"]
+    FS --> WT["Developer working tree:<br/>thousands of files, fast commands"]
+    R -. "alternative at the largest scale" .-> VF["Virtual filesystem<br/>(EdenFS) hydrates on first access"]
+    VF -.-> WT
+```
+
+### Partial and shallow clone
 
 ```bash
-# Shallow clone: truncate history to the most recent commit(s)
-git clone --depth=1 https://github.com/org/monorepo.git
-git fetch --deepen=100            # pull more history on demand
-
-# Partial clone: fetch commits + trees now, blobs lazily on access
+# Blobless partial clone: full commit and tree history, file contents fetched lazily
 git clone --filter=blob:none https://github.com/org/monorepo.git
-# blobs are downloaded transparently the first time a file is read
+
+# Git 2.49+: prefetch missing blobs in large batches instead of one at a time
+git backfill --sparse
+
+# Shallow clone: truncated history (fine for throwaway CI jobs)
+git clone --depth=1 https://github.com/org/monorepo.git
 ```
 
-A **partial clone** (`--filter=blob:none`) is usually preferable to a shallow clone for monorepos: it keeps full history (so `git log`, `blame`, and merge-base all work) while deferring the bulk — file *contents* — until actually needed. The trade is occasional latency when first touching an old blob.
+For developers, a **blobless partial clone** is usually better than a shallow clone: `log`, `merge-base`, and affected-analysis base resolution still work, and only file contents are deferred. The cost is latency when an old blob is first needed (for example by `blame`), which `git backfill` (experimental, Git 2.49+) mitigates by fetching needed blobs in batches. A **treeless** clone (`--filter=tree:0`) is smaller still but makes history-walking commands slow; it suits CI jobs that build one commit.
 
-### Sparse Checkout
+### Sparse checkout
 
-Even with all blobs available, materializing every file is wasteful when a developer works on one corner of the tree. **Sparse checkout** restricts the working tree to a declared set of directories; the rest exist in the index but are never written to disk.
+Sparse checkout writes only declared directories to disk:
 
 ```bash
-git sparse-checkout init --cone        # cone mode: directory-prefix based, fast
-git sparse-checkout set apps/web packages/ui-components packages/utils
-# working tree now contains only those subtrees (plus root files)
-git sparse-checkout add packages/api-client   # widen the cone later
+git sparse-checkout set --cone apps/web packages/ui-components packages/utils
+git sparse-checkout add packages/api-client     # widen later
+git sparse-checkout list
 ```
 
-Cone mode trades the full flexibility of arbitrary pattern matching for performance: it matches on directory prefixes only, which keeps the pattern-matching cost proportional to the cone size rather than the whole tree. Combined with partial clone, a developer downloads and materializes only the subtree they own, even if the full repo is hundreds of gigabytes.
+**Cone mode** (the default since Git 2.37) restricts patterns to directory prefixes, which lets Git match in time proportional to the number of cones rather than evaluating arbitrary gitignore-style patterns against every path. Enabling the **sparse index** (`git sparse-checkout init --cone --sparse-index`, or `index.sparse=true`) also shrinks the index itself to the cone, so commands like `status` and `add` scale with the cone rather than the whole tree. A useful refinement is to derive the cone from the build graph: check out a project plus its transitive dependencies (Nx and Bazel can both list them).
 
-### Virtual / Scalar Filesystems
+### Filesystem monitor and maintenance
 
-The endgame is to virtualize the filesystem entirely so files appear present but are hydrated on first access:
-
-- **Microsoft's VFS for Git (formerly GVFS)** projects the Windows repo as a virtual filesystem; a 300 GB+ repo presents instantly and blobs stream in as files are opened. It was built precisely because vanilla Git could not handle the Windows monorepo.
-- **Scalar** (now bundled with Git) is the modern, cross-platform successor that orchestrates partial clone, sparse checkout in cone mode, background prefetch, and filesystem monitoring without a custom virtual filesystem driver. `scalar clone` configures all of these for you.
-- **Meta's EdenFS** (with the Sapling SCM) virtualizes the working copy on a Mercurial-derived backend, fetching file contents lazily and using `Watchman` to make `status` queries O(changed files) instead of O(tree).
+Without help, `git status` `lstat`s every tracked file. A **filesystem monitor** subscribes to OS change notifications so Git examines only paths that changed.
 
 ```bash
-# Scalar: one command sets up partial clone + cone sparse-checkout + prefetch
-scalar clone https://github.com/org/monorepo.git
-cd monorepo/src
-git sparse-checkout set apps/web        # only hydrate what you work on
-```
-
-### Filesystem Monitor
-
-`git status` is O(working-tree size) by default because it `lstat`s every tracked file. A **filesystem monitor** (`Watchman`, or Git's built-in `core.fsmonitor`) subscribes to OS change notifications so Git only re-examines files that actually changed — turning status into O(changed files). On a multi-million-file checkout this is the difference between a multi-second and a sub-second `status`.
-
-```bash
-git config core.fsmonitor true     # use the built-in fsmonitor daemon
+git config core.fsmonitor true        # built-in daemon: Windows, macOS; Linux since Git 2.55 (inotify)
 git config core.untrackedcache true
-git config core.preloadindex true  # parallelize index lstat on platforms without fsmonitor
+git maintenance start                 # background prefetch, commit-graph, incremental repack
 ```
 
-- **Clone less.** Partial clone (`--filter=blob:none`) keeps full history but fetches file contents lazily, shrinking clone from hours to seconds on a huge repo.
-- **Materialize less.** Cone-mode sparse checkout writes only the subtrees a developer declares, so the on-disk working tree is bounded by their area of ownership.
-- **Scan less.** A filesystem monitor makes `git status` O(changed files) instead of O(tree), keeping everyday commands instant.
-- **Virtualize the rest.** Scalar / VFS / EdenFS present the whole repo while hydrating blobs on first access — the only way Windows- and Meta-scale repos stay usable.
+On Linux, the built-in daemon uses one inotify watch per directory, so very large trees may need a higher `fs.inotify.max_user_watches`; before Git 2.55, Linux users relied on Watchman through a hook. `git maintenance` keeps the commit-graph and multi-pack index current, which keeps history walks and object lookups fast as the repository grows.
 
-## Putting It Together: A Scaling Checklist
+### Scalar and virtual filesystems
 
-<div class="tip-card" markdown="1">
-#### From small monorepo to fleet-scale
-1. **Model the graph accurately.** Declare every dependency; ban cycles; enforce module-boundary/visibility rules so the DAG stays layered.
-2. **Make builds hermetic enough to trust the cache.** Sandbox actions or at least declare all inputs, so cache keys are complete and affected analysis is sound.
-3. **Turn on local + remote caching.** Give `main` CI write access, PRs read-only access, and key everything by content hash.
-4. **Compute affected, not everything.** Use merge-base-aware affected commands and record the last-green SHA on the trunk.
-5. **Distribute the residual work.** DTE for project-level fan-out, or REAPI remote execution for action-level farms; remember the critical path is the floor.
-6. **Make CI change-driven.** Dynamic matrices, a single fan-in required check, merge queues, and active flaky-test quarantine.
-7. **Scale the VCS.** Partial clone + cone sparse checkout + fsmonitor; graduate to Scalar/VFS/EdenFS when the working tree outgrows plain Git.
-</div>
+- **Scalar**, shipped with Git since 2.38, is a one-command setup for large repositories: `scalar clone` configures a blobless partial clone, cone-mode sparse checkout (initially just the root), fsmonitor, commit-graph, multi-pack index, and scheduled background maintenance. It grew out of Microsoft's work on the Windows and Office repositories.
+- **VFS for Git** (formerly GVFS) virtualized the working tree on Windows so a 300 GB repository appeared instantly and files hydrated when opened. It is in maintenance mode, and Microsoft recommends Scalar for new deployments.
+- **Sapling and EdenFS** (Meta, open-sourced 2022) pair a Mercurial-derived client with a virtual filesystem that fetches file contents lazily and answers `status` from its own change journal. Google's Piper with CitC workspaces is a proprietary system in the same design space.
+
+```bash
+scalar clone https://github.com/org/monorepo.git     # creates monorepo/src as the worktree
+cd monorepo/src
+git sparse-checkout set apps/web packages/ui-components
+```
+
+| Technique | Reduces | Cost | Typical use |
+|---|---|---|---|
+| Blobless partial clone | Clone size and time | Lazy fetch latency for old blobs | Developer clones |
+| Treeless / shallow clone | Clone size further | Slow or unavailable history | Single-commit CI jobs |
+| Cone sparse checkout + sparse index | Disk, checkout and status time | Must manage the cone | Developers on a subset |
+| fsmonitor + untracked cache | `status` and `add` latency | Daemon, inotify limits on Linux | Any large working tree |
+| Scalar | Setup effort for all of the above | Opinionated defaults | Large Git monorepos |
+| Virtual filesystem (EdenFS) | Everything local, down to on-access | Custom VCS and daemon | Meta-scale repositories |
+
+## Scaling Checklist
+
+1. **Model the graph accurately.** Declare every dependency, forbid cycles, and enforce boundaries so the DAG stays layered.
+2. **Make builds hermetic enough to trust the cache.** Sandbox actions or declare every input and environment variable.
+3. **Enable local and remote caching.** Trunk CI writes; PRs read only; release builds verify provenance.
+4. **Build what is affected.** Use merge-base-aware affected commands on PRs and the last-green SHA on the trunk; use a real target-determination tool with Bazel.
+5. **Distribute the remainder.** DTE for task-level fan-out, REAPI for action-level farms; then shorten the critical path.
+6. **Make CI change-driven.** Dynamic matrices, one fan-in required check, a merge queue, and active flaky-test quarantine.
+7. **Scale Git.** Partial clone, cone sparse checkout with sparse index, fsmonitor, and `git maintenance`, or simply `scalar clone`; move to a virtual filesystem only at the very largest scale.
 
 ## Key Takeaways
 
-- **The graph is the unit of scale.** Affected analysis, caching, and distribution are all operations on the project DAG; an inaccurate graph makes every one of them unsound.
-- **Affected = reverse-reachability.** The set to rebuild is the transitive downstream closure of changed nodes — a linear-time BFS over reversed edges, independent of unaffected repo size.
-- **Cache keys are content hashes.** Hashing inputs (including dependencies' keys) makes caching and affected analysis two views of the same computation; remote caches share the result org-wide.
-- **Critical path bounds parallelism.** Remote execution shrinks total work but cannot beat the longest dependency chain; shortening that chain is the only way past the floor.
-- **Boundaries keep the DAG shallow.** Visibility rules, single-version policy, and phantom-dependency detection prevent the graph from collapsing into a rebuild-everything mud ball.
-- **Decouple repo size from disk.** Partial clone, cone sparse checkout, fsmonitor, and virtual filesystems let a billion-file repo feel local while only a few thousand files hit disk.
+- **The graph is the unit of scale.** Affected analysis, caching, and distribution all operate on the dependency DAG; an inaccurate graph makes each of them unsound.
+- **Affected means downstream closure.** A linear-time search from the changed nodes over reversed edges, independent of the size of the unaffected repository.
+- **Cache keys are content hashes.** Folding dependency keys into each key makes caching and affected analysis the same computation; a remote cache shares it org-wide.
+- **The critical path is the floor.** Parallelism approaches $\max(L, W/p)$; beyond that, only restructuring the graph helps.
+- **Boundaries preserve all of the above.** Visibility rules, a single-version policy, and strict dependency resolution keep the affected set small as the repository grows.
+- **Decouple repository size from local cost.** Partial clone, sparse checkout, fsmonitor, and virtual filesystems keep daily Git commands proportional to the area being worked on.
 
 ## See Also
 
 <div class="see-also-card" markdown="1">
-#### See Also
+**Related advanced topics**
+- [Monorepo Strategies and Management](../monorepo/) — fundamentals, the polyrepo trade-off, migration, case studies
+- [Monorepos: Tooling &amp; Build Systems](../monorepo-tooling/) — Bazel, Buck2, Pants, Nx, Turborepo, Rush compared
+- [Distributed Systems Theory](../distributed-systems-theory/) — consistency and scheduling theory behind execution farms
+- [Information &amp; Coding Theory](../information-coding-theory/) — hashing, content addressing, and erasure-coded storage
 
-**Related Advanced Topics**
-- [Monorepo Strategies and Management](../monorepo/) — Fundamentals, the polyrepo trade-off, tooling overview, and migration
-- [Distributed Systems Theory](../distributed-systems-theory/) — The consistency and scheduling theory behind remote execution farms
-- [Information & Coding Theory](../information-coding-theory/) — Content-addressed hashing and deduplication foundations
-- [AI Mathematics](../ai-mathematics/) — Managing very large ML research codebases
+**Applied technology**
+- [Git Reference](../../technology/git-reference.html) — sparse checkout, partial clone, LFS, fsmonitor
+- [CI/CD Pipelines](../../technology/ci-cd/) — pipeline design and merge queues
+- [Docker](../../technology/docker/) — containerized, reproducible build environments
+- [Performance Optimization](../../optimization/) — build-time and parallelism optimization
 
-**Applied Technology**
-- [Git Reference](../../technology/git-reference.html) — Sparse checkout, partial/shallow clone, LFS, and fsmonitor
-- [CI/CD Pipelines](../../technology/ci-cd/) — Change-driven pipelines and merge queues
-- [Docker](../../technology/docker/) — Hermetic, containerized build environments
-- [Performance Optimization](../../optimization/) — Build-time, caching, and parallelism optimization
-
-**External Documentation**
-- [Nx Affected](https://nx.dev/ci/features/affect) · [Turborepo](https://turbo.build) · [Bazel Remote Execution](https://bazel.build/remote/rbe) · [Remote Execution API](https://github.com/bazelbuild/remote-apis) · [Scalar](https://github.com/microsoft/scalar) · [Sapling/EdenFS](https://sapling-scm.com)
+**External documentation**
+- [Nx: affected](https://nx.dev/docs/features/ci-features/affected) · [Nx Agents](https://nx.dev/docs/features/ci-features/distribute-task-execution) · [Turborepo: constructing CI](https://turborepo.dev/docs/crafting-your-repository/constructing-ci) · [Bazel remote execution](https://bazel.build/remote/rbe) · [Remote Execution API](https://github.com/bazelbuild/remote-apis) · [bazel-diff](https://github.com/Tinder/bazel-diff) · [target-determinator](https://github.com/bazel-contrib/target-determinator) · [Scalar](https://git-scm.com/docs/scalar) · [Sapling](https://sapling-scm.com)
 </div>

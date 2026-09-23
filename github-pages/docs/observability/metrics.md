@@ -9,39 +9,49 @@ hide_title: true
 
 [Observability Hub](./) &raquo; Metrics &amp; Monitoring
 
-Counters, gauges, histograms, PromQL, dashboards, RED/USE, and burn-rate alerting — the cheapest, most constant signal in the observability stack.
+# Metrics &amp; Monitoring
 
-## Why Metrics
+A **metric** is a numeric measurement sampled over time and identified by a name and a set of labels. Metrics are the cheapest and most predictable observability signal: a counter costs the same whether it has counted ten events or ten billion, which makes metrics the natural basis for dashboards, service level objectives, and alerting. This page covers the metric types, instrumentation with Prometheus client libraries and OpenTelemetry, Prometheus 3 and PromQL, native histograms, the RED and USE methods, dashboards, Alertmanager and burn-rate alerting, cardinality control, and long-term storage. For how metrics relate to logs and traces, see the [Observability hub](./).
 
-Of the three pillars of observability — metrics, traces, and logs — **metrics are the cheapest and the most predictable**. A counter is the same size in memory and on the wire whether it has counted ten events or ten billion, because it stores only a running total, not the individual events. That constant cost is exactly what makes metrics the right substrate for **dashboards** (what is the system doing right now and over the last hour?) and **alerts** (page me when something crosses a line). Traces tell you *which request* was slow; logs tell you *exactly what happened* in one event; metrics tell you *how much and how often*, aggregated, continuously, for pennies.
+## Overview
 
-A metric is fundamentally a **time series**: a stream of `(timestamp, value)` samples for one named, labelled measurement. The art of metrics is choosing the right *type* for each measurement, keeping the *cardinality* of labels bounded, and aggregating in ways that do not lie about the tail of the distribution.
+A metric is fundamentally a **time series**: a stream of `(timestamp, value)` samples for one named, labeled measurement. Where a [log](logging.html) records one event in detail and a [trace](tracing.html) records one request's path, a metric answers *how much and how often*, aggregated and continuous. Aggregation is both the strength and the limitation: storage cost is independent of traffic, but individual events cannot be recovered afterwards.
+
+The dominant open-source stack is Prometheus for collection, storage, and rule evaluation; Grafana for visualization; Alertmanager for notification; and a horizontally scalable store (Mimir, Thanos, Cortex, or VictoriaMetrics) for long-term and global views. Since Prometheus 3.0 (November 2024), OpenTelemetry's OTLP protocol is a first-class ingestion path alongside the classic scrape.
 
 ```mermaid
 flowchart LR
-    App["Instrumented app<br/>/metrics endpoint"] -->|scrape| Prom["Prometheus<br/>TSDB + PromQL"]
-    Prom -->|query| Graf["Grafana<br/>dashboards"]
-    Prom -->|evaluate rules| AM["Alertmanager<br/>route / dedupe / notify"]
-    Prom -->|remote_write| LTS["Long-term storage<br/>Thanos / Mimir / Cortex"]
-    AM --> Page["PagerDuty / Slack / email"]
+    subgraph Sources
+        App1["App with Prometheus client<br/>/metrics endpoint"]
+        App2["App with OTel SDK"]
+        Exp["Exporters<br/>node, blackbox, DB"]
+        Batch["Batch job"]
+    end
+    App1 -->|scrape| Prom["Prometheus<br/>TSDB · PromQL · rules"]
+    Exp -->|scrape| Prom
+    Batch -->|push| PGW["Pushgateway"] -->|scrape| Prom
+    App2 -->|OTLP| Col["OTel Collector"] -->|"OTLP or remote write"| Prom
+    Prom -->|query| Graf["Grafana"]
+    Prom -->|alerts| AM["Alertmanager<br/>group · inhibit · route"]
+    Prom -->|remote write| LTS["Long-term store<br/>Mimir · Thanos · VictoriaMetrics"]
+    LTS -->|query| Graf
+    AM --> Notify["PagerDuty · Slack · email"]
 ```
 
 ## Metric Types
 
-Every metrics system is built from a small vocabulary of measurement types. Choosing the wrong one is the most common instrumentation bug — a value modelled as a gauge when it should be a counter produces nonsense when you `rate()` it.
+Every metrics system is built from a small vocabulary of measurement types. Choosing the wrong one is the most common instrumentation bug — a value modeled as a gauge when it should be a counter produces nonsense under `rate()`.
 
-| Type | Semantics | Aggregatable across instances? | Example |
-|------|-----------|--------------------------------|---------|
-| **Counter** | Monotonically increasing total; you query its **rate**, never its raw value | Yes (sum) | `http_requests_total` |
-| **Gauge** | A value that goes up and down; sampled instantaneously | Yes (sum/avg/max, with care) | `queue_depth`, `temperature_celsius` |
-| **Histogram** | Bucketed distribution; quantiles computed **server-side** at query time | **Yes** | `http_request_duration_seconds` |
-| **Summary** | Quantiles computed **client-side**, shipped as ready values | **No** | per-instance latency φ-quantiles |
+| Prometheus type | OpenTelemetry instrument | Semantics | Aggregatable across instances | Example |
+|-----------------|--------------------------|-----------|-------------------------------|---------|
+| **Counter** | Counter, ObservableCounter | Monotonically increasing total; query its rate, not its value | Yes (sum of rates) | `http_requests_total` |
+| **Gauge** | Gauge, UpDownCounter, ObservableGauge | Value that rises and falls, sampled instantaneously | Depends on meaning (sum, avg, max) | `queue_depth`, `memory_free_bytes` |
+| **Histogram** | Histogram (explicit or exponential buckets) | Bucketed distribution; quantiles computed in the backend | Yes | `http_request_duration_seconds` |
+| **Summary** | (none; legacy only) | Quantiles precomputed in the client | No | per-instance φ-quantiles |
 
 ### Counter
 
-A **counter** only ever goes up (or resets to zero on process restart). You almost never read a counter's absolute value — you read its **rate of change**. `http_requests_total` climbing from 4,000,000 to 4,000,300 over 5 minutes is meaningless as a number but means "1 request/second" as a rate.
-
-Counters must be **monotonic** so that rate functions can detect and correct for resets. A process restart sends the counter back to 0; Prometheus's `rate()` sees the value drop, infers a reset, and adds the pre-reset delta rather than reporting a huge negative spike. This is why you must never use a gauge for something you intend to rate.
+A **counter** only increases, resetting to zero when the process restarts. Its absolute value is rarely meaningful — `http_requests_total` moving from 4,000,000 to 4,000,300 over five minutes means "one request per second" only once it is expressed as a rate. Counters must be monotonic so that `rate()` can detect resets: when the value drops, Prometheus assumes a restart and adds the pre-reset value rather than reporting a negative spike. By convention counter names end in `_total`.
 
 ```python
 from prometheus_client import Counter
@@ -50,100 +60,152 @@ requests_total = Counter(
     "http_requests_total", "Total HTTP requests",
     ["method", "route", "status"],
 )
-# In a handler:
 requests_total.labels("GET", "/orders/{id}", "200").inc()
 ```
 
 ### Gauge
 
-A **gauge** is a snapshot of something that fluctuates: in-flight requests, queue depth, free disk bytes, temperature, a connection-pool's in-use count. Unlike a counter it can decrease, so rating it is meaningless. You sample it, and you aggregate it with `avg`, `max`, `min`, or `sum` depending on what the value means (summing free-memory gauges across nodes is sensible; summing temperature gauges is not).
+A **gauge** is a snapshot of something that fluctuates: in-flight requests, queue depth, free disk bytes, pool connections in use. Rating a gauge is meaningless. Aggregate it according to what it represents — summing free-memory gauges across nodes is sensible; summing temperatures is not. Useful PromQL functions for gauges are `avg_over_time`, `max_over_time`, `deriv()`, `delta()`, and `predict_linear()` (for example, "disk full within four hours").
 
 ```python
 from prometheus_client import Gauge
 
 inflight = Gauge("http_inflight_requests", "In-flight HTTP requests")
-inflight.inc()      # request starts
-# ... handle ...
-inflight.dec()      # request ends
+with inflight.track_inprogress():
+    handle_request()
 ```
 
 ### Histogram
 
-A **histogram** is the workhorse for latency and size distributions. The client maintains a set of **cumulative buckets** defined by upper bounds (`le`, "less than or equal"). Each observation increments every bucket whose bound it falls under, plus a `_sum` and a `_count`. The exported series for a single histogram look like:
+A **histogram** records a distribution — almost always latency or payload size. A *classic* histogram keeps a fixed set of **cumulative buckets** with upper bounds labeled `le` ("less than or equal"), plus a `_sum` and `_count`:
 
 ```
 http_request_duration_seconds_bucket{le="0.1"}  9234
 http_request_duration_seconds_bucket{le="0.25"} 9821
 http_request_duration_seconds_bucket{le="0.5"}  9950
 http_request_duration_seconds_bucket{le="1"}    9990
-http_request_duration_seconds_bucket{le="+Inf"} 10000   # == _count
+http_request_duration_seconds_bucket{le="+Inf"} 10000   # equals _count
 http_request_duration_seconds_sum               1843.2
 http_request_duration_seconds_count             10000
 ```
 
-Because the raw buckets are exported, the **backend** can compute any quantile *across all instances* via `histogram_quantile()`. The crucial property: histograms are **aggregatable**. To get the fleet-wide p99 you sum the bucket counts across every instance first, then interpolate — which is correct, because you are reconstructing one combined distribution. Quantile accuracy is limited by bucket granularity, so choose buckets that straddle your SLO thresholds (e.g. dense buckets around 100 ms–1 s if your latency SLO is 300 ms).
+Because raw bucket counts are exported, the backend can compute any quantile across any set of instances with `histogram_quantile()`: sum the bucket rates across instances first, then interpolate within the bucket containing the target rank. This is mathematically sound because it reconstructs one combined distribution. Accuracy is limited by bucket placement, so buckets should straddle SLO thresholds; an SLO of "95% under 300 ms" needs a bucket boundary at exactly 0.3 to be measured without interpolation error.
 
-The average always lies about the tail. If 99 requests take 10 ms and one takes 5 s, the mean (~60 ms) hides the disaster; the p99 (≈5 s) exposes it. Always alert on tail percentiles, which only a histogram (or a summary) can give you.
-
-Prometheus also offers **native (exponential) histograms**, a newer high-resolution type where buckets are auto-generated on an exponential scale, giving accurate quantiles across many orders of magnitude with far less configuration and storage than classic fixed buckets.
+The mean hides the tail. If 99 requests take 10 ms and one takes 5 s, the mean is about 60 ms while the p99 is about 5 s. Latency SLOs and alerts should use percentiles or, better, the fraction of requests under a threshold — which a histogram gives exactly when a bucket boundary sits at the threshold.
 
 ```python
 from prometheus_client import Histogram
 
 latency = Histogram(
-    "http_request_duration_seconds", "HTTP request duration (seconds)",
+    "http_request_duration_seconds", "HTTP request duration",
     ["method", "route"],
-    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10),
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.3, 0.5, 1, 2.5, 5, 10),
 )
 with latency.labels("GET", "/orders/{id}").time():
     handle_request()
 ```
 
+### Native histograms
+
+**Native histograms** (called *exponential histograms* in OpenTelemetry) replace hand-chosen buckets with buckets on an exponential scale whose resolution is set by a single *schema* parameter. Only populated buckets are stored, and the whole distribution is one series rather than one series per bucket, so they are both higher-resolution and cheaper than classic histograms.
+
+| | Classic histogram | Native histogram |
+|---|---|---|
+| Bucket layout | Fixed at instrumentation time | Exponential, automatic; resolution adjustable |
+| Series per label set | One per bucket, plus `_sum` and `_count` | One |
+| Accuracy across wide ranges | Poor unless many buckets are configured | Bounded relative error at every scale |
+| Merging different layouts | Not possible | Automatic (resolution reduced to the coarser schema) |
+| Querying | `histogram_quantile(0.99, sum by (le) (rate(x_bucket[5m])))` | `histogram_quantile(0.99, sum(rate(x[5m])))` — no `le` label |
+
+Native histograms became a **stable** feature in Prometheus v3.8. Ingestion is opt-in in the 3.x series and is expected to default to on in Prometheus 4:
+
+```yaml
+global:
+  scrape_native_histograms: true   # accept native histograms from targets
+
+remote_write:
+  - url: https://mimir.example.com/api/v1/push
+    send_native_histograms: true
+```
+
+Client support varies by language: the Go and Java Prometheus clients and every OpenTelemetry SDK (via exponential histograms) can emit them. PromQL adds functions such as `histogram_count()`, `histogram_sum()`, `histogram_avg()`, and `histogram_fraction(0, 0.3, ...)` — the last directly answers "what fraction of requests completed in under 300 ms", which is exactly a latency SLI.
+
 ### Summary
 
-A **summary** also tracks a distribution, but the client computes **φ-quantiles** (e.g. the 0.5, 0.9, 0.99 quantiles) over a sliding window and exports them as finished numbers, alongside a `_sum` and `_count`. The fatal limitation: **summary quantiles cannot be aggregated**. The average of three instances' p99 values is *not* the fleet p99 — there is no mathematically valid way to combine pre-computed quantiles. Summaries are therefore only useful when you care about a single instance, or when computing quantiles in the backend is too expensive. In almost all modern setups, **prefer histograms** so the backend can aggregate.
+A **summary** computes φ-quantiles (for example 0.5, 0.9, 0.99) inside the client over a sliding window and exports finished numbers. Summary quantiles **cannot be aggregated**: the average of three instances' p99 is not the fleet p99, and no valid way exists to combine them. Summaries also fix the quantiles and window at instrumentation time. New instrumentation should use histograms; summaries remain mainly in older libraries.
 
-| | Histogram | Summary |
-|---|---|---|
-| Quantiles computed | At query time, in the backend | At observation time, in the client |
-| Aggregatable across instances | **Yes** | **No** |
-| Bucket/quantile choice | Buckets fixed at instrumentation | φ-quantiles fixed at instrumentation |
-| Client CPU cost | Low (just counters) | Higher (streaming quantile estimation) |
+### OpenTelemetry metrics
+
+OpenTelemetry defines its own metrics API with the instruments listed above. The SDK aggregates measurements in-process and exports them periodically over OTLP; Prometheus-compatible backends then store them as the equivalent Prometheus types. Two differences from the Prometheus model matter in practice:
+
+- **Temporality.** OTel supports *cumulative* sums (the Prometheus model: running totals since start) and *delta* sums (increments since the last export, preferred by some vendors). Prometheus expects cumulative data; delta streams need conversion, for example with the Collector's `deltatocumulative` processor.
+- **Naming.** OTel semantic conventions use dotted names with units carried as metadata (`http.server.request.duration`, unit `s`). By default Prometheus translates this to `http_server_request_duration_seconds`; Prometheus 3 can also keep the original UTF-8 name.
+
+```python
+from opentelemetry import metrics
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+
+reader = PeriodicExportingMetricReader(
+    OTLPMetricExporter(endpoint="http://otel-collector:4318/v1/metrics"),
+    export_interval_millis=15_000,
+)
+metrics.set_meter_provider(MeterProvider(
+    resource=Resource.create({"service.name": "order-service"}),
+    metric_readers=[reader],
+))
+
+meter = metrics.get_meter("order-service")
+duration = meter.create_histogram(
+    "http.server.request.duration", unit="s",
+    description="Duration of HTTP server requests",
+)
+duration.record(0.042, {
+    "http.request.method": "GET",
+    "http.route": "/orders/{id}",          # route template, never the raw path
+    "http.response.status_code": 200,
+})
+```
 
 ## Prometheus
 
-**Prometheus** is the de-facto open-source metrics system and a CNCF graduated project. It is a single-binary server that **pulls** (scrapes) metrics from instrumented targets over HTTP, stores them in a local time-series database (TSDB), evaluates alerting and recording rules, and answers queries in its query language, PromQL.
+**Prometheus** is a CNCF graduated project and the de-facto open-source metrics system: a single binary that discovers and scrapes targets, stores samples in a local time-series database (TSDB), evaluates recording and alerting rules, and answers PromQL queries. The **3.x** series, begun in November 2024, is the first major version since 2017. Its principal changes:
 
-### Data Model
+- **OTLP ingestion** — enabled with `--web.enable-otlp-receiver`, accepting OpenTelemetry metrics at `/api/v1/otlp/v1/metrics`.
+- **UTF-8 metric and label names**, so OTel names such as `http.server.request.duration` can be stored unchanged. PromQL gains a quoted form: `{"http.server.request.duration", "http.route"="/orders/{id}"}`.
+- **Remote Write 2.0**, which carries metadata, exemplars, and native histograms natively and interns repeated label strings to reduce bandwidth.
+- **A rewritten web UI**, native histograms (stable from v3.8), and **left-open range selectors** — a sample exactly at the start of a `[5m]` window is no longer included, which can change results for queries whose window equals the scrape interval.
+- **Long-term support (LTS) releases** designated periodically alongside the roughly six-weekly minor releases (for example, v3.13 is an LTS line).
 
-A Prometheus time series is uniquely identified by a **metric name plus a set of label key/value pairs**:
+### Data model
+
+A series is uniquely identified by a metric name plus a set of label key/value pairs:
 
 ```
 http_requests_total{method="GET", route="/orders/{id}", status="200"}
-└────── metric name ──────┘ └──────────────── labels ────────────────┘
+└─── metric name ─┘ └──────────────── labels ─────────────────────┘
 ```
 
-Every distinct combination of label values is a **separate time series**. The metric name is itself sugar for a reserved label `__name__`, so the line above is equivalent to `{__name__="http_requests_total", method="GET", ...}`. Each series is a stream of `(timestamp_ms, float64)` samples. There are no integer, string, or boolean sample types — everything is a float (booleans are encoded as 0/1, and string information lives only in labels).
+Every distinct combination of label values is a separate series. The metric name is itself a reserved label, `__name__`. Samples are `(millisecond timestamp, float64)` pairs, or histogram values for native histograms; there are no string samples — string information lives only in labels.
 
-### Scraping (Pull Model)
+### Scraping and service discovery
 
-Prometheus is **pull-based**: targets expose a plaintext `/metrics` endpoint, and Prometheus periodically fetches it on a fixed `scrape_interval` (commonly 15–60 s). The pull model has real operational advantages: Prometheus controls the sampling rate, a target being scrapable is itself a health signal (the synthetic `up` metric is 1 if the scrape succeeded), and there is no need for apps to know where to push.
-
-Targets are found via **service discovery** — Kubernetes, Consul, EC2, DNS, or a static list — so the target set tracks autoscaling automatically.
+Prometheus is **pull-based**: targets expose `/metrics` and Prometheus fetches it every `scrape_interval` (commonly 15–60 s). Pulling lets Prometheus control load and gives a free health signal — the synthetic `up` series is 1 when a scrape succeeded and 0 otherwise. Targets come from **service discovery** (Kubernetes, Consul, EC2, DNS, HTTP, file) so the target set follows autoscaling; **relabeling** filters and rewrites target labels before the scrape.
 
 ```yaml
 # prometheus.yml
 global:
   scrape_interval: 15s
-  evaluation_interval: 15s          # how often alert/recording rules run
+  evaluation_interval: 15s          # how often rules run
 
 scrape_configs:
-  - job_name: "api"
-    metrics_path: /metrics
+  - job_name: api
     static_configs:
-      - targets: ["api-1:9090", "api-2:9090"]
+      - targets: ["api-1:8000", "api-2:8000"]
 
-  - job_name: "kubernetes-pods"     # dynamic targets from the K8s API
+  - job_name: kubernetes-pods
     kubernetes_sd_configs:
       - role: pod
     relabel_configs:                # keep only pods that opt in via annotation
@@ -160,49 +222,53 @@ alerting:
         - targets: ["alertmanager:9093"]
 ```
 
-Workloads that are short-lived (batch jobs, cron tasks) cannot be scraped because they exit before Prometheus visits them. For these, the job **pushes** its final metrics to a **Pushgateway**, which holds them for Prometheus to scrape. Use the Pushgateway *only* for service-level batch jobs — it is an anti-pattern for normal long-running services.
+On Kubernetes, the Prometheus Operator's `ServiceMonitor` and `PodMonitor` custom resources are the more common way to declare scrape targets than raw `kubernetes_sd_configs`.
+
+Short-lived batch jobs finish before they can be scraped, so they push final results to a **Pushgateway**, which Prometheus then scrapes. The Pushgateway is intended only for service-level batch jobs; using it for long-running services loses the `up` signal and leaves stale series behind after instances disappear.
 
 ### PromQL
 
-**PromQL** is Prometheus's functional query language. Its core types are the **instant vector** (one sample per series at a single instant) and the **range vector** (a window of samples per series over a duration, written `[5m]`).
+**PromQL** is Prometheus's functional query language. Selectors return an **instant vector** (one sample per series at the evaluation time) or, with a duration suffix such as `[5m]`, a **range vector** (all samples in the window), which functions like `rate()` reduce back to an instant vector.
 
 ```promql
-# Instant vector: current value of every matching series
-http_requests_total{status="500"}
-
-# Range vector: the last 5 minutes of samples, used as input to rate()
-http_requests_total[5m]
-
-# rate(): per-second average increase of a counter over the window
-# (handles counter resets correctly)
+# Per-second request rate over 5 minutes, handling counter resets
 rate(http_requests_total[5m])
 
-# Aggregate away labels: total request rate per route across all instances
+# Aggregate away instance labels: request rate per route
 sum by (route) (rate(http_requests_total[5m]))
 
 # Error ratio per route
   sum by (route) (rate(http_requests_total{status=~"5.."}[5m]))
 / sum by (route) (rate(http_requests_total[5m]))
 
-# p99 latency across the whole fleet, reconstructed from histogram buckets
+# Fleet-wide p99 from classic histogram buckets
 histogram_quantile(0.99,
   sum by (route, le) (rate(http_request_duration_seconds_bucket[5m])))
+
+# Disk predicted to fill within 4 hours, based on the last hour's trend
+predict_linear(node_filesystem_avail_bytes[1h], 4 * 3600) < 0
 ```
 
-Two rate functions are easy to confuse:
+| Function | Input | Use |
+|----------|-------|-----|
+| `rate()` | Counter | Average per-second increase over the window; the default for graphs and alerts |
+| `irate()` | Counter | Rate from the last two samples; reacts instantly but is noisy — graphs only, not alerts |
+| `increase()` | Counter | Total increase over the window (`rate × window`) |
+| `delta()`, `deriv()` | Gauge | Change, or least-squares slope, over the window |
+| `*_over_time()` | Gauge | `avg`, `max`, `min`, `quantile` of samples in a window |
+| `predict_linear()` | Gauge | Linear extrapolation for capacity alerts |
 
-- **`rate()`** — average per-second rate over the whole window; smooth, good for graphs and alerts.
-- **`irate()`** — instantaneous rate from the last two samples; spiky, good for fast-moving signals on high-resolution graphs but unsuitable for alerting.
+The range should span at least four scrape intervals so `rate()` always has enough samples; in Grafana, `$__rate_interval` computes this automatically.
 
-For gauges, use **`increase()`** sparingly and prefer `deriv()` or raw values; `delta()` gives the difference over a window. Use `rate()`/`irate()`/`increase()` **only on counters**.
-
-**Recording rules** pre-compute expensive expressions (like fleet p99) on the evaluation interval and store the result as a new series, so dashboards and alerts read a cheap pre-aggregated metric instead of re-scanning millions of samples on every refresh:
+**Recording rules** precompute expensive expressions on every evaluation cycle and store the result as a new series, so dashboards and alerts read a cheap aggregate instead of rescanning raw samples. By convention their names follow `level:metric:operations`:
 
 ```yaml
 groups:
   - name: api-aggregations
     rules:
-      - record: job:http_request_duration_seconds:p99
+      - record: job_route:http_requests:rate5m
+        expr: sum by (job, route) (rate(http_requests_total[5m]))
+      - record: job:http_request_duration_seconds:p99_5m
         expr: |
           histogram_quantile(0.99,
             sum by (job, le) (rate(http_request_duration_seconds_bucket[5m])))
@@ -210,60 +276,59 @@ groups:
 
 ### Exemplars
 
-A long-standing weakness of metrics is that they are *aggregate* — a p99 latency spike tells you the symptom but not *which request* caused it. **Exemplars** bridge metrics and traces: an exemplar is a `trace_id` (plus optional labels) attached to a specific histogram bucket observation. When you graph p99 in Grafana and see a spike, you can click the exemplar dot to jump straight to a representative slow **trace** in Tempo/Jaeger. Exemplars are exposed in the OpenMetrics format (the `# {trace_id="..."}` suffix on a bucket line) and require histogram instrumentation that records them:
+Metrics are aggregate: a p99 spike shows the symptom but not which request caused it. An **exemplar** is a `trace_id` (and optional labels) attached to an individual histogram or counter observation. Grafana plots exemplars as points on the graph, and selecting one opens the corresponding trace in Tempo or Jaeger. In the OpenMetrics text format an exemplar follows the sample after a `#`:
 
 ```
-http_request_duration_seconds_bucket{le="2.5"} 9990 # {trace_id="4bf92f3577b34da6"} 2.31 1700000000
+http_request_duration_seconds_bucket{le="2.5"} 9990 # {trace_id="4bf92f3577b34da6a3ce929d0e0e4736"} 2.31 1758540000.123
 ```
 
-This is the metric → trace pivot that turns a dashboard into an investigation starting point.
+Prometheus stores exemplars when started with `--enable-feature=exemplar-storage`; OpenTelemetry SDKs attach exemplars from the active span automatically when sampling allows. See [Distributed Tracing](tracing.html) for the trace side of the pivot.
 
 ## Grafana Dashboards
 
-**Grafana** is the visualization layer. It queries one or more data sources (Prometheus, Loki for logs, Tempo for traces, SQL databases, cloud monitoring APIs) and renders panels — time-series graphs, stat tiles, heatmaps, tables, gauges — onto dashboards.
+**Grafana** is the usual visualization layer. It queries many data sources — Prometheus and compatible stores, Loki, Tempo, SQL databases, cloud monitoring APIs — and renders time-series graphs, stat panels, heatmaps, and tables.
 
-Design principles for dashboards that are actually useful in an incident:
+Principles for dashboards that help during an incident:
 
-- **Follow the signal hierarchy.** Top row: the SLO/RED summary for the whole service (rate, errors, latency percentiles). Lower rows: per-route breakdowns, then per-resource USE panels, then dependencies.
-- **Use template variables** (`$service`, `$route`, `$instance`) so one dashboard serves every service rather than copy-pasting dozens.
-- **Heatmaps for histograms.** A latency heatmap (time on x, bucket on y, count as color) reveals bimodal distributions and slow-creep that a single p99 line hides.
-- **Annotate deploys.** Overlay deployment markers so you can correlate a latency regression with the release that caused it.
-- **Link to traces via exemplars.** Enable exemplar display so a spike is one click from a slow trace.
+- **Follow the signal hierarchy.** Top row: SLO status and RED summary for the whole service. Below: per-route breakdowns, then USE panels for resources, then dependencies.
+- **Use template variables** (`$service`, `$route`, `$instance`) so one dashboard serves every service.
+- **Use heatmaps for latency.** A heatmap of histogram buckets over time reveals bimodal distributions and gradual drift that a single p99 line hides.
+- **Annotate deploys and feature-flag changes**, so regressions line up visibly with their cause.
+- **Enable exemplars** on latency panels, so a spike is one click from a trace.
+- **Manage dashboards as code** — file provisioning, the Grafana Terraform provider, or the Grafana Foundation SDK — so they are versioned and reviewed rather than hand-edited and lost.
 
-A minimal RED dashboard panel set, with the PromQL behind each:
+A minimal RED panel set:
 
 ```promql
-# Rate panel
+# Rate
 sum by (route) (rate(http_requests_total[$__rate_interval]))
 
-# Error-ratio panel
+# Error ratio
   sum by (route) (rate(http_requests_total{status=~"5.."}[$__rate_interval]))
 / sum by (route) (rate(http_requests_total[$__rate_interval]))
 
-# Latency panel (p50 / p90 / p99 overlaid)
+# Latency percentiles (one query per quantile, overlaid)
 histogram_quantile(0.50, sum by (route, le) (rate(http_request_duration_seconds_bucket[$__rate_interval])))
 histogram_quantile(0.99, sum by (route, le) (rate(http_request_duration_seconds_bucket[$__rate_interval])))
 ```
 
-Dashboards should be **provisioned as code** (JSON model committed to git, or generated with Grafana's Jsonnet/Terraform tooling) so they are versioned, reviewable, and reproducible rather than hand-edited and lost.
-
 ## The RED and USE Methods
 
-Faced with "what should I even measure?", two complementary frameworks give a complete answer: RED for the *workload*, USE for the *resources*.
+Two complementary checklists answer "what should be measured?": RED for the *workload* a service handles, USE for the *resources* it consumes. Google's four golden signals — latency, traffic, errors, saturation — combine the two.
 
-### RED — for request-driven services
+| Method | Applies to | Signals | Answers |
+|--------|------------|---------|---------|
+| **RED** (Tom Wilkie) | Request-driven services: APIs, RPC handlers, queue consumers | Rate, Errors, Duration | Is the service healthy from the caller's point of view? |
+| **USE** (Brendan Gregg) | Resources: CPU, memory, disks, NICs, pools, queues | Utilization, Saturation, Errors | Which resource is the bottleneck? |
+| **Golden signals** (Google SRE) | Any user-facing system | Latency, Traffic, Errors, Saturation | Both of the above, in one view |
 
-For any request-driven service (an HTTP API, an RPC handler, a queue consumer), the **RED method** prescribes exactly three signals **per endpoint**:
+### RED
 
-- **R**ate — requests per second.
-- **E**rrors — failed requests per second (or as a fraction of rate).
-- **D**uration — the distribution of request latencies (percentiles, never the mean).
-
-RED is **workload-centric**: it describes what users actually experience, and the three signals map directly onto a histogram-plus-counter instrumentation. The middleware below emits all of RED in one place:
+For every endpoint, record the request **R**ate, the **E**rror rate (or ratio), and the **D**uration distribution. RED describes what users experience and maps directly onto a counter plus a histogram. The middleware below (aiohttp) emits all three:
 
 ```python
-from prometheus_client import Counter, Histogram, Gauge
 import time
+from prometheus_client import Counter, Histogram, Gauge
 
 request_count = Counter(
     "http_requests_total", "Total HTTP requests",
@@ -272,7 +337,7 @@ request_count = Counter(
 request_duration = Histogram(
     "http_request_duration_seconds", "HTTP request duration",
     ["method", "route"],
-    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5),
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.3, 0.5, 1, 2.5, 5),
 )
 inflight = Gauge("http_inflight_requests", "In-flight HTTP requests")
 
@@ -280,48 +345,55 @@ inflight = Gauge("http_inflight_requests", "In-flight HTTP requests")
 async def metrics_middleware(request, handler):
     start = time.perf_counter()
     inflight.inc()
-    status = "5xx"                         # default so failures still record
+    status = "5xx"                    # default so exceptions are still counted
     try:
         response = await handler(request)
         status = f"{response.status // 100}xx"
         return response
     finally:
-        # ALWAYS the route TEMPLATE (/orders/{id}), never the raw path — bounds cardinality
+        # Route TEMPLATE (/orders/{id}), never the raw path, to bound cardinality
         route = request.match_info.route.resource.canonical
         request_count.labels(request.method, route, status).inc()
         request_duration.labels(request.method, route).observe(time.perf_counter() - start)
         inflight.dec()
 ```
 
-### USE — for resources
+### USE
 
-Where RED watches requests, the **USE method** watches **resources** — CPUs, disks, memory, network links, connection pools, thread pools. For every resource, track:
-
-- **U**tilization — the fraction of time the resource was busy (or fraction of capacity in use).
-- **S**aturation — the degree to which work is queued waiting for the resource (run-queue length, queue depth, swap activity).
-- **E**rrors — error events from the resource (disk I/O errors, dropped packets, pool-checkout timeouts).
-
-USE is **resource-centric**: it finds the bottleneck. The two methods are complementary — RED says *the service is slow*; USE says *which exhausted resource* is making it slow. **Saturation is the most predictive signal**: a resource at 70% utilization with a growing queue is about to fall over even though it is "not yet full," because queueing latency rises non-linearly as utilization approaches 100% (a direct consequence of queueing theory — see the latency knee below).
+For every resource, track **U**tilization (fraction of time busy, or of capacity in use), **S**aturation (work queued waiting for the resource), and **E**rrors. RED says *the service is slow*; USE says *which exhausted resource* makes it slow.
 
 | Resource | Utilization | Saturation | Errors |
 |----------|-------------|------------|--------|
-| CPU | `% busy` | run-queue length | (n/a) |
-| Memory | `% used` | swap rate, OOM kills | alloc failures |
-| Disk | `% I/O time` | I/O queue depth | I/O errors |
-| Network | `bytes/s ÷ link capacity` | dropped / retransmitted packets | NIC errors |
-| Conn pool | `in-use ÷ size` | waiters blocked on checkout | checkout timeouts |
+| CPU | % busy | run-queue length; PSI `cpu some` | — |
+| Memory | % used | swapping, PSI `memory`, OOM kills | allocation failures |
+| Disk | % time busy | I/O queue depth, PSI `io` | I/O errors |
+| Network | bytes/s ÷ link capacity | drops, retransmits, socket backlog | NIC errors |
+| Connection pool | in use ÷ size | callers waiting on checkout | checkout timeouts |
 
-The latency-vs-utilization "knee" that makes saturation so important follows from the M/M/1 queueing model, where mean response time $T$ scales with the service time $T_s$ and utilization $\rho$ as:
+On Linux, **pressure stall information** (PSI, `/proc/pressure/*`, exported by node_exporter and cAdvisor) measures saturation directly as the share of time tasks were stalled waiting for CPU, memory, or I/O, and is often a better saturation signal than utilization.
+
+Saturation is the most predictive of the three because queueing delay grows non-linearly with utilization. In the M/M/1 queueing model, mean response time $T$ depends on service time $T_s$ and utilization $\rho$ as
 
 $$
 T = \frac{T_s}{1 - \rho}
 $$
 
-As $\rho \to 1$, $T \to \infty$ — which is why a resource that *looks* only 80% utilized can already be inflicting severe queueing latency.
+At $\rho = 0.5$ requests take twice the service time; at $\rho = 0.9$, ten times; as $\rho$ approaches 1, $T$ grows without bound. A resource that looks only 80% utilized can therefore already be adding severe queueing latency.
 
 ## Alerting with Alertmanager
 
-Prometheus **evaluates alerting rules** on its `evaluation_interval`; when a rule's expression returns a non-empty result for longer than its `for:` duration, Prometheus fires an alert and sends it to **Alertmanager**. Alertmanager is a separate component responsible for everything *after* an alert fires: **grouping, deduplication, inhibition, silencing, and routing** to notification channels.
+Prometheus evaluates **alerting rules** every `evaluation_interval`. An alert whose expression returns results enters the *pending* state and becomes *firing* only once the condition has held for the rule's `for` duration; `keep_firing_for` optionally holds it in the firing state after the condition clears, to damp flapping. Firing alerts are sent to **Alertmanager**, which handles everything after that: grouping, deduplication, inhibition, silencing, and routing to receivers.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Inactive
+    Inactive --> Pending: expression returns results
+    Pending --> Inactive: condition clears before "for"
+    Pending --> Firing: condition held for "for"
+    Firing --> Firing: still true (re-sent to Alertmanager)
+    Firing --> Resolved: condition clears (after keep_firing_for)
+    Resolved --> Inactive
+```
 
 ```yaml
 # rules/alerts.yml — evaluated by Prometheus
@@ -330,135 +402,156 @@ groups:
     rules:
       - alert: HighErrorRate
         expr: |
-            sum(rate(http_requests_total{status=~"5.."}[5m]))
-          / sum(rate(http_requests_total[5m])) > 0.05
-        for: 10m                       # must hold 10m to suppress brief blips
+            sum by (job) (rate(http_requests_total{status=~"5.."}[5m]))
+          / sum by (job) (rate(http_requests_total[5m])) > 0.05
+        for: 10m
+        keep_firing_for: 5m
         labels:
           severity: page
         annotations:
-          summary: "5xx error ratio above 5% on {% raw %}{{ $labels.job }}{% endraw %}"
-          runbook: "https://runbooks.example.com/high-error-rate"
+          summary: "5xx ratio above 5% on {% raw %}{{ $labels.job }}{% endraw %}"
+          runbook_url: "https://runbooks.example.com/high-error-rate"
 ```
-
-Alertmanager then decides what to *do* with that alert:
 
 ```yaml
 # alertmanager.yml
 route:
   receiver: slack-default
-  group_by: ["alertname", "job"]   # collapse related alerts into one notification
-  group_wait: 30s                  # wait to batch alerts that fire together
+  group_by: ["alertname", "job"]     # one notification per group
+  group_wait: 30s                    # batch alerts that fire together
   group_interval: 5m
   repeat_interval: 4h
   routes:
-    - matchers: [severity="page"]  # critical → PagerDuty
+    - matchers: ['severity="page"']
       receiver: pagerduty
-inhibit_rules:                     # suppress symptoms when the cause is already firing
-  - source_matchers: [severity="page", alertname="NodeDown"]
-    target_matchers: [severity="warning"]
+inhibit_rules:                       # suppress symptoms when the cause is firing
+  - source_matchers: ['alertname="NodeDown"']
+    target_matchers: ['severity="warning"']
     equal: ["instance"]
 receivers:
   - name: slack-default
-    slack_configs: [{ channel: "#alerts", api_url: "https://hooks.slack.com/..." }]
+    slack_configs:
+      - channel: "#alerts"
+        api_url: "https://hooks.slack.com/services/..."
   - name: pagerduty
-    pagerduty_configs: [{ service_key: "..." }]
+    pagerduty_configs:
+      - routing_key: "<events-api-v2-integration-key>"
 ```
 
-Key Alertmanager concepts:
+| Concept | Effect |
+|---------|--------|
+| **Grouping** | Collapses related alerts (every node in a failed rack) into one notification |
+| **Deduplication** | Identical alerts from HA Prometheus replicas produce one notification |
+| **Inhibition** | Suppresses lower-priority alerts while a causal alert fires |
+| **Silences** | Mute matching alerts for a period, e.g. planned maintenance |
 
-- **Grouping** collapses many related alerts (every node in a failed rack) into a single notification.
-- **Deduplication** ensures replicated Prometheus servers firing the same alert produce one page, not N.
-- **Inhibition** suppresses lower-priority alerts when a higher-priority cause is already firing (don't page on "high latency" when "node down" is the real story).
-- **Silences** mute alerts during planned maintenance.
+Good alerting practice: page only on **symptoms** users would notice (SLO burn, not CPU), attach a runbook to every paging alert, route cause-level and capacity alerts to tickets, and review alerts that fired without requiring action.
 
-### Burn-Rate Alerting
+### Burn-rate alerting
 
-The naive alert "fire when availability dips below the SLO" is simultaneously too noisy (it screams on brief blips) and too slow (it tolerates a slow bleed that quietly exhausts the budget). The SRE-standard approach alerts on the **burn rate**: how fast you are consuming the **error budget** relative to the rate that would exhaust it exactly at the window's end. A burn rate of 1 spends the entire budget precisely over the SLO window; a burn rate of 14.4 spends 2% of a 30-day budget in a single hour.
-
-Given an SLO availability target, the error budget is the allowed unreliability:
+Alerting directly on "availability below the SLO" is both too noisy (brief blips) and too slow (a gradual bleed exhausts the budget unnoticed). The approach from Google's *SRE Workbook* alerts on the **burn rate**: the observed error ratio divided by the error ratio the SLO permits.
 
 $$
-\text{Error budget} = 1 - \text{SLO}
+\text{burn rate} = \frac{\text{error ratio over window}}{1 - \text{SLO}}
 $$
 
-Use **multi-window, multi-burn-rate** alerts — a fast page on a high burn rate over a short window (catches outages quickly) plus a slow ticket on a moderate burn rate over a long window (catches gradual erosion), each confirmed by a shorter sub-window to suppress flapping:
+A burn rate of 1 spends exactly the whole budget over the SLO period. Sustained for a time $t$, a burn rate $b$ consumes a fraction $b \cdot t / P$ of the budget for an SLO period $P$ — so for a 30-day period, a burn rate of 14.4 sustained for one hour consumes $14.4 / 720 = 2\%$ of the budget.
+
+**Multi-window, multi-burn-rate** alerts pair a long window, which establishes that significant budget has been spent, with a short window (one-twelfth of the long one), which confirms the problem is still happening so the alert resets quickly once it stops. The standard parameters for a 30-day SLO:
+
+| Severity | Budget consumed | Long window | Short window | Burn rate |
+|----------|-----------------|-------------|--------------|-----------|
+| Page | 2% | 1 h | 5 min | 14.4 |
+| Page | 5% | 6 h | 30 min | 6 |
+| Ticket | 10% | 3 days | 6 h | 1 |
 
 ```promql
-# Fast burn: 14.4x too fast over 1h, confirmed by a 5m sub-window.
-# With a 99.9% SLO the budget is 0.001, so the threshold is 14.4 * 0.001.
+# Fast-burn page for a 99.9% SLO (budget 0.001)
 (
     sum(rate(http_requests_total{status=~"5.."}[1h]))
-  / sum(rate(http_requests_total[1h]))            > (14.4 * 0.001)
+  / sum(rate(http_requests_total[1h]))             > (14.4 * 0.001)
 )
 and
 (
     sum(rate(http_requests_total{status=~"5.."}[5m]))
-  / sum(rate(http_requests_total[5m]))            > (14.4 * 0.001)
+  / sum(rate(http_requests_total[5m]))             > (14.4 * 0.001)
 )
 ```
 
+In practice the error ratios for each window are precomputed as recording rules, and generators such as **Sloth** or **Pyrra** produce the complete rule set from a short SLO definition. For latency SLOs, the "bad events" are requests above the threshold, computed from the histogram bucket at the threshold (or with `histogram_fraction` on a native histogram).
+
 ## Cardinality Pitfalls
 
-The single most expensive mistake in metrics is **cardinality explosion**. Recall that *every unique combination of label values is a separate time series*, each with its own index entry and in-memory chunk. A metric with labels `method` (5 values) × `route` (40 values) × `status` (6 values) is a manageable 1,200 series. Add a `user_id` label with a million users and you have a *billion* series — enough to OOM the server and bankrupt long-term storage.
+The most expensive mistake in metrics is **cardinality explosion**. Every unique combination of label values is a separate series with its own index entry and in-memory chunk, and total cardinality is the *product* of each label's distinct values. A metric labeled with `method` (5) × `route` (40) × `status` (6) yields 1,200 series; adding `user_id` with a million users yields over a billion — enough to exhaust memory on the server and budget in a hosted backend, which typically bills per active series.
 
-High-cardinality label values to **never** put on a metric:
+Values that must not become labels:
 
-- User IDs, session IDs, request IDs, trace IDs.
-- Full URLs or paths containing IDs (`/orders/8a3f...`) — use the **route template** (`/orders/{id}`) instead.
-- Email addresses, IP addresses (for a public service), raw error messages.
-- Timestamps, or anything unbounded and ever-growing.
+- User, session, request, or trace IDs (put these in traces, logs, or exemplars).
+- Raw URLs or paths containing IDs (`/orders/8a3f...`); use the route template (`/orders/{id}`).
+- Email addresses, client IP addresses, raw error messages, timestamps, or anything unbounded.
 
 Guidance:
 
-- **Keep labels low-cardinality and bounded.** Good labels are enumerable: method, route template, status class, region, environment.
-- **Push high-cardinality detail into traces and logs**, which are designed to carry per-request identifiers. The trace already holds the `user_id`; the metric only needs the aggregate.
-- **Watch the multiplication.** Cardinality is the *product* of label cardinalities, not the sum. Two innocuous-looking 100-value labels make 10,000 series.
-- **Audit cardinality.** Prometheus exposes `prometheus_tsdb_head_series` (total active series) and `topk(20, count by (__name__)({__name__=~".+"}))` finds your worst offenders. Alert when total series growth is anomalous.
-- **Drop labels at scrape time** with `metric_relabel_configs` if an upstream library emits a high-cardinality label you cannot remove at the source.
+- **Keep labels enumerable**: method, route template, status class, region, environment.
+- **Audit regularly.** `prometheus_tsdb_head_series` reports active series; `topk(20, count by (__name__) ({__name__=~".+"}))` finds the worst metrics; the Prometheus UI's TSDB status page lists the highest-cardinality labels. Alert on unexpected series growth.
+- **Limit at ingestion.** Per-scrape `sample_limit` and `label_value_length_limit` protect Prometheus from a misbehaving target; hosted backends enforce per-tenant series limits.
+- **Drop at scrape time** with `metric_relabel_configs` when a library emits a label or metric you cannot change at the source:
 
 ```yaml
-# Defensive relabeling: drop a runaway label before ingestion
 metric_relabel_configs:
-  - source_labels: [user_id]
-    action: labeldrop
+  - action: labeldrop              # remove a runaway label from every series
     regex: user_id
+  - action: drop                   # discard an unwanted metric entirely
+    source_labels: [__name__]
+    regex: "grpc_server_handling_seconds_bucket"
 ```
+
+Dropping a label can make previously distinct series collide; drop only labels whose removal leaves series unique, or aggregate with a recording rule instead.
 
 ## Long-Term Storage
 
-A single Prometheus server is intentionally simple: it stores data **locally** on one node, with **no clustering** and a bounded retention (typically 15 days to a few weeks). That is excellent for recent operational queries but insufficient for capacity planning, year-over-year comparison, compliance retention, or a global view across many Prometheus instances. Three CNCF systems extend Prometheus into a horizontally scalable, long-term, highly available metrics platform. All speak Prometheus's `remote_write`/`remote_read` protocol and answer PromQL, so they are drop-in from the query and instrumentation side.
+A single Prometheus server stores data on local disk with no clustering and bounded retention (15 days by default). That suits recent operational queries but not capacity planning, year-over-year comparison, or a global view across many clusters. Several systems extend Prometheus into a horizontally scalable, highly available, long-term store; all accept `remote_write` and answer PromQL, so instrumentation, dashboards, and alert rules carry over unchanged.
 
-| | **Thanos** | **Cortex** | **Mimir** |
-|---|---|---|---|
-| Origin | Improbable, now CNCF | CNCF, multi-tenant from day one | Grafana Labs (forked & evolved from Cortex) |
-| Default ingest model | **Sidecar** alongside each Prometheus + object storage | **Push** via `remote_write` to ingesters | **Push** via `remote_write` (Cortex lineage) |
-| Object storage | Yes (S3/GCS/Azure) | Yes | Yes |
-| Global query / dedup | Querier fans out to sidecars + store gateway | Query frontend over distributed blocks | Query frontend, highly optimized |
-| Multi-tenancy | Add-on | First-class | First-class |
-| Sweet spot | Bolt-on LTS for existing Prometheus fleets | Large multi-tenant SaaS-style platforms | High-scale, operationally simplified Cortex |
+| | Thanos | Cortex | Grafana Mimir | VictoriaMetrics |
+|---|---|---|---|---|
+| Origin / status | Improbable; CNCF incubating | Weaveworks; CNCF incubating | Grafana Labs fork of Cortex (2022); AGPLv3 | VictoriaMetrics Inc.; Apache 2.0 (cluster version open source) |
+| Ingest model | Sidecar uploads Prometheus blocks, or Receive component for `remote_write` | `remote_write` to sharded ingesters | `remote_write` to sharded ingesters; optional Kafka-based ingest storage | `remote_write`, many push formats, or its own scraper (vmagent) |
+| Storage | Object storage (S3, GCS, Azure) | Object storage | Object storage | Local disks with its own compressed format |
+| Multi-tenancy | Limited | First-class | First-class | Cluster version |
+| Typical fit | Adding global query and retention to an existing Prometheus fleet | Existing multi-tenant deployments | New large-scale, multi-tenant platforms | High ingest per core, low operational footprint |
 
-**Thanos** keeps each Prometheus instance running and attaches a **sidecar** that uploads completed TSDB blocks to object storage (S3/GCS) and serves recent data; a **Querier** transparently fans a single PromQL query out across all sidecars and a **Store Gateway** (which reads historical blocks from object storage), **deduplicating** samples from HA replica pairs. A **Compactor** downsamples and compacts old blocks so multi-year queries stay fast. Thanos is the lowest-friction path when you already run many Prometheus servers.
-
-**Cortex** takes the opposite approach: Prometheus `remote_write`s every sample into a **horizontally sharded, multi-tenant cluster** of microservices (distributors, ingesters, queriers, compactors) backed by object storage. It was built for multi-tenant "metrics as a service" platforms where strict tenant isolation and elastic scale matter more than reusing existing Prometheus nodes.
-
-**Mimir** is Grafana Labs's evolution of the Cortex codebase, re-engineered for far higher scale (a billion+ active series per tenant), simpler operation, and faster queries, while retaining the `remote_write` ingest model. For a fresh build at large scale, Mimir is generally the most operationally polished of the three.
+- **Thanos** leaves each Prometheus in place and attaches a **sidecar** that uploads completed TSDB blocks to object storage. A **Querier** fans a PromQL query out to sidecars and a **Store Gateway** (historical blocks) and deduplicates samples from HA replica pairs; a **Compactor** compacts and downsamples old blocks for fast long-range queries.
+- **Cortex** receives `remote_write` into a horizontally sharded set of microservices — distributors, ingesters, queriers, compactors — backed by object storage, with strict tenant isolation.
+- **Mimir** re-engineered the Cortex codebase for higher scale and simpler operation; the 3.x series adds its own query engine and an ingest-storage architecture that decouples the write and read paths through a Kafka-compatible log.
+- **VictoriaMetrics** is a separate implementation with a PromQL-compatible dialect (MetricsQL), known for high compression and low resource use.
 
 ```yaml
-# Ship every sample to a remote long-term store (Mimir/Cortex), keeping local TSDB for recent data
+# Keep local TSDB for recent data and ship every sample to a remote store
 remote_write:
   - url: "https://mimir.example.com/api/v1/push"
+    send_native_histograms: true
     queue_config:
       max_samples_per_send: 2000
-      capacity: 20000
+      capacity: 10000
 ```
 
-The common thread: instrument once with Prometheus client libraries, scrape with Prometheus, and the *same* metrics, PromQL, dashboards, and alerts scale from a single node to a global multi-tenant platform without changing a line of application code.
+When Prometheus is used purely as a forwarder, **agent mode** (`--agent`) disables local querying and rules and keeps only a write-ahead log, reducing its footprint. The OpenTelemetry Collector and Grafana Alloy fill the same role for OTLP pipelines.
 
 ## See Also
 
-- **[Observability Hub](./)** — traces, logs, and how metrics fit alongside them
-- **[Distributed Systems: Observability](../distributed-systems/observability.html)** — the three pillars, SLIs/SLOs, and error budgets in a multi-node setting
-- **[AWS Monitoring &amp; Messaging](../technology/aws/monitoring.html)** — CloudWatch metrics, logs, and alarms in a managed cloud
-- **[Kubernetes](../technology/kubernetes/)** — where most scraped workloads run; native metrics and health probes
-- **[Database Design: Operations &amp; Monitoring](../technology/database-design/operations-and-monitoring.html)** — instrumenting and alerting on the data tier
-- **[CI/CD Pipelines](../technology/ci-cd/)** — wiring SLO gates and burn-rate checks into deployment
+- **[Observability Hub](./)** — how metrics relate to logs, traces, and SLOs
+- **[Logging](logging.html)** — deriving metrics from logs and correlating by `trace_id`
+- **[Distributed Tracing](tracing.html)** — the other side of the exemplar link
+- **[Distributed Systems: Observability](../distributed-systems/observability.html)** — the signals and SLOs in a multi-node setting
+- **[AWS Monitoring](../technology/aws/monitoring.html)** — CloudWatch metrics and alarms, Amazon Managed Service for Prometheus
+- **[Kubernetes Operations](../technology/kubernetes/operations.html)** — cluster metrics, probes, and the Prometheus Operator in context
+- **[Database Design: Operations &amp; Monitoring](../technology/database-design/operations-and-monitoring.html)** — instrumenting the data tier
+- **[CI/CD Pipelines](../technology/ci-cd/)** — SLO gates and canary analysis in deployment
+
+### References
+
+- [Prometheus documentation](https://prometheus.io/docs/) and [native histograms specification](https://prometheus.io/docs/specs/native_histograms/)
+- [Using Prometheus as an OpenTelemetry backend](https://prometheus.io/docs/guides/opentelemetry/)
+- [OpenTelemetry metrics data model](https://opentelemetry.io/docs/specs/otel/metrics/data-model/)
+- Google, *The Site Reliability Workbook*, chapter "Alerting on SLOs" — [sre.google/workbook/alerting-on-slos](https://sre.google/workbook/alerting-on-slos/)
+- Brendan Gregg, "The USE Method" — [brendangregg.com/usemethod.html](https://www.brendangregg.com/usemethod.html)

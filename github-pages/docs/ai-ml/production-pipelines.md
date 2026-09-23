@@ -12,216 +12,290 @@ toc_icon: "cog"
 
 [AI/ML Documentation](./) &raquo; Production Pipelines &amp; Automation
 
-A workflow that produces one good image by hand is a prototype. A production pipeline turns that workflow into a service: it accepts parameters, runs unattended, sweeps variations, recovers from failures, and files every output with the metadata needed to reproduce it. This guide covers the automation layer that sits on top of the generation techniques you already know.
+A workflow that produces one good image by hand is a prototype. A **production pipeline** turns it into a service: it accepts parameters, runs unattended, sweeps variations, survives failures, and files every output with enough metadata to reproduce it. This page covers that automation layer for ComfyUI: the API-format workflow, the HTTP and WebSocket interface, batch and sweep patterns, queue control, error handling, asset management, and scaling to several GPUs. It assumes you can build workflows in the [ComfyUI Guide](comfyui-guide.html) and know the sampling parameters from [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html).
 
-- **Headless First.** Export a workflow as API JSON, parameterize the nodes you care about, and submit it over HTTP — no browser, no clicking, fully scriptable.
-- **Sweep, Don't Guess.** Cartesian grids over prompts, seeds, CFG, and samplers turn tuning into a systematic search you can compare side by side.
-- **Queue &amp; Recover.** A durable queue, WebSocket progress, retries, and structured outputs let a pipeline run for hours and survive failures.
+## Architecture Overview
 
-## Who This Is For and What It Covers
+Every pipeline on this page has the same shape: a client holds a workflow template, fills in parameters per job, submits the job to a ComfyUI server, follows its progress, and post-processes the results.
 
-This is a reference for taking generation from interactive use to **unattended production**. It assumes you can already build workflows in the [ComfyUI Guide](comfyui-guide.html) and understand the parameters from [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html). Here we focus on the automation around generation: running batches, sweeping parameters into grids, driving ComfyUI headlessly through its API, managing the job queue, and organizing the resulting assets so they stay reproducible.
+```mermaid
+flowchart LR
+    subgraph Client["Pipeline client"]
+        Src["Job source<br/>CSV / sweep / API"] --> Fill["Fill template<br/>(prompt, seed, cfg...)"]
+        Fill --> Sub["Submit with retry<br/>(bounded in-flight)"]
+        Res["Fetch outputs"] --> Post["Sidecar, derivatives,<br/>manifest"]
+    end
+    subgraph Server["ComfyUI server"]
+        Q["FIFO queue"] --> Exec["Graph executor<br/>(with cache)"]
+        Exec --> Hist["History"]
+        Exec --> Files["output/ folder"]
+    end
+    Sub -->|POST /prompt| Q
+    Exec -.->|WebSocket events| Res
+    Hist -->|GET /history/id| Res
+    Files -->|GET /view| Res
+```
 
-The [ComfyUI Guide](comfyui-guide.html) introduces the API in a few lines; this page is the full treatment — the endpoints, the WebSocket protocol, queue control, error handling, and the pipeline patterns that wrap them.
+ComfyUI is the most common execution engine for this because the same graph you design interactively is the thing you deploy. A pipeline built directly on the Hugging Face **diffusers** library is the main alternative. It is easier to embed in an existing Python service and to unit-test, but you rebuild each workflow in code instead of exporting it.
 
-## From Interactive to Headless
+## The API-Format Workflow
 
-Interactive generation hides a request/response loop behind the UI. When you click **Queue Prompt**, the browser POSTs your graph to the ComfyUI server, polls for progress over a WebSocket, and downloads the result. Automation reproduces that loop in code.
+The ComfyUI UI saves workflows in a **UI format** that records node positions, links, groups, and widget layout. The `/prompt` endpoint accepts a different **API format**: a flat JSON object keyed by node id, where each node lists its `class_type` and `inputs`.
 
-The single most important step is exporting the workflow in **API format**. The normal "Save" format describes the visual graph (node positions, links, widget layout); the API format is a flat JSON object keyed by node id, with each node's `class_type` and `inputs`. That is the format the `/prompt` endpoint accepts.
-
-To export it, enable **Dev mode** in ComfyUI settings, then use **Save (API Format)**. You get something like:
+To export it in the current frontend, choose **Export (API)** from the top-left workflow menu (labelled File in some frontend versions). Older builds hid this behind a "dev mode" setting; it is now a standard menu entry. The result looks like this:
 
 ```json
 {
   "3": {
     "class_type": "KSampler",
     "inputs": {
-      "seed": 12345,
-      "steps": 30,
-      "cfg": 7.0,
-      "sampler_name": "dpmpp_2m",
-      "scheduler": "karras",
-      "denoise": 1.0,
-      "model": ["4", 0],
-      "positive": ["6", 0],
-      "negative": ["7", 0],
-      "latent_image": ["5", 0]
-    }
+      "seed": 12345, "steps": 30, "cfg": 7.0,
+      "sampler_name": "dpmpp_2m", "scheduler": "karras", "denoise": 1.0,
+      "model": ["4", 0], "positive": ["6", 0],
+      "negative": ["7", 0], "latent_image": ["5", 0]
+    },
+    "_meta": { "title": "KSampler" }
   },
-  "4": { "class_type": "CheckpointLoaderSimple", "inputs": { "ckpt_name": "sdxl_base.safetensors" } },
-  "5": { "class_type": "EmptyLatentImage", "inputs": { "width": 1024, "height": 1024, "batch_size": 1 } },
-  "6": { "class_type": "CLIPTextEncode", "inputs": { "text": "a serene mountain lake at dawn", "clip": ["4", 1] } },
-  "7": { "class_type": "CLIPTextEncode", "inputs": { "text": "blurry, low quality", "clip": ["4", 1] } },
+  "4": { "class_type": "CheckpointLoaderSimple",
+         "inputs": { "ckpt_name": "sdxl_base.safetensors" },
+         "_meta": { "title": "Load Checkpoint" } },
+  "5": { "class_type": "EmptyLatentImage",
+         "inputs": { "width": 1024, "height": 1024, "batch_size": 1 } },
+  "6": { "class_type": "CLIPTextEncode",
+         "inputs": { "text": "a serene mountain lake at dawn", "clip": ["4", 1] },
+         "_meta": { "title": "Positive" } },
+  "7": { "class_type": "CLIPTextEncode",
+         "inputs": { "text": "blurry, low quality", "clip": ["4", 1] },
+         "_meta": { "title": "Negative" } },
   "8": { "class_type": "VAEDecode", "inputs": { "samples": ["3", 0], "vae": ["4", 2] } },
-  "9": { "class_type": "SaveImage", "inputs": { "filename_prefix": "prod", "images": ["8", 0] } }
+  "9": { "class_type": "SaveImage",
+         "inputs": { "filename_prefix": "prod", "images": ["8", 0] } }
 }
 ```
 
-Two structural facts make this format scriptable:
+Three properties make the format scriptable:
 
-- **Inputs are either literal values or connections.** A literal (`"steps": 30`) is what you parameterize. A connection (`"model": ["4", 0]`) is a `[node_id, output_index]` pair — leave those alone unless you are rewiring the graph.
-- **Node ids are stable strings.** Once you know that node `"6"` is your positive prompt and `"3"` is the sampler, you can mutate exactly those fields and resubmit.
+- **Inputs are either literals or links.** A literal (`"steps": 30`) is what you parameterize. A link (`"model": ["4", 0]`) is a `[node_id, output_index]` pair; leave links alone unless you are rewiring the graph.
+- **Node ids are stable strings** within an exported file, so you can address the positive prompt as node `"6"`.
+- **`_meta.title` carries the node's display title.** Renaming nodes in the UI ("Positive", "Main Sampler") and looking them up by title makes scripts survive re-exports that renumber nodes.
 
-The headless loop, then, is: load the API JSON, overwrite the inputs you want to vary, POST it, and collect the output. Everything else in this guide builds on that loop.
-
-```mermaid
-flowchart LR
-    Tmpl["API workflow JSON<br/>(template)"] --> Param["Parameterize<br/>(set prompt, seed, CFG…)"]
-    Param --> Post["POST /prompt"]
-    Post --> Queue["Server queue"]
-    Queue --> Exec["Execute graph"]
-    Exec --> WS["WebSocket progress"]
-    Exec --> Hist["/history → outputs"]
-    Hist --> Save["Save + metadata sidecar"]
+```python
+def node_by_title(workflow: dict, title: str) -> dict:
+    """Return the node whose _meta.title matches; raise if missing or ambiguous."""
+    hits = [n for n in workflow.values() if n.get("_meta", {}).get("title") == title]
+    if len(hits) != 1:
+        raise KeyError(f"expected one node titled {title!r}, found {len(hits)}")
+    return hits[0]
 ```
 
-## The ComfyUI API
+The rest of this page uses literal ids for brevity. In real pipelines, prefer title lookup.
 
-ComfyUI serves an HTTP + WebSocket API on the same port as the UI (default `8188`). These are the endpoints a pipeline actually uses.
+## The ComfyUI Server API
+
+ComfyUI serves HTTP and WebSocket on the same port as the UI (default `8188`). Every route is also available under an `/api` prefix (for example `/api/prompt`), which is convenient when a reverse proxy routes by path.
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/prompt` | POST | Enqueue a workflow; returns a `prompt_id` |
-| `/prompt` | GET | Current queue state and exec info |
-| `/history` | GET | Completed runs, keyed by `prompt_id` |
-| `/history/{prompt_id}` | GET | Outputs for one run |
-| `/queue` | GET | Pending and running items |
-| `/queue` | POST | Clear or delete queued items |
-| `/interrupt` | POST | Stop the currently executing prompt |
-| `/view` | GET | Download an output file (`filename`, `subfolder`, `type`) |
-| `/upload/image` | POST | Upload an input image (for img2img / ControlNet) |
-| `/object_info` | GET | Schema of every node type (inputs, defaults, enums) |
-| `/system_stats` | GET | VRAM, device, and queue diagnostics |
-| `/ws` | WebSocket | Live execution + progress events |
+| `/prompt` | POST | Enqueue a workflow; returns `prompt_id`, queue `number`, and `node_errors` |
+| `/prompt` | GET | Queue size and exec info |
+| `/queue` | GET | Running and pending items |
+| `/queue` | POST | `{"clear": true}` or `{"delete": [prompt_id, ...]}` for pending items |
+| `/interrupt` | POST | Stop execution; optional `{"prompt_id": ...}` interrupts only if that prompt is running |
+| `/history` | GET | Completed runs keyed by `prompt_id` (supports `max_items`) |
+| `/history/{prompt_id}` | GET | Outputs and status for one run |
+| `/history` | POST | `{"clear": true}` or `{"delete": [...]}` to prune history |
+| `/view` | GET | Download an output (`filename`, `subfolder`, `type`) |
+| `/upload/image`, `/upload/mask` | POST | Upload inputs for img2img, inpainting, ControlNet |
+| `/object_info`, `/object_info/{class}` | GET | Node schemas: inputs, types, defaults, enum values |
+| `/models`, `/models/{folder}` | GET | Installed model files per folder |
+| `/system_stats` | GET | Python/ComfyUI versions, devices, VRAM |
+| `/free` | POST | `{"unload_models": true, "free_memory": true}` to release VRAM |
+| `/ws?clientId=...` | WebSocket | Execution and progress events |
+
+Recent releases also add a **jobs API** (`GET /api/jobs` with status filtering and pagination, `GET /api/jobs/{id}`, `POST /api/jobs/{id}/cancel`) that unifies the queue and history into one job view. Check `/system_stats` for the server version before depending on it.
+
+### Request Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as ComfyUI server
+    C->>S: WebSocket connect /ws?clientId=C1
+    C->>S: POST /prompt {prompt, client_id: C1}
+    S-->>C: 200 {prompt_id, number, node_errors: {}}
+    S-->>C: ws: execution_start
+    S-->>C: ws: execution_cached (nodes reused)
+    loop each node
+        S-->>C: ws: executing {node}
+        S-->>C: ws: progress {value, max}
+        S-->>C: ws: executed {node, output}
+    end
+    S-->>C: ws: execution_success
+    C->>S: GET /history/{prompt_id}
+    S-->>C: outputs (filenames, subfolders)
+    C->>S: GET /view?filename=...
+    S-->>C: image bytes
+```
 
 ### Submitting a Prompt
 
-A POST to `/prompt` carries the workflow plus a `client_id` (so the server tags your WebSocket events) and returns a `prompt_id` you use to correlate progress and results:
+The POST body carries the workflow and a `client_id`, which tags WebSocket events for this client. It also accepts several optional fields:
+
+| Field | Effect |
+|-------|--------|
+| `client_id` | Routes execution events to your WebSocket |
+| `prompt_id` | Client-chosen id (canonical lowercase UUID); lets you record the id *before* submitting, which makes retries idempotent |
+| `front` | `true` places the job at the front of the queue |
+| `number` | Explicit queue priority (lower runs first) |
+| `extra_data` | Passed through to execution (for example, workflow metadata to embed in outputs) |
+| `partial_execution_targets` | Run only the listed output nodes |
 
 ```python
 import json
 import uuid
+import urllib.error
 import urllib.request
 
-SERVER = "http://localhost:8188"
+SERVER = "http://127.0.0.1:8188"
 CLIENT_ID = str(uuid.uuid4())
 
-def queue_prompt(workflow: dict) -> str:
-    payload = {"prompt": workflow, "client_id": CLIENT_ID}
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(f"{SERVER}/prompt", data=data,
-                                 headers={"Content-Type": "application/json"})
-    resp = json.loads(urllib.request.urlopen(req).read())
-    return resp["prompt_id"]
+class GraphError(Exception):
+    """The server rejected the workflow (HTTP 400 with node_errors)."""
+
+def queue_prompt(workflow: dict, prompt_id: str | None = None,
+                 front: bool = False) -> str:
+    payload = {"prompt": workflow, "client_id": CLIENT_ID, "front": front}
+    if prompt_id:
+        payload["prompt_id"] = prompt_id
+    req = urllib.request.Request(
+        f"{SERVER}/prompt", data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return json.load(resp)["prompt_id"]
+    except urllib.error.HTTPError as e:
+        if e.code == 400:
+            raise GraphError(e.read().decode()) from e
+        raise
 ```
 
-If the graph is invalid (a missing connection, an out-of-range value, an unknown node), the server responds **400** with a `node_errors` object naming the offending node and field. Surface that message verbatim — it is far more actionable than a generic failure.
+A **400** response means validation failed: a missing link, an out-of-range value, an unknown node class, or a model file that does not exist. The body contains an `error` object and a `node_errors` map naming the offending node and input. Surface it verbatim, and do not retry, since the same graph will fail the same way.
 
-### Tracking Progress over WebSocket
+### Tracking Progress
 
-Polling `/history` works but is laggy. The WebSocket gives live events: which node is executing, sampler step progress, and a terminal "executing → null" signal when the prompt for your `client_id` finishes.
-
-```python
-import json
-import websocket  # websocket-client
-
-def wait_for_completion(prompt_id: str):
-    ws = websocket.WebSocket()
-    ws.connect(f"ws://localhost:8188/ws?clientId={CLIENT_ID}")
-    while True:
-        msg = ws.recv()
-        if not isinstance(msg, str):
-            continue  # binary frames are preview images; skip
-        event = json.loads(msg)
-        etype, data = event["type"], event.get("data", {})
-        if etype == "progress":
-            print(f"  step {data['value']}/{data['max']}")
-        elif etype == "executing" and data.get("node") is None \
-                and data.get("prompt_id") == prompt_id:
-            ws.close()
-            return  # this prompt is done
-```
-
-The key event types:
+Polling `/history` works but adds latency and load. The WebSocket streams events for your `client_id`:
 
 | Event `type` | Meaning |
 |--------------|---------|
-| `status` | Queue size changed (`exec_info.queue_remaining`) |
-| `execution_start` | The server picked up your prompt |
-| `executing` | A node started; `node: null` with your `prompt_id` means done |
-| `progress` | Sampler step `value`/`max` for the active node |
-| `executed` | A node produced outputs (images appear here) |
-| `execution_error` | A node raised; carries the traceback |
-| binary frame | A live preview image (when preview is enabled) |
+| `status` | Queue length changed (`exec_info.queue_remaining`) |
+| `execution_start` | Your prompt began executing |
+| `execution_cached` | Nodes whose outputs were reused from cache |
+| `executing` | A node started; `node: null` is the legacy "prompt finished" signal |
+| `progress` | Step `value`/`max` for the active node (samplers) |
+| `executed` | A node produced UI output (image filenames appear here) |
+| `execution_success` | All nodes finished successfully |
+| `execution_error` | A node raised; includes node id, exception type and message, traceback |
+| `execution_interrupted` | Stopped by `/interrupt` or a cancel |
+| binary frame | Live preview image (when previews are enabled) |
+
+Wait for one of the three terminal events rather than `executing` with `node: null`:
+
+```python
+import websocket  # pip install websocket-client
+
+TERMINAL = {"execution_success", "execution_error", "execution_interrupted"}
+
+def wait_for(prompt_id: str, ws: websocket.WebSocket) -> dict:
+    """Block until prompt_id finishes; return the terminal event."""
+    while True:
+        msg = ws.recv()
+        if not isinstance(msg, str):
+            continue  # binary preview frame
+        event = json.loads(msg)
+        data = event.get("data", {})
+        if data.get("prompt_id") != prompt_id:
+            continue
+        if event["type"] == "progress":
+            print(f"  node {data['node']}: {data['value']}/{data['max']}")
+        elif event["type"] in TERMINAL:
+            return event
+
+ws = websocket.WebSocket()
+ws.connect(f"ws://127.0.0.1:8188/ws?clientId={CLIENT_ID}")
+```
+
+Open the WebSocket **before** submitting, or a fast (fully cached) prompt can finish before you are listening. For robustness, treat the WebSocket as a latency optimization and fall back to polling `/history/{prompt_id}` if the connection drops.
 
 ### Retrieving Outputs
 
-After completion, `/history/{prompt_id}` returns each output node's results. `SaveImage` nodes list filenames, subfolders, and a `type` (`output`/`temp`); fetch the bytes from `/view`:
+`/history/{prompt_id}` lists each output node's files; download them from `/view`:
 
 ```python
-def fetch_images(prompt_id: str) -> list[bytes]:
-    hist = json.loads(urllib.request.urlopen(
-        f"{SERVER}/history/{prompt_id}").read())[prompt_id]
-    images = []
-    for node_out in hist["outputs"].values():
-        for img in node_out.get("images", []):
-            url = (f"{SERVER}/view?filename={img['filename']}"
-                   f"&subfolder={img['subfolder']}&type={img['type']}")
-            images.append(urllib.request.urlopen(url).read())
-    return images
+from urllib.parse import urlencode
+
+def fetch_outputs(prompt_id: str) -> list[tuple[dict, bytes]]:
+    with urllib.request.urlopen(f"{SERVER}/history/{prompt_id}") as r:
+        entry = json.load(r)[prompt_id]
+    results = []
+    for node_out in entry["outputs"].values():
+        for f in node_out.get("images", []):  # video/audio nodes use other keys
+            qs = urlencode({"filename": f["filename"],
+                            "subfolder": f["subfolder"], "type": f["type"]})
+            with urllib.request.urlopen(f"{SERVER}/view?{qs}") as r:
+                results.append((f, r.read()))
+    return results
 ```
 
-### Discovering Node Schemas
+Use `urlencode` rather than string concatenation: filenames and subfolders can contain spaces and other characters that must be escaped. The history entry's `status` field also records whether the run completed and the messages it produced, which is useful when reconciling after a client crash.
 
-`/object_info` returns the full schema of every installed node — required and optional inputs, their types, defaults, and the valid enum values (e.g. the exact list of installed checkpoints, samplers, and schedulers). A robust pipeline reads this once at startup to **validate parameters before submitting**, so a typo in a sampler name fails locally instead of after the job hits the queue:
+### Validating Against Node Schemas
+
+`/object_info` returns every installed node's inputs, types, defaults, and valid enum values, including the actual list of installed checkpoints, samplers, and schedulers. Read it once at startup and validate jobs locally, so a typo fails immediately rather than after queueing:
 
 ```python
-info = json.loads(urllib.request.urlopen(f"{SERVER}/object_info").read())
-samplers = info["KSampler"]["input"]["required"]["sampler_name"][0]  # list of valid names
-checkpoints = info["CheckpointLoaderSimple"]["input"]["required"]["ckpt_name"][0]
+with urllib.request.urlopen(f"{SERVER}/object_info") as r:
+    info = json.load(r)
+ks = info["KSampler"]["input"]["required"]
+VALID = {
+    "sampler_name": set(ks["sampler_name"][0]),
+    "scheduler": set(ks["scheduler"][0]),
+    "ckpt_name": set(info["CheckpointLoaderSimple"]["input"]["required"]["ckpt_name"][0]),
+}
+
+def validate(job: dict) -> list[str]:
+    return [f"{k}={job[k]!r} not installed/valid"
+            for k, allowed in VALID.items() if k in job and job[k] not in allowed]
 ```
 
-## Batch Generation Workflows
+## Batch Generation
 
-The simplest production task is generating many images from one template — varying only the seed, or running a list of prompts. Because ComfyUI caches by input, changing only the seed reuses the loaded model and text encoding, so a batch of seeds is cheap after the first.
+ComfyUI caches node outputs by their inputs. When only the seed changes between jobs, the loaded model and the encoded prompts are reused, so everything after the first job costs only sampling and decoding.
 
-There are two batching levels, and they compose:
+There are two levels of batching, and they compose:
 
-- **In-graph batch** — set `EmptyLatentImage.batch_size` to N to denoise N latents in one pass. Fastest per image, but every image shares one prompt and the whole batch must fit in VRAM.
-- **Job-level batch** — submit N separate prompts, each with its own parameters. Slower (more passes) but each can differ completely, and the queue serializes them so VRAM use stays flat.
+| Level | Mechanism | Pros | Cons |
+|-------|-----------|------|------|
+| In-graph | `EmptyLatentImage.batch_size = N` | Best GPU utilization per image | One prompt for all N; whole batch must fit in VRAM |
+| Job-level | N separate `/prompt` submissions | Every job can differ; flat VRAM use | More per-job overhead |
 
-A clean pattern wraps the template in a small helper that deep-copies it per job, sets the fields, and submits:
+A small helper deep-copies the template per job and sets only the fields that vary:
 
 ```python
 import copy
 import random
 
-def run_batch(template: dict, jobs: list[dict]) -> list[str]:
-    """Each job dict names the fields to override. Returns prompt_ids."""
-    prompt_ids = []
-    for job in jobs:
-        wf = copy.deepcopy(template)
-        wf["6"]["inputs"]["text"] = job["prompt"]
-        wf["3"]["inputs"]["seed"] = job.get("seed", random.randint(0, 2**32 - 1))
-        wf["3"]["inputs"]["cfg"]  = job.get("cfg", 7.0)
-        wf["9"]["inputs"]["filename_prefix"] = job.get("name", "batch")
-        prompt_ids.append(queue_prompt(wf))
-    return prompt_ids
-
-jobs = [
-    {"prompt": "a red fox in snow",   "name": "fox",   "seed": 1},
-    {"prompt": "a blue jay on a branch", "name": "jay", "seed": 2},
-    {"prompt": "a green frog on a leaf",  "name": "frog", "seed": 3},
-]
-ids = run_batch(workflow_template, jobs)
+def build_job(template: dict, job: dict) -> dict:
+    wf = copy.deepcopy(template)  # never mutate the shared template
+    wf["6"]["inputs"]["text"] = job["prompt"]
+    wf["3"]["inputs"]["seed"] = job.get("seed") or random.randint(0, 2**63 - 1)
+    wf["3"]["inputs"]["cfg"] = job.get("cfg", 7.0)
+    wf["9"]["inputs"]["filename_prefix"] = f"{job.get('project', 'batch')}/{job['name']}"
+    return wf
 ```
 
-`deepcopy` matters: mutating a shared template would leak the previous job's values into the next. For seeds, an explicit seed makes a job reproducible; `-1`/random is for exploration, but record the seed the server actually used (from `/history`) so you can reproduce a favorite later.
+Always **record the seed you actually sent**. A random seed chosen client-side is reproducible only if it is logged; `-1` or "randomize" widgets in the UI do not apply to the API, where the literal value in the JSON is used.
 
-### Reading Jobs from a File
-
-For real batches the job list comes from data, not code — a CSV of prompts, a JSONL of parameter dicts, or a spreadsheet export. Keep the template and the job list separate so non-programmers can edit the latter:
+Job lists should come from data, not code, so that non-programmers can edit them:
 
 ```python
 import csv
@@ -229,255 +303,286 @@ import csv
 def jobs_from_csv(path: str) -> list[dict]:
     with open(path, newline="") as f:
         return [
-            {"prompt": row["prompt"],
+            {"name": row["name"],
+             "prompt": row["prompt"],
              "seed": int(row["seed"]) if row.get("seed") else None,
-             "cfg": float(row.get("cfg", 7.0)),
-             "name": row.get("name", "batch")}
+             "cfg": float(row["cfg"]) if row.get("cfg") else 7.0}
             for row in csv.DictReader(f)
         ]
 ```
 
 ## Parameter Sweeps and Grids
 
-Tuning by hand — change CFG, regenerate, squint — does not scale. A **sweep** systematically generates every combination of a set of parameter values so you can compare them side by side. This is the same idea as an XY plot in Automatic1111, generalized to any axes and run headlessly.
-
-A sweep is a **Cartesian product** of the axes you choose. If you vary M values of CFG and N samplers and K seeds, you get M·N·K images. That product grows fast, so pick axes deliberately.
+A **sweep** generates every combination of chosen parameter values so the differences can be compared side by side. It is the headless, arbitrary-axis version of Automatic1111's XY plot. With M CFG values, N samplers, and K seeds, a sweep produces $M \cdot N \cdot K$ images, so choose axes deliberately.
 
 ```python
 from itertools import product
 
+FIELD_MAP = {  # sweep axis -> (node id, input name)
+    "cfg": ("3", "cfg"), "steps": ("3", "steps"),
+    "sampler_name": ("3", "sampler_name"), "scheduler": ("3", "scheduler"),
+    "seed": ("3", "seed"), "prompt": ("6", "text"),
+}
+
 def sweep(template: dict, axes: dict) -> list[tuple[dict, dict]]:
-    """axes: {field_name: [values]}. Returns (combo, workflow) per cell."""
-    names = list(axes.keys())
-    runs = []
+    names = list(axes)
+    cells = []
     for values in product(*(axes[n] for n in names)):
         combo = dict(zip(names, values))
         wf = copy.deepcopy(template)
-        if "cfg" in combo:          wf["3"]["inputs"]["cfg"] = combo["cfg"]
-        if "steps" in combo:        wf["3"]["inputs"]["steps"] = combo["steps"]
-        if "sampler_name" in combo: wf["3"]["inputs"]["sampler_name"] = combo["sampler_name"]
-        if "seed" in combo:         wf["3"]["inputs"]["seed"] = combo["seed"]
-        if "prompt" in combo:       wf["6"]["inputs"]["text"] = combo["prompt"]
-        # Encode the combo in the filename so cells are identifiable on disk
-        tag = "_".join(f"{k}-{v}" for k, v in combo.items())
+        for k, v in combo.items():
+            node, field = FIELD_MAP[k]
+            wf[node]["inputs"][field] = v
+        tag = "_".join(f"{k}-{v}" for k, v in combo.items() if k != "prompt")
         wf["9"]["inputs"]["filename_prefix"] = f"sweep/{tag}"
-        runs.append((combo, wf))
-    return runs
+        cells.append((combo, wf))
+    return cells
 
-cells = sweep(workflow_template, {
+cells = sweep(template, {
     "cfg": [4, 6, 8, 10],
     "sampler_name": ["euler", "dpmpp_2m", "dpmpp_3m_sde"],
-    "seed": [42],   # fix the seed so CFG/sampler differences are the only variable
+    "seed": [42],  # fixed: CFG and sampler are the only variables
 })
 ```
 
-### Designing a Useful Sweep
+### Designing a Sweep
 
-The discipline is **isolate one thing at a time**. Fixing the seed across a CFG sweep means every difference you see comes from CFG, not from a different random starting point. The table below is a practical starting set of axes and ranges.
+Change one thing at a time. Fixing the seed across a CFG sweep means every visible difference comes from CFG, not from a different starting noise. Then repeat the winning settings across several seeds to confirm the result is not one lucky roll.
 
 | Axis | Useful range | What it reveals |
 |------|--------------|-----------------|
-| CFG / guidance | 3–11 (FLUX: fix cfg=1, sweep FluxGuidance 2–5) | Prompt adherence vs. over-saturation |
-| Steps | 10, 20, 30, 50 | The point of diminishing returns |
-| Sampler | euler, dpmpp_2m, dpmpp_3m_sde, ddim | Texture and convergence character |
-| Scheduler | normal, karras, sgm_uniform | Noise-schedule effect on detail |
-| Seed | 4–8 fixed seeds | Variance — separates "the prompt" from "a lucky roll" |
-| LoRA strength | 0.4–1.0 in 0.2 steps | The strength that applies style without artifacts |
-| Denoise (img2img) | 0.3–0.8 | Fidelity to source vs. creative freedom |
+| CFG | 3-11 for SD 1.5/SDXL; 3-5 for SD3.5 | Prompt adherence vs. oversaturation |
+| FLUX guidance | 2-5 via `FluxGuidance`, with KSampler cfg fixed at 1 | Same trade-off for guidance-distilled models |
+| Steps | 10, 20, 30, 50 | Point of diminishing returns |
+| Sampler | euler, dpmpp_2m, dpmpp_3m_sde, uni_pc | Texture and convergence behavior |
+| Scheduler | normal, karras, exponential, sgm_uniform, beta | Effect of noise schedule on detail |
+| Seed | 4-8 fixed seeds | Variance: separates the settings from luck |
+| LoRA strength | 0.4-1.0 in 0.2 steps | Style strength vs. artifacts |
+| Denoise (img2img) | 0.3-0.8 | Fidelity to source vs. freedom |
 
-> **Combinatorics bite.** Four CFG values × three samplers × five seeds is already 60 images. Sweep two axes at a time, fix the rest, and only expand the axis that looked promising. A coarse pass (wide range, few points) followed by a fine pass (narrow range, more points) around the winner finds the sweet spot in a fraction of the renders.
+A coarse pass (wide range, few points) followed by a fine pass around the best cell finds the optimum with far fewer renders than a dense grid. Four CFG values × three samplers × five seeds is already 60 images.
 
-### Assembling a Contact Sheet
+### Contact Sheets
 
-A sweep is only useful if you can see all cells at once. After the runs complete, tile the outputs into a labeled grid (a "contact sheet" / XY plot) with row and column headers:
+A sweep is useful only when all its cells are visible at once. Tile outputs into a labeled grid:
 
 ```python
 from PIL import Image, ImageDraw
 
 def contact_sheet(images: list[Image.Image], cols: int,
-                  labels: list[str]) -> Image.Image:
+                  labels: list[str], pad: int = 28) -> Image.Image:
     w, h = images[0].size
-    rows = (len(images) + cols - 1) // cols
-    sheet = Image.new("RGB", (w * cols, h * rows + 24), "white")
+    rows = -(-len(images) // cols)  # ceiling division
+    sheet = Image.new("RGB", (w * cols, (h + pad) * rows), "white")
     draw = ImageDraw.Draw(sheet)
-    for i, img in enumerate(images):
-        x, y = (i % cols) * w, (i // cols) * h + 24
-        sheet.paste(img, (x, y))
-        draw.text((x + 4, y + 4), labels[i], fill="yellow")
+    for i, (img, label) in enumerate(zip(images, labels)):
+        x, y = (i % cols) * w, (i // cols) * (h + pad)
+        draw.text((x + 4, y + 6), label, fill="black")
+        sheet.paste(img, (x, y + pad))
     return sheet
 ```
 
-This is the payoff of sweeping over guessing: differences that are invisible one-at-a-time become obvious when the whole grid is in front of you.
-
 ## Queue Management
 
-ComfyUI runs a **single execution queue** — prompts run one at a time, in submission order, on one GPU. A pipeline that submits hundreds of jobs has to think about that queue deliberately rather than firing and forgetting.
+ComfyUI runs **one execution queue per server process**: prompts execute one at a time on one GPU, ordered by queue number. A pipeline submitting hundreds of jobs should control that queue deliberately.
 
-### Submission Strategies
+| Strategy | How it works | Use when |
+|----------|--------------|----------|
+| Fire-and-track | Submit everything, collect by `prompt_id` | Small and medium batches |
+| Bounded in-flight | Keep at most K jobs queued; submit more as jobs finish | Large sweeps; clean cancellation; sharing the server |
+| Drip | Submit one, wait, repeat | Strict ordering or a GPU shared with interactive users |
 
-| Strategy | How it works | When to use |
-|----------|--------------|-------------|
-| Fire-and-track | Submit all jobs up front, collect by `prompt_id` later | Small/medium batches that comfortably fit the queue |
-| Bounded pipeline | Keep at most K prompts in flight; submit the next when one finishes | Large sweeps; bounds memory and lets you cancel cleanly |
-| Throttled drip | Submit one, await completion, repeat | When you need outputs in order or are sharing the GPU |
-
-For large jobs the **bounded** strategy is the right default. Watch the queue depth from the `status` WebSocket event (`exec_info.queue_remaining`) or by polling `/queue`, and only submit when there is room:
+The bounded strategy is the right default. A small K (2-4) keeps the GPU busy while leaving the queue short enough that other users, urgent jobs, and cancellations are not stuck behind hundreds of items:
 
 ```python
-def queue_depth() -> int:
-    q = json.loads(urllib.request.urlopen(f"{SERVER}/queue").read())
-    return len(q["queue_running"]) + len(q["queue_pending"])
+from collections import deque
 
-def run_bounded(workflows: list[dict], max_in_flight: int = 3):
-    pending = list(workflows)
-    while pending or queue_depth() > 0:
-        while pending and queue_depth() < max_in_flight:
-            queue_prompt(pending.pop(0))
-        # ...await a completion event, then loop...
+def run_bounded(workflows: list[dict], ws, max_in_flight: int = 3) -> dict:
+    pending = deque(workflows)
+    in_flight: set[str] = set()
+    results: dict[str, str] = {}
+    while pending or in_flight:
+        while pending and len(in_flight) < max_in_flight:
+            in_flight.add(queue_prompt(pending.popleft()))
+        event = json.loads(recv_text(ws))  # next text frame
+        pid = event.get("data", {}).get("prompt_id")
+        if pid in in_flight and event["type"] in TERMINAL:
+            in_flight.discard(pid)
+            results[pid] = event["type"]
+    return results
+
+def recv_text(ws):
+    while True:
+        msg = ws.recv()
+        if isinstance(msg, str):
+            return msg
 ```
 
 ### Controlling the Queue
 
-- **Cancel the running prompt:** `POST /interrupt`. Execution stops at the next node boundary; partial outputs may or may not be saved.
-- **Clear pending:** `POST /queue` with `{"clear": true}` empties everything not yet started.
-- **Delete one item:** `POST /queue` with `{"delete": [prompt_id]}` removes a specific queued prompt.
-- **Priority:** the queue is FIFO; there is no priority field, so order your submissions accordingly or use a bounded loop to interleave urgent jobs.
+- **Cancel the running job:** `POST /interrupt` with `{"prompt_id": id}`. Execution stops at the next interruptible point and emits `execution_interrupted`. Without a `prompt_id` it interrupts whatever is running.
+- **Remove pending jobs:** `POST /queue` with `{"delete": [id, ...]}`, or `{"clear": true}` to empty the pending queue.
+- **Priority:** submit with `"front": true` to jump the queue, or pass an explicit `number`.
+- **Free VRAM** between phases that use different models: `POST /free` with `{"unload_models": true, "free_memory": true}`.
 
 ### Model Loading and VRAM
 
-The dominant cost in a batch is often **model loading**, not denoising. Group jobs that share a checkpoint so the model stays resident — ComfyUI's caching keeps a loaded model in VRAM until a different one is needed, at which point it swaps (and may offload to system RAM with `--normalvram`/`--lowvram`). Sorting a mixed batch by checkpoint can cut wall-clock time dramatically by avoiding repeated reloads.
-
-If you have multiple GPUs, run **one ComfyUI server per GPU** (each pinned with `CUDA_VISIBLE_DEVICES`) and put a small dispatcher in front that round-robins prompts across them. There is no built-in multi-GPU queue, so horizontal scaling is "more servers behind a load balancer," covered below.
+In mixed batches, **model loading** often costs more than denoising. ComfyUI keeps loaded models resident until memory pressure forces an unload, so **sort jobs by checkpoint (and LoRA set)** so that each model loads once. Launch flags such as `--highvram`, `--normalvram`, and `--lowvram` control how aggressively models are offloaded to system RAM, and `--reserve-vram` holds back headroom for other processes.
 
 ## Error Handling and Reliability
 
-An unattended run will hit failures — an out-of-memory on a large latent, a missing model after a server restart, a transient network blip. Production pipelines treat these as expected, not exceptional.
+An unattended run will hit failures. Classify them, because the right response differs:
 
-| Failure | Symptom | Handling |
+| Failure | Symptom | Response |
 |---------|---------|----------|
-| Invalid graph | `400` with `node_errors` on submit | Validate against `/object_info` first; log and skip the job |
-| Node raised | `execution_error` WS event with traceback | Capture traceback, mark job failed, continue the batch |
-| Out of memory | CUDA OOM in the error event | Lower `batch_size`/resolution; retry once at reduced size |
-| Server unreachable | Connection refused / WS drop | Exponential-backoff retry on the HTTP/WS connection |
-| Lost result | `/history` missing the `prompt_id` | Re-submit the (deterministic, seeded) job |
+| Invalid graph | HTTP 400 with `node_errors` | Do not retry; fix the job; validate against `/object_info` first |
+| Node exception | `execution_error` event | Log the traceback, mark failed, continue the batch |
+| Out of memory | `execution_error` with an OOM exception type | Retry once at a smaller batch or resolution, or after `/free` |
+| Server unreachable | Connection refused, WebSocket drop | Retry with exponential backoff and jitter |
+| Server restarted mid-job | Job missing from queue and history | Resubmit (safe if the job is idempotent) |
 
-The two reliability primitives are **idempotent jobs** and **bounded retries**. A job is idempotent when it carries an explicit seed and a deterministic filename — resubmitting it reproduces the same output, so a retry is safe. Wrap submission in a retry with backoff, and cap attempts so one poison job cannot stall the batch:
-
-```python
-import time
-
-def submit_with_retry(workflow: dict, attempts: int = 3) -> str | None:
-    for i in range(attempts):
-        try:
-            return queue_prompt(workflow)
-        except Exception as e:  # connection or 4xx/5xx
-            if i == attempts - 1:
-                log_failure(workflow, e)
-                return None
-            time.sleep(2 ** i)  # 1s, 2s, 4s backoff
+```mermaid
+stateDiagram-v2
+    [*] --> Pending: job created (id, seed fixed)
+    Pending --> Submitted: POST /prompt OK
+    Pending --> Rejected: 400 node_errors
+    Submitted --> Running: execution_start
+    Running --> Succeeded: execution_success
+    Running --> Failed: execution_error
+    Running --> Cancelled: execution_interrupted
+    Failed --> Pending: retryable (OOM, transient) and attempts left
+    Submitted --> Pending: server lost job
+    Succeeded --> Archived: outputs fetched, sidecar and manifest written
+    Rejected --> [*]
+    Cancelled --> [*]
+    Archived --> [*]
 ```
 
-Always **checkpoint progress** to disk: write a manifest row as each job completes so a crashed run resumes from where it stopped instead of regenerating everything. Make completion idempotent by skipping any job whose deterministic output file already exists.
+The two reliability primitives are **idempotent jobs** and **bounded retries**:
 
-## Asset Pipelines
+- A job is idempotent when its parameters, including the seed, are fixed before submission, and its output path is deterministic. Submitting with a client-generated `prompt_id` also lets you check `/history/{prompt_id}` after a crash to see whether the job already ran.
+- Retries use exponential backoff with jitter and a cap, so one poison job cannot stall the batch.
 
-The last mile is what separates a pile of PNGs from a usable asset library: consistent naming, embedded provenance, derivative formats, and an index you can query. Every output should answer "how was this made?" on its own — see [Output Formats](output-formats.html) for the format and metadata details this section builds on.
+```python
+import random
+import time
 
-### Naming and Foldering
+def submit_with_retry(workflow: dict, prompt_id: str, attempts: int = 4) -> str | None:
+    for i in range(attempts):
+        try:
+            return queue_prompt(workflow, prompt_id=prompt_id)
+        except GraphError:
+            raise                      # permanent: do not retry
+        except (urllib.error.URLError, ConnectionError, TimeoutError):
+            if i == attempts - 1:
+                return None
+            time.sleep(min(30, 2 ** i) + random.random())  # backoff + jitter
+```
 
-A flat `output/` directory becomes unusable within a day. Encode the structure in paths via `SaveImage.filename_prefix`, which accepts subfolders and date/counter tokens:
+Checkpoint progress to disk: append a manifest row as each job completes, and on restart skip any job whose output already exists. A crashed overnight run then resumes instead of starting over.
+
+## Asset Management
+
+The last step turns a folder of PNGs into a usable library: consistent naming, embedded provenance, derived delivery formats, and a queryable index. For file formats and metadata standards in more depth, see [Output Formats](output-formats.html).
+
+### Naming and Folders
+
+`SaveImage.filename_prefix` accepts subfolders, so structure can be encoded directly. The `%date:yyyy-MM-dd%` style tokens you may use in the UI are expanded by the browser frontend, not the server, so an API client should build the date and other path parts itself:
 
 ```text
 output/
-  2026-06-06/
-    portraits/
+  catalog-q3/
+    2026-09-22/
       portrait_cfg-7_euler_seed-42_00001_.png
-    landscapes/
-      landscape_cfg-9_dpmpp_seed-7_00001_.png
+      portrait_cfg-7_euler_seed-42_00001_.json
 ```
 
 A scheme like `{project}/{date}/{variant}_{key-params}_{counter}` makes outputs sortable, greppable, and self-describing without opening a database.
 
-### Provenance and Sidecars
+### Provenance
 
-ComfyUI embeds the **full workflow graph** in saved PNGs by default — dragging such a PNG back into ComfyUI restores the exact graph. Preserve that (avoid lossy re-encoding the master), and also write a **JSON sidecar** as a durable, queryable backup that survives format conversion:
+By default ComfyUI embeds both the API prompt and the UI workflow as PNG text chunks. Dragging such a PNG back into ComfyUI restores the graph. That metadata is lost on re-encoding to JPEG or WebP and is stripped by most social platforms, so also write a **JSON sidecar**:
 
 ```python
-import json, hashlib
+import hashlib
+import json
+from pathlib import Path
 
-def write_sidecar(image_path: str, combo: dict, prompt_id: str):
+def write_sidecar(image_path: Path, job: dict, prompt_id: str, server_version: str):
     meta = {
         "prompt_id": prompt_id,
-        "parameters": combo,                 # prompt, seed, cfg, sampler…
-        "model": combo.get("checkpoint"),
-        "tool": "ComfyUI",
-        "sha256": hashlib.sha256(open(image_path, "rb").read()).hexdigest(),
+        "parameters": job,        # prompt, negative, seed, cfg, sampler, scheduler, size
+        "workflow_sha256": hashlib.sha256(
+            json.dumps(job.get("workflow", {}), sort_keys=True).encode()).hexdigest(),
+        "tool": f"ComfyUI {server_version}",
+        "sha256": hashlib.sha256(image_path.read_bytes()).hexdigest(),
     }
-    with open(image_path.rsplit(".", 1)[0] + ".json", "w") as f:
-        json.dump(meta, f, indent=2)
+    image_path.with_suffix(".json").write_text(json.dumps(meta, indent=2))
 ```
 
-Record at minimum: prompt and negative prompt; model name and hash plus any LoRAs/VAE; sampler, scheduler, steps, CFG/guidance, seed, and resolution; and the tool/version (plus the workflow file itself). With that, any output is reproducible months later.
+Record at minimum the prompt and negative prompt; the model, LoRAs, and VAE with their hashes; sampler, scheduler, steps, CFG or guidance, seed, and resolution; and the tool version, plus the workflow itself. If outputs are published, also consider signed **C2PA Content Credentials**. The EU AI Act's transparency obligations for providers of generative systems (machine-readable marking of AI-generated content) apply from August 2026; see [Output Formats](output-formats.html#provenance-and-ai-disclosure).
 
-### Derivative Formats and Indexing
+### Derivatives and Indexing
 
-Keep one **lossless master** (PNG-16/TIFF) and derive every delivery format from it on demand rather than regenerating — resize, re-encode to WebP/AVIF/JPEG, and build responsive `srcset` sets from the same source. A small post-step turns each master into its web, social, and thumbnail variants and appends a row to a manifest:
+Keep one **lossless master** and derive every delivery format from it rather than regenerating:
 
 ```python
-def index_output(master: str, meta: dict, manifest: str = "manifest.jsonl"):
-    derive_webp(master, quality=90)         # web delivery
-    derive_jpeg(master, quality=85)         # social
-    derive_thumbnail(master, size=256)      # gallery index
-    with open(manifest, "a") as f:
-        f.write(json.dumps({"master": master, **meta}) + "\n")
+from PIL import Image
+
+def derive(master: Path, manifest: Path, meta: dict):
+    img = Image.open(master)
+    img.save(master.with_suffix(".webp"), quality=90, method=6)
+    img.convert("RGB").save(master.with_suffix(".jpg"), quality=85, progressive=True)
+    thumb = img.copy()
+    thumb.thumbnail((256, 256))
+    thumb.save(master.with_name(master.stem + "_thumb.webp"), quality=80)
+    with manifest.open("a") as f:
+        f.write(json.dumps({"master": str(master), **meta}) + "\n")
 ```
 
-A JSONL manifest (one record per line) is enough to power search, dedup by hash, and a gallery — and it is trivial to load into a database later. The principle is **format-agnostic pipelines**: archive the master, generate targets on demand, and a new format slots in without reworking anything upstream.
-
-### The End-to-End Pipeline
-
-Putting the pieces together, a production run is a loop over a job source that submits with retries, tracks via WebSocket, fetches outputs, writes provenance, derives formats, and records a manifest:
-
-```mermaid
-flowchart LR
-    Src["Job source<br/>(CSV / sweep / queue)"] --> Val["Validate vs<br/>/object_info"]
-    Val --> Sub["Submit (bounded,<br/>with retry)"]
-    Sub --> Track["Track via<br/>WebSocket"]
-    Track --> Out["Fetch outputs<br/>/history + /view"]
-    Out --> Prov["Write metadata<br/>sidecar"]
-    Prov --> Der["Derive web/social/<br/>thumbnail"]
-    Der --> Man["Append to<br/>manifest.jsonl"]
-    Man --> Src
-```
+A JSONL manifest (one record per line) is enough to power search, deduplication by hash, and a gallery, and loads easily into a database later.
 
 ## Scaling and Deployment
 
-A single ComfyUI process is a single GPU. To raise throughput, run **N identical servers** (containers, one GPU each via `CUDA_VISIBLE_DEVICES`) behind a dispatcher that load-balances prompts and aggregates their WebSockets. Because each server is stateless between prompts and jobs are idempotent (seeded, deterministic filenames), this scales horizontally without coordination beyond the dispatcher.
+One ComfyUI process drives one GPU. To scale out, run **one server per GPU** (each pinned with `CUDA_VISIBLE_DEVICES` or `--cuda-device`) behind a dispatcher that assigns jobs and tracks each server's WebSocket. Because jobs are idempotent and servers keep no state between prompts beyond caches, this needs no coordination beyond the dispatcher.
+
+```mermaid
+flowchart LR
+    API["Job API /<br/>message queue"] --> D["Dispatcher<br/>(bounded per worker,<br/>model-affinity routing)"]
+    D --> W1["ComfyUI :8188<br/>GPU 0"]
+    D --> W2["ComfyUI :8189<br/>GPU 1"]
+    D --> W3["ComfyUI :8190<br/>GPU 2"]
+    M[("Shared models<br/>read-only volume")] --- W1
+    M --- W2
+    M --- W3
+    W1 --> O[("Object storage<br/>masters + sidecars")]
+    W2 --> O
+    W3 --> O
+```
 
 | Concern | Single server | Horizontal scale |
 |---------|---------------|------------------|
-| Throughput | One prompt at a time | N prompts across N GPUs |
-| Dispatch | Built-in FIFO queue | External dispatcher round-robins |
-| Failure isolation | One crash stops the batch | Reschedule failed job to another server |
-| Model storage | Local | Shared volume so all servers see the same models |
+| Throughput | One prompt at a time | N prompts on N GPUs |
+| Dispatch | Built-in queue | External dispatcher; route jobs to the worker that already has the model loaded |
+| Failure isolation | A crash stops the batch | Reschedule to another worker |
+| Models | Local disk | Shared read-only volume, or pre-baked into the image |
+| Custom nodes | Installed by hand | Pinned versions in the container image (for example with `comfy-cli`) |
 
-For a managed setup, put the dispatcher and servers in containers (the [ComfyUI Guide](comfyui-guide.html) shows the `docker compose up -d comfyui-server` entry point), mount models from a shared volume, and expose only the dispatcher. The same retry, bounded-queue, and manifest logic from the single-server pipeline applies unchanged — you are just spreading the queue across more workers.
+Operational notes:
 
-## Key Takeaways
+- **Security.** ComfyUI has no authentication and custom nodes execute arbitrary Python. Bind workers to localhost or a private network (the default `--listen 127.0.0.1`), expose only your dispatcher, and install custom nodes only from sources you trust, pinned to reviewed versions.
+- **Reproducibility across workers.** Pin the ComfyUI version, custom-node commits, PyTorch/CUDA versions, and model hashes. Identical seeds can still produce slightly different pixels across GPU models or driver versions because of non-deterministic kernels, so reproduce critical assets on the same hardware class.
+- **Managed options.** If you would rather not run GPUs yourself, serverless GPU platforms and hosted ComfyUI services accept the same API-format workflow; the retry, sidecar, and manifest logic above still applies.
 
-- **API format is the foundation.** Export the workflow as API JSON, mutate only literal inputs (never connection `[id, index]` pairs), and POST to `/prompt`. Everything else is a loop around that.
-- **Track over WebSocket, fetch from history.** `client_id` ties events to your jobs; `executing` with `node: null` signals done; `/history` + `/view` retrieve the bytes.
-- **Sweep one axis at a time.** Fix the seed, vary one parameter, assemble a contact sheet — and remember the Cartesian product grows fast, so go coarse then fine.
-- **Bound the queue and make jobs idempotent.** Seeded, deterministically-named jobs are safe to retry; a manifest checkpoint lets a crashed run resume instead of restart.
-- **Provenance is non-negotiable.** Embed the workflow in the PNG, write a JSON sidecar, keep a lossless master, and derive delivery formats on demand.
+For a containerized single-node setup, the [ComfyUI Guide](comfyui-guide.html) shows the `docker compose` entry point. For model serving and monitoring beyond image generation, see [MLOps in Production](mlops-production.html).
 
 ## See Also
 
 - [ComfyUI Guide](comfyui-guide.html) - Build the workflows this pipeline automates
+- [Output Formats](output-formats.html) - Export formats, metadata, and provenance
 - [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - The parameters you sweep over
+- [Optimization Guide](optimization-guide.html) - Speed and VRAM tuning per job
 - [Advanced Techniques](advanced-techniques.html) - Multi-stage and few-step methods worth automating
-- [Output Formats](output-formats.html) - Export formats, metadata, and reproducibility
-- [Base Models Comparison](base-models-comparison.html) - Per-model settings that change your sweep ranges
-- [ControlNet](controlnet.html) - Conditioning inputs you upload via the API
-- [LoRA Training](lora-training.html) - Produce the custom models your pipeline serves
+- [Base Models Comparison](base-models-comparison.html) - Per-model settings that change sweep ranges
+- [MLOps in Production](mlops-production.html) - Serving, monitoring, and deployment practices
 - [AI/ML Documentation Hub](./) - Complete AI/ML documentation index

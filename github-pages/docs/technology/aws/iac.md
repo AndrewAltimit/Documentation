@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "AWS Infrastructure as Code"
+description: "CloudFormation and the AWS CDK: templates, stacks, change sets, drift, refactoring, and how they compare with Terraform/OpenTofu and Pulumi."
 permalink: /docs/technology/aws/iac.html
 hide_title: true
 toc: true
@@ -9,443 +10,355 @@ toc_label: "On This Page"
 toc_icon: "server"
 ---
 
-The biggest shift in cloud operations is treating infrastructure like software. Instead of clicking through the console, you declare what you want in code, review it like any other change, and deploy it repeatably. This page covers CloudFormation (AWS's native templating engine), how to choose among CloudFormation, Terraform, and the CDK, and a full AWS CDK microservices stack.
+**Infrastructure as code (IaC)** is the practice of declaring cloud resources in version-controlled files and letting a tool reconcile the real account with that declaration. On AWS the native engine is **CloudFormation**; the **AWS Cloud Development Kit (CDK)** is a programming-language front end that compiles to CloudFormation. This page covers the CloudFormation model (templates, stacks, change sets, drift, refactoring), the CDK, how both compare with third-party tools such as Terraform, and the operational practices that make IaC safe in production.
 
 ---
 
-## AWS CloudFormation - Infrastructure as Code
-CloudFormation lets you define your entire infrastructure in JSON or YAML templates. Instead of clicking through the console, you describe what you want and CloudFormation builds it.
+## Why infrastructure as code
 
-**Why CloudFormation Matters**:
-- Version control your infrastructure
-- Replicate environments exactly
-- Roll back changes if something breaks
-- Share templates with your team
+Resources created by hand in the console have no reviewable history, cannot be reproduced reliably in another account or Region, and drift silently as people make one-off fixes. Declaring them in code turns infrastructure changes into ordinary software changes:
 
-**Practical CloudFormation Example**:
+| Concern | Console ("ClickOps") | Infrastructure as code |
+|---|---|---|
+| Source of truth | The live account, plus whatever someone wrote down | Files in version control |
+| Reproducibility | Manual, error-prone | Same template deploys dev, staging, prod, and DR Regions |
+| Change review | None | Pull request with a diff and a planned change set |
+| Audit trail | CloudTrail events only | Commit history plus CloudTrail |
+| Recovery | Rebuild from memory | Redeploy the stack |
+
+The practical payoff is disaster recovery and environment parity: an account that is fully codified can be rebuilt from its repository, and staging differs from production only in parameters.
+
+---
+
+## CloudFormation
+
+CloudFormation is a managed service that takes a **template** (JSON or YAML) describing resources and creates, updates, or deletes them as a single unit called a **stack**. It computes dependency order from references between resources, runs independent operations in parallel, and rolls back the whole stack if any resource fails.
+
+### Core concepts
+
+| Concept | Meaning |
+|---|---|
+| **Template** | Declarative document with `Parameters`, `Mappings`, `Conditions`, `Resources` (the only required section), and `Outputs` |
+| **Stack** | A deployed instance of a template; the unit of create, update, rollback, and delete |
+| **Logical ID** | The resource's name inside the template (`AppQueue`); CloudFormation uses it to track identity across updates |
+| **Physical ID** | The real resource name or ARN in the account |
+| **Change set** | A preview of what an update will add, modify, or replace, reviewed before execution |
+| **Intrinsic functions** | `!Ref`, `!GetAtt`, `!Sub`, `!If`, `!ImportValue`, and others that wire resources together |
+| **Nested stack / cross-stack reference** | Ways to compose large systems: a parent stack embeds children, or one stack exports outputs another imports |
+| **StackSets** | Deploy one template to many accounts and Regions, typically across an AWS Organization |
+
+### Template anatomy
+
+The template below is complete and deployable. It creates an encrypted, versioned S3 bucket and a work queue with a dead-letter queue, toggles behaviour per environment with a condition, and protects stateful resources from accidental deletion.
+
 ```yaml
-# template.yml - Complete web application stack
-AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Web application with auto-scaling'
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Upload bucket and processing queue
 
 Parameters:
-  KeyName:
-    Type: AWS::EC2::KeyPair::KeyName
-    Description: EC2 Key Pair for SSH access
+  Environment:
+    Type: String
+    AllowedValues: [dev, prod]
+    Default: dev
+
+Conditions:
+  IsProd: !Equals [!Ref Environment, prod]
 
 Resources:
-  # Application Load Balancer
-  LoadBalancer:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+  UploadBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain          # keep data if the stack is deleted
+    UpdateReplacePolicy: Retain     # ...or if an update forces replacement
     Properties:
-      Subnets:
-        - !Ref PublicSubnet1
-        - !Ref PublicSubnet2
-      SecurityGroups:
-        - !Ref LoadBalancerSecurityGroup
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+      VersioningConfiguration:
+        Status: !If [IsProd, Enabled, Suspended]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
 
-  # Auto Scaling Group
-  AutoScalingGroup:
-    Type: AWS::AutoScaling::AutoScalingGroup
+  DeadLetterQueue:
+    Type: AWS::SQS::Queue
     Properties:
-      MinSize: 2
-      MaxSize: 10
-      DesiredCapacity: 4
-      LaunchTemplate:
-        LaunchTemplateId: !Ref LaunchTemplate
-        Version: !GetAtt LaunchTemplate.LatestVersionNumber
-      TargetGroupARNs:
-        - !Ref TargetGroup
-      HealthCheckType: ELB
-      HealthCheckGracePeriod: 300
+      MessageRetentionPeriod: 1209600   # 14 days, the maximum
 
-  # Scaling Policy
-  ScaleUpPolicy:
-    Type: AWS::AutoScaling::ScalingPolicy
+  WorkQueue:
+    Type: AWS::SQS::Queue
     Properties:
-      AutoScalingGroupName: !Ref AutoScalingGroup
-      PolicyType: TargetTrackingScaling
-      TargetTrackingConfiguration:
-        PredefinedMetricSpecification:
-          PredefinedMetricType: ASGAverageCPUUtilization
-        TargetValue: 70
+      VisibilityTimeout: 120
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
+        maxReceiveCount: 5
 
 Outputs:
-  LoadBalancerDNS:
-    Description: DNS name of load balancer
-    Value: !GetAtt LoadBalancer.DNSName
+  BucketName:
+    Value: !Ref UploadBucket
+  WorkQueueUrl:
+    Value: !Ref WorkQueue
     Export:
-      Name: !Sub ${AWS::StackName}-LoadBalancer-DNS
+      Name: !Sub "${AWS::StackName}-WorkQueueUrl"
 ```
 
-**Deploy with**:
+`!Ref` on a bucket returns its name and on a queue returns its URL; `!GetAtt` retrieves other attributes such as an ARN. Because `WorkQueue` references `DeadLetterQueue`, CloudFormation creates the dead-letter queue first.
+
+### Deploying with change sets
+
+Every production update should go through a **change set** so reviewers see exactly which resources will be modified and, critically, which will be **replaced** (deleted and recreated, which destroys data for stateful resources). `aws cloudformation deploy` creates and executes a change set in one step; the explicit form separates review from execution:
+
 ```bash
-aws cloudformation create-stack \
-  --stack-name my-web-app \
+# Create a change set (stack is created if it does not exist)
+aws cloudformation create-change-set \
+  --stack-name uploads-prod \
+  --change-set-name release-42 \
+  --change-set-type UPDATE \
   --template-body file://template.yml \
-  --parameters ParameterKey=KeyName,ParameterValue=my-key
+  --parameters ParameterKey=Environment,ParameterValue=prod
+
+# Review: look for "Replacement": "True" on stateful resources
+aws cloudformation describe-change-set \
+  --stack-name uploads-prod --change-set-name release-42 \
+  --query 'Changes[].ResourceChange.[Action,LogicalResourceId,Replacement]' \
+  --output table
+
+# Apply
+aws cloudformation execute-change-set \
+  --stack-name uploads-prod --change-set-name release-42
 ```
+
+```mermaid
+flowchart LR
+    T[Template in Git] --> V["Validate<br/>cfn-lint · cfn-guard · Hooks"]
+    V --> CS[Create change set]
+    CS --> R{Review diff}
+    R -- rejected --> T
+    R -- approved --> X[Execute change set]
+    X --> U{All resources<br/>succeed?}
+    U -- yes --> C[UPDATE_COMPLETE]
+    U -- no --> RB["Automatic rollback<br/>UPDATE_ROLLBACK_COMPLETE"]
+```
+
+If an update fails, CloudFormation rolls every resource back to its previous state. Rollback can be disabled for debugging (`--disable-rollback`), after which a failed stack can be retried from the failure point rather than reverted. Rollback triggers can also tie an update to CloudWatch alarms so a deployment that trips an alarm during a monitoring window is reverted automatically.
+
+### Drift
+
+**Drift** is any difference between a stack's template and the real resource configuration, usually caused by someone changing a resource outside CloudFormation. Drift detection (`detect-stack-drift`) reports it; it does not fix it.
+
+**Drift-aware change sets** go further. Created with `--deployment-mode REVERT_DRIFT`, they perform a three-way comparison of the *actual* resource state, the *previous deployment*, and the *new template*. The change set shows which out-of-band edits a deployment would overwrite, and executing it brings drifted resources back in line with the template. If the deployment fails, resources roll back to their actual pre-deployment state rather than to the last template. Properties that AWS manages on your behalf, such as an Auto Scaling group's desired capacity under a scaling policy, are recognised and left alone.
+
+```bash
+aws cloudformation create-change-set \
+  --stack-name uploads-prod \
+  --change-set-name reconcile-drift \
+  --template-body file://template.yml \
+  --deployment-mode REVERT_DRIFT
+```
+
+### Refactoring stacks
+
+CloudFormation tracks resources by logical ID, so historically moving a resource to another stack or renaming it meant deleting and recreating it. **Stack refactoring** removes that constraint: you submit revised templates for up to five stacks (`create-stack-refactor`), CloudFormation validates cross-stack dependencies and previews the moves, and `execute-stack-refactor` reassigns the existing physical resources without touching them. A refactor may only move or rename resources; property changes, new resources, and deletions must be deployed separately, and some resource types are not supported.
+
+### Bringing existing resources under management
+
+| Situation | Tool |
+|---|---|
+| A handful of existing resources should join a stack | **Resource import** (`create-change-set --change-set-type IMPORT`), with `DeletionPolicy: Retain` set on each |
+| A whole hand-built environment needs a template | **IaC generator**: scans the Region, then generates a template from selected resources (up to 500 per template) that can be imported as a stack or converted to a CDK app with `cdk migrate` |
+| Templates should deploy from Git automatically | **Git sync**: CloudFormation watches a repository branch and updates the stack when the template or its deployment file changes |
+
+### Guardrails
+
+- **cfn-lint** checks templates against the resource specification before deployment.
+- **CloudFormation Guard (cfn-guard)** evaluates policy-as-code rules, for example "every bucket must block public access".
+- **CloudFormation Hooks** run those checks inside the service, before a resource is provisioned, and can warn or fail the operation. Hooks can be written as Guard rules or Lambda functions and apply to stacks, change sets, and Cloud Control API calls.
+- **Stack policies** and **termination protection** prevent specific resources, or the whole stack, from being updated or deleted by mistake.
 
 ---
 
-## Infrastructure as Code: Never Click Again
+## AWS CDK
 
-### Why Infrastructure as Code Changes Everything
+The **AWS Cloud Development Kit** defines infrastructure in TypeScript, Python, Java, C#, or Go. A CDK app is a tree of **constructs**; running `cdk synth` executes the program and emits CloudFormation templates plus assets (Lambda bundles, Docker images) that `cdk deploy` uploads and deploys. CloudFormation remains the deployment engine, so stack semantics, rollback, and drift behave exactly as above.
 
-Defining infrastructure in code rather than console clicks unlocks version control, peer review, and automated deployment:
+```mermaid
+flowchart LR
+    Code["CDK app<br/>(TypeScript, Python, ...)"] --> Tree[Construct tree]
+    Tree -- cdk synth --> Asm["Cloud assembly<br/>templates + assets"]
+    Asm -- cdk deploy --> Boot["Bootstrap resources<br/>asset bucket · ECR repo · deploy roles"]
+    Boot --> CFN[CloudFormation stacks]
+    CFN --> Res[AWS resources]
+```
 
-| | Console clicks | Infrastructure as Code |
+### Construct levels
+
+| Level | What it is | Example |
 |---|---|---|
-| **Source of truth** | A wiki nobody updates | Configuration files in version control |
-| **Reproducibility** | Hope you can recreate it elsewhere | Deploy identical environments with one command |
-| **Change safety** | Fear of breaking production | Diff, review, and test in staging first |
-| **History** | None | Version control shows exactly what changed and when |
+| **L1** (`Cfn*`) | One-to-one mapping of a CloudFormation resource type, generated from the resource specification | `s3.CfnBucket` |
+| **L2** | Curated resource with sensible defaults, helper methods, and grant APIs | `s3.Bucket(...).grant_read(role)` |
+| **L3 / patterns** | Multi-resource architectures | `ecs_patterns.ApplicationLoadBalancedFargateService` |
 
-### Choosing Your IaC Tool
+L2 constructs encode AWS best practice (encryption on, least-privilege grants, correct security-group rules), which is most of the CDK's value; L1 is the escape hatch for properties an L2 does not expose.
 
-| Tool | Pros | Cons | Best for |
-|------|------|------|----------|
-| **CloudFormation** (AWS native) | Deep AWS integration, no extra tools | Verbose syntax, AWS-only | Teams fully committed to AWS |
-| **Terraform** (multi-cloud) | Works across providers, huge community | Must learn HCL | Multi-cloud or teams wanting flexibility |
-| **AWS CDK** (developer-friendly) | Define infra in Python/TypeScript with loops and abstractions | Newer, smaller community | Dev teams reusing existing language skills |
+### Example: containerised service with a database
 
-### Real-World IaC Evolution
-
-A startup's infrastructure journey:
-
-1. **Month 1**: Everything created via console clicks
-2. **Month 3**: Production breaks, nobody remembers how to rebuild
-3. **Month 4**: Team adopts Terraform, documents existing infrastructure
-4. **Month 6**: All changes go through pull requests
-5. **Year 1**: Disaster recovery test - entire production rebuilt in 30 minutes
-
-### Advanced Patterns That Save Your Sanity
+The stack below is written against CDK v2 (`aws-cdk-lib`). It creates a three-tier VPC, an Aurora PostgreSQL Serverless v2 cluster in isolated subnets, and a load-balanced Fargate service that mixes on-demand and Spot capacity, rolls back failed deployments automatically, and receives database credentials from Secrets Manager.
 
 ```python
 from aws_cdk import (
-    core as cdk,
+    App, Stack, CfnOutput, RemovalPolicy,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_ecs_patterns as ecs_patterns,
-    aws_elasticloadbalancingv2 as elbv2,
     aws_rds as rds,
-    aws_secretsmanager as sm,
-    aws_cloudwatch as cloudwatch,
-    aws_cloudwatch_actions as cw_actions,
-    aws_sns as sns,
-    aws_lambda as lambda_,
-    aws_apigateway as apigw,
-    custom_resources as cr
 )
 from constructs import Construct
-import json
 
-class MicroservicesStack(cdk.Stack):
+
+class WebServiceStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # Create VPC with custom configuration
         vpc = ec2.Vpc(
-            self, "MicroservicesVPC",
-            max_azs=3,
-            nat_gateways=2,
+            self, "Vpc",
+            max_azs=2,
+            nat_gateways=1,  # one per AZ in production
             subnet_configuration=[
-                ec2.SubnetConfiguration(
-                    name="Public",
-                    subnet_type=ec2.SubnetType.PUBLIC,
-                    cidr_mask=24
-                ),
-                ec2.SubnetConfiguration(
-                    name="Private",
-                    subnet_type=ec2.SubnetType.PRIVATE,
-                    cidr_mask=24
-                ),
-                ec2.SubnetConfiguration(
-                    name="Isolated",
-                    subnet_type=ec2.SubnetType.ISOLATED,
-                    cidr_mask=24
-                )
-            ]
-        )
-
-        # Create ECS Cluster with capacity providers
-        cluster = ecs.Cluster(
-            self, "Cluster",
-            vpc=vpc,
-            container_insights=True
-        )
-
-        # Add Fargate Spot capacity provider
-        cluster.add_capacity_provider(
-            ecs.FargateCapacityProvider(
-                self, "FargateSpotProvider",
-                spot=True
-            )
-        )
-
-        # Create RDS Aurora Serverless v2
-        db_secret = sm.Secret(
-            self, "DBSecret",
-            generate_secret_string=sm.SecretStringGenerator(
-                secret_string_template=json.dumps({"username": "admin"}),
-                generate_string_key="password",
-                exclude_characters=" %+~`#$&*()|[]{}:;<>?!'/\\"
-            )
-        )
-
-        db_cluster = rds.DatabaseCluster(
-            self, "AuroraCluster",
-            engine=rds.DatabaseClusterEngine.aurora_mysql(
-                # Use a current Aurora MySQL 3.x version label; this is an
-                # example — pin to a version supported in your account/region.
-                version=rds.AuroraMysqlEngineVersion.VER_3_04_0
-            ),
-            serverless_v2_scaling_configuration=rds.ServerlessV2ScalingConfiguration(
-                min_capacity=0.5,
-                max_capacity=2
-            ),
-            credentials=rds.Credentials.from_secret(db_secret),
-            vpc=vpc,
-            vpc_subnets=ec2.SubnetSelection(
-                subnet_type=ec2.SubnetType.ISOLATED
-            ),
-            backup=rds.BackupProps(
-                retention=cdk.Duration.days(7)
-            ),
-            deletion_protection=True
-        )
-
-        # Create shared ALB
-        alb = elbv2.ApplicationLoadBalancer(
-            self, "ALB",
-            vpc=vpc,
-            internet_facing=True,
-            http2_enabled=True
-        )
-
-        # Add CloudWatch alarms
-        alarm = cloudwatch.Alarm(
-            self, "HighErrorRate",
-            metric=alb.metric_target_response_time(),
-            threshold=1000,
-            evaluation_periods=2
-        )
-
-        # SNS topic for alarms
-        alarm_topic = sns.Topic(
-            self, "AlarmTopic",
-            display_name="Microservices Alarms"
-        )
-
-        alarm.add_alarm_action(cw_actions.SnsAction(alarm_topic))
-
-        # Deploy microservices
-        self.deploy_microservice(
-            cluster=cluster,
-            alb=alb,
-            service_name="users",
-            image="users-service:latest",
-            port=8080,
-            priority=1,
-            path_pattern="/users/*",
-            environment={
-                "DB_SECRET_ARN": db_secret.secret_arn,
-                "DB_CLUSTER_ARN": db_cluster.cluster_arn
-            }
-        )
-
-        self.deploy_microservice(
-            cluster=cluster,
-            alb=alb,
-            service_name="orders",
-            image="orders-service:latest",
-            port=8081,
-            priority=2,
-            path_pattern="/orders/*",
-            environment={
-                "DB_SECRET_ARN": db_secret.secret_arn,
-                "DB_CLUSTER_ARN": db_cluster.cluster_arn
-            }
-        )
-
-        # Create API Gateway for serverless endpoints
-        api = apigw.RestApi(
-            self, "MicroservicesAPI",
-            deploy_options=apigw.StageOptions(
-                logging_level=apigw.MethodLoggingLevel.INFO,
-                data_trace_enabled=True,
-                tracing_enabled=True
-            )
-        )
-
-        # Lambda function for async processing
-        async_processor = lambda_.Function(
-            self, "AsyncProcessor",
-            runtime=lambda_.Runtime.PYTHON_3_12,
-            handler="index.handler",
-            code=lambda_.Code.from_asset("lambda"),
-            vpc=vpc,
-            environment={
-                "DB_SECRET_ARN": db_secret.secret_arn
-            },
-            reserved_concurrent_executions=100,
-            tracing=lambda_.Tracing.ACTIVE
-        )
-
-        # Grant permissions
-        db_secret.grant_read(async_processor)
-        db_cluster.grant_connect(async_processor)
-
-        # Custom resource for database initialization
-        db_init = cr.AwsCustomResource(
-            self, "DBInit",
-            on_create=cr.AwsSdkCall(
-                service="RDS",
-                action="executeStatement",
-                parameters={
-                    "resourceArn": db_cluster.cluster_arn,
-                    "secretArn": db_secret.secret_arn,
-                    "database": "mysql",
-                    "sql": "CREATE DATABASE IF NOT EXISTS microservices;"
-                },
-                physical_resource_id=cr.PhysicalResourceId.of("DBInit")
-            ),
-            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
-                resources=[db_cluster.cluster_arn]
-            )
-        )
-
-        # Output values
-        cdk.CfnOutput(
-            self, "ALBDNSName",
-            value=alb.load_balancer_dns_name,
-            description="ALB DNS Name"
-        )
-
-        cdk.CfnOutput(
-            self, "APIEndpoint",
-            value=api.url,
-            description="API Gateway Endpoint"
-        )
-
-    def deploy_microservice(self,
-                           cluster: ecs.Cluster,
-                           alb: elbv2.ApplicationLoadBalancer,
-                           service_name: str,
-                           image: str,
-                           port: int,
-                           priority: int,
-                           path_pattern: str,
-                           environment: dict):
-        """Deploy a microservice to ECS"""
-
-        # Create task definition
-        task_definition = ecs.FargateTaskDefinition(
-            self, f"{service_name}TaskDef",
-            memory_limit_mib=512,
-            cpu=256
-        )
-
-        # Add container
-        container = task_definition.add_container(
-            f"{service_name}Container",
-            image=ecs.ContainerImage.from_registry(image),
-            logging=ecs.LogDrivers.aws_logs(
-                stream_prefix=service_name
-            ),
-            environment=environment,
-            health_check=ecs.HealthCheck(
-                command=["CMD-SHELL", f"curl -f http://localhost:{port}/health || exit 1"],
-                interval=cdk.Duration.seconds(30),
-                timeout=cdk.Duration.seconds(5),
-                retries=3
-            )
-        )
-
-        container.add_port_mappings(
-            ecs.PortMapping(
-                container_port=port,
-                protocol=ecs.Protocol.TCP
-            )
-        )
-
-        # Create service
-        service = ecs.FargateService(
-            self, f"{service_name}Service",
-            cluster=cluster,
-            task_definition=task_definition,
-            desired_count=2,
-            capacity_provider_strategies=[
-                ecs.CapacityProviderStrategy(
-                    capacity_provider="FARGATE_SPOT",
-                    weight=2
-                ),
-                ecs.CapacityProviderStrategy(
-                    capacity_provider="FARGATE",
-                    weight=1
-                )
+                ec2.SubnetConfiguration(name="public", cidr_mask=24,
+                                        subnet_type=ec2.SubnetType.PUBLIC),
+                ec2.SubnetConfiguration(name="app", cidr_mask=22,
+                                        subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+                ec2.SubnetConfiguration(name="data", cidr_mask=24,
+                                        subnet_type=ec2.SubnetType.PRIVATE_ISOLATED),
             ],
-            circuit_breaker=ecs.DeploymentCircuitBreaker(
-                rollback=True
-            )
         )
 
-        # Configure auto-scaling
-        scaling = service.auto_scale_task_count(
-            min_capacity=2,
-            max_capacity=10
+        db = rds.DatabaseCluster(
+            self, "Db",
+            # Pin to an engine version available in your Region.
+            engine=rds.DatabaseClusterEngine.aurora_postgres(
+                version=rds.AuroraPostgresEngineVersion.VER_16_4),
+            writer=rds.ClusterInstance.serverless_v2("writer"),
+            serverless_v2_min_capacity=0.5,
+            serverless_v2_max_capacity=4,
+            vpc=vpc,
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_ISOLATED),
+            credentials=rds.Credentials.from_generated_secret("app"),
+            storage_encrypted=True,
+            deletion_protection=True,
+            removal_policy=RemovalPolicy.SNAPSHOT,
         )
 
-        scaling.scale_on_cpu_utilization(
-            "CpuScaling",
-            target_utilization_percent=70,
-            scale_in_cooldown=cdk.Duration.seconds(60),
-            scale_out_cooldown=cdk.Duration.seconds(60)
-        )
+        cluster = ecs.Cluster(self, "Cluster", vpc=vpc,
+                              enable_fargate_capacity_providers=True)
 
-        scaling.scale_on_request_count(
-            "RequestScaling",
-            requests_per_target=1000,
-            target_group=alb.add_targets(
-                f"{service_name}TG",
-                port=port,
-                targets=[service],
-                health_check=elbv2.HealthCheck(
-                    path=f"/{service_name}/health",
-                    interval=cdk.Duration.seconds(30)
-                )
-            )
+        web = ecs_patterns.ApplicationLoadBalancedFargateService(
+            self, "Web",
+            cluster=cluster,
+            cpu=512,
+            memory_limit_mib=1024,
+            desired_count=2,
+            task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
+                image=ecs.ContainerImage.from_asset("./app"),  # built and pushed by cdk deploy
+                container_port=8080,
+                secrets={"DB_CREDENTIALS": ecs.Secret.from_secrets_manager(db.secret)},
+            ),
+            capacity_provider_strategies=[
+                ecs.CapacityProviderStrategy(capacity_provider="FARGATE", base=1, weight=1),
+                ecs.CapacityProviderStrategy(capacity_provider="FARGATE_SPOT", weight=2),
+            ],
+            circuit_breaker=ecs.DeploymentCircuitBreaker(rollback=True),
         )
+        web.target_group.configure_health_check(path="/health")
 
-        # Add ALB listener rule
-        alb.add_listener(
-            f"{service_name}Listener",
-            port=80
-        ).add_targets(
-            f"{service_name}Targets",
-            port=port,
-            targets=[service],
-            priority=priority,
-            conditions=[
-                elbv2.ListenerCondition.path_patterns([path_pattern])
-            ]
-        )
+        # Security-group rule from the service to the database port
+        db.connections.allow_default_port_from(web.service)
+
+        scaling = web.service.auto_scale_task_count(min_capacity=2, max_capacity=10)
+        scaling.scale_on_cpu_utilization("Cpu", target_utilization_percent=60)
+
+        CfnOutput(self, "Url", value="http://" + web.load_balancer.load_balancer_dns_name)
+
+
+app = App()
+WebServiceStack(app, "WebService")
+app.synth()
 ```
+
+Roughly sixty lines of Python synthesise several hundred lines of CloudFormation, including IAM roles, security groups, route tables, the ALB listener and target group, log groups, and the secret. `db.connections.allow_default_port_from(...)` and `ecs.Secret.from_secrets_manager(...)` also generate the least-privilege security-group rule and IAM grant that would otherwise be written by hand.
+
+### CDK workflow
+
+```bash
+npm install -g aws-cdk          # CLI (Node.js), independent of the app's language
+cdk bootstrap aws://123456789012/us-east-1   # once per account/Region
+cdk synth                       # render templates into cdk.out/
+cdk diff                        # compare against deployed stacks
+cdk deploy WebService           # create change set and execute
+```
+
+Points that trip people up:
+
+- **CDK v1 is end-of-life** (support ended 1 June 2023). Imports of the form `from aws_cdk import core` or per-service packages such as `aws_cdk.aws_s3` are v1; v2 ships everything in `aws-cdk-lib` and uses `constructs` for the base class.
+- **The CLI and the library are versioned separately.** Since early 2025 the CLI (`aws-cdk`) releases on its own `2.1xxx.0` line while `aws-cdk-lib` stays on `2.x`. A current CLI can deploy apps built with any v2 library, so keep the CLI up to date.
+- **Logical IDs come from the construct path.** Renaming a construct or moving it to another stack changes its logical ID, which CloudFormation treats as delete-and-create. `cdk refactor` (in preview, enabled with `--unstable=refactor`) detects such moves and uses CloudFormation stack refactoring to preserve the resources.
+- **Deprecated subnet types.** `SubnetType.PRIVATE` and `SubnetType.ISOLATED` were replaced by `PRIVATE_WITH_EGRESS` and `PRIVATE_ISOLATED`.
+- **Policy checks.** `cdk-nag` applies rule packs (AWS Solutions, NIST, HIPAA) to the construct tree at synth time; CloudFormation Hooks enforce rules server-side regardless of which tool produced the template.
+
+The **CDK Toolkit Library** exposes synth, deploy, diff, and refactor as a programmatic API, for teams that want to drive CDK from their own tooling instead of the CLI.
 
 ---
 
-## Key Takeaways
+## Choosing a tool
 
-- **Codify everything.** CloudFormation, CDK, or Terraform turn clicks into reviewable, repeatable code. Manual console changes drift and cannot be reproduced.
-- **Pick the tool that fits the team.** CloudFormation for AWS-native simplicity, Terraform for multi-cloud, CDK to define infrastructure in a real programming language with loops and abstractions.
-- **Review infrastructure like code.** Send every change through pull requests and test in staging. The payoff is a disaster-recovery story measured in minutes, not days.
+| Tool | Language | State | Scope | Strengths | Trade-offs |
+|---|---|---|---|---|---|
+| **CloudFormation** | YAML / JSON | Managed by AWS | AWS | No state to manage; day-one support for many new services; rollback, drift-aware change sets, StackSets, Hooks | Verbose; limited abstraction; AWS only |
+| **AWS CDK** | TS, Python, Java, C#, Go | CloudFormation | AWS | Real languages, loops, types, testing; high-level L2/L3 constructs; generated least-privilege IAM | Adds a synth step and Node.js CLI; inherits CloudFormation limits (500 resources per stack) |
+| **AWS SAM** | YAML (CloudFormation transform) | CloudFormation | Serverless on AWS | Concise syntax for Lambda, API Gateway, Step Functions; local invoke and testing | Narrow focus |
+| **Terraform** | HCL | State file (S3 backend with locking, or HCP Terraform) | Multi-cloud and SaaS | Largest provider ecosystem; `plan` before `apply`; mature module registry | State must be secured and locked; Business Source License since August 2023 |
+| **OpenTofu** | HCL | State file | Multi-cloud | Open-source (MPL 2.0) fork of Terraform under the Linux Foundation; largely compatible with Terraform configurations | Features diverge from Terraform over time |
+| **Pulumi** | TS, Python, Go, C#, Java, YAML | Pulumi Cloud or self-managed backend | Multi-cloud | General-purpose languages across providers | Smaller community than Terraform |
+
+Rules of thumb:
+
+- AWS-only teams comfortable with a general-purpose language get the most leverage from the **CDK**.
+- Organisations that manage several clouds or many SaaS providers (DNS, monitoring, identity) usually standardise on **Terraform or OpenTofu**; see the [Terraform guide](../terraform/).
+- Plain **CloudFormation** remains the right output format for things that must be consumed by others: Service Catalog products, StackSets rolled out across an Organization, and Marketplace templates.
+- Mixing tools is common but each resource should have exactly one owner.
+
+---
+
+## Operating IaC in production
+
+```mermaid
+flowchart LR
+    PR[Pull request] --> CI["CI: lint, unit tests,<br/>policy checks, synth/plan"]
+    CI --> Dev[Deploy to dev]
+    Dev --> Stg["Deploy to staging<br/>integration tests"]
+    Stg --> Gate{Manual approval<br/>of prod change set}
+    Gate --> Prod[Deploy to prod]
+    Prod --> Watch["Alarms during bake time<br/>auto-rollback on breach"]
+```
+
+- **Separate accounts per environment.** Use AWS Organizations with one account per environment (or per workload and environment); the same template is promoted from account to account. See [Security](security.html) for account structure.
+- **Deploy from pipelines, not laptops.** CI assumes a deployment role through OIDC federation rather than long-lived access keys. Humans get read-only production access by default.
+- **Size stacks by lifecycle.** Put resources that change together in the same stack, and keep long-lived stateful resources (VPCs, databases, buckets) in separate stacks from frequently deployed application code. This limits blast radius and keeps each stack under the 500-resource quota.
+- **Protect state.** Set `DeletionPolicy`/`UpdateReplacePolicy: Retain` (CDK `RemovalPolicy.RETAIN` or `SNAPSHOT`) on anything holding data, enable termination protection on production stacks, and read every change set for `Replacement: True`.
+- **Avoid hard-coded names.** Let CloudFormation generate physical names where possible; named resources cannot be replaced without a conflict, which blocks updates that require replacement.
+- **Treat drift as an incident.** Out-of-band console fixes made during an outage should be codified afterwards; drift-aware change sets show which ones a deployment would otherwise overwrite.
+- **Parameterise environments, not code paths.** Differences between environments belong in parameters or CDK context, not in divergent templates.
 
 ---
 
 ## See Also
 
 - [AWS Hub](./) - Overview of all AWS documentation
+- [Terraform](../terraform/) - Multi-cloud IaC with HCL, state, and modules
+- [CI/CD: Deployment](../ci-cd/deployment.html) - Pipeline patterns for promoting changes
 - [Architecture Patterns & Case Studies](architecture.html) - Where these stacks fit
-- [Cost Optimization](cost.html) - IaC-driven budgets and Spot management
-- [Terraform](../terraform/) - Alternative multi-cloud IaC approach
-- [Compute Services](compute.html) - EC2, Lambda, and container patterns
+- [Monitoring & Messaging](monitoring.html) - Alarms that can gate and roll back deployments
+- [Security](security.html) - IAM, account structure, and guardrails
+- [Cost Optimization](cost.html) - Tagging and budgets driven from IaC

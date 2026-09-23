@@ -1,399 +1,415 @@
 ---
 layout: docs
 title: "QFT: Gauge Theories & the Standard Model"
+description: How local gauge symmetry generates the forces of nature — QED, Yang-Mills theory, QCD, electroweak unification, the Higgs mechanism, and the full Standard Model with its quantum numbers, parameters, experimental status, and open problems.
 permalink: /docs/physics/gauge-and-standard-model.html
 toc: true
 toc_sticky: true
 ---
 
-## Gauge Theories & the Standard Model
-
 [Physics](./) &raquo; [Quantum Field Theory](quantum-field-theory.html) &raquo; Gauge Theories &amp; the Standard Model
 
-The Standard Model is not a list of forces bolted together by hand. It is the consequence of a single demand: that the phase (and the internal "color" or "flavor" label) of every matter field be choosable *independently at every point of spacetime*. That demand — **local gauge symmetry** — cannot be met by free fields alone. Repairing it forces new vector fields into existence, and those fields *are* the photon, the $W$ and $Z$ bosons, and the gluons. This page develops that argument from $U(1)$ electromagnetism up to the full $SU(3)_C \times SU(2)_L \times U(1)_Y$ gauge group, and shows how the Higgs mechanism gives the gauge bosons and fermions their masses without spoiling the symmetry.
+The **Standard Model** of particle physics is a quantum field theory with gauge group $SU(3)_C \times SU(2)_L \times U(1)_Y$, three generations of quarks and leptons, and one scalar doublet, the Higgs field. Its structure follows from one requirement: that the theory be invariant under symmetry transformations chosen *independently at each spacetime point* (**local gauge invariance**). Meeting that requirement forces vector fields into the theory, and those fields are the photon, the $W$ and $Z$ bosons, and the gluons. This page builds the argument from $U(1)$ electromagnetism through non-abelian Yang-Mills theory to QCD and the electroweak theory, then shows how the Higgs mechanism gives mass to the $W$, $Z$, and fermions without breaking the gauge symmetry of the Lagrangian. It closes with the particle content, parameters, current experimental status, and what the Standard Model does not explain.
 
-- **Symmetry dictates forces.** A global symmetry made local cannot be maintained by the ordinary derivative — repairing it *forces* a gauge field into the theory.
-- **Non-abelian means self-interacting.** When the symmetry group doesn't commute, the gauge bosons carry the charge themselves and interact with one another.
-- **Strong force gets weaker up close.** QCD's coupling runs to zero at high energy (asymptotic freedom) and grows at long range (confinement).
-- **Mass from a hidden symmetry.** The Higgs field's vacuum value breaks electroweak symmetry, giving the $W$/$Z$ and fermions mass while leaving the photon massless.
-
-### What You'll Find on This Page
-
-| Section | What it covers |
-|---------|----------------|
-| [The Gauge Principle](#the-gauge-principle) | Global vs. local symmetry and the covariant derivative |
-| [QED](#quantum-electrodynamics-qed) | The abelian $U(1)$ gauge theory of light and charge |
-| [Yang-Mills Theory](#non-abelian-gauge-theory-yang-mills) | Non-abelian $SU(N)$ gauge fields and self-coupling |
-| [QCD](#quantum-chromodynamics-qcd) | Color, asymptotic freedom, and confinement |
-| [Electroweak Unification](#electroweak-unification) | Mixing $SU(2)_L \times U(1)_Y$ into the photon and $W/Z$ |
-| [The Higgs Mechanism](#the-higgs-mechanism) | Spontaneous breaking and the origin of mass |
-| [The Standard Model](#the-standard-model) | The full particle content, gauge group, and Lagrangian |
-
-### The Big Picture: From Symmetry to the Standard Model
+It assumes the free-field material of [Canonical Quantization](qft-quantization.html). Loop effects and running couplings are developed in [Renormalization](renormalization.html); the path-integral quantization of gauge fields (gauge fixing, Faddeev-Popov ghosts) is in [Path Integrals & Methods](qft-methods.html).
 
 ```mermaid
 graph LR
-    SYM["Local gauge symmetry"] --> GF["Gauge fields (force carriers)"]
-    GF --> EM["U(1): photon — QED"]
-    GF --> WK["SU(2): W, Z bosons — weak"]
-    GF --> ST["SU(3): gluons — QCD"]
-    MAT["Matter fields (quarks, leptons)"] --> INT["Interactions"]
-    GF --> INT
-    HIGGS["Higgs field"] --> MASS["Mass generation"]
-    EM --> SM["Standard Model"]
-    WK --> SM
-    ST --> SM
+    LOC["Local gauge invariance"] --> COV["Covariant derivative<br/>and gauge fields"]
+    COV --> U1["U(1): photon (QED)"]
+    COV --> SU2["SU(2) x U(1): W, Z, photon<br/>(electroweak)"]
+    COV --> SU3["SU(3): 8 gluons (QCD)"]
+    HIGGS["Higgs doublet<br/>vacuum value v"] --> SSB["Electroweak symmetry breaking"]
+    SU2 --> SSB
+    SSB --> MASS["W, Z masses<br/>fermion masses via Yukawa"]
+    U1 --> SM["Standard Model"]
+    SU3 --> SM
     MASS --> SM
-    style SYM fill:#11998e,color:#fff
-    style SM fill:#38ef7d,color:#222
-    style HIGGS fill:#ccf,color:#222
 ```
+
+**Conventions.** Natural units $\hbar = c = 1$, metric signature $(+,-,-,-)$, covariant derivative $D_\mu = \partial_\mu + igA_\mu$. Many textbooks (e.g. Peskin & Schroeder) use $D_\mu = \partial_\mu - igA_\mu$; this flips the sign of $g$ in the interaction vertex and in the non-abelian term of the field strength, and has no physical consequence.
 
 ## The Gauge Principle
 
-<div class="principle-card">
-  <h4>The deepest idea in modern physics: forces from symmetry</h4>
-  <p>A free electron's phase is unobservable — multiply its field by $e^{i\alpha}$ everywhere and nothing measurable changes (a <em>global</em> symmetry). Now demand something stronger: that we be free to choose that phase <em>independently at every point in spacetime</em> (a <em>local</em>, or gauge, symmetry). The ordinary derivative ruins this, because comparing the field at neighboring points now mixes in the arbitrary phase choices. To repair it we are <strong>forced</strong> to introduce a new field that "connects" the phases from point to point — and that field turns out to be precisely the photon. The electromagnetic force is not added by hand; it is the unavoidable consequence of insisting on local phase freedom. Repeat the argument with larger symmetry groups and you generate the $W$/$Z$ bosons ($SU(2)$) and the gluons ($SU(3)$). This single principle organizes the entire Standard Model.</p>
-</div>
-
 ### Global versus local symmetry
 
-The free Dirac Lagrangian for a fermion field $\psi$,
+The free Dirac Lagrangian
 
-$$\mathcal{L}_0 = \bar{\psi}(i\gamma^\mu\partial_\mu - m)\psi,$$
+$$\mathcal{L}_0 = \bar{\psi}(i\gamma^\mu\partial_\mu - m)\psi$$
 
-is invariant under the **global** $U(1)$ phase rotation $\psi \to e^{i\alpha}\psi$ with $\alpha$ a constant: the phase cancels between $\bar\psi$ and $\psi$, and $\partial_\mu$ acts only on $\psi$. By Noether's theorem this global symmetry implies a conserved current $j^\mu = \bar\psi\gamma^\mu\psi$ — conservation of electric charge.
+is invariant under the **global** $U(1)$ phase rotation $\psi \to e^{i\alpha}\psi$ with constant $\alpha$. By Noether's theorem the symmetry implies a conserved current $j^\mu = \bar\psi\gamma^\mu\psi$ — conservation of charge.
 
-Now promote $\alpha$ to a spacetime-dependent function $\alpha(x)$:
+Now let the phase depend on position, $\psi \to e^{i\alpha(x)}\psi$. The mass term is still invariant, but the derivative picks up an extra piece:
 
-$$\psi \to e^{i\alpha(x)}\psi.$$
+$$\partial_\mu\psi \to e^{i\alpha(x)}\bigl(\partial_\mu\psi + i(\partial_\mu\alpha)\,\psi\bigr).$$
 
-The mass term $-m\bar\psi\psi$ is still invariant, but the kinetic term is not, because the derivative now hits the local phase:
-
-$$\partial_\mu\psi \to e^{i\alpha(x)}\bigl(\partial_\mu\psi + i(\partial_\mu\alpha)\psi\bigr).$$
-
-The extra $i(\partial_\mu\alpha)\psi$ term spoils invariance. The geometric meaning is that the ordinary derivative compares $\psi$ at neighboring points $x$ and $x+dx$, but those points now use independently rotated reference phases, so the comparison is ill-defined.
+Geometrically, $\partial_\mu\psi$ compares the field at neighboring points whose phase conventions are now chosen independently, so the comparison is not meaningful without extra structure.
 
 ### The covariant derivative
 
-The cure is to introduce a **gauge field** $A_\mu$ that tells us how to "parallel transport" the phase from one point to the next, and to replace $\partial_\mu$ with the **covariant derivative**
+The extra structure is a **connection**: a vector field $A_\mu$ that specifies how to compare phases between neighboring points. Replace $\partial_\mu$ with the **covariant derivative**
 
-$$D_\mu = \partial_\mu + igA_\mu.$$
+$$D_\mu = \partial_\mu + igA_\mu,$$
 
-We demand that $D_\mu\psi$ transform exactly like $\psi$ itself, i.e. $D_\mu\psi \to e^{i\alpha(x)}D_\mu\psi$. This fixes the transformation law of the gauge field:
+and require $D_\mu\psi \to e^{i\alpha(x)}D_\mu\psi$. This fixes the transformation of the gauge field,
 
-$$A_\mu \to A_\mu - \frac{1}{g}\partial_\mu\alpha.$$
+$$A_\mu \to A_\mu - \frac{1}{g}\partial_\mu\alpha,$$
 
-With this rule the unwanted $i(\partial_\mu\alpha)\psi$ generated by the derivative is exactly cancelled by the shift in $A_\mu$. Replacing $\partial_\mu \to D_\mu$ in $\mathcal{L}_0$ produces
+which cancels the unwanted term. The gauge-invariant Lagrangian is
 
-$$\mathcal{L} = \bar\psi(i\gamma^\mu D_\mu - m)\psi = \underbrace{\bar\psi(i\gamma^\mu\partial_\mu - m)\psi}_{\text{free fermion}} \;-\; \underbrace{g\,\bar\psi\gamma^\mu\psi\,A_\mu}_{\text{interaction}}.$$
+$$\mathcal{L} = \bar\psi(i\gamma^\mu D_\mu - m)\psi = \bar\psi(i\gamma^\mu\partial_\mu - m)\psi \;-\; g\,\bar\psi\gamma^\mu\psi\,A_\mu.$$
 
-The interaction term — the coupling of the charge current to the gauge field — was not put in by hand. **It is the price of local invariance.**
+The interaction $-g\,j^\mu A_\mu$, coupling the conserved current to the gauge field, is not an independent assumption: it is required by local invariance.
 
-### Dynamics for the gauge field
+### Field strength and the ban on gauge-boson mass
 
-A propagating gauge field needs its own kinetic term, which must itself be gauge invariant. The gauge-invariant object built from $A_\mu$ is the **field strength**
+The gauge-invariant combination of derivatives of $A_\mu$ is the **field strength**
 
-$$F_{\mu\nu} = \partial_\mu A_\nu - \partial_\nu A_\mu,$$
+$$F_{\mu\nu} = \partial_\mu A_\nu - \partial_\nu A_\mu = \frac{1}{ig}\,[D_\mu, D_\nu],$$
 
-which is unchanged under $A_\mu \to A_\mu - \tfrac{1}{g}\partial_\mu\alpha$ because mixed partial derivatives commute. The unique dimension-four, Lorentz-invariant, gauge-invariant kinetic term is
+and the unique Lorentz- and gauge-invariant kinetic term of mass dimension four (with parity conserved) is $-\tfrac{1}{4}F_{\mu\nu}F^{\mu\nu}$, which reproduces Maxwell's equations. A mass term $\tfrac{1}{2}m_A^2 A_\mu A^\mu$ is **not** gauge invariant. Exact gauge symmetry therefore implies a massless gauge boson — which is why the photon is massless, and why the massive $W$ and $Z$ require the Higgs mechanism rather than an explicit mass term.
 
-$$\mathcal{L}_{\text{gauge}} = -\frac{1}{4}F_{\mu\nu}F^{\mu\nu}.$$
-
-Crucially, a mass term $\tfrac{1}{2}m_A^2 A_\mu A^\mu$ is **forbidden** by gauge invariance — it is not invariant under the shift of $A_\mu$. This is why the photon is exactly massless, and why giving the $W$/$Z$ a mass later will require the Higgs mechanism rather than a bare mass term.
+In geometric language, $A_\mu$ is a connection on a principal bundle with structure group $G$, $F_{\mu\nu}$ is its curvature, and gauge transformations are changes of local frame. The Aharonov-Bohm effect shows that the gauge-invariant holonomy $\exp\left(ie\oint A_\mu\,dx^\mu\right)$ is physical even where $F_{\mu\nu} = 0$.
 
 ## Quantum Electrodynamics (QED)
 
-QED is the abelian gauge theory that results from gauging the $U(1)$ phase symmetry of the electron, with coupling $g = e$ (the elementary charge). It is the most precisely tested theory in all of physics.
+QED is the $U(1)$ gauge theory of charged fermions and the photon:
 
-### QED Lagrangian
+$$\mathcal{L}_{\text{QED}} = \bar{\psi}(i\gamma^\mu D_\mu - m)\psi - \frac{1}{4}F_{\mu\nu}F^{\mu\nu}, \qquad D_\mu = \partial_\mu + ieQA_\mu,$$
 
-$$\mathcal{L}_{\text{QED}} = \bar{\psi}(i\gamma^\mu D_\mu - m)\psi - \frac{1}{4}F_{\mu\nu}F^{\mu\nu}, \qquad D_\mu = \partial_\mu + ieA_\mu.$$
+where $Q$ is the charge in units of $e > 0$ ($Q = -1$ for the electron). The fine-structure constant $\alpha = e^2/4\pi \approx 1/137.036$ sets the coupling strength.
 
-This single line contains the free electron, the free photon, and their interaction $-e\bar\psi\gamma^\mu\psi A_\mu$. The fine-structure constant $\alpha = e^2/4\pi \approx 1/137$ measures the strength of the coupling.
+### Feynman rules
 
-### Feynman rules for QED
+| Element | Momentum-space factor |
+|---------|----------------------|
+| Vertex (fermion of charge $Q$) | $-ieQ\gamma^\mu$ |
+| Fermion propagator | $\dfrac{i(\not{p} + m)}{p^2 - m^2 + i\varepsilon}$ |
+| Photon propagator, $R_\xi$ gauge | $\dfrac{-i}{k^2 + i\varepsilon}\left[g^{\mu\nu} - (1-\xi)\dfrac{k^\mu k^\nu}{k^2}\right]$ |
 
-The perturbative expansion of $\mathcal{L}_{\text{QED}}$ generates the following momentum-space rules:
+$\xi = 1$ is Feynman gauge and $\xi = 0$ Landau gauge. The $\xi$-dependence cancels in every physical amplitude because the photon couples to a conserved current (the **Ward identity** $k_\mu \mathcal{M}^\mu = 0$).
 
-**Vertex factor:** $-ie\gamma^\mu$
+Tree-level processes include Compton scattering ($\gamma e^- \to \gamma e^-$), Møller ($e^-e^- \to e^-e^-$) and Bhabha ($e^+e^- \to e^+e^-$) scattering, pair annihilation ($e^+e^- \to \gamma\gamma$), and pair production in the field of a nucleus.
 
-**Electron propagator:**
+### Running coupling
 
-$$S_F(p) = \frac{i}{\not{p} - m + i\varepsilon} = \frac{i(\not{p}+m)}{p^2 - m^2 + i\varepsilon}$$
+Vacuum polarization screens charge, so the effective coupling grows at short distances. The one-loop beta function for a single Dirac fermion is
 
-**Photon propagator (Feynman gauge):**
+$$\beta(e) = \mu\frac{de}{d\mu} = \frac{e^3}{12\pi^2}.$$
 
-$$D^{\mu\nu}_F(k) = \frac{-ig^{\mu\nu}}{k^2 + i\varepsilon}$$
+Including all charged Standard Model fermions, $\alpha$ rises from $1/137.036$ at low energy to about $1/128$ at the $Z$ mass. Extrapolated far beyond the Planck scale, the one-loop coupling diverges (the **Landau pole**), signaling that pure QED is not a complete theory at arbitrarily high energy.
 
-The freedom in the photon propagator (the gauge parameter $\xi$, set to $1$ in Feynman gauge) reflects the gauge redundancy and drops out of all physical amplitudes.
+### Precision tests
 
-### Characteristic QED processes
-
-- **Electron–positron scattering** (Bhabha / Møller): tree level is single-photon exchange; higher orders add loop corrections.
-- **Compton scattering:** $\gamma + e^- \to \gamma + e^-$.
-- **Pair production:** $\gamma \to e^+ + e^-$ (in an external field, to conserve momentum).
-- **Annihilation:** $e^+ + e^- \to \gamma\gamma$.
-
-### Precision triumphs
-
-QED's defining success is the **anomalous magnetic moment** of the electron, $a_e = (g-2)/2$. Theory and experiment agree to better than twelve significant figures — the most stringent confirmation of any physical theory. The **Lamb shift** in hydrogen, a splitting of levels that are degenerate in the Dirac equation, is a direct measurement of QED radiative (vacuum-polarization and self-energy) corrections.
-
-QED's coupling **grows** with energy: its one-loop $\beta$-function is positive,
-
-$$\beta(e) = \frac{e^3}{12\pi^2} + O(e^5),$$
-
-so the effective charge increases at short distances and formally hits a Landau pole at enormous energy. QED is therefore *not* asymptotically free — in sharp contrast to QCD below.
+| Observable | Status |
+|------------|--------|
+| Electron $g-2$ | $g/2$ measured to about 0.13 parts per trillion (Fan et al., Northwestern, 2023). The SM prediction (5-loop QED plus small hadronic and electroweak terms) agrees, with the comparison limited by the input value of $\alpha$: the two best recoil measurements (Cs, 2018; Rb, 2020) disagree with each other by several standard deviations. |
+| Muon $g-2$ | Fermilab's final result (2025) measures $a_\mu$ to 127 ppb; the world average reaches 124 ppb. The 2025 Theory Initiative prediction, which takes the hadronic vacuum polarization from lattice QCD, agrees with experiment. The earlier $\sim 4$–$5\sigma$ "anomaly" relied on $e^+e^-\to$ hadrons data whose data sets are themselves in tension. |
+| Lamb shift | The $2S_{1/2}$–$2P_{1/2}$ splitting in hydrogen (about 1058 MHz), degenerate in the Dirac equation, is a direct measurement of self-energy and vacuum-polarization corrections. |
 
 ## Non-Abelian Gauge Theory (Yang-Mills)
 
-Electromagnetism gauges a single phase. The richer case is to gauge a symmetry whose transformations **do not commute** — a non-abelian group such as $SU(N)$. This is the Yang–Mills construction (1954), the structural backbone of both the strong and the weak interactions.
+Yang and Mills (1954) gauged a symmetry whose transformations do not commute. This construction underlies both the strong and weak interactions.
 
-### Matter in a representation
+### Matter fields and generators
 
-Let the matter field $\psi$ carry an internal index transforming in the fundamental representation of $SU(N)$:
+Let $\psi$ be a multiplet transforming under $SU(N)$:
 
-$$\psi \to U(x)\,\psi, \qquad U(x) = \exp\!\bigl(i\,\alpha^a(x)\,T^a\bigr),$$
+$$\psi \to U(x)\,\psi, \qquad U(x) = \exp\bigl(i\,\alpha^a(x)\,T^a\bigr), \qquad [T^a, T^b] = if^{abc}T^c,$$
 
-where the $T^a$ ($a = 1,\dots,N^2-1$) are the generators of the Lie algebra, obeying
+with $a = 1,\dots,N^2-1$ and totally antisymmetric **structure constants** $f^{abc}$. For $SU(2)$, $T^a = \sigma^a/2$ and $f^{abc} = \epsilon^{abc}$; for $SU(3)$, $T^a = \lambda^a/2$ with the Gell-Mann matrices $\lambda^a$. Generators are normalized by $\operatorname{Tr}(T^aT^b) = \tfrac{1}{2}\delta^{ab}$.
 
-$$[T^a, T^b] = if^{abc}T^c,$$
+### Covariant derivative and field strength
 
-with $f^{abc}$ the (totally antisymmetric) **structure constants**. For $SU(2)$ the generators are $T^a = \sigma^a/2$ (Pauli matrices) and $f^{abc} = \varepsilon^{abc}$; for $SU(3)$ they are $T^a = \lambda^a/2$ (Gell-Mann matrices).
+Local invariance requires one gauge field per generator, $A_\mu = A^a_\mu T^a$, with
 
-### The covariant derivative and gauge field
+$$D_\mu = \partial_\mu + igA^a_\mu T^a, \qquad A_\mu \to UA_\mu U^{-1} + \frac{i}{g}(\partial_\mu U)U^{-1}.$$
 
-Local invariance now requires **one gauge field per generator**, $A^a_\mu$, collected into the matrix-valued field $A_\mu = A^a_\mu T^a$. The covariant derivative is
+The field strength follows from the commutator of covariant derivatives, $F_{\mu\nu} = (ig)^{-1}[D_\mu, D_\nu]$:
 
-$$D_\mu = \partial_\mu + ig A^a_\mu T^a,$$
+$$F^a_{\mu\nu} = \partial_\mu A^a_\nu - \partial_\nu A^a_\mu - g f^{abc}A^b_\mu A^c_\nu.$$
 
-and gauge invariance fixes the transformation law of the gauge field to
+Unlike the abelian case, $F_{\mu\nu}$ is not gauge invariant but **covariant**, $F_{\mu\nu} \to UF_{\mu\nu}U^{-1}$, so the invariant kinetic term uses a trace:
 
-$$A_\mu \to U A_\mu U^{-1} + \frac{i}{g}(\partial_\mu U)U^{-1}.$$
+$$\mathcal{L}_{\text{YM}} = -\frac{1}{2}\operatorname{Tr}\left(F_{\mu\nu}F^{\mu\nu}\right) = -\frac{1}{4}F^a_{\mu\nu}F^{a\mu\nu}.$$
 
-The first term — the homogeneous rotation $U A_\mu U^{-1}$ — is new compared to the abelian case and is the source of everything that follows.
+### Self-interaction
 
-### Field strength and self-interaction
+The quadratic term in $F^a_{\mu\nu}$ makes $\mathcal{L}_{\text{YM}}$ contain **cubic and quartic gauge-boson self-couplings**. Physically, the gauge bosons carry the charge they mediate: gluons carry color, and $W$ bosons carry weak isospin. The photon is neutral and has no tree-level self-coupling. Gluon self-interaction is the origin of asymptotic freedom and, non-perturbatively, of confinement.
 
-Because the gauge field now transforms inhomogeneously under the group, the field strength acquires an extra non-abelian term:
+| Property | Abelian ($U(1)$) | Non-abelian ($SU(N)$) |
+|----------|------------------|----------------------|
+| Number of gauge bosons | 1 | $N^2 - 1$ |
+| Gauge bosons charged? | No | Yes (adjoint representation) |
+| Field strength | Invariant | Covariant: $F \to UFU^{-1}$ |
+| Self-couplings | None | Cubic and quartic |
+| Faddeev-Popov ghosts | Decouple | Required in covariant gauges |
+| One-loop running (pure gauge) | — | Coupling decreases at high energy |
 
-$$F^a_{\mu\nu} = \partial_\mu A^a_\nu - \partial_\nu A^a_\mu + g f^{abc}A^b_\mu A^c_\nu.$$
-
-The Yang–Mills Lagrangian keeps the same gauge-invariant form,
-
-$$\mathcal{L}_{\text{YM}} = -\frac{1}{4}F^a_{\mu\nu}F^{a\mu\nu},$$
-
-but the quadratic $gf^{abc}A^b_\mu A^c_\nu$ piece inside $F^a_{\mu\nu}$ means $\mathcal{L}_{\text{YM}}$ contains **cubic and quartic self-interactions of the gauge bosons**.
-
-<div class="theory-card">
-  <h4>Why gauge bosons interact with each other</h4>
-  <p>In QED the photon is electrically neutral, so photons do not scatter off one another at tree level. In a non-abelian theory the gauge bosons transform among themselves (the $UA_\mu U^{-1}$ term), which means they carry the very charge they mediate: gluons carry color, the $W$ bosons carry weak isospin. This self-coupling is the single fact responsible for both asymptotic freedom and confinement in QCD.</p>
-</div>
+Quantizing Yang-Mills in a covariant gauge requires **Faddeev-Popov ghosts**, anticommuting scalar fields that cancel unphysical gauge-boson polarizations in loops; the residual **BRST symmetry** of the gauge-fixed action ensures that physical amplitudes are gauge independent and unitary. 't Hooft and Veltman proved in 1971–72 that Yang-Mills theories, including those with spontaneous breaking, are renormalizable (Nobel Prize 1999).
 
 ## Quantum Chromodynamics (QCD)
 
-QCD is the Yang–Mills theory of $SU(3)_C$ — the gauge theory of the strong force, binding quarks into protons, neutrons, and all other hadrons.
+QCD is the $SU(3)_C$ Yang-Mills theory of quarks and gluons.
 
-### Color charge
+### Lagrangian
 
-Each quark flavor comes in three **colors** (conventionally red, green, blue), forming a triplet in the fundamental representation of $SU(3)$:
+Each quark flavor $q$ is a color triplet $q_i$, $i = 1,2,3$. With eight gluon fields $G^a_\mu$,
 
-$$q_i \to U_{ij}\,q_j, \qquad U \in SU(3).$$
+$$\mathcal{L}_{\text{QCD}} = \sum_{q} \bar{q}_i\bigl(i\gamma^\mu (D_\mu)_{ij} - m_q\delta_{ij}\bigr)q_j - \frac{1}{4}G^a_{\mu\nu}G^{a\mu\nu} + \frac{\theta g_s^2}{32\pi^2}G^a_{\mu\nu}\tilde{G}^{a\mu\nu},$$
 
-The eight gauge bosons are the **gluons** $A^a_\mu$ ($a=1,\dots,8$), one for each generator of $SU(3)$. Unlike the photon, gluons themselves carry color charge and so interact directly with one another.
+$$(D_\mu)_{ij} = \delta_{ij}\partial_\mu + ig_s(T^a)_{ij}G^a_\mu, \qquad G^a_{\mu\nu} = \partial_\mu G^a_\nu - \partial_\nu G^a_\mu - g_s f^{abc}G^b_\mu G^c_\nu.$$
 
-### QCD Lagrangian
-
-$$\mathcal{L}_{\text{QCD}} = \sum_q \bar{q}_i\bigl(i\gamma^\mu D_\mu^{ij} - m\,\delta^{ij}\bigr)q_j - \frac{1}{4}G^a_{\mu\nu}G^{a\mu\nu},$$
-
-with the color-covariant derivative and gluon field strength
-
-$$D_\mu^{ij} = \delta^{ij}\partial_\mu + ig_s(T^a)^{ij}A^a_\mu,$$
-
-$$G^a_{\mu\nu} = \partial_\mu A^a_\nu - \partial_\nu A^a_\mu + g_s f^{abc}A^b_\mu A^c_\nu.$$
-
-Here $g_s$ is the strong coupling and $\alpha_s = g_s^2/4\pi$.
+The last term, with $\tilde{G}^{a\mu\nu} = \tfrac{1}{2}\epsilon^{\mu\nu\rho\sigma}G^a_{\rho\sigma}$, is a total derivative that nevertheless affects physics through topologically nontrivial field configurations (instantons). It violates CP; see the strong CP problem below.
 
 ### Asymptotic freedom
 
-The defining feature of QCD is that its coupling **decreases** at high energy. The one-loop running coupling is
+At one loop the strong coupling $\alpha_s = g_s^2/4\pi$ runs as
 
-$$\alpha_s(Q^2) = \frac{\alpha_s(\mu^2)}{1 + \dfrac{\alpha_s(\mu^2)}{4\pi}\,\beta_0\,\ln(Q^2/\mu^2)},$$
+$$\alpha_s(Q^2) = \frac{\alpha_s(\mu^2)}{1 + \dfrac{\beta_0}{4\pi}\,\alpha_s(\mu^2)\ln\left(Q^2/\mu^2\right)}, \qquad \beta_0 = 11 - \frac{2}{3}n_f,$$
 
-with the one-loop coefficient
+where $n_f$ is the number of quark flavors lighter than $Q$. The $11$ (for $SU(3)$, in general $\tfrac{11}{3}N$) comes from gluon loops and **anti-screens** color charge; the $-\tfrac{2}{3}n_f$ is ordinary quark-loop screening. For $n_f \le 16$, $\beta_0 > 0$ and $\alpha_s \to 0$ at high energy — **asymptotic freedom** (Gross, Wilczek, Politzer, 1973; Nobel Prize 2004). This is why quarks inside a proton behave as nearly free partons in deep-inelastic scattering. The world average is $\alpha_s(m_Z) \approx 0.118$, determined to below 1% from lattice QCD, $\tau$ decays, jet rates, and deep-inelastic scattering, all consistent with the predicted running.
 
-$$\beta_0 = 11 - \frac{2}{3}n_f,$$
+Writing the one-loop result as $\alpha_s(Q^2) = 4\pi/[\beta_0\ln(Q^2/\Lambda^2)]$ defines the scale $\Lambda_{\text{QCD}} \approx 200$–$300$ MeV (scheme and $n_f$ dependent), below which perturbation theory fails. The QCD scale is generated from a dimensionless coupling by quantum effects — **dimensional transmutation**.
 
-where $n_f$ is the number of active quark flavors. For any $n_f \le 16$ — and in particular the $n_f = 6$ of the real world — $\beta_0 > 0$, so $\alpha_s \to 0$ as $Q \to \infty$. The positive contribution $11$ comes entirely from the **gluon self-interaction** (gluon loops antiscreen color charge); the $-\tfrac{2}{3}n_f$ is the familiar fermion-loop screening. Gross, Wilczek, and Politzer received the 2004 Nobel Prize for discovering this. Physically, quarks probed at very short distances behave almost as free particles — which is why the parton model of deep-inelastic scattering works.
+### Confinement and the origin of hadron mass
 
-### Confinement
+At distances beyond about $1/\Lambda_{\text{QCD}} \sim 1$ fm, lattice QCD shows the static quark–antiquark potential rising linearly (the Cornell form):
 
-The flip side of asymptotic freedom is that the coupling **grows** at low energy / long distance. As $Q^2$ decreases toward $\Lambda_{\text{QCD}} \sim 200$ MeV the denominator above vanishes and perturbation theory breaks down. The empirical and lattice result is a linearly rising potential between a static quark–antiquark pair:
+$$V(r) \approx -\frac{4}{3}\frac{\alpha_s}{r} + \sigma r, \qquad \sigma \approx 0.9\ \text{GeV/fm}.$$
 
-$$V(r) \approx -\frac{4}{3}\frac{\alpha_s}{r} + k\,r,$$
+Chromoelectric flux is squeezed into a tube, and pulling quarks apart eventually makes it energetically favorable to create a new $q\bar q$ pair. Only color singlets — mesons ($q\bar q$), baryons ($qqq$), and exotic multiquark states such as the tetraquarks and pentaquarks observed at LHCb — appear as free particles. A proof that pure Yang-Mills theory has a mass gap is another Clay Millennium Prize Problem.
 
-with string tension $k \approx 1$ GeV/fm. The energy needed to separate two quarks grows without bound; long before they are free, the stored energy materializes a new quark–antiquark pair. The consequence is **color confinement**: only color-singlet combinations — mesons ($q\bar q$) and baryons ($qqq$) — appear as isolated particles. No free quark or gluon has ever been observed.
+Confinement also explains where visible mass comes from. The up and down quarks have masses of only a few MeV, yet the proton weighs $938$ MeV. Lattice QCD computes the light-hadron spectrum from first principles to percent-level accuracy; nearly all of the nucleon mass is gluon field energy and quark kinetic energy, not Higgs-generated quark mass. Spontaneous breaking of approximate chiral symmetry by the quark condensate $\langle\bar q q\rangle \neq 0$ makes the pions light pseudo-Goldstone bosons.
 
 ## Electroweak Unification
 
-The weak interaction and electromagnetism are two faces of a single $SU(2)_L \times U(1)_Y$ gauge theory — the Glashow–Weinberg–Salam model. The subscripts encode its two defining features: the $SU(2)$ acts only on **left-handed** fields ($L$), and the $U(1)$ charge is **weak hypercharge** ($Y$), not ordinary electric charge.
+The Glashow-Weinberg-Salam theory is an $SU(2)_L \times U(1)_Y$ gauge theory. $SU(2)_L$ acts only on **left-handed** fermions — this chirality is why the weak interaction violates parity maximally — and the $U(1)$ charge is **weak hypercharge** $Y$, related to electric charge by
 
-### Gauge fields before symmetry breaking
+$$Q = T_3 + Y.$$
 
-The electroweak gauge group has four gauge bosons:
+There are four gauge fields: $W^{1,2,3}_\mu$ with coupling $g$ and $B_\mu$ with coupling $g'$.
 
-- $W^1_\mu, W^2_\mu, W^3_\mu$ — the three $SU(2)_L$ gauge fields, with coupling $g$;
-- $B_\mu$ — the single $U(1)_Y$ gauge field, with coupling $g'$.
+### Quantum numbers of one generation
 
-Left-handed fermions are grouped into $SU(2)_L$ doublets, e.g. $\binom{\nu_e}{e}_L$ and $\binom{u}{d}_L$, while right-handed fermions are $SU(2)_L$ singlets. This chiral structure is why the weak force violates parity.
+| Field | $SU(3)_C$ | $SU(2)_L$ | $Y$ | Electric charges |
+|-------|-----------|-----------|-----|------------------|
+| $Q_L = (u_L, d_L)$ | 3 | 2 | $+\tfrac{1}{6}$ | $+\tfrac{2}{3}, -\tfrac{1}{3}$ |
+| $u_R$ | 3 | 1 | $+\tfrac{2}{3}$ | $+\tfrac{2}{3}$ |
+| $d_R$ | 3 | 1 | $-\tfrac{1}{3}$ | $-\tfrac{1}{3}$ |
+| $L_L = (\nu_L, e_L)$ | 1 | 2 | $-\tfrac{1}{2}$ | $0, -1$ |
+| $e_R$ | 1 | 1 | $-1$ | $-1$ |
+| Higgs $\phi$ | 1 | 2 | $+\tfrac{1}{2}$ | $+1, 0$ |
 
-### Mixing into the physical bosons
+The other two generations repeat this pattern with heavier masses. No right-handed neutrino appears in the minimal model.
 
-The physical, mass-eigenstate bosons are linear combinations of the gauge eigenstates, controlled by the **Weinberg (weak mixing) angle** $\theta_W$, defined by $\tan\theta_W = g'/g$:
+### Mixing into physical bosons
 
-$$W^\pm_\mu = \frac{1}{\sqrt{2}}\bigl(W^1_\mu \mp iW^2_\mu\bigr),$$
+After symmetry breaking the mass eigenstates are
 
-$$Z_\mu = W^3_\mu\cos\theta_W - B_\mu\sin\theta_W,$$
+$$W^\pm_\mu = \frac{1}{\sqrt{2}}\left(W^1_\mu \mp iW^2_\mu\right), \qquad \begin{pmatrix} Z_\mu \\ A_\mu \end{pmatrix} = \begin{pmatrix} \cos\theta_W & -\sin\theta_W \\ \sin\theta_W & \cos\theta_W \end{pmatrix}\begin{pmatrix} W^3_\mu \\ B_\mu \end{pmatrix},$$
 
-$$A_\mu = W^3_\mu\sin\theta_W + B_\mu\cos\theta_W.$$
-
-The combination $A_\mu$ is the photon — it remains massless because it corresponds to the unbroken $U(1)_{EM}$ subgroup. The orthogonal combination $Z_\mu$, together with the charged $W^\pm_\mu$, acquires mass through the Higgs mechanism. The electric charge is recovered as
+with the **weak mixing angle** $\tan\theta_W = g'/g$. The photon $A_\mu$ couples to $Q$ with strength
 
 $$e = g\sin\theta_W = g'\cos\theta_W,$$
 
-so the single relation ties together the electromagnetic and weak couplings — the essence of *unification*. Measured value: $\sin^2\theta_W \approx 0.231$.
+so the electromagnetic coupling is fixed by the two electroweak couplings. Experimentally $\sin^2\theta_W \approx 0.2312$ (in the $\overline{\text{MS}}$ scheme at the $Z$ mass). The $W^\pm$ mediate charged-current processes such as beta decay; the $Z$ mediates the **neutral currents** discovered at CERN's Gargamelle bubble chamber in 1973, the first confirmation of the theory.
+
+At energies far below $m_W$, $W$ exchange reduces to Fermi's four-fermion contact interaction with
+
+$$\frac{G_F}{\sqrt{2}} = \frac{g^2}{8m_W^2}, \qquad G_F \approx 1.166\times 10^{-5}\ \text{GeV}^{-2},$$
+
+which explains why the weak interaction is weak: not a small coupling ($g \approx 0.65$ is larger than $e \approx 0.31$), but a heavy mediator.
 
 ## The Higgs Mechanism
 
-Gauge invariance forbids explicit mass terms for the gauge bosons, yet the $W$ and $Z$ are heavy ($\sim 80$–$91$ GeV). The resolution is **spontaneous symmetry breaking**: the symmetry of the Lagrangian is exact, but the *vacuum* does not share it.
+Gauge invariance forbids explicit masses for the $W$ and $Z$, and also for the fermions, since $m\bar\psi\psi = m(\bar\psi_L\psi_R + \bar\psi_R\psi_L)$ couples an $SU(2)_L$ doublet to a singlet. Both problems are solved by **spontaneous symmetry breaking**: the Lagrangian keeps the full symmetry, but the vacuum does not.
 
-<div class="principle-card">
-  <h4>The pencil that has to fall: where mass comes from</h4>
-  <p>A pencil balanced on its tip is perfectly symmetric — no direction is special. But that balanced state is unstable; the pencil <em>must</em> topple, and the moment it does, it picks one direction and the symmetry is hidden. The laws stayed symmetric; the <em>state</em> did not. This is spontaneous symmetry breaking, and it is how particles get mass in the Standard Model. The Higgs field sits in a potential shaped like a Mexican hat (or a wine bottle's punt): the symmetric point at the center is a local <em>maximum</em>, so the field rolls down into the circular trough and acquires a nonzero vacuum value $v$ everywhere in space. Particles that interact with this pervasive background field are slowed — they behave as if they have mass — while the photon, which does not couple to it, stays massless and travels at $c$.</p>
-</div>
+### The Higgs potential
 
-### The Mexican-hat potential
+The Higgs field is an $SU(2)_L$ doublet $\phi$ with hypercharge $\tfrac{1}{2}$ and potential
 
-Introduce a complex scalar field (in the Standard Model, an $SU(2)_L$ doublet $\phi$) with the potential
+$$V(\phi) = -\mu^2\,\phi^\dagger\phi + \lambda\left(\phi^\dagger\phi\right)^2, \qquad \mu^2 > 0,\ \lambda > 0.$$
 
-$$V(\phi) = -\mu^2|\phi|^2 + \lambda|\phi|^4, \qquad \mu^2 > 0,\ \lambda > 0.$$
+<figure style="margin:1.5rem auto; max-width:600px;">
+<svg viewBox="0 0 640 250" width="100%" role="img" aria-labelledby="higgs-pot-title" style="color:currentColor; background:transparent;">
+<title id="higgs-pot-title">Cross-section of the Higgs potential: a local maximum at zero field and minima at field value v over root two</title>
+<line x1="40" y1="80" x2="610" y2="80" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+<line x1="320" y1="5" x2="320" y2="230" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+<path d="M65.0,12.5 L73.5,54.1 L82.0,89.4 L90.5,118.8 L99.0,142.9 L107.5,162.0 L116.0,176.8 L124.5,187.5 L133.0,194.7 L141.5,198.7 L150.0,200.0 L158.5,198.9 L167.0,195.7 L175.5,190.8 L184.0,184.4 L192.5,177.0 L201.0,168.8 L209.5,160.0 L218.0,150.8 L226.5,141.6 L235.0,132.5 L243.5,123.7 L252.0,115.3 L260.5,107.6 L269.0,100.6 L277.5,94.5 L286.0,89.4 L294.5,85.3 L303.0,82.4 L311.5,80.6 L320.0,80.0 L328.5,80.6 L337.0,82.4 L345.5,85.3 L354.0,89.4 L362.5,94.5 L371.0,100.6 L379.5,107.6 L388.0,115.3 L396.5,123.7 L405.0,132.5 L413.5,141.6 L422.0,150.8 L430.5,160.0 L439.0,168.8 L447.5,177.0 L456.0,184.4 L464.5,190.8 L473.0,195.7 L481.5,198.9 L490.0,200.0 L498.5,198.7 L507.0,194.7 L515.5,187.5 L524.0,176.8 L532.5,162.0 L541.0,142.9 L549.5,118.8 L558.0,89.4 L566.5,54.1 L575.0,12.5" fill="none" stroke="currentColor" stroke-width="2.5"/>
+<circle cx="320" cy="72" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+<circle cx="490" cy="192" r="7" fill="currentColor"/>
+<line x1="490" y1="200" x2="490" y2="222" stroke="currentColor" stroke-width="1" stroke-dasharray="4 3"/>
+<text x="478" y="240" font-size="14" fill="currentColor">v/&#8730;2</text>
+<text x="328" y="60" font-size="13" fill="currentColor">symmetric point: unstable maximum</text>
+<text x="500" y="178" font-size="13" fill="currentColor">vacuum</text>
+<text x="585" y="100" font-size="14" fill="currentColor">|&#966;|</text>
+<text x="330" y="20" font-size="14" fill="currentColor">V</text>
+<path d="M515,210 q-25,-18 -50,0" fill="none" stroke="currentColor" stroke-width="1" opacity="0.7"/>
+<text x="420" y="232" font-size="11" fill="currentColor" opacity="0.8">(Goldstone directions: around the trough)</text>
+</svg>
+<figcaption style="text-align:center; font-size:0.9em;">A slice through the potential. In the full field space the minima form a three-sphere; the vacuum picks one point on it. Excitations along the trough are the would-be Goldstone bosons; the radial excitation is the Higgs boson.</figcaption>
+</figure>
 
-The point $\phi = 0$ is an unstable maximum. The minima form a circle (a sphere of vacua) at
+The origin is a local maximum. The minima lie at $\phi^\dagger\phi = \mu^2/2\lambda \equiv v^2/2$, and in unitary gauge the vacuum and its fluctuations can be written
 
-$$|\langle\phi\rangle| = v = \sqrt{\frac{\mu^2}{2\lambda}}.$$
+$$\langle\phi\rangle = \frac{1}{\sqrt{2}}\begin{pmatrix} 0 \\ v \end{pmatrix}, \qquad \phi(x) = \frac{1}{\sqrt{2}}\begin{pmatrix} 0 \\ v + h(x) \end{pmatrix}, \qquad v = \frac{\mu}{\sqrt{\lambda}} = \left(\sqrt{2}\,G_F\right)^{-1/2} \approx 246\ \text{GeV}.$$
 
-The field rolls into the trough and picks one point on the circle, breaking the symmetry spontaneously. The measured electroweak vacuum value is $v \approx 246$ GeV.
+The vacuum is invariant only under the combination $Q = T_3 + Y$, so $SU(2)_L \times U(1)_Y \to U(1)_{\text{EM}}$.
 
-### Goldstone's theorem and the Higgs mechanism
+### Goldstone bosons are eaten
 
-**Goldstone's theorem:** spontaneous breaking of a continuous *global* symmetry produces one massless scalar (a Goldstone boson) for each broken generator. In a *gauge* theory, however, something better happens. The would-be Goldstone bosons are not physical: they can be removed by a gauge transformation (unitary gauge), where they reappear as the **longitudinal polarization** of the gauge bosons. The gauge bosons "eat" the Goldstones and thereby acquire mass:
+**Goldstone's theorem**: spontaneously breaking a continuous *global* symmetry produces one massless scalar per broken generator. Here three of the four generators are broken, but the symmetry is *gauged*, and the three would-be Goldstone modes can be removed by a gauge transformation. They reappear as the **longitudinal polarizations** of three gauge bosons, which become massive (a massive vector has three polarizations, a massless one two). Degrees of freedom are conserved:
 
-- Each broken generator gives its gauge boson a mass and a longitudinal mode.
-- No physical Goldstone bosons remain in the spectrum.
-- One physical scalar survives — the **Higgs boson** $h$, the radial excitation of $\phi$.
+| Before breaking | After breaking |
+|-----------------|----------------|
+| 4 massless gauge bosons $\times$ 2 = 8 | $W^+, W^-, Z$: 3 $\times$ 3 = 9 |
+| Complex doublet: 4 real scalars | Photon: 2 |
+| **Total 12** | Higgs boson $h$: 1. **Total 12** |
 
-### Masses generated
+```mermaid
+graph LR
+    subgraph Before["Unbroken SU(2)_L x U(1)_Y"]
+        W12["W1, W2"]
+        W3["W3"]
+        B["B"]
+        G["3 Goldstone modes"]
+        HR["radial mode"]
+    end
+    subgraph After["Broken to U(1)_EM"]
+        WPM["W+ and W- (massive)"]
+        Z["Z (massive)"]
+        A["photon (massless)"]
+        H["Higgs boson h"]
+    end
+    W12 --> WPM
+    W3 --> Z
+    B --> Z
+    W3 --> A
+    B --> A
+    G -- "eaten: longitudinal modes" --> WPM
+    G -- "eaten" --> Z
+    HR --> H
+```
 
-Expanding the Higgs doublet around its vacuum value and reading off the quadratic terms gives the gauge-boson masses
+### Masses
 
-$$m_W = \frac{1}{2}g\,v, \qquad m_Z = \frac{m_W}{\cos\theta_W}, \qquad m_\gamma = 0.$$
+Substituting $\langle\phi\rangle$ into the kinetic term $|D_\mu\phi|^2$ gives
 
-The relation $m_W = m_Z\cos\theta_W$ is a sharp, testable prediction of the minimal (doublet) Higgs sector — confirmed experimentally. Fermion masses arise separately, from gauge-invariant **Yukawa couplings** $y_f\,\bar\psi_L\,\phi\,\psi_R$ that turn into $m_f = y_f v/\sqrt{2}$ once $\phi$ takes its vacuum value. The large hierarchy of fermion masses (from the electron at $0.5$ MeV to the top at $173$ GeV) is just the hierarchy of these Yukawa couplings — the Standard Model does not predict them.
+$$m_W = \frac{gv}{2}, \qquad m_Z = \frac{\sqrt{g^2 + g'^2}\,v}{2} = \frac{m_W}{\cos\theta_W}, \qquad m_\gamma = 0, \qquad m_h = \sqrt{2\lambda}\,v.$$
 
-The Higgs boson itself has mass $m_h = \sqrt{2\lambda}\,v \approx 125$ GeV, measured at the LHC in 2012.
+The tree-level relation $\rho \equiv m_W^2/(m_Z^2\cos^2\theta_W) = 1$ is a consequence of the Higgs being a doublet (a "custodial" symmetry of the potential); measured deviations are small and accounted for by loops of the top quark and Higgs. With $m_h \approx 125$ GeV the quartic coupling is $\lambda \approx 0.13$.
+
+**Fermion masses** come from gauge-invariant **Yukawa couplings**. For one generation,
+
+$$\mathcal{L}_{\text{Yuk}} = -y_d\,\bar{Q}_L\phi\,d_R - y_u\,\bar{Q}_L\tilde\phi\,u_R - y_e\,\bar{L}_L\phi\,e_R + \text{h.c.}, \qquad \tilde\phi = i\sigma^2\phi^*,$$
+
+which yield $m_f = y_f v/\sqrt{2}$. The Yukawa couplings span from $y_e \approx 3\times 10^{-6}$ to $y_t \approx 1$; the Standard Model accommodates but does not explain this hierarchy. With three generations the Yukawa couplings are $3\times 3$ matrices. Diagonalizing them misaligns the up- and down-type mass bases, producing the **CKM matrix**: three mixing angles and one CP-violating phase (Kobayashi-Maskawa, Nobel Prize 2008), which is the only confirmed source of CP violation in the quark sector.
 
 ## The Standard Model
 
-The Standard Model is the crowning achievement of QFT: a single Lagrangian, built from the gauge principle plus the Higgs mechanism, that accounts for every confirmed elementary particle and three of the four known forces. It is organized around the gauge group
+### Gauge structure and breaking pattern
 
-$$SU(3)_C \times SU(2)_L \times U(1)_Y,$$
+$$SU(3)_C \times SU(2)_L \times U(1)_Y \;\xrightarrow{\;\langle\phi\rangle\;}\; SU(3)_C \times U(1)_{\text{EM}}$$
 
-one factor for each force, acting on a fixed roster of matter fields. The pieces below are the entire known particle content of the universe (gravity excepted).
+| Force | Gauge group | Carriers | Mass | Coupling at $m_Z$ | Range |
+|-------|-------------|----------|------|-------------------|-------|
+| Strong | $SU(3)_C$ | 8 gluons | 0 | $\alpha_s \approx 0.118$ | $\sim 1$ fm (confinement) |
+| Electromagnetic | $U(1)_{\text{EM}}$ | photon | 0 | $\alpha \approx 1/128$ | Infinite |
+| Weak | $SU(2)_L \times U(1)_Y$ (broken) | $W^\pm$, $Z$ | 80.4, 91.2 GeV | $\alpha_W = g^2/4\pi \approx 1/30$ | $\sim 10^{-3}$ fm |
 
-### Gauge groups
+Gravity is not part of the Standard Model; at accessible energies it is negligible for individual particles (the gravitational attraction between two protons is about $10^{-36}$ of their electric repulsion).
 
-- $SU(3)_C$: **color** — the strong force (8 gluons).
-- $SU(2)_L$: **weak isospin** — acts only on left-handed fields.
-- $U(1)_Y$: **weak hypercharge** — combines with $SU(2)_L$ to yield electromagnetism after symmetry breaking.
+### Particle content and masses
 
-After the Higgs mechanism, $SU(2)_L \times U(1)_Y$ breaks down to $U(1)_{EM}$, leaving the unbroken $SU(3)_C \times U(1)_{EM}$ of the strong and electromagnetic forces.
+Approximate values from the Particle Data Group (2024–2025 editions). Light-quark masses are $\overline{\text{MS}}$ values at 2 GeV.
 
-### Particle content
+| Generation | Up-type quark | Down-type quark | Charged lepton | Neutrino |
+|------------|---------------|-----------------|----------------|----------|
+| 1 | $u$: 2.2 MeV | $d$: 4.7 MeV | $e$: 0.511 MeV | $\nu_e$ |
+| 2 | $c$: 1.27 GeV | $s$: 93 MeV | $\mu$: 105.7 MeV | $\nu_\mu$ |
+| 3 | $t$: 172.6 GeV | $b$: 4.18 GeV | $\tau$: 1.777 GeV | $\nu_\tau$ |
 
-**Quarks (spin-½), three generations:**
+| Boson | Spin | Mass |
+|-------|------|------|
+| Photon $\gamma$ | 1 | 0 |
+| Gluons $g$ (8) | 1 | 0 |
+| $W^\pm$ | 1 | $\approx 80.37$ GeV |
+| $Z$ | 1 | $91.188$ GeV |
+| Higgs $h$ | 0 | $\approx 125.2$ GeV |
 
-- Up-type: $u$, $c$, $t$
-- Down-type: $d$, $s$, $b$
+### The Lagrangian
 
-**Leptons (spin-½), three generations:**
+$$\mathcal{L}_{\text{SM}} = -\frac{1}{4}\sum_{\text{gauge}} F^a_{\mu\nu}F^{a\mu\nu} + \sum_{\psi}\bar\psi\,i\gamma^\mu D_\mu\psi + \left(D_\mu\phi\right)^\dagger\left(D^\mu\phi\right) - V(\phi) + \mathcal{L}_{\text{Yuk}} + \mathcal{L}_{\theta}.$$
 
-- Charged: $e$, $\mu$, $\tau$
-- Neutrinos: $\nu_e$, $\nu_\mu$, $\nu_\tau$
+Each $D_\mu$ contains exactly the gauge fields under which that field is charged. Given the gauge group and the representations in the table above, renormalizability fixes the form of every term. What is not fixed are the numerical parameters:
 
-**Gauge bosons (spin-1):**
+| Sector | Parameters | Count |
+|--------|-----------|-------|
+| Gauge couplings | $g_s$, $g$, $g'$ | 3 |
+| Higgs potential | $\mu^2$, $\lambda$ | 2 |
+| Quark masses | 6 Yukawa eigenvalues | 6 |
+| Charged-lepton masses | 3 Yukawa eigenvalues | 3 |
+| Quark mixing (CKM) | 3 angles + 1 phase | 4 |
+| QCD vacuum angle | $\bar\theta$ | 1 |
+| **Total (massless neutrinos)** | | **19** |
 
-- Photon ($\gamma$): electromagnetic force, massless
-- $W^\pm$, $Z$: weak force, massive
-- Gluons ($g$): strong force, 8 massless color octet
-
-**Higgs boson (spin-0):** the quantum of the field that breaks electroweak symmetry and supplies mass.
-
-### The three gauge forces at a glance
-
-| Force | Gauge group | Carrier(s) | Charge | Relative strength | Range |
-|-------|-------------|------------|--------|-------------------|-------|
-| Strong | $SU(3)_C$ | 8 gluons | color | $\sim 1$ | $\sim 10^{-15}$ m (confined) |
-| Electromagnetic | $U(1)_{EM}$ | photon | electric | $\sim 10^{-2}$ | infinite |
-| Weak | $SU(2)_L$ | $W^\pm, Z$ | weak isospin | $\sim 10^{-6}$ | $\sim 10^{-18}$ m |
-| Gravity* | — | (graviton?) | mass-energy | $\sim 10^{-38}$ | infinite |
-
-<p style="font-style:italic; opacity:0.8;">*Gravity is not part of the Standard Model — quantizing it remains an open problem. Strengths are order-of-magnitude comparisons at low energy; the strong and electromagnetic couplings converge toward each other at high energy.</p>
-
-### The Standard Model Lagrangian, schematically
-
-Every term in the Standard Model is fixed by the gauge group and the chosen matter representations:
-
-$$\mathcal{L}_{\text{SM}} = \underbrace{-\frac{1}{4}\sum_a F^a_{\mu\nu}F^{a\mu\nu}}_{\text{gauge kinetic}} + \underbrace{\sum_\psi \bar\psi\,i\gamma^\mu D_\mu\,\psi}_{\text{fermion kinetic + interactions}} + \underbrace{|D_\mu\phi|^2 - V(\phi)}_{\text{Higgs}} - \underbrace{\bigl(y_f\,\bar\psi_L\,\phi\,\psi_R + \text{h.c.}\bigr)}_{\text{Yukawa}}.$$
-
-The covariant derivative $D_\mu$ contains all three gauge fields, with each field coupling only to the matter that carries the corresponding charge. There are no free choices in the *structure* — only in the numerical parameters (the gauge couplings, the Yukawa couplings, the Higgs $\mu$ and $\lambda$, and the CKM mixing angles).
+Adding neutrino masses brings three masses and the four-parameter PMNS lepton mixing matrix (26 total), plus two further phases if neutrinos are Majorana particles.
 
 ### Anomaly cancellation
 
-A subtle consistency requirement is that the chiral gauge symmetries be free of **quantum anomalies** — gauge currents that are conserved classically but not quantum-mechanically would render the theory inconsistent. The triangle-diagram anomalies cancel only when summed over a *complete* generation of quarks and leptons, with the quark color factor of 3 playing an essential role. This is a remarkable internal harmony: the existence of three colors and the matching of quark and lepton charges are tied together by quantum consistency.
+A chiral gauge theory is consistent only if its gauge anomalies — triangle diagrams that would break gauge invariance at the quantum level — cancel. Writing every fermion as a left-handed Weyl field (so $u_R$ contributes as a left-handed antiquark with $Y = -\tfrac{2}{3}$, and so on), the conditions for one generation are:
 
-### Experimental confirmation
+| Anomaly | Condition | Check |
+|---------|-----------|-------|
+| $U(1)_Y^3$ | $\sum Y^3 = 0$ | $6\left(\tfrac{1}{6}\right)^3 + 3\left(-\tfrac{2}{3}\right)^3 + 3\left(\tfrac{1}{3}\right)^3 + 2\left(-\tfrac{1}{2}\right)^3 + 1^3 = 0$ |
+| $SU(2)_L^2\,U(1)_Y$ | $\sum_{\text{doublets}} Y = 0$ | $3\cdot\tfrac{1}{6} - \tfrac{1}{2} = 0$ |
+| $SU(3)_C^2\,U(1)_Y$ | $\sum_{\text{triplets}} Y = 0$ | $2\cdot\tfrac{1}{6} - \tfrac{2}{3} + \tfrac{1}{3} = 0$ |
+| Gravitational $U(1)_Y$ | $\sum Y = 0$ | $6\cdot\tfrac{1}{6} - 3\cdot\tfrac{2}{3} + 3\cdot\tfrac{1}{3} - 2\cdot\tfrac{1}{2} + 1 = 0$ |
 
-- **W and Z bosons (1983, CERN):** confirmed electroweak unification, with masses matching $m_W = m_Z\cos\theta_W$.
-- **Top quark (1995, Fermilab):** completed the third generation at $m_t \approx 173$ GeV.
-- **Higgs boson (2012, LHC):** confirmed the mass-generation mechanism, $m_h \approx 125$ GeV.
-- **Precision electroweak fits** at LEP tested the theory at the per-mille level across dozens of observables.
+Every condition requires quarks and leptons together, with the color factor 3; neither sector is consistent alone. Given the field content, these conditions (with a Yukawa coupling to the Higgs) fix the hypercharges up to normalization, which in turn explains why the proton and electron charges are exactly opposite. The general theory of anomalies is on [Modern Frontiers](qft-frontiers.html#anomalies).
+
+### Experimental milestones
+
+| Year | Result | Where |
+|------|--------|-------|
+| 1973 | Weak neutral currents | CERN (Gargamelle) |
+| 1974 | Charm quark ($J/\psi$) | SLAC, Brookhaven |
+| 1979 | Gluon (three-jet events) | DESY (PETRA) |
+| 1983 | $W$ and $Z$ bosons | CERN ($Sp\bar pS$: UA1, UA2) |
+| 1989–2000 | Three light neutrino species; per-mille electroweak precision tests | CERN (LEP), SLAC (SLC) |
+| 1995 | Top quark | Fermilab (CDF, D0) |
+| 1998 | Neutrino oscillations (neutrino mass) | Super-Kamiokande |
+| 2000 | Tau neutrino directly observed | Fermilab (DONUT) |
+| 2012 | Higgs boson | CERN (ATLAS, CMS) |
+
+### Current status (2026)
+
+- **Higgs properties.** Couplings to $W$, $Z$, and the third-generation fermions are measured and agree with SM predictions at roughly the 5–20% level, and there is evidence for the much smaller coupling to muons. The Higgs self-coupling $\lambda$ — which determines the shape of the potential — has not yet been measured; di-Higgs searches constrain it only loosely. Pinning it down is a central goal of the High-Luminosity LHC, which follows the end of LHC Run 3 and a long shutdown, with physics running expected around 2030.
+- **$W$ mass.** The 2022 CDF measurement ($80.434 \pm 0.009$ GeV) is in strong tension with the SM prediction ($\approx 80.35$ GeV). Subsequent measurements by ATLAS (2024) and CMS (2024, $80.360 \pm 0.010$ GeV) agree with the SM and not with CDF.
+- **Flavor.** The $B$-meson lepton-universality anomalies in $R_K$ and $R_{K^*}$ disappeared in LHCb's 2022 reanalysis; some tensions in $b \to c\tau\nu$ decays and in the unitarity of the first CKM row remain under study.
+- **Neutrino mass.** KATRIN's 2025 direct measurement bounds the effective electron-neutrino mass below 0.45 eV (90% CL). Cosmological fits combining DESI baryon-acoustic-oscillation data with the CMB bound the sum of neutrino masses more tightly, near the minimum (about 0.06 eV) allowed by oscillation data. Oscillation experiments (JUNO, which began data taking in 2025, and the planned DUNE and Hyper-Kamiokande) target the mass ordering and leptonic CP violation.
 
 ### What the Standard Model leaves out
 
-Despite its success, the Standard Model is incomplete:
+| Problem | Description | Proposed directions |
+|---------|-------------|---------------------|
+| Neutrino masses | Oscillations require masses the minimal model lacks | Right-handed neutrinos, seesaw mechanism |
+| Dark matter | About 85% of matter is non-baryonic and not an SM particle | WIMPs, axions, sterile neutrinos, hidden sectors |
+| Baryon asymmetry | CKM CP violation is far too small to explain the matter excess | Leptogenesis, new CP phases, first-order electroweak transition |
+| Hierarchy problem | Why $m_h \ll M_{\text{Pl}}$ despite quadratic sensitivity to high scales | Supersymmetry, compositeness, anthropic/landscape arguments |
+| Strong CP problem | Neutron EDM limits imply $\lvert\bar\theta\rvert \lesssim 10^{-10}$ with no reason within the SM | Peccei-Quinn symmetry and the axion |
+| Flavor puzzle | Unexplained Yukawa hierarchies and mixing patterns | Flavor symmetries, extra dimensions |
+| Gravity and dark energy | No quantum theory of gravity; cosmological constant unexplained | [String theory](string-theory/), [other approaches](relativity/quantum-gravity.html) |
 
-1. **Neutrino masses** — observed oscillations require nonzero masses not present in the minimal model.
-2. **Dark matter** — no Standard Model particle fits.
-3. **The hierarchy problem** — why the Higgs mass is so far below the Planck scale.
-4. **The strong CP problem** — why the QCD vacuum angle $\theta_{\text{QCD}} \approx 0$.
-5. **Gravity** — not included; quantizing it remains open.
-6. **Matter–antimatter asymmetry** — Standard Model CP violation is too small to explain it.
-
-These gaps motivate grand unified theories, supersymmetry, and other physics beyond the Standard Model.
-
-## Key Takeaways
-
-- **Local symmetry forces gauge fields.** Promoting a global phase to a local one cannot be done with the ordinary derivative; the covariant derivative $D_\mu = \partial_\mu + igA_\mu$ drags in a gauge field whose interaction term is mandatory, not optional.
-- **Abelian vs. non-abelian.** $U(1)$ gives the neutral, non-self-interacting photon; $SU(N)$ gauge bosons carry charge and couple to themselves via the $gf^{abc}A^b A^c$ term in the field strength.
-- **QCD runs the opposite way to QED.** Gluon self-interaction makes $\beta_0 = 11 - \tfrac{2}{3}n_f > 0$, giving asymptotic freedom at high energy and confinement at long range.
-- **Electroweak mixing.** $SU(2)_L \times U(1)_Y$ mixes through the Weinberg angle into the massless photon and the massive $W^\pm$, $Z$, with $e = g\sin\theta_W$.
-- **The Higgs gives mass.** A nonzero vacuum value breaks electroweak symmetry; gauge bosons eat the Goldstones to become massive ($m_W = m_Z\cos\theta_W$), and Yukawa couplings give fermions their masses.
-- **One Lagrangian, fixed by symmetry.** $SU(3)_C \times SU(2)_L \times U(1)_Y$ plus the Higgs determines the entire structure of the Standard Model; only the numerical parameters are free.
+Grand unified theories embed the three gauge factors in a single group such as $SU(5)$ or $SO(10)$, where one generation fits a single representation (the $SO(10)$ spinor $\mathbf{16}$, including a right-handed neutrino) and anomaly cancellation becomes automatic. Their generic prediction, proton decay, has not been observed: Super-Kamiokande bounds the $p \to e^+\pi^0$ lifetime above about $2\times 10^{34}$ years, ruling out minimal $SU(5)$.
 
 ## See Also
 
-- [Quantum Field Theory](quantum-field-theory.html) — fields, quantization, propagators, renormalization, and the path integral that underlie this page.
-- [Quantum Mechanics](quantum-mechanics/) — the non-relativistic foundation that QFT generalizes.
-- [Relativity](relativity/) — special relativity is what makes gauge theories Lorentz-invariant.
-- [String Theory](string-theory/) — an attempt to unify the gauge forces with gravity.
-- [Physics Hub](index.html) — browse all physics topics.
+- [Quantum Field Theory](quantum-field-theory.html) — overview and reading order for the QFT pages.
+- [Canonical Quantization](qft-quantization.html) — free scalar, Dirac, and photon fields and their propagators.
+- [Renormalization & the RG](renormalization.html) — beta functions, running couplings, and effective field theory.
+- [Path Integrals & Methods](qft-methods.html) — functional quantization, gauge fixing, and ghosts.
+- [Modern Frontiers](qft-frontiers.html) — anomalies, amplitudes, holography, and quantum gravity.
+- [Emergent Phases](condensed-matter/emergent-phases.html) — the Anderson-Higgs mechanism in superconductors.
+- [String Theory](string-theory/) — attempts to unify the gauge forces with gravity.

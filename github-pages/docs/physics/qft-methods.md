@@ -2,6 +2,7 @@
 layout: docs
 title: "QFT: Path Integrals & Methods"
 permalink: /docs/physics/qft-methods.html
+description: "The calculational toolkit of quantum field theory: path integrals, generating functionals, Wick's theorem, LSZ reduction, Feynman rules, a worked QED cross section, loop techniques, gauge fixing and effective field theory in practice."
 toc: true
 toc_sticky: true
 ---
@@ -10,332 +11,332 @@ toc_sticky: true
 
 [Quantum Field Theory](quantum-field-theory.html) &raquo; Path Integrals &amp; Methods
 
-Knowing what a quantum field *is* tells you almost nothing about how to *compute* with one. This page is the workshop: the path integral that packages all of QFT into a single weighted sum over field configurations, the generating functionals that turn that sum into a machine for spitting out correlation functions, the perturbative expansion of that machine into Feynman diagrams, and the effective-field-theory mindset that lets you calculate without knowing the full theory. These are the tools that produce the numbers — the electron *g*−2 to twelve digits, cross sections at the LHC, the running of the strong coupling.
-
-- **Sum over histories.** Every field configuration contributes an amplitude $e^{iS/\hbar}$; the classical path is just where the phase is stationary.
-- **Diagrams are the expansion.** Each Feynman diagram is one term in a power series in the coupling — propagators for lines, factors for vertices.
-- **One functional, all correlators.** Differentiate the generating functional $Z[J]$ and every Green's function falls out automatically.
-- **Calculate at the right scale.** Effective field theory lets you ignore physics you cannot reach and organize the rest by powers of energy.
-
-### What You'll Find on This Page
-
-| Section | What it covers |
-|---------|----------------|
-| [Path-Integral Formulation](#the-path-integral-formulation) | Sum over histories, the action, Euclidean rotation |
-| [Generating Functionals](#generating-functionals) | $Z[J]$, $W[J]$, the effective action, Gaussian integrals |
-| [Perturbation Theory](#perturbation-theory) | Expanding the interacting theory, Wick's theorem |
-| [Feynman Diagrams](#feynman-diagrams) | Reading and building diagrams; the Feynman rules |
-| [A Worked Amplitude](#a-worked-amplitude) | Tree-level scattering from start to finish |
-| [Loops & Functional Methods](#loops--functional-methods) | Loop integrals, Ward identities, Schwinger–Dyson, BRST |
-| [Effective Field Theory](#effective-field-theory-as-a-calculational-tool) | EFT as a practical organizing principle |
-
-### How the Pieces Fit Together
+This page covers the methods used to compute with quantum fields. The **path integral** writes the theory as a weighted sum over field configurations. **Generating functionals** turn that sum into a source of correlation functions. **Wick's theorem** and the **LSZ reduction formula** turn correlation functions into scattering amplitudes, and the **Feynman rules** are the shorthand that organizes the expansion. Further sections cover loop-integral techniques, the functional identities that constrain every calculation, gauge fixing, and effective field theory as a practical tool. The free-field inputs (mode expansions and propagators) are derived on the [canonical quantization](qft-quantization.html) page, and dealing with divergent loops is the subject of [renormalization](renormalization.html). Conventions are $\hbar = c = 1$ and a mostly-minus metric, except where $\hbar$ is restored to show the classical limit.
 
 ```mermaid
 graph TD
-    PI["Path integral: sum over field configs"] --> Z["Generating functional Z[J]"]
+    PI["Path integral over field configurations"] --> Z["Generating functional Z[J]"]
     Z --> W["Connected functional W[J] = -i ln Z"]
-    W --> G["Effective action Γ[φc] (Legendre transform)"]
-    Z --> PT["Perturbative expansion"]
-    PT --> WICK["Wick's theorem"]
-    WICK --> FD["Feynman diagrams"]
-    FD --> AMP["Scattering amplitudes / cross sections"]
-    EFT["Effective field theory"] --> PT
-    style PI fill:#11998e,color:#fff
-    style AMP fill:#38ef7d,color:#222
-    style EFT fill:#ccf,color:#222
+    W --> G["Effective action Gamma (Legendre transform)"]
+    Z --> PT["Expand in the coupling"]
+    PT --> WICK["Wick contractions"]
+    WICK --> FD["Feynman diagrams: correlators"]
+    FD --> LSZ["LSZ reduction: amputate, go on shell"]
+    LSZ --> M["Invariant amplitude M"]
+    M --> OBS["Cross sections and decay rates"]
+    FD --> LOOP["Loop integrals"]
+    LOOP --> REN["Regularize and renormalize"]
+    REN --> M
 ```
 
 ## The Path-Integral Formulation
 
-The path integral, due to Feynman (building on a remark of Dirac), provides an alternative to canonical quantization that is fully equivalent but often far more powerful. Instead of promoting fields to operators and imposing commutation relations, it assigns a complex amplitude to *every* possible field configuration and sums them all up.
+The path integral was developed by Feynman in 1948, building on a 1933 observation of Dirac. It is equivalent to canonical quantization but keeps Lorentz invariance manifest, handles gauge theories and fermions naturally, and connects QFT directly to statistical mechanics. Instead of operators and commutators, it assigns the amplitude $e^{iS/\hbar}$ to every configuration and sums over all of them.
 
-### Sum Over Histories
+### Sum over histories
 
-In ordinary quantum mechanics, the amplitude for a particle to travel from $x_i$ at time $t_i$ to $x_f$ at time $t_f$ is obtained by summing $e^{iS/\hbar}$ over *all* paths connecting the endpoints — not just the classical one:
+For a particle with $H = p^2/2m + V(x)$, split the time interval $T$ into $N$ steps of length $\delta t$ and insert a complete set of position states at each step. The transition amplitude becomes an iterated integral:
 
-$$\langle x_f, t_f | x_i, t_i \rangle = \int_{x(t_i)=x_i}^{x(t_f)=x_f} \mathcal{D}x \; e^{iS[x]/\hbar}$$
+$$\langle x_f|e^{-iHT/\hbar}|x_i\rangle = \lim_{N\to\infty}\left(\frac{m}{2\pi i\hbar\,\delta t}\right)^{N/2}\int\prod_{k=1}^{N-1}dx_k\,\exp\left[\frac{i}{\hbar}\sum_{k=0}^{N-1}\delta t\left(\frac{m}{2}\left(\frac{x_{k+1}-x_k}{\delta t}\right)^2 - V(x_k)\right)\right] \equiv \int\mathcal{D}x\;e^{iS[x]/\hbar}.$$
 
-The classical trajectory is the one where the action is stationary ($\delta S = 0$), so nearby paths interfere constructively; far from it, the rapidly oscillating phase causes cancellation. This is how the classical limit ($\hbar \to 0$) emerges: only the stationary-action path survives.
+Every path contributes a phase. Near a path where the action is stationary ($\delta S = 0$) the phases add constructively, and elsewhere they cancel. As $\hbar \to 0$ only the classical trajectory survives. Expanding about it gives the semiclassical (WKB) approximation.
 
-### The Field-Theory Path Integral
+### Fields
 
-Promoting the single coordinate $x(t)$ to a field $\phi(x)$ defined at every spacetime point, the transition amplitude between field configurations becomes a functional integral:
+Replace $x(t)$ by $\phi(\mathbf{x}, t)$, so that there is one integration variable per spacetime point:
 
-$$\langle \phi_f, t_f | \phi_i, t_i \rangle = \int_{\phi(t_i)=\phi_i}^{\phi(t_f)=\phi_f} \mathcal{D}\phi \; e^{iS[\phi]/\hbar}$$
+$$\langle \phi_f|e^{-iHT}|\phi_i\rangle = \int_{\phi_i}^{\phi_f}\mathcal{D}\phi\;e^{iS[\phi]}, \qquad S[\phi] = \int d^4x\;\mathcal{L}(\phi, \partial_\mu\phi).$$
 
-where the action is the spacetime integral of the Lagrangian density:
+Vacuum correlation functions are ratios of path integrals:
 
-$$S[\phi] = \int_{t_i}^{t_f} dt \int d^3x \; \mathcal{L}\big[\phi(x,t),\, \partial_\mu\phi(x,t)\big]$$
+$$\langle\Omega|T\,\phi(x_1)\cdots\phi(x_n)|\Omega\rangle = \frac{\int\mathcal{D}\phi\;\phi(x_1)\cdots\phi(x_n)\,e^{iS[\phi]}}{\int\mathcal{D}\phi\;e^{iS[\phi]}}.$$
 
-The symbol $\mathcal{D}\phi$ denotes integration over every possible field configuration — a continuous infinity of ordinary integrals, one for the value of $\phi$ at each spacetime point. This object is the master quantity from which everything else is derived.
+Time ordering comes out automatically, because the time-sliced integral always places the fields in time order. Projection onto the interacting vacuum $|\Omega\rangle$ comes from the same slightly imaginary time direction used in the [Gell-Mann-Low formula](qft-quantization.html#interacting-fields-the-interaction-picture).
 
-### Euclidean Formulation
+### Euclidean path integral and the lattice
 
-The oscillatory factor $e^{iS}$ makes the Minkowski path integral only conditionally convergent. The standard cure is **Wick rotation**: analytically continue to imaginary time, $t \to -i\tau$. The action picks up factors of $i$ that convert it into the Euclidean action $S_E$, and the integrand becomes a real, exponentially damped weight:
+The oscillating weight $e^{iS}$ makes the Minkowski integral poorly defined. A **Wick rotation** $t = -i\tau$ turns $iS$ into $-S_E$, where for a scalar
 
-$$Z_E = \int \mathcal{D}\phi \; e^{-S_E[\phi]/\hbar}$$
+$$S_E = \int d^4x_E\left[\tfrac{1}{2}(\partial_\mu\phi)^2 + \tfrac{1}{2}m^2\phi^2 + V(\phi)\right] \ge 0, \qquad Z_E = \int\mathcal{D}\phi\;e^{-S_E[\phi]}.$$
 
-This has two enormous payoffs:
+This has two consequences:
 
-1. **Convergence.** The integrand is a genuine probability-like weight; field configurations with large action are exponentially suppressed, making the integral well-defined and amenable to numerical evaluation (this is the basis of **lattice QFT**).
-2. **Statistical-mechanics connection.** $Z_E$ is mathematically identical to the partition function of a classical statistical system, with $S_E/\hbar$ playing the role of $\beta H$. Correlation lengths map to inverse masses, phase transitions to critical phenomena, and the renormalization group is shared between the two fields. (See [Statistical Mechanics](statistical-mechanics/).)
+- **Statistical-mechanics dictionary.** $Z_E$ has the form of a Boltzmann partition function in four dimensions, with $S_E$ in the role of $\beta H$. Masses become inverse correlation lengths, and a continuum limit corresponds to a critical point. The [renormalization group](renormalization.html#the-wilsonian-renormalization-group) is common to both subjects. Compactifying Euclidean time on a circle of circumference $\beta = 1/T$ gives finite-temperature field theory.
+- **Lattice field theory.** On a spacetime lattice of spacing $a$, the path integral becomes a finite-dimensional integral with a positive weight, which Monte Carlo methods can sample. Lattice QCD is the main non-perturbative method for the strong interaction: it computes hadron masses, decay constants and form factors from first principles. It now has direct precision impact. The 2025 Muon $g-2$ Theory Initiative white paper used lattice results for the leading hadronic vacuum polarization, obtained $a_\mu^{\text{SM}} = 116\,592\,033(62)\times 10^{-11}$, and found no significant tension with Fermilab's final 127 ppb measurement (June 2025). The difference is $38(63)\times 10^{-11}$, which removes the long-standing "muon $g-2$ anomaly". Two limitations remain. The **sign problem** blocks lattice simulations at finite baryon density and in real time, because the weight there is complex. And the tension between lattice and data-driven ($e^+e^- \to$ hadrons) evaluations of the hadronic vacuum polarization has not yet been resolved.
 
 ## Generating Functionals
 
-The path integral becomes a *calculational* tool the moment we couple the field to an external source $J(x)$. Differentiating with respect to that source pulls down factors of the field, so a single functional encodes every correlation function at once.
+Adding a source term $J\phi$ to the action turns the path integral into a single object from which every correlation function can be extracted by differentiation.
 
-### The Generating Functional Z[J]
+### Z[J], W[J] and the effective action
 
-Add a linear source term $J(x)\phi(x)$ to the action:
+$$Z[J] = \int\mathcal{D}\phi\;\exp\left[iS[\phi] + i\int d^4x\,J(x)\phi(x)\right], \qquad \langle\Omega|T\,\phi(x_1)\cdots\phi(x_n)|\Omega\rangle = \frac{1}{Z[0]}\left(\prod_{k=1}^{n}\frac{-i\,\delta}{\delta J(x_k)}\right)Z[J]\bigg|_{J=0}.$$
 
-$$Z[J] = \int \mathcal{D}\phi \; e^{\,i\left(S[\phi] + \int d^4x \, J(x)\phi(x)\right)}$$
+Three functionals are in standard use. Each generates a smaller class of diagrams than the one before:
 
-Functional derivatives with respect to $J$ bring down fields, and setting $J=0$ leaves the time-ordered vacuum correlation functions (Green's functions):
+| Functional | Definition | Generates | Use |
+|------------|------------|-----------|-----|
+| $Z[J]$ | path integral with source | all correlators (including disconnected pieces) | starting point |
+| $W[J]$ | $Z = e^{iW}$, i.e. $W = -i\ln Z$ | connected correlators | removes vacuum bubbles and factorized pieces |
+| $\Gamma[\phi_c]$ | $\Gamma = W - \int J\phi_c$, with $\phi_c = \delta W/\delta J$ | one-particle-irreducible (1PI) vertices | quantum equations of motion, effective potential |
 
-$$\langle 0|T[\phi(x_1)\cdots\phi(x_n)]|0\rangle = \frac{1}{Z[0]} \frac{(-i)^n \, \delta^n Z[J]}{\delta J(x_1)\cdots\delta J(x_n)}\bigg|_{J=0}$$
+Connected correlators come from $\langle\phi(x_1)\cdots\phi(x_n)\rangle_c = (-i)^{n-1}\,\delta^n W/\delta J(x_1)\cdots\delta J(x_n)$ at $J = 0$. The effective action satisfies $\delta\Gamma/\delta\phi_c = -J$. With no source, the quantum vacuum is therefore an extremum of $\Gamma$ and not of the classical action $S$. For constant $\phi_c$, $\Gamma = -\int d^4x\,V_{\text{eff}}(\phi_c)$. At one loop the **effective potential** is
 
-This is the central identity of the functional approach: *all* the physical content of the theory is packed into $Z[J]$, and any correlator is extracted by mechanical differentiation.
+$$V_{\text{eff}}(\phi_c) = V(\phi_c) + \frac{1}{64\pi^2}\,V''(\phi_c)^2\left[\ln\frac{V''(\phi_c)}{\mu^2} - \frac{3}{2}\right] \quad (\overline{\text{MS}}),$$
 
-### Connected Functional W[J]
+where $V$ is the full tree-level potential (mass term included). This is the **Coleman-Weinberg** correction. Radiative corrections of this kind can shift or create minima, a mechanism relevant to [spontaneous symmetry breaking](gauge-and-standard-model.html#the-higgs-mechanism) and to the question of whether the electroweak vacuum is stable. With the measured Higgs and top masses, the Standard Model vacuum is metastable, with a lifetime far longer than the age of the universe.
 
-The full Green's functions contain redundant, disconnected pieces (processes happening independently in different regions). Taking the logarithm strips these away, leaving only **connected** correlators:
+### The free theory as a Gaussian integral
 
-$$W[J] = -i \ln Z[J]$$
+For a free field the action is quadratic, $S_0 = \tfrac{1}{2}\int\phi K\phi$ with $K = -(\Box + m^2)$, and the path integral is Gaussian. Completing the square gives the closed form
 
-$$\langle 0|T[\phi(x_1)\cdots\phi(x_n)]|0\rangle_c = (-i)^{n-1} \frac{\delta^n W[J]}{\delta J(x_1)\cdots\delta J(x_n)}\bigg|_{J=0}$$
+$$Z_0[J] = Z_0[0]\,\exp\left[-\frac{1}{2}\int d^4x\,d^4y\;J(x)\,D_F(x-y)\,J(y)\right], \qquad D_F = i\,K^{-1}, \qquad \tilde D_F(k) = \frac{i}{k^2 - m^2 + i\varepsilon}.$$
 
-Physically, $W[J]$ generates exactly the diagrams that cannot be split into independent pieces — the ones that carry real interaction information.
+The two-point function of the free theory is $i$ times the inverse of the kinetic operator. This is the same Feynman propagator derived canonically, and the $i\varepsilon$ is what makes the Gaussian integral converge. The normalization $Z_0[0] \propto (\det K)^{-1/2}$ drops out of every normalized correlator, but it contributes to vacuum energies and one-loop effective actions.
 
-### The Effective Action
+### Fermions and Grassmann integration
 
-One Legendre transform further isolates the **one-particle-irreducible (1PI)** content — diagrams that stay connected when any single internal line is cut. Define the classical field $\phi_c = \delta W/\delta J$ and form:
+Fermion fields anticommute, so their path integral runs over **Grassmann numbers**: $\theta\eta = -\eta\theta$ and $\theta^2 = 0$. Berezin integration is defined by $\int d\theta = 0$ and $\int d\theta\,\theta = 1$. The Gaussian integral then gives a determinant in the numerator instead of the denominator:
 
-$$\Gamma[\phi_c] = W[J] - \int d^4x \; J(x)\,\phi_c(x)$$
+$$\int d\bar\theta\,d\theta\;e^{-\bar\theta B\theta} = \det B \qquad \text{(compare } \int dx\,e^{-xBx/2} \propto (\det B)^{-1/2}\text{ for bosons)}.$$
 
-$\Gamma[\phi_c]$ is the **effective action**. Its great virtues:
-
-- Its derivatives are the 1PI vertex functions — the irreducible building blocks from which all diagrams are assembled.
-- It includes all quantum corrections to the classical action, so extremizing $\Gamma$ (rather than $S$) gives the *quantum* equations of motion.
-- Its minimum locates the true vacuum, making it the natural tool for analyzing [spontaneous symmetry breaking](gauge-and-standard-model.html#the-higgs-mechanism): the **effective potential** $V_{\text{eff}}(\phi_c)$ is the part of $\Gamma$ with no derivatives, and one-loop corrections to it (the Coleman–Weinberg potential) can shift the vacuum away from the classical minimum.
-
-### Gaussian Integration: the Free Theory
-
-For a **free** field the action is quadratic, and the path integral reduces to an infinite-dimensional Gaussian — which we can do exactly. Writing the quadratic form as $\phi K \phi$:
-
-$$Z_0 = \int \mathcal{D}\phi \, \exp\left[\frac{i}{2} \int d^4x\, d^4y \; \phi(x)\,K(x,y)\,\phi(y)\right] = (\det K)^{-1/2}$$
-
-The two-point function is the *inverse* of the kinetic operator — which is precisely the Feynman propagator:
-
-$$\langle 0|T[\phi(x)\phi(y)]|0\rangle_0 = K^{-1}(x,y) = D_F(x-y)$$
-
-For the Klein–Gordon field, $K = -(\Box + m^2)$ and its inverse in momentum space is the familiar
-
-$$\tilde{D}_F(k) = \frac{i}{k^2 - m^2 + i\varepsilon}$$
-
-This is the cornerstone of perturbation theory: the free theory is solved in closed form, and interactions are added as a controlled expansion around it.
+For the Dirac field, $\int\mathcal{D}\bar\psi\,\mathcal{D}\psi\;e^{i\int\bar\psi(i\not\partial - m)\psi} \propto \det(i\not\partial - m)$. This inverted power gives each closed fermion loop its factor of $-1$. It also produces the Faddeev-Popov ghosts below and the cancellation between boson and fermion loops in supersymmetric theories.
 
 ## Perturbation Theory
 
-Realistic theories are interacting, and almost none are exactly solvable. The strategy is to split the Lagrangian into a free (quadratic) part we can integrate exactly and an interaction part we expand in powers of the small coupling.
+Split $\mathcal{L} = \mathcal{L}_0 + \mathcal{L}_{\text{int}}$. Inside the path integral each field can be replaced by a derivative with respect to the source, so the interaction can be taken outside as a differential operator acting on the solved free theory:
 
-### Expanding Around the Free Theory
+$$Z[J] = \exp\left[i\int d^4x\;\mathcal{L}_{\text{int}}\!\left(\frac{-i\,\delta}{\delta J(x)}\right)\right]Z_0[J].$$
 
-Write $\mathcal{L} = \mathcal{L}_0 + \mathcal{L}_{\text{int}}$. The interacting generating functional can be written by pulling the interaction outside the integral as a differential operator acting on the free functional:
+Expanding the exponential in powers of the coupling gives the perturbation series.
 
-$$Z[J] = \exp\left[\,i\int d^4x \; \mathcal{L}_{\text{int}}\!\left(\frac{1}{i}\frac{\delta}{\delta J(x)}\right)\right] Z_0[J]$$
+### Wick's theorem and contractions
 
-Expanding the exponential generates an infinite series, each term containing some number of interaction vertices acting on the free propagators inside $Z_0[J]$. This series *is* the perturbative expansion, and each term corresponds to a Feynman diagram.
+Differentiating the Gaussian $Z_0[J]$ pairs fields in every possible way. This is **Wick's theorem**. In operator language:
 
-### Wick's Theorem
+$$T\,\phi(x_1)\cdots\phi(x_n) = \;:\!\phi(x_1)\cdots\phi(x_n)\!: + \text{(all terms with one or more contractions)}, \qquad \text{contraction of }\phi(x_i)\text{ and }\phi(x_j) = D_F(x_i - x_j).$$
 
-To evaluate a given term we must reduce a time-ordered product of many fields into propagators. **Wick's theorem** does exactly this: it rewrites a time-ordered product as a sum over all possible pairwise contractions, where each contraction is a Feynman propagator:
+Normal-ordered terms have zero vacuum expectation value, so only full contractions contribute to vacuum correlators. For example,
 
-$$T[\phi(x_1)\cdots\phi(x_n)] = \;:\!\phi(x_1)\cdots\phi(x_n)\!: \;+\; \text{(all contractions)}$$
+$$\langle 0|T\,\phi_1\phi_2\phi_3\phi_4|0\rangle = D_F(x_1-x_2)\,D_F(x_3-x_4) + D_F(x_1-x_3)\,D_F(x_2-x_4) + D_F(x_1-x_4)\,D_F(x_2-x_3).$$
 
-Each full contraction of $n$ fields (with $n$ even) into $n/2$ propagators contributes a product like $D_F(x_1-x_2)\,D_F(x_3-x_4)\cdots$. The normal-ordered terms vanish between vacuum states, so only the fully contracted pieces survive in vacuum correlators. Wick's theorem is the bookkeeping device that turns the abstract functional expansion into a concrete, finite set of propagator products at each order — precisely the lines of a Feynman diagram.
+With $n$ fields there are $(n-1)!!$ pairings. Each pairing is a diagram: fields are endpoints and contractions are lines. For fermions every pairing also carries the sign of the permutation needed to bring the contracted fields next to each other.
 
-### Organizing the Expansion
+### Symmetry factors and vacuum bubbles
 
-Two complementary expansions are in play:
+With the conventional normalization $\mathcal{L}_{\text{int}} = -\tfrac{\lambda}{4!}\phi^4$, the $4!$ cancels the ways of attaching four lines to a vertex, and the $1/n!$ from the exponential cancels the ways of permuting identical vertices. What is left over is the **symmetry factor** $1/S$, where $S$ is the order of the diagram's automorphism group. Examples in $\phi^4$ theory: the one-loop tadpole correction to the propagator has $S = 2$, the one-loop "fish" correction to the four-point function has $S = 2$ in each channel, and the figure-eight vacuum bubble has $S = 8$. Diagrams with pieces disconnected from all external points (**vacuum bubbles**) exponentiate and cancel against $Z[0]$. This is why $W = -i\ln Z$ generates only connected diagrams.
 
-- **Coupling expansion.** Powers of the coupling $g$ (or $\lambda$, $e$) count vertices; weak coupling means few vertices dominate.
-- **Loop expansion.** Powers of $\hbar$ count independent loop momenta. The number of loops is $L = I - V + 1$ for $I$ internal lines and $V$ vertices, so tree diagrams ($L=0$) are the classical/leading result and loops are successive quantum corrections.
+### Two expansions
 
-For QED the relevant small parameter is the fine-structure constant $\alpha = e^2/4\pi \approx 1/137$, which is why the perturbative series converges so well numerically — each additional loop costs roughly a factor of $\alpha$.
+- **Coupling expansion.** Each vertex brings a power of $g$, $\lambda$ or $e$. For QED the effective expansion parameter is about $\alpha/\pi \approx 2.3\times 10^{-3}$, which is why five-loop QED calculations are meaningful.
+- **Loop expansion.** A connected diagram with $I$ internal lines and $V$ vertices has $L = I - V + 1$ independent loop momenta. Restoring $\hbar$, each loop brings one more power of $\hbar$. Trees ($L = 0$) are the classical field theory and loops are quantum corrections. Unlike the coupling expansion, the loop expansion is well defined even when several couplings are present.
+
+Perturbative series in QFT are generally **asymptotic, not convergent**. Dyson's argument for QED is that at $e^2 < 0$ the vacuum would be unstable, so the series has zero radius of convergence, and the number of diagrams grows factorially with order. Terms keep improving the answer only up to roughly order $1/\alpha$. Non-perturbative effects such as instantons and renormalons appear as ambiguities of order $e^{-c/g^2}$. The theory of resurgence studies how these ambiguities are related to the large-order behaviour of the perturbative series.
+
+## From Correlators to Scattering: LSZ Reduction
+
+Experiments measure scattering, not correlation functions. The **Lehmann-Symanzik-Zimmermann (LSZ) reduction formula** connects the two. Fourier transform the correlator in every external point. Near the one-particle poles it behaves as
+
+$$\prod_{i=1}^{n}\int d^4x_i\,e^{ip_i\cdot x_i}\,\langle\Omega|T\,\phi(x_1)\cdots\phi(x_n)|\Omega\rangle \;\sim\; \prod_{i=1}^{n}\frac{i\sqrt{Z}}{p_i^2 - m^2 + i\varepsilon}\;\langle p_{\text{out}}|S|p_{\text{in}}\rangle \qquad (p_i^2 \to m^2),$$
+
+where incoming momenta are taken with the opposite sign, $m$ is the physical (pole) mass, and $Z$ is the residue of the full propagator at that pole. S-matrix elements are therefore the residues of correlators at the external poles. In diagram terms: compute the **amputated** diagrams (external propagators removed), put the external momenta on shell, and multiply by $\sqrt{Z}$ for each external leg. The invariant amplitude $\mathcal{M}$ is defined by removing overall momentum conservation:
+
+$$\langle f|\,S - \mathbb{1}\,|i\rangle = (2\pi)^4\,\delta^4\!\left(\textstyle\sum p_f - \sum p_i\right)\,i\mathcal{M}.$$
 
 ## Feynman Diagrams
 
-Feynman diagrams are not mere illustrations; they are a precise, one-to-one shorthand for the terms of the perturbation series. Each diagram translates, via the **Feynman rules**, into a specific mathematical expression contributing to an amplitude.
+Once LSZ is in place, the perturbation series for $i\mathcal{M}$ can be written directly from a set of rules, without passing through correlators.
 
-### The Dictionary
+### Feynman rules
 
-```mermaid
-graph LR
-    A["External line"] -->|"incoming/outgoing particle"| B["wavefunction factor"]
-    C["Internal line"] -->|"virtual particle"| D["propagator i/(p²−m²+iε)"]
-    E["Vertex"] -->|"interaction"| F["coupling factor, e.g. −ieγ^μ"]
-    G["Closed loop"] -->|"unfixed momentum"| H["integrate ∫d⁴k/(2π)⁴"]
-    style A fill:#11998e,color:#fff
-    style E fill:#38ef7d,color:#222
-```
+For $\phi^4$ theory, $\mathcal{L}_{\text{int}} = -\tfrac{\lambda}{4!}\phi^4$. For QED, $\mathcal{L}_{\text{int}} = -e\bar\psi\gamma^\mu\psi A_\mu$ (Peskin & Schroeder convention, in which $e = -\lvert e\rvert$ is the electron's charge).
 
-Reading a diagram:
+| Element | $\phi^4$ theory | QED (Feynman gauge) |
+|---------|-----------------|---------------------|
+| Vertex | $-i\lambda$ | $-ie\gamma^\mu$ |
+| Internal scalar / fermion line | $\dfrac{i}{p^2 - m^2 + i\varepsilon}$ | $\dfrac{i(\not{p} + m)}{p^2 - m^2 + i\varepsilon}$ |
+| Internal photon line | none | $\dfrac{-ig_{\mu\nu}}{q^2 + i\varepsilon}$ |
+| Each undetermined loop momentum | $\displaystyle\int\frac{d^4k}{(2\pi)^4}$ | $\displaystyle\int\frac{d^4k}{(2\pi)^4}$ |
+| Closed fermion loop | none | factor $-1$ and a Dirac trace |
+| Symmetry factor | $1/S$ | usually 1 |
 
-- **External lines** represent the incoming and outgoing real particles; each carries a wavefunction factor (a spinor $u(p)$, $\bar u(p)$, $v(p)$, $\bar v(p)$ for fermions, or a polarization $\varepsilon^\mu$ for photons).
-- **Internal lines** are **virtual** particles — off-shell intermediate states that need not satisfy $p^2 = m^2$. Each contributes a **propagator**.
-- **Vertices** encode the interaction and carry the coupling. Momentum is conserved at every vertex.
-- **Loops** carry an undetermined internal momentum that must be integrated over; these are the source of both quantum corrections and ultraviolet divergences.
+Momentum is conserved at each vertex. External lines carry wavefunction factors:
 
-### Feynman Rules for QED
+| External particle | Incoming | Outgoing |
+|-------------------|----------|----------|
+| Scalar | 1 | 1 |
+| Fermion ($e^-$) | $u^s(p)$ | $\bar u^s(p)$ |
+| Antifermion ($e^+$) | $\bar v^s(p)$ | $v^s(p)$ |
+| Photon | $\epsilon_\mu(p)$ | $\epsilon^\ast_\mu(p)$ |
 
-The interaction in quantum electrodynamics is the single term $\mathcal{L}_{\text{int}} = -e\,\bar\psi\gamma^\mu\psi\,A_\mu$, giving a remarkably compact set of rules.
+Fermion lines are read against the arrow, from the outgoing end back to the incoming end, which produces spinor chains such as $\bar u(p')\gamma^\mu u(p)$. Internal lines are **virtual**: they are off shell ($p^2 \ne m^2$), with momentum fixed by conservation at tree level and integrated over in loops. Diagrams that differ by exchanging identical external fermions carry a relative minus sign. Gauge bosons of a non-abelian theory add three- and four-gluon vertices and ghost lines; see [non-abelian gauge theory](gauge-and-standard-model.html#non-abelian-gauge-theory-yang-mills).
 
-**Vertex factor** (one photon, one incoming and one outgoing electron line):
+### From amplitude to observable
 
-$$-i e \gamma^\mu$$
+For $2 \to n$ scattering and for the decay of a particle of mass $M$:
 
-**Electron (fermion) propagator:**
+$$d\sigma = \frac{\overline{\lvert\mathcal{M}\rvert^2}}{4\sqrt{(p_1\cdot p_2)^2 - m_1^2m_2^2}}\;d\Pi_n, \qquad d\Gamma = \frac{\overline{\lvert\mathcal{M}\rvert^2}}{2M}\;d\Pi_n, \qquad d\Pi_n = \prod_{f}\frac{d^3p_f}{(2\pi)^3\,2E_f}\;(2\pi)^4\,\delta^4\!\left(P - \textstyle\sum_f p_f\right).$$
 
-$$S_F(p) = \frac{i(\not{p} + m)}{p^2 - m^2 + i\varepsilon} = \frac{i}{\not{p} - m + i\varepsilon}$$
+The overline means averaged over initial spins and summed over final spins. For $2 \to 2$ scattering in the centre-of-mass frame this reduces to
 
-**Photon propagator** (Feynman gauge):
+$$\frac{d\sigma}{d\Omega}\bigg|_{\text{CM}} = \frac{1}{64\pi^2 s}\,\frac{\lvert\mathbf{p}_f\rvert}{\lvert\mathbf{p}_i\rvert}\,\overline{\lvert\mathcal{M}\rvert^2},$$
 
-$$D^{\mu\nu}_F(k) = \frac{-i g^{\mu\nu}}{k^2 + i\varepsilon}$$
-
-**Closed fermion loop:** include a factor of $(-1)$ and a trace over the Dirac indices around the loop.
-
-**Loop integration:** integrate each unfixed loop momentum with $\displaystyle\int \frac{d^4k}{(2\pi)^4}$.
-
-Assembling these factors according to the topology of the diagram, then summing over all diagrams at the desired order, yields the invariant amplitude $i\mathcal{M}$.
-
-### From Amplitude to Observable
-
-The amplitude $\mathcal{M}$ feeds directly into measurable quantities. For a $2 \to 2$ scattering in the centre-of-mass frame, the differential cross section is
-
-$$\frac{d\sigma}{d\Omega} = \frac{1}{64\pi^2 s}\,\frac{|\mathbf{p}_f|}{|\mathbf{p}_i|}\,\overline{|\mathcal{M}|^2}$$
-
-where $\sqrt{s}$ is the total centre-of-mass energy and $\overline{|\mathcal{M}|^2}$ denotes the spin-averaged (initial) and spin-summed (final) squared amplitude. For decays, $\mathcal{M}$ enters the decay rate $\Gamma$ through an analogous phase-space formula. This is the bridge from diagrams to numbers an experimentalist can check.
+with Mandelstam invariants $s = (p_1+p_2)^2$, $t = (p_1-p_3)^2$, $u = (p_1-p_4)^2$, which satisfy $s + t + u = \sum m_i^2$.
 
 ## A Worked Amplitude
 
-To make the machinery concrete, consider electron–muon scattering, $e^- \mu^- \to e^- \mu^-$, at lowest (tree) order in QED. Because the electron and muon are distinct particles, there is a *single* tree diagram: the two fermion lines exchange one virtual photon.
+Consider electron-muon scattering $e^-(p_1)\,\mu^-(p_2) \to e^-(p_3)\,\mu^-(p_4)$ at tree level in QED. The particles are distinct, so there is a single diagram: one photon exchanged in the $t$-channel.
 
-**Step 1 — Identify the diagram.** Incoming electron $p_1$ and muon $p_2$; outgoing electron $p_3$ and muon $p_4$. A virtual photon of momentum $q = p_1 - p_3$ connects the two vertices. Momentum conservation: $q = p_1 - p_3 = p_4 - p_2$.
+<figure class="diagram">
+<svg viewBox="0 0 420 250" role="img" aria-labelledby="qftm-emu-title" style="max-width:420px;width:100%;color:inherit;">
+<title id="qftm-emu-title">Tree-level Feynman diagram for electron-muon scattering: the electron line (top) and muon line (bottom) exchange a single virtual photon of momentum q = p1 - p3.</title>
+<defs><marker id="qftm-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="currentColor"/></marker></defs>
+<g stroke="currentColor" fill="none" stroke-width="1.8">
+<line x1="50" y1="30" x2="130" y2="52" marker-end="url(#qftm-arr)"/>
+<line x1="130" y1="52" x2="210" y2="75"/>
+<line x1="210" y1="75" x2="290" y2="52" marker-end="url(#qftm-arr)"/>
+<line x1="290" y1="52" x2="370" y2="30"/>
+<line x1="50" y1="220" x2="130" y2="198" marker-end="url(#qftm-arr)"/>
+<line x1="130" y1="198" x2="210" y2="175"/>
+<line x1="210" y1="175" x2="290" y2="198" marker-end="url(#qftm-arr)"/>
+<line x1="290" y1="198" x2="370" y2="220"/>
+<path d="M210,75 q8,5 0,10 t0,10 t0,10 t0,10 t0,10 t0,10 t0,10 t0,10 t0,10 t0,10"/>
+<circle cx="210" cy="75" r="3" fill="currentColor"/>
+<circle cx="210" cy="175" r="3" fill="currentColor"/>
+</g>
+<g fill="currentColor" font-size="13" font-family="sans-serif">
+<text x="40" y="22">e⁻ (p₁)</text>
+<text x="330" y="22">e⁻ (p₃)</text>
+<text x="40" y="242">μ⁻ (p₂)</text>
+<text x="330" y="242">μ⁻ (p₄)</text>
+<text x="228" y="130">γ*,  q = p₁ − p₃</text>
+<text x="222" y="70" font-size="12">−ieγ^μ</text>
+<text x="222" y="190" font-size="12">−ieγ^ν</text>
+<text x="210" y="148" font-size="11" text-anchor="end" opacity="0.8">−i g_μν / q²  </text>
+</g>
+</svg>
+<figcaption>The single tree-level diagram for $e^-\mu^- \to e^-\mu^-$. Time runs left to right. Each vertex contributes $-ie\gamma$ and the virtual photon contributes its propagator.</figcaption>
+</figure>
 
-**Step 2 — Apply the rules.** Write down the factors:
+**Assemble the amplitude.** Read each fermion line backwards along the arrow and connect the two lines with the photon propagator:
 
-- Electron line: $\bar u(p_3)\,(-ie\gamma^\mu)\,u(p_1)$
-- Muon line: $\bar u(p_4)\,(-ie\gamma^\nu)\,u(p_2)$
-- Photon propagator: $\dfrac{-ig_{\mu\nu}}{q^2}$
+$$i\mathcal{M} = \left[\bar u(p_3)(-ie\gamma^\mu)u(p_1)\right]\frac{-ig_{\mu\nu}}{q^2}\left[\bar u(p_4)(-ie\gamma^\nu)u(p_2)\right] \quad\Longrightarrow\quad \mathcal{M} = \frac{e^2}{t}\left[\bar u(p_3)\gamma^\mu u(p_1)\right]\left[\bar u(p_4)\gamma_\mu u(p_2)\right],$$
 
-**Step 3 — Assemble the amplitude.**
+with $t = q^2 = (p_1 - p_3)^2$.
 
-$$i\mathcal{M} = \big[\bar u(p_3)(-ie\gamma^\mu)u(p_1)\big]\,\frac{-i g_{\mu\nu}}{q^2}\,\big[\bar u(p_4)(-ie\gamma^\nu)u(p_2)\big]$$
+**Square and sum over spins.** Using $\sum_s u\bar u = \not{p} + m$, each spinor chain becomes a trace. Including the factor $\tfrac14$ for averaging over initial spins:
 
-which simplifies to
+$$\overline{\lvert\mathcal{M}\rvert^2} = \frac{e^4}{4t^2}\,\mathrm{Tr}\left[(\not{p}_3 + m_e)\gamma^\mu(\not{p}_1 + m_e)\gamma^\nu\right]\mathrm{Tr}\left[(\not{p}_4 + m_\mu)\gamma_\mu(\not{p}_2 + m_\mu)\gamma_\nu\right].$$
 
-$$\mathcal{M} = \frac{e^2}{q^2}\,\big[\bar u(p_3)\gamma^\mu u(p_1)\big]\big[\bar u(p_4)\gamma_\mu u(p_2)\big]$$
+**Evaluate the traces.** Use $\mathrm{Tr}[\gamma^\mu\gamma^\nu] = 4g^{\mu\nu}$, $\mathrm{Tr}[\gamma^\mu\gamma^\nu\gamma^\rho\gamma^\sigma] = 4(g^{\mu\nu}g^{\rho\sigma} - g^{\mu\rho}g^{\nu\sigma} + g^{\mu\sigma}g^{\nu\rho})$, and the fact that the trace of an odd number of gamma matrices vanishes. In the high-energy limit $m_e, m_\mu \to 0$:
 
-**Step 4 — Square and average over spins.** Using the spin sums $\sum_s u(p)\bar u(p) = \not{p} + m$, the spin-averaged squared amplitude becomes a product of Dirac traces:
+$$\overline{\lvert\mathcal{M}\rvert^2} = \frac{2e^4\left(s^2 + u^2\right)}{t^2}.$$
 
-$$\overline{|\mathcal{M}|^2} = \frac{e^4}{4q^4}\,\text{Tr}\!\big[(\not{p}_3 + m_e)\gamma^\mu(\not{p}_1 + m_e)\gamma^\nu\big]\,\text{Tr}\!\big[(\not{p}_4 + m_\mu)\gamma_\mu(\not{p}_2 + m_\mu)\gamma_\nu\big]$$
+**Cross section.** Substituting into the centre-of-mass formula with $\lvert\mathbf{p}_f\rvert = \lvert\mathbf{p}_i\rvert$ and $e^2 = 4\pi\alpha$:
 
-Evaluating the traces (using $\text{Tr}[\gamma^\mu\gamma^\nu] = 4g^{\mu\nu}$ and the four-gamma trace identity) and expressing the result in Mandelstam variables $s,t,u$ gives, in the high-energy limit $m_e, m_\mu \to 0$:
+$$\frac{d\sigma}{d\Omega} = \frac{\alpha^2}{2s}\,\frac{s^2 + u^2}{t^2}, \qquad t = -\frac{s}{2}(1 - \cos\theta), \quad u = -\frac{s}{2}(1 + \cos\theta).$$
 
-$$\overline{|\mathcal{M}|^2} = \frac{2e^4\,(s^2 + u^2)}{t^2}$$
+The $1/t^2$ factor makes the cross section peak strongly in the forward direction ($\theta \to 0$). This is the Rutherford singularity of long-range photon exchange. Crossing symmetry relates this result to others: exchanging $s \leftrightarrow t$ gives $e^+e^- \to \mu^+\mu^-$, with $\overline{\lvert\mathcal{M}\rvert^2} = 2e^4(t^2 + u^2)/s^2$. Identical particles add a second diagram with a relative sign, as in Bhabha ($e^+e^-\to e^+e^-$) and Møller ($e^-e^-\to e^-e^-$) scattering.
 
-with $t = q^2$. **Step 5 — Insert into the cross-section formula** above to obtain $d\sigma/d\Omega$. This is the entire pipeline — diagram to rule to trace to observable — that underlies every QED prediction; adding the muon's *internal* structure or moving to identical particles (Bhabha, Møller scattering) only changes which diagrams appear.
+## Loop Calculations
 
-## Loops & Functional Methods
+Beyond tree level, diagrams contain closed loops whose momenta are integrated over. Loops carry the genuine quantum corrections, including the anomalous magnetic moments, the Lamb shift and the running of couplings. They also carry the ultraviolet divergences handled on the [renormalization page](renormalization.html), which works through the one-loop QED self-energy, vertex and vacuum-polarization diagrams.
 
-Beyond tree level, diagrams contain closed loops with unconstrained internal momenta. These loops carry the genuine quantum corrections — and the divergences that motivate renormalization.
+### Standard one-loop techniques
 
-### Loop Integrals
+- **Feynman parameters** combine the propagator denominators into a single quadratic form:
 
-A one-loop correction requires integrating over the loop momentum. The QED electron self-energy, for instance, is
+  $$\frac{1}{A_1\cdots A_n} = (n-1)!\int_0^1 dx_1\cdots dx_n\;\frac{\delta\!\left(1 - \sum_i x_i\right)}{\left(x_1A_1 + \cdots + x_nA_n\right)^n}.$$
 
-$$\Sigma(p) = -i e^2 \int \frac{d^4k}{(2\pi)^4} \; \frac{\gamma^\mu(\not{p}-\not{k}+m)\gamma_\mu}{\big[(p-k)^2 - m^2 + i\varepsilon\big]\big[k^2 + i\varepsilon\big]}$$
+  A shift of the loop momentum then completes the square, leaving integrands of the form $1/(\ell^2 - \Delta)^n$.
+- **Wick rotation** $\ell^0 = i\ell_E^0$ turns Minkowski integrals into Euclidean ones, $\int d^4\ell \to i\int d^4\ell_E$.
+- **Dimensional regularization** evaluates the integral in $d = 4 - \epsilon$ dimensions. Divergences appear as poles in $1/\epsilon$, and Lorentz and gauge invariance are preserved.
+- **Passarino-Veltman reduction** rewrites one-loop tensor integrals in terms of a handful of scalar integrals: the tadpole $A_0$, bubble $B_0$, triangle $C_0$ and box $D_0$. Any one-loop amplitude is then a linear combination of these with rational coefficients.
+- **Unitarity methods** build loop amplitudes from products of on-shell tree amplitudes, using the discontinuities fixed by the optical theorem. The [modern amplitudes program](qft-frontiers.html#the-modern-amplitudes-program) extends this approach.
 
-and the vertex correction is
+### Multi-loop technology
 
-$$\Lambda^\mu(p',p) = -i e^2 \int \frac{d^4k}{(2\pi)^4} \; \frac{\gamma^\nu(\not{p}'-\not{k}+m)\gamma^\mu(\not{p}-\not{k}+m)\gamma_\nu}{\big[(p'-k)^2 - m^2\big]\big[(p-k)^2 - m^2\big]\big[k^2\big]}$$
+High-precision predictions need two to five loops. Standard practice for these is:
 
-These integrals typically diverge in the ultraviolet. Handling them — via dimensional regularization, counterterms, and the renormalization group — is the subject of the [renormalization](renormalization.html) page. The vertex correction $\Lambda^\mu$ is also exactly what produces the famous anomalous magnetic moment, the electron $g-2$, agreeing with experiment to twelve digits.
+1. **Integration-by-parts (IBP) identities**, $\int d^d\ell\;\partial_\mu\!\left[v^\mu f(\ell)\right] = 0$, reduce thousands of integrals to a small basis of **master integrals** using the Laporta algorithm.
+2. The master integrals are computed with **differential equations** in the kinematic variables, often in a canonical "$\epsilon$-form" whose solutions are multiple polylogarithms. Elliptic and more complicated function classes appear in massive and higher-loop cases. **Sector decomposition** is used for numerical evaluation.
+3. Everything is automated. Commonly used tools include FeynArts and FeynCalc for diagram generation and Dirac algebra, FORM for large symbolic manipulation, Kira, FIRE and LiteRed for IBP reduction, pySecDec and AMFlow for numerical master integrals, and MadGraph5_aMC@NLO for automated next-to-leading-order collider predictions.
 
-### Practical Techniques for Loops
+Representative results include the four- and five-loop QED contributions to the electron $g-2$ (the five-loop term alone involves 12,672 diagrams), N3LO QCD corrections to Higgs production at the LHC, and the five-loop QCD beta function.
 
-A handful of standard tools turn loop integrals into tractable expressions:
+## Functional Identities
 
-- **Feynman parameters.** Combine denominators into a single quadratic via $\frac{1}{AB} = \int_0^1 dx\,[xA + (1-x)B]^{-2}$, then shift the loop momentum to complete the square.
-- **Wick rotation.** Rotate $k^0 \to ik^0_E$ to turn the Minkowski integral into a convergent Euclidean one.
-- **Dimensional regularization.** Compute in $d = 4 - \varepsilon$ dimensions, isolating divergences as $1/\varepsilon$ poles while preserving gauge invariance.
-- **Integration by parts (IBP).** Use $\int d^d k\,\partial_\mu[k^\mu f(k)] = 0$ to reduce a large family of integrals to a small basis of **master integrals** — the workhorse of modern multi-loop calculations.
+The path integral also gives exact, all-orders relations that do not depend on the perturbative expansion.
 
-### Functional Identities: Ward & Schwinger–Dyson
+### Schwinger-Dyson equations
 
-The functional formalism does more than reproduce diagrams; it yields exact, all-orders relations.
+The integral of a total functional derivative vanishes. Applying this to $\delta/\delta\phi(x)$ acting on $e^{iS}\phi(x_1)\cdots\phi(x_n)$ gives the quantum equations of motion:
 
-**Schwinger–Dyson equations** are the quantum equations of motion. They follow from the fact that a path integral is invariant under a shift of the integration variable, $\phi \to \phi + \delta\phi$:
+$$\left\langle\frac{\delta S}{\delta\phi(x)}\,\phi(x_1)\cdots\phi(x_n)\right\rangle = i\sum_{j=1}^{n}\delta^4(x - x_j)\,\left\langle\phi(x_1)\cdots\widehat{\phi(x_j)}\cdots\phi(x_n)\right\rangle,$$
 
-$$\left\langle \frac{\delta S}{\delta \phi(x)} \right\rangle = \text{(contact terms)}$$
+where the hat marks an omitted field. The classical equation of motion $\delta S/\delta\phi = 0$ holds inside correlators except at **contact terms**. The equations form an infinite coupled hierarchy linking $n$-point functions to higher ones. Truncations of this hierarchy are a standard non-perturbative approach to QCD bound states.
 
-They form an infinite, coupled hierarchy relating $n$-point to $(n+1)$-point functions — the non-perturbative skeleton of the theory.
+### Ward-Takahashi identities
 
-**Ward–Takahashi identities** are the special case enforced by a *symmetry* of the action. In QED, gauge invariance ties the vertex function to the electron propagator:
+If the action has a symmetry, the same argument applied to a change of variables along that symmetry gives **Ward-Takahashi identities**, the quantum form of Noether's theorem. In QED, current conservation relates the full electron-photon vertex $\Gamma^\mu$ to the full electron propagator $S(p) = [\not{p} - m - \Sigma(p)]^{-1}$ (factors of $i$ stripped):
 
-$$q_\mu \Gamma^\mu(p', p) = S_F^{-1}(p') - S_F^{-1}(p)$$
+$$q_\mu\,\Gamma^\mu(p + q,\,p) = S^{-1}(p + q) - S^{-1}(p).$$
 
-These identities guarantee that gauge invariance survives renormalization (e.g. relating the charge and field renormalization constants), and they protect the photon from acquiring a mass. They are a powerful consistency check on any calculation.
+At tree level both sides equal $\not{q}$. To all orders the identity implies $Z_1 = Z_2$ (vertex and wavefunction renormalization are equal). As a result charge renormalization comes only from vacuum polarization and is the same for every charged species. The identity also keeps the photon massless, because the vacuum polarization has the transverse form $\Pi^{\mu\nu} = (q^2g^{\mu\nu} - q^\mu q^\nu)\,\Pi(q^2)$. A related identity for amplitudes, $q_\mu\mathcal{M}^\mu = 0$ for an external photon, is what allows unphysical polarizations to be dropped.
 
-### Gauge Fixing and BRST
+## Gauge Fixing, Ghosts and BRST
 
-Naively, the photon path integral diverges because gauge-equivalent configurations are summed redundantly. The **Faddeev–Popov** procedure factors out this redundancy by inserting a gauge-fixing condition, at the cost of introducing **ghost** fields (anticommuting scalars) in non-abelian theories. The whole gauge-fixed action then possesses a residual rigid fermionic symmetry — **BRST symmetry** — which encodes the original gauge invariance at the quantum level and guarantees unitarity of physical amplitudes. BRST is the modern, systematic way to quantize Yang–Mills theories within the path integral.
+A gauge-field path integral naively diverges, because it integrates over infinitely many gauge-equivalent copies of each configuration. The **Faddeev-Popov** procedure inserts $1 = \int\mathcal{D}\alpha\;\delta(G[A^\alpha])\,\det(\delta G/\delta\alpha)$, factors out the (infinite) volume of the gauge group, and writes the determinant as a Gaussian integral over anticommuting scalar **ghost** fields $c$, $\bar c$. For Yang-Mills theory with the covariant gauge $G = \partial^\mu A^a_\mu$:
 
-## Effective Field Theory as a Calculational Tool
+$$\mathcal{L} = -\frac{1}{4}F^a_{\mu\nu}F^{a\mu\nu} - \frac{1}{2\xi}\left(\partial^\mu A^a_\mu\right)^2 + \bar c^a\left(-\partial^\mu D^{ab}_\mu\right)c^b.$$
 
-Effective field theory (EFT) is less a specific model than a way of thinking that makes QFT *usable*: you never need the complete theory of everything to compute a low-energy process — you only need the right degrees of freedom at the scale you care about.
+Ghosts violate spin-statistics. They are not physical particles, and they appear only in loops, where they cancel the unphysical polarizations of the gauge field. In QED the ghosts do not couple to the photon and can be dropped.
 
-### The Core Idea
+The gauge-fixed Lagrangian is no longer gauge invariant. It is invariant under a residual global fermionic symmetry, **BRST symmetry**, generated by a nilpotent charge $Q_B$ with $Q_B^2 = 0$. Physical states are the cohomology of $Q_B$ (states annihilated by $Q_B$, modulo those of the form $Q_B\lvert\chi\rangle$). This definition guarantees that unphysical modes decouple, that the S-matrix is unitary on the physical subspace, and that physical results are independent of $\xi$. BRST is the standard framework for quantizing gauge theories, and its generalization, the Batalin-Vilkovisky formalism, covers more complicated gauge structures such as those in string field theory and supergravity.
 
-If a process occurs at energy $E$ well below some heavy scale $\Lambda$, the heavy physics cannot be produced directly. Its effects appear only indirectly, suppressed by powers of $E/\Lambda$. EFT makes this systematic: **integrate out** the heavy fields and write the most general local Lagrangian for the light fields consistent with the symmetries, organized as an expansion in $1/\Lambda$:
+## Effective Field Theory in Practice
 
-$$\mathcal{L}_{\text{eff}} = \mathcal{L}_{d \le 4} + \sum_{i} \frac{c_i}{\Lambda^{n_i - 4}}\,\mathcal{O}_i$$
+Effective field theory (EFT) is how QFT is used when the full theory is unknown or too hard to solve. The conceptual basis, Wilson's renormalization group and why low-energy physics looks renormalizable, is developed on the [renormalization page](renormalization.html#effective-field-theory-the-modern-viewpoint). This section covers the practical steps.
 
-Each operator $\mathcal{O}_i$ of mass dimension $n_i$ comes with a dimensionless **Wilson coefficient** $c_i$. Higher-dimension operators are suppressed by more powers of $\Lambda$, so at any desired accuracy only finitely many operators matter. This is **power counting**, and it is what makes a non-renormalizable theory perfectly predictive at low energies.
+For processes at energy $E$ well below a heavy scale $\Lambda$, write the most general local Lagrangian for the light fields consistent with the symmetries and organize it by operator dimension $d_i$:
 
-### Why It Works
+$$\mathcal{L}_{\text{eff}} = \mathcal{L}_{d \le 4} + \sum_{i}\frac{c_i}{\Lambda^{d_i - 4}}\,\mathcal{O}_i.$$
 
-- **Decoupling.** Heavy particles decouple from low-energy physics, leaving only their imprint in the Wilson coefficients. You can compute without ever resolving the heavy sector.
-- **Predictivity with a cutoff.** A theory with infinitely many couplings is still predictive: truncating the $1/\Lambda$ expansion at finite order leaves a finite, controlled error of order $(E/\Lambda)^{n}$.
-- **Matching and running.** Wilson coefficients are fixed by **matching** the EFT to the full theory at the scale $\Lambda$, then **run** down to the experimental scale using the renormalization group — automatically resumming large logarithms $\ln(\Lambda/E)$.
+Each operator contributes at relative order $(E/\Lambda)^{d_i - 4}$, so a fixed accuracy needs only finitely many **Wilson coefficients** $c_i$. A typical calculation has three steps:
 
-### EFT in Practice
+```mermaid
+graph LR
+    FULL["Full theory at scale Lambda"] -->|"match: equate amplitudes at mu ~ Lambda"| C["Wilson coefficients c_i(Lambda)"]
+    C -->|"run: RG equations resum ln(Lambda/E)"| CE["c_i(E)"]
+    CE -->|"compute in the EFT"| OBS["Low-energy observable, error ~ (E/Lambda)^n"]
+```
 
-| Effective theory | Light fields | Heavy scale integrated out |
-|------------------|--------------|----------------------------|
-| Fermi theory of $\beta$-decay | leptons, nucleons | $W$ boson mass $m_W$ |
-| Chiral perturbation theory | pions (Goldstone bosons) | QCD scale $\Lambda_{\text{QCD}}$ |
-| Heavy quark effective theory | light quarks, gluons | heavy quark mass $m_Q$ |
-| Standard Model EFT (SMEFT) | Standard Model fields | unknown new-physics scale |
-| Euler–Heisenberg | photons | electron mass $m_e$ |
+**Worked matching: Fermi theory.** The charged-current amplitude for muon decay has two $W$ vertices $\frac{-ig}{\sqrt{2}}\gamma^\mu P_L$ connected by a $W$ propagator. For momentum transfer $q^2 \ll m_W^2$ the propagator can be expanded:
 
-The classic example is Fermi's four-fermion theory of beta decay: long before the $W$ boson was known, the weak interaction could be described by a contact interaction with coupling $G_F \sim g^2/m_W^2$. The full electroweak theory "matches onto" this EFT in the limit $q^2 \ll m_W^2$, with the heavy $W$ propagator $\sim 1/(q^2 - m_W^2) \to -1/m_W^2$ shrinking to a point. Crucially, the entire Standard Model is itself almost certainly an EFT — the leading terms of a more complete theory whose new physics lives at a scale we have not yet reached. (See [Effective Field Theory as a Calculational Tool](#effective-field-theory-as-a-calculational-tool) below.)
+$$\frac{-i\,g_{\mu\nu}}{q^2 - m_W^2} = \frac{i\,g_{\mu\nu}}{m_W^2}\left(1 + \frac{q^2}{m_W^2} + \cdots\right) \quad\Longrightarrow\quad \frac{G_F}{\sqrt{2}} = \frac{g^2}{8m_W^2}.$$
 
-## Key Takeaways
+The leading term is a four-fermion contact interaction with $G_F \approx 1.16638\times 10^{-5}\ \text{GeV}^{-2}$. The $q^2/m_W^2$ terms are dimension-8 corrections. Fermi's non-renormalizable coupling had negative mass dimension, and that pointed to the scale of the new physics: $m_W \approx 80$ GeV.
 
-- **The path integral is the master tool.** Summing $e^{iS/\hbar}$ over all field configurations reproduces all of QFT and connects directly to statistical mechanics after Wick rotation.
-- **Generating functionals automate correlators.** $Z[J]$ gives all Green's functions, $W[J]$ the connected ones, and the effective action $\Gamma[\phi_c]$ the 1PI vertices and the quantum vacuum.
-- **Diagrams are the perturbation series.** Wick's theorem turns the expansion into propagator products; each Feynman diagram is one term, with rules for lines, vertices, and loops.
-- **Amplitudes become observables.** Squaring $\mathcal{M}$, averaging over spins, and inserting phase space yields cross sections and decay rates an experiment can test.
-- **Functional identities are exact.** Schwinger–Dyson and Ward–Takahashi relations hold to all orders, protecting gauge invariance and constraining every calculation.
-- **EFT lets you calculate at the right scale.** Integrate out heavy physics, organize by powers of $E/\Lambda$, and compute predictively without knowing the complete theory.
+| Effective theory | Light degrees of freedom | Integrated out | Expansion parameter |
+|------------------|--------------------------|----------------|---------------------|
+| Fermi theory | leptons, quarks | $W$, $Z$ | $E/m_W$ |
+| Chiral perturbation theory | pions, kaons, eta | QCD resonances | $p/(4\pi f_\pi)$, with $4\pi f_\pi \approx 1$ GeV |
+| Heavy-quark EFT (HQET) | light quarks, gluons, static heavy quark | heavy-quark recoil | $\Lambda_{\text{QCD}}/m_Q$ |
+| Non-relativistic QED/QCD (NRQED, NRQCD) | slow bound-state constituents | relativistic modes | velocity $v$ |
+| Soft-collinear EFT (SCET) | collinear and soft quarks and gluons | hard modes | $\lambda \sim p_T/Q$ |
+| Euler-Heisenberg | photons | electron | $\omega/m_e$ |
+| SMEFT | all Standard Model fields | unknown heavy physics | $v/\Lambda$, $E/\Lambda$ |
+| General relativity as an EFT | graviton | unknown UV completion | $E/M_{\text{Pl}}$ |
+
+**SMEFT** is the standard framework for model-independent searches for new physics at the LHC. At dimension 5 there is a single operator structure, the Weinberg operator $(LH)(LH)/\Lambda$, which gives Majorana neutrino masses. At dimension 6 the Warsaw basis has 59 independent baryon-number-conserving operator structures, which become 2499 independent coefficients once three generations of flavour indices are counted. Global fits to Higgs, electroweak, top and flavour data constrain combinations of these coefficients. A closely related framework, HEFT, relaxes the assumption that the Higgs sits in an electroweak doublet.
 
 ## See Also
 
-- [Quantum Field Theory](quantum-field-theory.html) — fields, gauge symmetry, the Standard Model, and renormalization.
-- [Quantum Mechanics](quantum-mechanics/) — the non-relativistic foundation the path integral generalizes.
-- [Statistical Mechanics](statistical-mechanics/) — the Euclidean path integral is a statistical partition function.
-- [Relativity](relativity/) — special relativity makes the action Lorentz-invariant.
-- [String Theory](string-theory/) — worldsheet path integrals extend these methods to extended objects.
-- [Physics Hub](index.html) — browse all physics topics.
+- [Quantum Field Theory](quantum-field-theory.html): the overview hub and reading order.
+- [Canonical Quantization](qft-quantization.html): free fields, propagators and the interaction picture.
+- [Renormalization & the RG](renormalization.html): regularizing and renormalizing loop integrals, running couplings and the Wilsonian view of EFT.
+- [Gauge Theories & the Standard Model](gauge-and-standard-model.html): the Lagrangians these methods are applied to.
+- [QFT: Modern Frontiers](qft-frontiers.html): on-shell amplitude methods, anomalies and holography.
+- [Statistical Mechanics](statistical-mechanics/): the Euclidean path integral as a partition function.
+- [Computational Physics](computational-physics/): Monte Carlo methods of the kind used in lattice field theory.
+- [Physics Hub](index.html): all physics topics.

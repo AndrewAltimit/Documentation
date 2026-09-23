@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Kubernetes: Fundamentals (Part I — Architecture & Core Objects)"
+description: "Kubernetes cluster architecture, the declarative API and reconciliation loop, and the core objects: Pods, ReplicaSets, Deployments, Services, Namespaces, labels and selectors."
 permalink: /docs/technology/kubernetes/fundamentals.html
 toc: true
 toc_sticky: true
@@ -9,536 +10,555 @@ hide_title: true
 
 [Kubernetes](./) &raquo; Fundamentals
 
-This is **Part I** of the Kubernetes Fundamentals. It covers the architecture (control plane and worker nodes) and the core objects you create every day — Pods, ReplicaSets, Deployments, Services, Namespaces — plus the labels and selectors that wire them together. It opens with a hands-on quick start so you can see the system work before meeting the abstractions.
+This page is **Part I** of the Kubernetes fundamentals. It explains how a cluster is put together (control plane and worker nodes), the declarative model that drives it, and the objects you work with every day — Pods, ReplicaSets, Deployments, Services and Namespaces — together with the labels and selectors that connect them. Examples target Kubernetes **v1.35–v1.37**, the minor releases supported as of late 2026.
 
-Two companion pages continue the fundamentals once you can deploy a Pod:
+Two companion pages continue from here:
 
-- **[Networking &amp; Configuration](fundamentals-networking.html)** — how Services route traffic in depth, Ingress, NetworkPolicies, and how to inject configuration with ConfigMaps and Secrets.
-- **[Health &amp; Resource Management](fundamentals-resources.html)** — liveness/readiness/startup probes, CPU/memory requests and limits, QoS classes, and autoscaling.
+| Page | Covers |
+|------|--------|
+| [Networking &amp; Configuration](fundamentals-networking.html) | Services and kube-proxy in depth, Ingress and Gateway API, NetworkPolicies, ConfigMaps, Secrets, RBAC |
+| [Health &amp; Resource Management](fundamentals-resources.html) | Probes, requests and limits, QoS classes, eviction, scheduling, in-place resize, the Horizontal Pod Autoscaler |
 
-## Getting Started with Kubernetes
+## Overview
 
-Before diving into commands and configurations, it helps to understand what Kubernetes actually does. Think of it as a distributed operating system: just as your laptop's OS manages programs, memory, and files on a single machine, Kubernetes manages containers, resources, and storage across many machines.
+Kubernetes is a **declarative control system for containers**. You submit a description of the state you want — "three replicas of this image, reachable at this name" — to an API server. A set of independent controllers then works continuously to make the cluster match that description: placing containers on machines, restarting them when they fail, replacing them when a machine disappears, and rewiring networking as they move.
 
-**Why does this matter?** When you run `kubectl apply -f myapp.yaml`, you are not just starting a container. You are telling Kubernetes: "Here is what I want my application to look like. Make it happen and keep it that way." Kubernetes then handles container placement, networking, restarts, and scaling automatically.
+Two properties follow from that design and explain most of Kubernetes' behaviour:
 
-This page walks you through the fundamentals in the order that actually builds understanding: deploy something first, then learn the core vocabulary, then study each object in depth.
+- **Everything is an API object.** Pods, Deployments, Services, nodes and even RBAC rules are records stored in the cluster's database (etcd) and manipulated through one REST API. `kubectl` is just an API client.
+- **Nothing is one-shot.** There is no "deploy" transaction that runs once and finishes. Controllers re-observe the world in a loop and correct drift forever, which is why a deleted pod reappears and a crashed container restarts.
 
-## Quick Start Guide
+## Quick Start
 
-The fastest way to understand Kubernetes is to use it. This section gets you deploying an application in minutes — the concepts behind every command follow in the sections after.
+The fastest way to build intuition is to watch the reconciliation loop work.
 
-### Requirements
-- Container technology knowledge (Docker)
-- Kubernetes cluster access (minikube, kind, k3s, or cloud provider)
-- kubectl CLI v1.28+ installed
-- Optional: Helm 3.x for package management
+### Prerequisites
+
+- Familiarity with containers and images (see [Docker](../docker/)).
+- A cluster. For local work, any of the following is fine:
+
+| Tool | What it runs | Notes |
+|------|--------------|-------|
+| **kind** | Kubernetes nodes as Docker/Podman containers | Fast, disposable; the upstream project's own CI tool. Multi-node clusters from one config file. |
+| **minikube** | A single-node cluster in a VM or container | Bundles add-ons (ingress, metrics-server, dashboard); `minikube tunnel` provides LoadBalancer IPs. |
+| **k3d / k3s** | Rancher's lightweight distribution | k3s is also used on edge and small production clusters. |
+| **Docker Desktop / Rancher Desktop / Podman Desktop** | A built-in single-node cluster | Convenient on macOS and Windows. |
+
+- **kubectl** within one minor version of the cluster's API server (the supported [version skew](https://kubernetes.io/releases/version-skew-policy/)): a v1.36 kubectl can talk to v1.35, v1.36 and v1.37 control planes.
 
 ### Your First Deployment
 
-Let us deploy a web server and see Kubernetes in action:
-
 ```bash
-# Deploy nginx and expose it
-kubectl create deployment hello-world --image=nginx:alpine
-kubectl expose deployment hello-world --type=LoadBalancer --port=80
+# Create a Deployment and expose it inside the cluster
+kubectl create deployment hello --image=nginx:1.29 --replicas=3
+kubectl expose deployment hello --port=80
 
-# Verify it is running
-kubectl get pods
-kubectl get services
+# Look at what was created: one Deployment, one ReplicaSet, three Pods, one Service
+kubectl get deployment,replicaset,pod,service -l app=hello
+
+# Reach it from your workstation without an external load balancer
+kubectl port-forward service/hello 8080:80   # then open http://localhost:8080
 ```
 
-> **Note:** `--type=LoadBalancer` provisions an external IP only on a cloud provider. On a local cluster (minikube, kind, k3s) the service stays `<pending>` — run `minikube tunnel`, or use `--type=NodePort` instead.
-
-Now try the self-healing feature that makes Kubernetes valuable:
+Now delete a pod and watch it come back:
 
 ```bash
-# Scale to 3 replicas and delete one pod
-kubectl scale deployment hello-world --replicas=3
-kubectl delete pod <pod-name>
-kubectl get pods  # A new pod automatically replaces the deleted one
+kubectl delete pod -l app=hello --wait=false   # deletes all three
+kubectl get pods -l app=hello --watch           # three new pods, new names, new IPs
 ```
 
-That replacement pod is not magic — it is the **reconciliation loop** at work, a concept we unpack under [Core Concepts](#core-concepts). Clean up when done:
+The replacements were not created by the `delete` command. The ReplicaSet controller noticed that zero pods matched its selector where three were desired, and created three more. That is the reconciliation loop described [below](#the-reconciliation-loop).
 
 ```bash
-kubectl delete deployment hello-world
-kubectl delete service hello-world
+kubectl delete deployment,service hello     # clean up
 ```
 
-### Core Concepts at a Glance
+> `kubectl expose --type=LoadBalancer` provisions an external IP only where a cloud controller (or an equivalent such as MetalLB, `minikube tunnel` or `cloud-provider-kind`) implements load balancers. On a bare local cluster the external IP stays `<pending>`; `port-forward` or `--type=NodePort` works everywhere.
 
-Before going deeper, here is how the key pieces fit together:
+## Architecture
 
-| Concept | What It Is | Analogy |
-|---------|------------|---------|
-| **Pod** | Smallest deployable unit; wraps one or more containers | An apartment unit in a building |
-| **ReplicaSet** | Keeps a fixed number of identical Pods running | The leasing office tracking how many units must stay occupied |
-| **Deployment** | Manages ReplicaSets and rolls out updates | A property manager scheduling renovations unit by unit |
-| **Service** | Stable network address for a set of Pods | The building's front desk that routes visitors |
-| **Node** | A machine (physical or virtual) running pods | An apartment building |
-| **Cluster** | A group of nodes managed together | The entire apartment complex |
+A cluster has two halves: a **control plane** that stores state and makes decisions, and a set of **worker nodes** that run your containers. Every interaction — from `kubectl`, from controllers, from the kubelet on each node — goes through the **kube-apiserver**. Components never call each other directly; they read and *watch* objects through the API server and write their conclusions back.
 
-**The key insight**: You rarely work with pods directly. Instead, you tell a Deployment "I want 3 copies of my app" and it creates a ReplicaSet, which creates and manages the pods for you. Services then route traffic to those pods, regardless of which nodes they run on.
+```mermaid
+flowchart TB
+    user(["kubectl / CI / GitOps"]) -->|HTTPS REST| api
 
-The rest of this page explores each concept in depth, showing you how to build production-ready systems.
+    subgraph cp["Control plane"]
+        api["kube-apiserver<br/>authn, authz, admission,<br/>validation"]
+        etcd[("etcd<br/>cluster state")]
+        sched["kube-scheduler<br/>assigns pods to nodes"]
+        cm["kube-controller-manager<br/>Deployment, ReplicaSet,<br/>Node, Job, ... controllers"]
+        ccm["cloud-controller-manager<br/>LBs, routes, node lifecycle"]
+        api <--> etcd
+        sched <-->|watch / bind| api
+        cm <-->|watch / write| api
+        ccm <-->|watch / write| api
+    end
 
-## Understanding Kubernetes: From Containers to Orchestration
+    subgraph n1["Worker node"]
+        kubelet1["kubelet"] --> cri1["container runtime<br/>containerd / CRI-O"]
+        cri1 --> p1["Pods"]
+        kp1["kube-proxy<br/>(or eBPF CNI)"]
+        cni1["CNI plugin<br/>pod networking"]
+    end
 
-Consider the following evolution in how we run applications:
+    subgraph n2["Worker node"]
+        kubelet2["kubelet"] --> cri2["container runtime"]
+        cri2 --> p2["Pods"]
+        kp2["kube-proxy"]
+    end
 
-| Era | Approach | Trade-off |
-|-----|----------|-----------|
-| **Bare Metal** | One application per server | Wasted resources; most servers idle |
-| **Virtual Machines** | Multiple VMs per server | Better utilization but heavy overhead |
-| **Containers** | Many containers per server | Lightweight but manual management at scale |
-| **Orchestration** | Kubernetes manages containers | Automated, scalable, self-healing |
+    kubelet1 <-->|watch pods,<br/>report status| api
+    kubelet2 <-->|watch pods,<br/>report status| api
+    kp1 -.->|watch Services,<br/>EndpointSlices| api
+    kp2 -.-> api
+    ccm -.->|cloud APIs| cloud[("Cloud provider")]
+```
 
-Each step solved the previous era's problems while creating new challenges. Containers solved VM overhead but introduced complexity: How do you run hundreds of containers across dozens of servers? How do you ensure they stay healthy? How do you update them without downtime?
+### Control Plane Components
 
-Kubernetes answers these questions with a declarative approach and automated operations.
+On a managed service (EKS, GKE, AKS and similar) the control plane is operated for you and is invisible except through its API. On self-managed clusters it typically runs as static pods on dedicated nodes.
 
-### What Kubernetes Provides
+| Component | Responsibility | If it fails |
+|-----------|----------------|-------------|
+| **kube-apiserver** | The front door and the only component that talks to etcd. Authenticates and authorizes every request, runs admission control (mutating and validating webhooks, `ValidatingAdmissionPolicy`), validates objects, and serves watches to every other component. Stateless and horizontally scalable. | The cluster cannot be changed. Existing pods keep running, but nothing is scheduled, scaled or healed. |
+| **etcd** | Strongly consistent key–value store (Raft consensus) holding every object's spec and status. The single source of truth. | Loss of quorum makes the API read-only or unavailable; loss of data without a backup loses the cluster. Run 3 or 5 members and back it up. |
+| **kube-scheduler** | Watches for pods with no `spec.nodeName`, filters out nodes that cannot run them, scores the rest, and *binds* each pod to a node. See [Scheduler Basics](fundamentals-resources.html#scheduler-basics). | New pods stay `Pending`; running pods are unaffected. |
+| **kube-controller-manager** | One process hosting dozens of built-in controllers — Deployment, ReplicaSet, StatefulSet, Job, Node lifecycle, EndpointSlice, ServiceAccount, garbage collector and more. | Self-healing stops: failed pods are not replaced, rollouts freeze, dead nodes are not evicted. |
+| **cloud-controller-manager** | Cloud-specific controllers: provisioning load balancers for `LoadBalancer` Services, configuring routes, and labelling or removing nodes as cloud instances come and go. Absent on bare metal. | Cloud load balancers and node metadata stop updating. |
 
-Rather than listing features, consider what problems each capability solves:
+The API server, scheduler and controller manager run with multiple replicas for availability; the scheduler and controller manager use **leader election** (a `Lease` object) so only one instance of each acts at a time.
 
-| Challenge | Kubernetes Solution | Benefit |
-|-----------|---------------------|---------|
-| "My container crashed" | Self-healing | Automatic restart and replacement |
-| "How do services find each other?" | Service discovery | Built-in DNS and load balancing |
-| "I need to deploy without downtime" | Rolling updates | Gradual replacement of old pods |
-| "Traffic is spiking" | Horizontal scaling | Add replicas automatically or manually |
-| "I need to store passwords securely" | Secrets | Encrypted storage with access controls |
-| "Different apps need different storage" | Storage classes | Abstract storage provisioning |
+### Node Components
 
-## Core Concepts
+A **node** is a VM or physical machine that runs pods. Each node runs:
 
-Now that you understand why Kubernetes exists, let us explore how it works. The architecture consists of two main parts: the **control plane** that makes decisions and the **worker nodes** that run your applications.
-
-**Consider the following**: When you run `kubectl apply -f deployment.yaml`, your request travels through several components. The API Server receives it, stores the desired state in etcd, the Scheduler decides which node should run the pods, and the Controller Manager ensures reality matches your specification. Understanding this flow helps you troubleshoot when things go wrong.
-
-Kubernetes follows a control-plane / worker-node architecture: the control plane manages the cluster while worker nodes run your applications.
-
-<div class="architecture-visual">
-    <svg viewBox="0 0 700 400" class="k8s-architecture">
-      <!-- Control Plane -->
-      <rect x="50" y="50" width="600" height="120" fill="#3498db" opacity="0.1" stroke="#3498db" stroke-width="2" />
-      <text x="350" y="30" text-anchor="middle" font-size="16" font-weight="bold">Control Plane</text>
-      
-      <!-- API Server -->
-      <rect x="70" y="70" width="100" height="80" fill="#e74c3c" opacity="0.5" stroke="#c0392b" stroke-width="2" />
-      <text x="120" y="105" text-anchor="middle" font-size="11" fill="white">API Server</text>
-      <text x="120" y="120" text-anchor="middle" font-size="9" fill="white">Gateway</text>
-      
-      <!-- etcd -->
-      <rect x="190" y="70" width="100" height="80" fill="#27ae60" opacity="0.5" stroke="#229954" stroke-width="2" />
-      <text x="240" y="105" text-anchor="middle" font-size="11" fill="white">etcd</text>
-      <text x="240" y="120" text-anchor="middle" font-size="9" fill="white">State Store</text>
-      
-      <!-- Scheduler -->
-      <rect x="310" y="70" width="100" height="80" fill="#f39c12" opacity="0.5" stroke="#d68910" stroke-width="2" />
-      <text x="360" y="105" text-anchor="middle" font-size="11" fill="white">Scheduler</text>
-      <text x="360" y="120" text-anchor="middle" font-size="9" fill="white">Pod Placement</text>
-      
-      <!-- Controller Manager -->
-      <rect x="430" y="70" width="100" height="80" fill="#9b59b6" opacity="0.5" stroke="#7d3c98" stroke-width="2" />
-      <text x="480" y="100" text-anchor="middle" font-size="11" fill="white">Controller</text>
-      <text x="480" y="115" text-anchor="middle" font-size="11" fill="white">Manager</text>
-      <text x="480" y="130" text-anchor="middle" font-size="9" fill="white">Controllers</text>
-      
-      <!-- Cloud Controller -->
-      <rect x="550" y="70" width="80" height="80" fill="#1abc9c" opacity="0.5" stroke="#16a085" stroke-width="2" />
-      <text x="590" y="100" text-anchor="middle" font-size="10" fill="white">Cloud</text>
-      <text x="590" y="115" text-anchor="middle" font-size="10" fill="white">Controller</text>
-      <text x="590" y="130" text-anchor="middle" font-size="9" fill="white">Manager</text>
-      
-      <!-- Worker Nodes -->
-      <text x="350" y="210" text-anchor="middle" font-size="16" font-weight="bold">Worker Nodes</text>
-      
-      <!-- Node 1 -->
-      <rect x="50" y="230" width="180" height="150" fill="#95a5a6" opacity="0.1" stroke="#7f8c8d" stroke-width="2" />
-      <text x="140" y="250" text-anchor="middle" font-size="12">Node 1</text>
-      
-      <!-- kubelet -->
-      <rect x="60" y="260" width="70" height="40" fill="#3498db" opacity="0.5" />
-      <text x="95" y="285" text-anchor="middle" font-size="10" fill="white">kubelet</text>
-      
-      <!-- kube-proxy -->
-      <rect x="150" y="260" width="70" height="40" fill="#e74c3c" opacity="0.5" />
-      <text x="185" y="285" text-anchor="middle" font-size="10" fill="white">kube-proxy</text>
-      
-      <!-- Container runtime -->
-      <rect x="60" y="310" width="160" height="40" fill="#27ae60" opacity="0.5" />
-      <text x="140" y="335" text-anchor="middle" font-size="10" fill="white">Container Runtime</text>
-      
-      <!-- Pods -->
-      <circle cx="90" cy="365" r="12" fill="#f39c12" />
-      <circle cx="140" cy="365" r="12" fill="#f39c12" />
-      <circle cx="190" cy="365" r="12" fill="#f39c12" />
-      <text x="140" y="370" text-anchor="middle" font-size="9">Pods</text>
-      
-      <!-- Node 2 -->
-      <rect x="260" y="230" width="180" height="150" fill="#95a5a6" opacity="0.1" stroke="#7f8c8d" stroke-width="2" />
-      <text x="350" y="250" text-anchor="middle" font-size="12">Node 2</text>
-      
-      <!-- Node 3 -->
-      <rect x="470" y="230" width="180" height="150" fill="#95a5a6" opacity="0.1" stroke="#7f8c8d" stroke-width="2" />
-      <text x="560" y="250" text-anchor="middle" font-size="12">Node 3</text>
-      
-      <!-- Communication lines -->
-      <path d="M 120 150 L 140 230" stroke="#2c3e50" stroke-width="1" stroke-dasharray="3,3" />
-      <path d="M 360 150 L 350 230" stroke="#2c3e50" stroke-width="1" stroke-dasharray="3,3" />
-      <path d="M 480 150 L 560 230" stroke="#2c3e50" stroke-width="1" stroke-dasharray="3,3" />
-    </svg>
-</div>
-
-The control plane runs the **API Server** (the API gateway), **etcd** (the state store), the **Scheduler** (pod placement), the **Controller Manager** (the built-in controllers), and the **Cloud Controller Manager** (cloud-provider integration). Each worker node runs the **kubelet** (node agent), **kube-proxy** (service networking), and a **container runtime** (containerd or CRI-O). The next two sections detail each side.
-
-### The Control Plane in Detail
-
-The control plane is the brain of the cluster. It does not run your application containers (on a managed service it is hidden from you entirely); instead it makes every global decision about the cluster and exposes the API you talk to.
-
-| Component | Responsibility | Failure impact |
-|-----------|----------------|----------------|
-| **kube-apiserver** | The only component that reads/writes etcd. Validates every request, enforces authentication/authorization, and is the hub every other component watches. | The cluster becomes read-only to operators; running pods keep running, but nothing new can be scheduled or changed. |
-| **etcd** | Consistent, distributed key-value store holding the entire desired and observed state. The single source of truth. | Loss of etcd without a backup means loss of the cluster's state. Always back it up. |
-| **kube-scheduler** | Watches for unscheduled pods and binds each to the best-fit node based on resource requests, affinity, taints, and constraints. | New pods stay `Pending`; existing pods are unaffected. |
-| **kube-controller-manager** | Runs the built-in controllers (Deployment, ReplicaSet, Node, Job, endpoints, and more), each running a reconciliation loop. | Self-healing stalls — failed pods are not replaced, rollouts freeze. |
-| **cloud-controller-manager** | Talks to the cloud provider for nodes, load balancers, and routes. Absent on bare-metal clusters. | Cloud-backed Services and node lifecycle integration stop updating. |
-
-A production control plane runs these components redundantly (typically three or five etcd members for quorum) so the loss of a single node does not take down the cluster.
-
-### Worker Nodes in Detail
-
-A **node** is a machine — a VM or physical server — that runs your pods. Every node runs three pieces of software that the control plane drives:
-
-- **kubelet** — the node agent. It watches the API server for pods assigned to its node, instructs the container runtime to pull images and start containers, and continuously reports pod and node status back. It also runs the health probes (covered in [Health &amp; Resource Management](fundamentals-resources.html)).
-- **kube-proxy** — programs the node's networking (iptables or IPVS rules, or eBPF with some CNIs) so that traffic to a Service's virtual IP is load-balanced to the backing pods. Service mechanics are covered in [Networking &amp; Configuration](fundamentals-networking.html).
-- **Container runtime** — the software that actually runs containers: containerd or CRI-O (Docker's runtime was removed as a direct integration in v1.24). The kubelet talks to it through the Container Runtime Interface (CRI).
-
-Inspect nodes with:
+- **kubelet** — the node agent. It watches the API server for pods bound to its node, asks the container runtime to pull images and start containers, mounts volumes, runs [health probes](fundamentals-resources.html#probes), enforces resource limits via cgroups, and reports pod and node status back. It also renews a heartbeat `Lease` in the `kube-node-lease` namespace; if renewals stop, the node controller marks the node `NotReady` and eventually evicts its pods.
+- **Container runtime** — the software that actually runs containers, reached through the **Container Runtime Interface (CRI)**. In practice this is **containerd** or **CRI-O**. The built-in Docker Engine integration (dockershim) was removed in v1.24; images built with Docker run unchanged because they are standard OCI images. See [Container Runtimes](../container-runtimes.html).
+- **kube-proxy** — programs the node's packet-forwarding rules (iptables, IPVS, or nftables) so that traffic to a Service's virtual IP reaches one of its backing pods. Some CNI plugins, such as Cilium, replace kube-proxy entirely with eBPF. Details are in [Networking &amp; Configuration](fundamentals-networking.html#how-kube-proxy-implements-services).
+- **CNI plugin** — gives every pod an IP address and connects pods across nodes (Calico, Cilium, Flannel, or the cloud provider's VPC CNI).
 
 ```bash
-kubectl get nodes -o wide        # IPs, OS image, kernel, runtime
-kubectl describe node <node>     # capacity, allocatable, conditions, pods
+kubectl get nodes -o wide          # roles, IPs, OS image, kernel, runtime version
+kubectl describe node <node>       # capacity vs allocatable, conditions, running pods
 ```
 
-The **conditions** in `describe node` (`Ready`, `MemoryPressure`, `DiskPressure`, `PIDPressure`) are how the node reports its health; the kubelet renews a heartbeat lease so the control plane can detect a node that has gone offline and reschedule its pods elsewhere.
+The **conditions** reported by `describe node` — `Ready`, `MemoryPressure`, `DiskPressure`, `PIDPressure` — are the node's own health signal, and the pressure conditions trigger kubelet eviction (covered in [Health &amp; Resource Management](fundamentals-resources.html#node-pressure-eviction)).
+
+## The Declarative Model
+
+### Anatomy of an Object
+
+Every persistent object has the same top-level shape:
+
+```yaml
+apiVersion: apps/v1          # API group and version that defines this kind
+kind: Deployment             # the object type
+metadata:                    # identity and bookkeeping
+  name: web
+  namespace: shop
+  labels: {app.kubernetes.io/name: web}
+spec:                        # desired state — written by you
+  replicas: 3
+  # ...
+status:                      # observed state — written by controllers, never by you
+  readyReplicas: 3
+```
+
+The split between **`spec`** (what you asked for) and **`status`** (what a controller has observed) is the whole contract. A controller's job is to make `status` converge on `spec`.
+
+`metadata` also carries fields the system uses to relate objects:
+
+- **`ownerReferences`** — a ReplicaSet records its Deployment as owner; each Pod records its ReplicaSet. The **garbage collector** uses these links to delete dependents when an owner is deleted (cascading deletion).
+- **`resourceVersion`** — an opaque version used for optimistic concurrency: an update based on a stale version is rejected with a conflict.
+- **`generation` / `status.observedGeneration`** — lets you tell whether a controller has processed the latest spec change.
 
 ### What Happens When You Apply a Manifest
 
-The diagram below traces a single `kubectl apply` through the control plane. Notice that the components never talk to each other directly — they all watch the API server, which is the single source of truth backed by etcd. This "level-triggered" design is what makes Kubernetes self-healing: controllers continuously reconcile actual state toward desired state.
+Tracing a single `kubectl apply` of a Deployment shows how many independent actors cooperate — and that none of them calls another directly.
 
 ```mermaid
 sequenceDiagram
+    autonumber
     participant U as kubectl
-    participant API as API Server
+    participant API as kube-apiserver
     participant E as etcd
+    participant DC as Deployment controller
+    participant RC as ReplicaSet controller
     participant S as Scheduler
-    participant K as kubelet (node)
-    U->>API: apply deployment.yaml
-    API->>E: persist desired state
-    API-->>S: new pod (unscheduled)
-    S->>API: bind pod to node
-    API->>E: persist assignment
-    API-->>K: pod assigned to this node
-    K->>K: pull image, start container
-    K->>API: report status (Running)
-    API->>E: persist actual state
+    participant K as kubelet
+    U->>API: apply Deployment
+    API->>API: authn, authz, admission, validation
+    API->>E: store Deployment
+    API-->>DC: watch event: Deployment added
+    DC->>API: create ReplicaSet
+    API-->>RC: watch event: ReplicaSet added
+    RC->>API: create 3 Pods (no nodeName)
+    API-->>S: watch event: unscheduled Pods
+    S->>API: bind each Pod to a node
+    API-->>K: watch event: Pod bound to this node
+    K->>K: pull image, create sandbox, start containers
+    K->>API: update Pod status (Running, Ready)
+```
+
+Each arrow into the API server is a write that is persisted in etcd; each dashed arrow out of it is a **watch** notification. Controllers keep a local cache of the objects they care about (the *informer* pattern), so the API server is not polled.
+
+### Client-Side vs Server-Side Apply
+
+`kubectl apply` merges your manifest into the live object. By default it computes the patch on the client, using the `kubectl.kubernetes.io/last-applied-configuration` annotation to remember what you set last time. **Server-side apply** (`kubectl apply --server-side`, GA since v1.22) moves that merge into the API server and records **field ownership** in `metadata.managedFields`. When two managers — say a human with kubectl and an HPA, or two GitOps tools — try to set the same field, the server reports a conflict instead of silently overwriting. Server-side apply is the default in modern controllers, Argo CD and Flux can use it, and Helm 4 uses it for new releases.
+
+```bash
+kubectl apply --server-side -f deploy.yaml
+kubectl diff -f deploy.yaml        # preview what apply would change
 ```
 
 ### The Reconciliation Loop
 
-The single most important idea in Kubernetes is the **control loop** (or reconciliation loop). Every controller runs the same endless cycle: observe the current state, compare it to the desired state recorded in etcd, and take action to close the gap. There is no one-shot "deploy" step — the system is *continuously* driven toward your declared intent, which is precisely why a deleted pod reappears and a crashed container restarts.
+Every controller runs the same cycle: **observe** the current state, **compare** it with the desired state, **act** to close the gap, repeat.
 
 ```mermaid
 flowchart LR
-    D["Desired state<br/>(your YAML in etcd)"] --> C{"Observe &<br/>compare"}
-    A["Actual state<br/>(what's running)"] --> C
-    C -->|"drift detected"| ACT["Take corrective action<br/>(create/delete/update pods)"]
+    D["Desired state<br/>(spec in etcd)"] --> C{"Observe &<br/>compare"}
+    A["Actual state<br/>(status, running pods)"] --> C
+    C -->|"drift"| ACT["Act<br/>create / delete / update"]
     ACT --> A
-    C -->|"in sync"| C
+    C -->|"in sync"| W["Wait for next<br/>event or resync"]
+    W --> C
 ```
 
-This is a **level-triggered** design (it reacts to the current level of state) rather than **edge-triggered** (reacting to one-time events). If a controller misses an event, it simply re-observes reality on its next pass and still converges — making Kubernetes robust to restarts, network blips, and lost messages.
+This design is **level-triggered**: a controller acts on the *current* difference between spec and status, not on the individual events that produced it. If a controller restarts, misses a watch event, or runs twice, it still converges, because on its next pass it simply re-reads reality. That is what makes Kubernetes tolerant of crashes, network partitions and concurrent edits — and why its behaviour is best understood as "many small loops each nudging one kind of object", not as a central orchestrator executing a plan.
 
-## Kubernetes Objects: The Building Blocks
+Custom controllers and **Operators** extend the same pattern to your own resource types; see [Advanced Topics](advanced.html#custom-resource-definitions).
 
-With the architecture understood, let us explore the objects you will work with daily. Each object type solves a specific problem, and choosing the right one depends on your application's needs.
+## Workload Objects
 
-**When to use each object type**:
+| Object | Manages | Typical use |
+|--------|---------|-------------|
+| **Pod** | One or more co-scheduled containers | Almost never created directly; the unit every controller produces |
+| **ReplicaSet** | N identical pods | Created and owned by a Deployment |
+| **Deployment** | ReplicaSets, rolling updates, rollback | Stateless services: web servers, APIs, workers |
+| **StatefulSet** | Pods with stable names and per-pod storage | Databases, brokers, consensus systems |
+| **DaemonSet** | One pod per (matching) node | Log shippers, node exporters, CNI and CSI agents |
+| **Job / CronJob** | Pods that run to completion, optionally on a schedule | Migrations, batch processing, backups |
 
-| Object | Use Case | Example |
-|--------|----------|---------|
-| **Pod** | Rarely used directly; foundation for other objects | Testing, debugging |
-| **ReplicaSet** | Keeps N identical pods running; usually managed by a Deployment | Created for you by Deployments |
-| **Deployment** | Stateless applications that can scale horizontally | Web servers, APIs |
-| **StatefulSet** | Stateful applications needing stable identity | Databases, message queues |
-| **DaemonSet** | Run one pod per node | Log collectors, monitoring agents |
-| **Job / CronJob** | Run-to-completion or scheduled tasks | Migrations, batch processing, backups |
-
-This page covers the foundation — Pods, ReplicaSets, and Deployments. The specialized controllers (StatefulSet, DaemonSet, Job, CronJob) and persistent storage are covered in [Workloads &amp; Storage](workloads.html).
-
-Every Kubernetes object shares the same four top-level fields, worth recognizing before reading any manifest:
-
-- **`apiVersion`** — which API group and version defines this object (`v1`, `apps/v1`, `batch/v1`, ...).
-- **`kind`** — the object type (`Pod`, `Deployment`, `Service`, ...).
-- **`metadata`** — name, namespace, labels, and annotations.
-- **`spec`** — your *desired* state. Kubernetes fills in a `status` field with the *observed* state; the controllers' job is to make `status` match `spec`.
+This page covers Pods, ReplicaSets and Deployments. StatefulSets, DaemonSets, Jobs and storage are covered in [Workloads &amp; Storage](workloads.html) and [Stateful Workloads &amp; Persistence](persistence.html).
 
 ### Pods
 
-A **Pod** is the smallest thing Kubernetes schedules. It is not a single container — it is a wrapper around one *or more* tightly coupled containers that share:
+A **Pod** is the smallest unit Kubernetes schedules: a group of one or more containers that are always placed on the same node and share
 
-- a **network namespace** — every container in the pod shares one IP address and port space, so they reach each other over `localhost`;
-- **storage volumes** — mounted into any container in the pod that asks for them;
-- a **lifecycle** — they are scheduled, started, and stopped together on the same node.
+- a **network namespace** — one IP address and port space; containers reach each other on `localhost`;
+- **volumes** declared in the pod spec, mounted into whichever containers ask for them;
+- a **lifecycle** — they are started, stopped and scheduled together.
 
-Most pods hold exactly one container. The multi-container pattern is reserved for **helpers** that must live beside the main process: a **sidecar** (for example a log shipper or a service-mesh proxy) and an **init container** that runs to completion *before* the main containers start (covered with the operational patterns in [Operations](operations.html)).
-
-**Pods are ephemeral.** This is the most important thing to internalize. A pod is never healed in place — if its node dies, the pod is gone for good and a *new* pod with a *new* name and *new* IP is created elsewhere. That is why you almost never create a bare `Pod` in production: nothing would recreate it. Instead you let a controller own it.
-
-A bare Pod manifest is rarely used directly, but it shows the minimal shape:
+Most pods contain one application container. Additional containers are for helpers that must share the pod's network or files: **init containers** run to completion before the application starts, and **sidecar containers** (init containers with `restartPolicy: Always`, stable since v1.33) start first and keep running alongside it — for example a log shipper or service-mesh proxy. Both are covered in [Operations](operations.html#multi-container-pod-patterns).
 
 ```yaml
 apiVersion: v1
 kind: Pod
 metadata:
-  name: nginx-pod
+  name: web
   labels:
-    app: nginx
+    app.kubernetes.io/name: web
 spec:
   containers:
   - name: nginx
-    image: nginx:1.21
+    image: nginx:1.29
     ports:
     - containerPort: 80
+    resources:
+      requests: {cpu: 100m, memory: 64Mi}
+      limits: {memory: 128Mi}
 ```
 
+**Pods are disposable.** A pod is never moved or repaired in place: if its node fails or it is evicted, it is gone, and a controller creates a *new* pod with a new name and IP elsewhere. A bare Pod has no controller, so nothing would recreate it — which is why production workloads are always managed by a Deployment, StatefulSet, DaemonSet or Job.
+
+#### Pod Lifecycle
+
+A pod's `status.phase` is a coarse summary; the detail lives in per-container states and pod conditions.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending: created
+    Pending --> Running: scheduled, images pulled,<br/>at least one container started
+    Running --> Succeeded: all containers exit 0<br/>(restartPolicy Never/OnFailure)
+    Running --> Failed: a container exits non-zero<br/>and will not be restarted
+    Pending --> Failed: e.g. init container fails<br/>with restartPolicy Never
+    Succeeded --> [*]
+    Failed --> [*]
+```
+
+| Phase | Meaning |
+|-------|---------|
+| `Pending` | Accepted, but not yet running: waiting to be scheduled, pulling images, or running init containers |
+| `Running` | Bound to a node and at least one container is running (or restarting) |
+| `Succeeded` | All containers terminated successfully and will not restart |
+| `Failed` | All containers terminated and at least one failed |
+| `Unknown` | The node stopped reporting |
+
+Familiar strings such as `CrashLoopBackOff`, `ImagePullBackOff` and `ContainerCreating` are *container waiting reasons*, not phases — a crash-looping pod is in phase `Running`. Pod **conditions** (`PodScheduled`, `Initialized`, `ContainersReady`, `Ready`) record finer progress; only a `Ready` pod receives Service traffic.
+
 ```bash
-kubectl get pods -o wide              # which node, which IP
-kubectl describe pod <name>           # events, why it is Pending/CrashLooping
-kubectl logs <name> [-c <container>]  # container stdout/stderr
-kubectl exec -it <name> -- sh         # shell inside the container
+kubectl get pods -o wide              # node and pod IP
+kubectl describe pod <name>           # conditions, container states, events
+kubectl logs <name> [-c <container>]  # container stdout/stderr (--previous for the last crash)
+kubectl exec -it <name> -- sh         # shell in a running container
 ```
 
 ### ReplicaSets
 
-A **ReplicaSet** is the controller whose single job is to keep a specified number of identical pod replicas running at all times. It watches the pods matching its label selector and, whenever the count drifts from the desired `replicas`, creates or deletes pods to correct it — the reconciliation loop applied to pod count.
+A **ReplicaSet** keeps a fixed number of pods matching its selector alive. It is the reconciliation loop applied to a count: too few matching pods and it creates more from its template; too many and it deletes some.
 
 ```yaml
 apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
-  name: nginx-rs
+  name: web-7c9d8f
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: nginx
-  template:               # the pod spec the ReplicaSet stamps out
+      app.kubernetes.io/name: web
+  template:                          # the pod it stamps out
     metadata:
       labels:
-        app: nginx        # MUST satisfy the selector above
+        app.kubernetes.io/name: web  # must satisfy the selector
     spec:
       containers:
       - name: nginx
-        image: nginx:1.21
+        image: nginx:1.29
 ```
 
-Note the structure that repeats across every workload controller: a **`selector`** that says which pods this controller owns, and a **`template`** that is the pod spec it creates. The template's labels must satisfy the selector, or the API server rejects the object.
+The **selector + template** pair recurs in every workload controller: the selector says which pods the controller owns; the template is what it creates. The API server rejects a template whose labels do not match the selector.
 
-**You almost never write a ReplicaSet directly.** It cannot perform a controlled, versioned rollout — if you change the image in a ReplicaSet's template, existing pods are *not* updated. That gap is exactly what a Deployment fills. ReplicaSets matter because every Deployment creates and manages them on your behalf, and you will see them in `kubectl get rs` when you debug a rollout.
+You rarely write a ReplicaSet yourself. Changing its template does *not* update existing pods — only pods created afterwards use the new template — so a ReplicaSet cannot perform a rollout. Deployments exist to fill that gap.
 
 ### Deployments
 
-A **Deployment** is the object you reach for to run a stateless application. It manages a ReplicaSet and adds rolling updates, rollback, scaling, and self-healing on top:
+A **Deployment** declares a stateless application and manages ReplicaSets to deliver **versioned rollouts** and **rollback**.
 
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-deployment
+  name: web
+  labels:
+    app.kubernetes.io/name: web
 spec:
   replicas: 3
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - name: nginx
-        image: nginx:1.21
-        ports:
-        - containerPort: 80
-```
-
-It sits one level above the ReplicaSet and adds the thing a bare ReplicaSet lacks: **versioned, controlled rollouts**. The ownership chain is:
-
-```
-Deployment  ──owns──►  ReplicaSet  ──owns──►  Pods
-```
-
-When you change the pod template (typically the image tag), the Deployment does **not** mutate the running pods. Instead it creates a *new* ReplicaSet for the new template and gradually shifts replicas from the old ReplicaSet to the new one — a **rolling update**. The pace is governed by two knobs:
-
-- **`maxUnavailable`** — how many pods may be down at once during the rollout.
-- **`maxSurge`** — how many *extra* pods may be created above the desired count.
-
-```yaml
-spec:
+  revisionHistoryLimit: 5            # old ReplicaSets kept for rollback
+  minReadySeconds: 10                # a new pod must stay Ready this long to count
+  progressDeadlineSeconds: 600       # mark the rollout failed if stuck this long
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 1
-      maxSurge: 1
+      maxSurge: 25%                  # extra pods allowed above replicas (default 25%)
+      maxUnavailable: 0              # never drop below replicas during the rollout
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.29
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet: {path: /, port: 80}
 ```
 
-Because the old ReplicaSet is kept (scaled to zero, not deleted), a **rollback** is just a matter of scaling the previous ReplicaSet back up — which `kubectl` does for you:
+#### How a Rolling Update Works
+
+Changing anything in the pod **template** (image, env, resources, labels) creates a new ReplicaSet identified by a hash of the template (`pod-template-hash` label). The Deployment controller then scales the new ReplicaSet up and the old one down in steps bounded by `maxSurge` and `maxUnavailable`, advancing only as new pods become **Ready**. Changing `replicas` alone scales the current ReplicaSet and does not trigger a rollout.
+
+```mermaid
+flowchart LR
+    subgraph t0["Start"]
+        A0["RS v1: 3 pods"]
+        B0["RS v2: 0 pods"]
+    end
+    subgraph t1["Surge"]
+        A1["RS v1: 3"]
+        B1["RS v2: 1 (starting)"]
+    end
+    subgraph t2["v2 pod Ready"]
+        A2["RS v1: 2"]
+        B2["RS v2: 2 (starting)"]
+    end
+    subgraph t3["Done"]
+        A3["RS v1: 0 (kept for rollback)"]
+        B3["RS v2: 3"]
+    end
+    t0 --> t1 --> t2 --> t3
+```
+
+With `maxSurge: 1, maxUnavailable: 0` capacity never drops below the desired count, at the cost of one extra pod's worth of resources during the rollout. The readiness probe is what makes this safe: if new pods never become Ready, the rollout stalls instead of replacing healthy pods with broken ones, and after `progressDeadlineSeconds` the Deployment reports `Progressing=False` with reason `ProgressDeadlineExceeded`. (The Deployment does not roll back automatically; that is a job for you, your CD system, or a progressive-delivery tool such as Argo Rollouts or Flagger.)
+
+The alternative strategy, **`Recreate`**, deletes all old pods before creating new ones. It causes downtime but guarantees that two versions never run side by side — occasionally necessary for singletons or incompatible schema changes.
 
 ```bash
-# Trigger a rollout by changing the image
-kubectl set image deployment/nginx-deployment nginx=nginx:1.25
-
-kubectl rollout status deployment/nginx-deployment   # watch it progress
-kubectl rollout history deployment/nginx-deployment  # list revisions
-kubectl rollout undo deployment/nginx-deployment     # roll back one revision
-
-kubectl scale deployment/nginx-deployment --replicas=5
+kubectl set image deployment/web nginx=nginx:1.29.1   # trigger a rollout
+kubectl annotate deployment/web kubernetes.io/change-cause="bump nginx"  # label the revision
+kubectl rollout status deployment/web                 # wait for completion
+kubectl rollout history deployment/web                # list revisions
+kubectl rollout undo deployment/web [--to-revision=2] # scale an old ReplicaSet back up
+kubectl rollout restart deployment/web                # re-create pods with an unchanged spec
+kubectl rollout pause|resume deployment/web           # batch several template edits into one rollout
 ```
 
-This is also the source of the self-healing you saw in the quick start: the Deployment's ReplicaSet notices a missing pod and recreates it, every time, without any intervention.
+In a GitOps workflow, prefer changing the manifest in Git over `set image` and `rollout undo`, so the repository remains the source of truth.
 
-### Services (Overview)
+## Services (Overview)
+
+Pod IPs change every time a pod is replaced, so clients cannot use them. A **Service** provides a stable virtual IP (the *ClusterIP*) and DNS name in front of a changing set of pods chosen by label selector. The EndpointSlice controller keeps an up-to-date list of the Ready pods' addresses, and kube-proxy (or an eBPF data plane) on every node load-balances connections across them.
+
+```mermaid
+flowchart LR
+    client["Client pod"] -->|"web.shop.svc.cluster.local<br/>→ 10.96.14.7:80"| svc["Service web<br/>ClusterIP 10.96.14.7<br/>selector: app.kubernetes.io/name=web"]
+    svc --> es["EndpointSlice<br/>Ready pod IPs"]
+    es --> p1["Pod 10.244.1.5"]
+    es --> p2["Pod 10.244.2.9"]
+    es --> p3["Pod 10.244.3.3"]
+```
 
 ```yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: nginx-service
+  name: web
 spec:
+  type: ClusterIP              # the default
   selector:
-    app: nginx
+    app.kubernetes.io/name: web
   ports:
-  - port: 80
-    targetPort: 80
-  type: LoadBalancer
+  - name: http
+    port: 80                   # the Service's port
+    targetPort: 80             # the container port (a number or a named port)
 ```
 
-Pods are ephemeral and their IPs change every time they are rescheduled, so you can never hand a pod IP to a client. A **Service** solves this by giving a *stable* virtual IP and DNS name that fronts a *changing* set of pods. The Service finds its backing pods the same way every controller does — by **label selector** — and load-balances across whichever pods currently match.
+| Type | Reachable from | Typical use |
+|------|----------------|-------------|
+| **ClusterIP** | Inside the cluster | Service-to-service traffic; the default |
+| **NodePort** | Every node's IP on a port in 30000–32767 | Local clusters; the building block under many load balancers |
+| **LoadBalancer** | An external load balancer provisioned by the cloud controller (or MetalLB and similar) | Exposing a single service directly |
+| **ExternalName** | DNS CNAME to an external host; no proxying | Giving an outside dependency an in-cluster name |
+| *Headless* (`clusterIP: None`) | DNS returns the pod IPs directly | StatefulSet peers, client-side load balancing |
 
-The four Service types differ only in *how far* that stable endpoint reaches:
+For HTTP traffic, a single external entry point routing to many ClusterIP Services — via **Gateway API** or Ingress — is usually preferable to one LoadBalancer per service. Service internals, DNS, the Gateway API, NetworkPolicies and configuration injection are covered in [Networking &amp; Configuration](fundamentals-networking.html).
 
-| Service Type | Accessible From | Use Case | Cost |
-|--------------|-----------------|----------|------|
-| **ClusterIP** | Inside cluster only | Internal microservices | Free |
-| **NodePort** | Node IP + port (30000-32767) | Development, testing | Free |
-| **LoadBalancer** | External IP via cloud LB | Production web apps | Cloud provider charges |
-| **ExternalName** | DNS alias | Accessing external services | Free |
+## Namespaces
 
-**When to use each**: Start with ClusterIP for internal services. Use LoadBalancer for production internet-facing services. NodePort is useful for development but rarely appropriate for production due to port limitations.
+A **Namespace** partitions a cluster's namespaced objects: names need only be unique within a namespace, and namespaces are the unit for resource quotas, RBAC grants, Pod Security admission labels and default NetworkPolicies. Some objects — Nodes, PersistentVolumes, StorageClasses, ClusterRoles, CRDs, Namespaces themselves — are **cluster-scoped** and belong to no namespace (`kubectl api-resources --namespaced=false` lists them).
 
-This is the *overview*. How kube-proxy programs the routing, how DNS-based service discovery works, how Ingress fans one external IP out to many Services, and how NetworkPolicies restrict pod-to-pod traffic are all covered in depth in **[Networking &amp; Configuration](fundamentals-networking.html)**. Configuration injection with ConfigMaps and Secrets lives on that page as well.
-
-### Namespaces
-
-A **Namespace** is a virtual cluster inside a physical one — a way to partition objects so that names, quotas, and access controls do not collide. Two teams can both have a `Deployment` named `web` as long as they live in different namespaces.
-
-Namespaces are the natural boundary for several other features:
-
-- **DNS** — a Service is reachable as `<service>.<namespace>.svc.cluster.local`; within the same namespace you can use the short `<service>` name.
-- **ResourceQuotas** cap total CPU/memory/object counts per namespace.
-- **RBAC** (covered in [Networking &amp; Configuration](fundamentals-networking.html)) grants permissions scoped to a namespace.
-
-Note that namespaces are *not* a hard security boundary by themselves — pods in different namespaces can still reach each other over the flat pod network unless a NetworkPolicy says otherwise.
+| Built-in namespace | Contents |
+|--------------------|----------|
+| `default` | Objects created without an explicit namespace |
+| `kube-system` | Control-plane and system add-ons (DNS, kube-proxy, CNI) |
+| `kube-public` | Publicly readable cluster information |
+| `kube-node-lease` | Node heartbeat `Lease` objects |
 
 ```bash
 kubectl get namespaces
-kubectl get pods -n kube-system          # target a namespace with -n
-kubectl get pods --all-namespaces        # everything, everywhere
-kubectl config set-context --current --namespace=development   # set a default
+kubectl get pods -n kube-system
+kubectl get pods -A                                           # all namespaces
+kubectl config set-context --current --namespace=shop        # change your default
 ```
 
-A handful of namespaces exist on every cluster: `default` (where your objects land if you do not specify one), `kube-system` (the control-plane and node add-on pods), `kube-public` (world-readable cluster info), and `kube-node-lease` (node heartbeat leases).
+A Service is resolvable as `<service>.<namespace>.svc.cluster.local`, or simply `<service>` from within the same namespace.
 
-## Labels and Selectors: The Glue
+**Namespaces are not a security boundary on their own.** Pods in different namespaces can reach each other over the flat pod network unless NetworkPolicies say otherwise, and they share nodes and the kernel. Tenant isolation needs RBAC, NetworkPolicies, Pod Security Standards and quotas together — see [Multi-Tenancy](advanced.html#multi-tenancy).
 
-Almost every relationship in Kubernetes is expressed through **labels** — arbitrary key/value pairs attached to objects — and **selectors** that query them. A Deployment finds its pods by selector. A Service finds its endpoints by selector. NetworkPolicies, node affinity, and `kubectl` filters all work the same way. Labels are the loose coupling that lets these objects find each other without hard references.
+## Labels, Selectors and Annotations
+
+Almost every relationship between objects is a **label selector** query rather than a hard reference. A Deployment finds its pods, a Service its endpoints, a NetworkPolicy its targets, and `kubectl` its output — all by matching labels.
+
+```mermaid
+flowchart TB
+    subgraph pods["Pods"]
+        p1["labels:<br/>app.kubernetes.io/name=web<br/>tier=frontend<br/>track=stable"]
+        p2["labels:<br/>app.kubernetes.io/name=web<br/>tier=frontend<br/>track=canary"]
+        p3["labels:<br/>app.kubernetes.io/name=api<br/>tier=backend"]
+    end
+    svc["Service web<br/>selector: name=web"] --> p1 & p2
+    rs["ReplicaSet web-stable<br/>selector: name=web, track=stable"] --> p1
+    np["NetworkPolicy<br/>podSelector: tier=backend"] --> p3
+```
+
+The project defines a set of **recommended labels** that tools such as Helm, Argo CD and dashboards understand:
 
 ```yaml
 metadata:
   labels:
-    app: storefront        # which application
-    tier: backend          # role within the app
-    environment: production
-    version: v2.3.1
+    app.kubernetes.io/name: storefront       # the application
+    app.kubernetes.io/instance: storefront-eu
+    app.kubernetes.io/version: "2.3.1"
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: shop
+    app.kubernetes.io/managed-by: helm
 ```
 
-A selector matches a subset of those labels. There are two flavors:
+Selectors come in two forms:
 
 ```yaml
-# Equality-based (used by Service spec.selector)
+# Equality-based — Service spec.selector accepts only this form
 selector:
-  app: storefront
-  tier: backend
+  app.kubernetes.io/name: storefront
 
-# Set-based (used by Deployment/ReplicaSet spec.selector.matchExpressions)
+# Set-based — Deployments, ReplicaSets, Jobs, NetworkPolicies and affinity rules
 selector:
   matchLabels:
-    app: storefront
+    app.kubernetes.io/name: storefront
   matchExpressions:
   - key: environment
-    operator: In
+    operator: In                 # In, NotIn, Exists, DoesNotExist
     values: [production, staging]
 ```
 
-The same selector syntax drives the CLI, which is how you slice and dice a live cluster:
+The same syntax works on the command line:
 
 ```bash
-kubectl get pods -l app=storefront,tier=backend   # AND of two labels
+kubectl get pods -l app.kubernetes.io/name=storefront,tier=backend   # AND
 kubectl get pods -l 'environment in (production, staging)'
-kubectl get pods -l '!canary'                      # pods without a canary label
-kubectl label pod nginx-pod tier=frontend --overwrite
+kubectl get pods -l '!canary'                                          # label absent
+kubectl get pods --show-labels
+kubectl label pod web-abc12 track=canary --overwrite
 ```
 
-**Why this matters in practice**: the single most common reason a Service has no endpoints — traffic silently black-holes — is a mismatch between the Service's `selector` and the pods' `labels`. When something is not receiving traffic, compare the two first:
+A Service whose selector matches no Ready pods has no endpoints and silently drops traffic — the single most common "the service does not work" cause. Compare the two directly:
 
 ```bash
-kubectl get endpoints <service-name>     # empty list == selector mismatch
-kubectl get pods --show-labels
+kubectl get endpointslices -l kubernetes.io/service-name=web   # empty → selector mismatch or no Ready pods
+kubectl get pods -l app.kubernetes.io/name=web --show-labels
 ```
 
-> **Annotations vs labels**: labels are for *identifying and selecting* objects and are indexed for queries. **Annotations** are also key/value metadata, but they are for arbitrary non-identifying information (build IDs, change-cause, tool configuration) and cannot be used in selectors.
+(The older `Endpoints` API still works but is deprecated since v1.33 in favour of EndpointSlices; `kubectl get endpoints` prints a warning.)
+
+**Annotations** are also key/value metadata, but they are not indexed and cannot be selected on. They carry non-identifying information for tools and humans: change causes, build IDs, ingress-controller settings, `prometheus.io/*` hints. Values may be large (up to 256 KiB in total per object).
 
 ## Common Pitfalls
 
-<div class="notice--warning">
-  <h4>Common Pitfalls</h4>
-  <ul>
-    <li><strong>Managing pods directly:</strong> Never create bare pods in production. Use a Deployment (or StatefulSet) so failed pods are recreated automatically.</li>
-    <li><strong>Mismatched labels:</strong> A Service routes to pods by label selector. If the selector and pod labels disagree, the Service has zero endpoints and silently drops traffic.</li>
-    <li><strong>Editing a ReplicaSet directly:</strong> Changes to a ReplicaSet's template do not roll out to existing pods. Always drive changes through the owning Deployment.</li>
-    <li><strong>Immutable selectors:</strong> A Deployment's <code>spec.selector</code> cannot be changed after creation. Plan your labels before you apply.</li>
-  </ul>
-</div>
-
-## Key Takeaways
-
-- **Declarative, not imperative.** You describe desired state; controllers continuously reconcile reality toward it. This is the source of self-healing.
-- **Everything goes through the API server.** Components never talk directly — they watch the API server, which persists state in etcd.
-- **Deployments manage pods.** Work with Deployments and Services, not raw pods. The Deployment owns the ReplicaSet, replica count, and rollout; the Service owns the stable address.
-- **Labels wire it together.** Services, NetworkPolicies, and selectors all match by label, so consistent labeling is foundational.
+| Pitfall | Consequence | Remedy |
+|---------|-------------|--------|
+| Creating bare Pods | Nothing recreates them after a node failure or eviction | Use a Deployment, StatefulSet, DaemonSet or Job |
+| Service selector does not match pod labels | Empty EndpointSlices; traffic black-holed | Check `get endpointslices` and `--show-labels`; use shared recommended labels |
+| Editing a ReplicaSet owned by a Deployment | The Deployment reverts it, or existing pods are not updated | Change the Deployment's template |
+| Changing a Deployment's `spec.selector` | Rejected: the selector is immutable in `apps/v1` | Plan labels up front; recreate the Deployment if you must change it |
+| Using `:latest` or mutable tags | Nodes run different code for the same spec; rollbacks do not roll back | Pin versions, ideally by digest (`image@sha256:...`) |
+| No readiness probe | Rolling updates send traffic to pods that are not ready yet | Add a readiness probe; see [Probes](fundamentals-resources.html#probes) |
+| Treating namespaces as isolation | Cross-namespace traffic and noisy neighbours | Add NetworkPolicies, quotas, RBAC and Pod Security Standards |
 
 ---
 
 ## See Also
 
-- [Networking &amp; Configuration](fundamentals-networking.html) - Services in depth, Ingress, NetworkPolicies, ConfigMaps, Secrets, and RBAC
-- [Health &amp; Resource Management](fundamentals-resources.html) - Probes, requests/limits, QoS classes, and autoscaling
-- [Workloads &amp; Storage](workloads.html) - StatefulSets, DaemonSets, Jobs/CronJobs, and persistent volumes
-- [Operations](operations.html) - kubectl, Helm, sidecar/init-container patterns, and troubleshooting
-- [Advanced Topics](advanced.html) - CRDs, Operators, service mesh, and GitOps
-- [Docker](../docker/) - The container fundamentals Kubernetes builds on
-- [AWS EKS](../aws/compute.html) - Managed Kubernetes on AWS
+- [Networking &amp; Configuration](fundamentals-networking.html) — Services in depth, Ingress and Gateway API, NetworkPolicies, ConfigMaps, Secrets, RBAC
+- [Health &amp; Resource Management](fundamentals-resources.html) — probes, requests and limits, QoS, scheduling, autoscaling
+- [Workloads &amp; Storage](workloads.html) — StatefulSets, DaemonSets, Jobs, volumes, security
+- [Operations](operations.html) — kubectl, Helm, troubleshooting, upgrades
+- [Advanced Topics](advanced.html) — CRDs and Operators, service mesh, GitOps
+- [Docker](../docker/) — the container fundamentals Kubernetes builds on
+- [AWS compute (EKS)](../aws/compute.html) — managed Kubernetes on AWS

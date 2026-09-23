@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Distributed Systems: Client-Side Consistency & Sync"
+description: "Offline-first and local-first sync, CRDTs, operational transformation, server reconciliation, session guarantees, and sync protocols, viewed from the client."
 permalink: /docs/distributed-systems/client-side-consistency.html
 toc: true
 toc_sticky: true
@@ -9,159 +10,183 @@ hide_title: true
 
 [Distributed Systems](./) &raquo; Client-Side Consistency &amp; Sync
 
-Most consistency theory is written from the *server's* perspective: how do replicas in a data center agree on a value? This page takes the opposite view. The client — a phone in a tunnel, a laptop on a plane, two cursors in the same document — is itself a replica that mutates state locally, drifts out of contact, and must later reconcile. We cover how to build software that stays usable while disconnected (offline-first), the data structures that merge divergent edits *without* a coordinator (CRDTs and operational transformation), the guarantees a single user can still rely on (session guarantees), and the protocols that move and reconcile the bytes (sync protocols).
+Most consistency theory is written from the server's side: how do replicas in a data center agree on a value? This page looks at it from the client's side. A phone in a tunnel, a laptop on a plane, or two cursors in one document are all replicas. Each one changes state locally, loses contact, and has to reconcile later. The page covers offline-first and local-first application architecture, the three main ways to merge divergent edits (last-writer-wins, CRDTs, and operational transformation, plus the server-reconciliation approach used by modern sync engines), the session guarantees a single user can rely on, and the wire protocols that move and reconcile the data.
 
-## The Client as a Replica
+## The client as a replica
 
-In a classic replicated system the replicas are servers under one operator's control. Add a client cache, a service worker, or a mobile app that accepts writes while offline, and the client becomes a *first-class replica* that the operator does not control and cannot coordinate with on the write path.
+In a classic replicated system every replica is a server run by the same operator. A client cache, a service worker, or a mobile app that accepts writes offline changes that. The client is now a full replica. The operator does not control it and cannot coordinate with it when it writes.
 
-This breaks the usual playbook. You cannot run Raft or Paxos when one of the participants is a phone that has been in airplane mode for six hours. The client must:
+That rules out the usual toolkit. Raft or Paxos cannot run when one participant has been in airplane mode for six hours. The client has to:
 
-1. **Accept writes locally** with no round trip — the UI updates immediately ("optimistic" UI).
+1. **Accept writes locally** without a round trip, so the UI updates at once ("optimistic" UI).
 2. **Diverge** from the server and from other clients while disconnected.
-3. **Converge** deterministically once connectivity returns, ideally without a human resolving conflicts.
+3. **Converge** deterministically once connectivity returns, ideally without asking a human to resolve conflicts.
 
-The design space is governed by the same impossibility results that constrain servers — see [Distributed Systems Theory](../advanced/distributed-systems-theory/) for FLP, CAP, and the happens-before relation — but the *choices* differ. A client that blocks every write on server confirmation is a CP design with terrible UX on a flaky network. Offline-first apps are deliberately AP: always writable, eventually consistent.
+The same impossibility results that constrain servers apply here (see [Distributed Systems Theory](../advanced/distributed-systems-theory/) for FLP, CAP, and happens-before), but the right choices are different. A client that blocks every write until the server confirms it is a CP design, and on a flaky network the user experience is poor. Offline-first apps are deliberately AP: always writable, eventually consistent.
 
 ```mermaid
 flowchart LR
-    subgraph Client A
+    subgraph ClientA["Client A"]
       LA[Local store] --> OA[Optimistic UI]
     end
-    subgraph Client B
+    subgraph ClientB["Client B"]
       LB[Local store] --> OB[Optimistic UI]
     end
-    LA -- "push/pull ops" --> S[(Sync server<br/>+ durable log)]
-    LB -- "push/pull ops" --> S
-    S -- "fan-out ops" --> LA
-    S -- "fan-out ops" --> LB
+    LA -- "push ops" --> S[(Sync server<br/>+ durable log)]
+    LB -- "push ops" --> S
+    S -- "fan-out / pull" --> LA
+    S -- "fan-out / pull" --> LB
 ```
 
-The hard part is the edges of that diagram: what travels on the arrows (ops, state, or deltas), and what guarantees survive a partition.
+The hard questions are about the arrows: what travels on them (operations, full state, or deltas), who decides the final order, and which guarantees still hold during a partition.
 
-## Offline-First Sync
+## Offline-first and local-first
 
-"Offline-first" means the local store is the source of truth for the UI, and the network is treated as an optional, asynchronous enhancement — the inverse of the traditional "online by default, show a spinner, fail if no network" model.
+**Offline-first** means the local store is the source of truth for the UI. The network is an optional, asynchronous extra. This reverses the traditional model, where the app is online by default, shows a spinner while it waits, and fails when there is no network.
 
-### Anatomy of an Offline-First App
+**Local-first software** (Kleppmann, Wiggins, van Hardenberg and McGranaghan, Ink & Switch, 2019) goes further. It asks that data stay usable and owned by the user even if the vendor's servers disappear, which in practice means CRDT-based, peer-capable storage. Most commercial "sync engines" sit between the two. They keep a full local replica for instant reads and writes, but a server stays authoritative.
+
+### Anatomy of an offline-first app
 
 ```mermaid
 flowchart TD
-    UI[UI layer] -->|read/write| Local[Local store<br/>IndexedDB / SQLite]
+    UI[UI layer] -->|read/write| Local[Local store<br/>IndexedDB / OPFS-SQLite / SQLite]
     Local --> Q[Outbox / mutation queue]
     Q -->|when online| Sync[Sync engine]
     Sync -->|push pending| Server[(Server)]
-    Server -->|pull remote changes| Sync
+    Server -->|pull changes since cursor| Sync
     Sync -->|apply + resolve| Local
-    Local -->|reactive update| UI
+    Local -->|reactive query update| UI
 ```
 
-Four components do the work:
+| Component | Role |
+|-----------|------|
+| **Local store** | Durable on-device storage (IndexedDB, SQLite compiled to WebAssembly on top of the Origin Private File System, native SQLite, Realm). Reads and writes never block on the network. |
+| **Mutation queue (outbox)** | Records each write as a durable, ordered, idempotent intent, so it survives a crash and can be retried safely. |
+| **Sync engine** | Reconciles local and remote state in both directions whenever connectivity allows. |
+| **Change feed and cursor** | The server exposes changes since a per-client high-water mark, so the client pulls only deltas. |
 
-- **Local store** — durable on-device storage (IndexedDB, SQLite, WatermelonDB, Realm). Reads and writes never block on the network.
-- **Mutation queue (outbox)** — every write is recorded as a durable, ordered, *idempotent* intent so it survives a crash and can be retried safely.
-- **Sync engine** — reconciles local and remote state when connectivity allows, in both directions.
-- **Change feed / cursor** — the server exposes changes since a per-client high-water mark so the client pulls only deltas, not the whole dataset.
-
-### A Minimal Outbox + Sync Loop
+### A minimal outbox and sync loop
 
 ```javascript
-// Every local write is recorded as a durable, idempotent intent.
+// Every local write is recorded as a durable, idempotent intent in the
+// same local transaction that applies it optimistically.
 async function applyLocalWrite(mutation) {
-  // mutation = { id: uuid(), entity, op, payload, baseVersion, ts }
+  // mutation = { id: crypto.randomUUID(), name, args, baseVersion, ts }
   await db.transaction('rw', db.entities, db.outbox, async () => {
-    await applyToLocalState(mutation);      // optimistic: UI updates now
+    await applyToLocalState(mutation);            // UI updates now
     await db.outbox.add({ ...mutation, status: 'pending' });
   });
 }
 
-// Runs whenever connectivity is available (e.g. via the Background Sync API).
+// Runs whenever connectivity is available.
 async function syncOnce(cursor) {
-  // 1. PUSH: flush pending local mutations. Server is idempotent on mutation.id,
-  //    so a retried push after a flaky ACK does not double-apply.
+  // 1. PUSH: flush pending mutations in order. The server dedupes on
+  //    mutation.id, so a retry after a lost ACK does not double-apply.
   const pending = await db.outbox.where('status').equals('pending').sortBy('ts');
   for (const m of pending) {
-    const res = await api.push(m);          // 409 => server rejected/transformed
+    const res = await api.push(m);                // 409 => rejected / conflict
     await db.outbox.update(m.id, { status: res.ok ? 'acked' : 'conflict' });
     if (!res.ok) await reconcile(m, res.serverState);
   }
-  // 2. PULL: fetch remote changes since our last cursor (incremental, not full).
+  // 2. PULL: fetch remote changes since our last durable cursor.
   const { changes, nextCursor } = await api.pull({ since: cursor });
   for (const c of changes) await mergeRemoteChange(c);
   return nextCursor;
 }
 ```
 
-### Idempotency Is Non-Negotiable
+The browser's Background Sync API, which lets a service worker defer a sync until connectivity returns, is still only available in Chromium-based browsers. Portable code triggers `syncOnce` itself on `online` events, on app focus, and on a timer.
 
-A client cannot tell the difference between "my write was lost" and "my write succeeded but the ACK was lost." It *must* retry, so the server must dedupe. The standard mechanism is a client-generated unique key per mutation (an *idempotency key*); the server records applied keys and treats a repeat as a no-op that returns the original result. This is the same retry-safety discipline that the [Saga pattern](resilience-patterns.html#the-saga-pattern-and-compensation) relies on, applied at the edge.
+### Idempotency
 
-### The Boundaries of Offline-First
+A client cannot tell "my write was lost" apart from "my write succeeded but the ACK was lost." It has to retry, so the server has to deduplicate. The standard approach is a client-generated unique **idempotency key** for each mutation. The server records the keys it has applied and answers a repeat with the original result instead of applying it again. The [Saga pattern](resilience-patterns.html#the-saga-pattern-and-compensation) depends on the same retry safety, and the [Idempotency](resilience-patterns.html#idempotency) section covers it on the server side.
 
-Offline-first is the right default for *user-owned* data (notes, drafts, todos, form entry). It is the *wrong* default for operations that need a global invariant the client cannot evaluate locally:
+### Where offline-first stops working
 
-- **Uniqueness** ("claim this username") — two offline clients can both believe they won.
-- **Limited inventory** ("buy the last ticket") — overselling is unacceptable.
-- **Monetary balance** ("don't overdraw") — needs a linearizable authority.
+Offline-first is the right default for user-owned data such as notes, drafts, to-dos, and form entries. It is the wrong default for any operation guarded by a global invariant that the client cannot check locally:
 
-For these, fall back to a server-authoritative, [CP](consensus-and-coordination.html#cap-theorem) write that the client treats as *pending until confirmed*, and design the UI to show that pending state honestly rather than lying optimistically.
+| Invariant | Why offline writes break it |
+|-----------|-----------------------------|
+| Uniqueness ("claim this username") | Two offline clients can both believe they won. |
+| Limited inventory ("buy the last ticket") | Overselling is unacceptable. |
+| Balance ("don't overdraw") | Needs a single linearizable authority. |
 
-## Convergence Without a Coordinator
+For these operations, use a server-authoritative [CP](consensus-and-coordination.html#cap-theorem) write. The client treats it as *pending until confirmed*, and the UI should show that pending state rather than optimistically claiming success.
 
-When two clients edit while disconnected, their states diverge. Reconciling them is *conflict resolution*. There are three families of approaches, in increasing order of automatic-merge quality (and complexity):
+## Choosing a merge strategy
 
-| Strategy | Mechanism | Converges automatically? | Cost |
-|----------|-----------|--------------------------|------|
-| **Last-Write-Wins (LWW)** | Compare timestamps; newest wins | Yes, but **loses data** | Trivial |
-| **Operational Transformation (OT)** | Transform concurrent ops against each other; needs a server to order | Yes, with a central authority | Moderate; transform functions are subtle |
-| **CRDTs** | Data types whose merge is mathematically guaranteed to converge | Yes, **no coordinator required** | Higher memory/metadata overhead |
+When two replicas edit while disconnected, their states diverge and have to be reconciled. There are four main families of approach:
 
-LWW is the baseline (it is how a naive "sync the whole row, newest timestamp wins" works) and it is fine for independent scalar fields. It is catastrophic for collaborative text, where it would silently throw away one person's paragraph. The next two sections cover the two serious answers.
+| Strategy | Mechanism | Needs a coordinator? | Loses concurrent edits? | Main cost |
+|----------|-----------|----------------------|-------------------------|-----------|
+| **Last-writer-wins (LWW)** | Keep the value with the highest timestamp | No | **Yes**, silently | Trivial, but relies on clock quality |
+| **Server reconciliation (rebase)** | The server applies mutations in its own order, and clients replay their pending mutations on top of the result | Yes, the server | No, mutations re-run against fresh state | Server must run the same mutation logic |
+| **Operational transformation (OT)** | Transform concurrent operations against each other | Usually (a central server fixes the order) | No | Transform functions are subtle |
+| **CRDTs** | Data types whose merge converges by construction | **No**, works peer-to-peer | No (for the merge semantics chosen) | Metadata and history overhead |
 
-## CRDTs (Conflict-Free Replicated Data Types)
+### Last-writer-wins and clocks
 
-A **CRDT** is a data type designed so that concurrent updates on different replicas always merge to the same value, *regardless of the order in which updates arrive*, with no central coordination. They are the mathematical foundation of modern offline-first sync libraries (Yjs, Automerge, Riak's data types).
+LWW is what a naive "sync the whole row, newest timestamp wins" design gives you. It works for independent scalar fields such as a display name or a theme setting, especially when applied **per field** rather than per row. It is disastrous for collaborative text, where it would silently discard one person's paragraph.
 
-### The Two Flavors
+LWW is only as good as its timestamps. Client wall clocks can be minutes off, so a phone with a fast clock wins every conflict. Common mitigations:
 
-- **State-based (CvRDT, convergent)** — replicas exchange their *full state*; a `merge` function combines two states. `merge` must be a **join** in a semilattice: commutative, associative, and idempotent. Convergence then follows automatically because any interleaving of merges reaches the least upper bound.
-- **Operation-based (CmRDT, commutative)** — replicas exchange *operations*; concurrent operations must **commute**. Requires reliable, exactly-once, causal-order delivery of ops (typically via the network layer), in exchange for sending much less data than full state.
+- Let the **server** assign the order. Figma's multiplayer model works this way: last-writer-wins per object property, with the server's arrival order in place of timestamps.
+- Use **hybrid logical clocks** (HLC). An HLC combines physical time with a logical counter, so it stays close to wall-clock time but never goes backwards and always respects causality.
+- Break ties deterministically with the replica ID, so every replica picks the same winner.
 
-The convergence guarantee for the state-based form is *Strong Eventual Consistency* (SEC): any two replicas that have received the same set of updates are in the same state — and they reach it without conflict resolution, rollback, or consensus.
+### Server reconciliation (rebase)
 
-### Why a Semilattice Guarantees Convergence
+Many production sync engines (Replicache and its successor Zero from Rocicorp, and a similar architecture in many game netcode and mobile stacks) avoid general-purpose merge algorithms altogether. Mutations are named functions such as `createTodo(args)`, not state diffs. Each one runs twice: once optimistically on the client, then authoritatively on the server.
 
-Let the set of replica states be a partially ordered set with a join operator $\sqcup$ (the merge). For a state-based CRDT we require, for all states $x, y, z$:
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    Note over C: state = server snapshot v10
+    C->>C: run m1, m2 locally (optimistic)
+    C->>S: push [m1, m2]
+    Note over S: another client's m9 already applied
+    S->>S: run m1, m2 against current state (may reject or adjust)
+    S-->>C: poke: new snapshot v12, last applied mutation = m1
+    C->>C: rewind to v12, discard m1, replay pending m2
+```
+
+Because mutations re-run against the latest authoritative state, they can enforce invariants such as permissions, uniqueness, and stock limits. A rejected mutation simply disappears on the next rebase. The cost is that the server must be reachable before any write becomes final, which makes this design offline-tolerant rather than local-first.
+
+## CRDTs (conflict-free replicated data types)
+
+A **CRDT** is a data type designed so that concurrent updates on different replicas always merge to the same value, whatever order the updates arrive in, without central coordination (Shapiro, Preguiça, Baquero and Zawirski, 2011). CRDTs are the basis of Yjs, Automerge, and Loro, and of the data types in Riak and Redis Enterprise's active-active replication.
+
+### State-based and operation-based CRDTs
+
+| Flavor | What replicas exchange | Requirement | Delivery assumptions |
+|--------|------------------------|-------------|----------------------|
+| **State-based (CvRDT, convergent)** | Full state | `merge` is a semilattice join: commutative, associative, idempotent | Any order, duplicates allowed |
+| **Operation-based (CmRDT, commutative)** | Operations | Concurrent operations commute | Reliable, exactly-once, causal delivery |
+| **Delta-state** | Small state fragments (deltas) | Deltas are joined like states | Any order; a middle ground between the two |
+
+The guarantee is **strong eventual consistency** (SEC). Any two replicas that have received the same set of updates are in the same state, and they get there without conflict resolution, rollback, or consensus.
+
+### Why a semilattice guarantees convergence
+
+Take the replica states as a partially ordered set with a join operator $\sqcup$ (the merge). A state-based CRDT requires, for all states $x, y, z$:
 
 $$
-x \sqcup y = y \sqcup x \qquad \text{(commutativity)}
+x \sqcup y = y \sqcup x \qquad (x \sqcup y) \sqcup z = x \sqcup (y \sqcup z) \qquad x \sqcup x = x
 $$
 
-$$
-(x \sqcup y) \sqcup z = x \sqcup (y \sqcup z) \qquad \text{(associativity)}
-$$
+These are commutativity, associativity, and idempotence. Every local update must also be **inflationary**: it only moves the state upward, so $x \le f(x)$. Given that, however merges and updates interleave, every replica climbs monotonically toward the same least upper bound of the updates it has received. Idempotence makes duplicated messages harmless, and commutativity and associativity make reordering harmless. This is why CRDTs tolerate the unreliable, out-of-order delivery common on mobile networks.
+
+### Worked example: the grow-only counter
+
+The G-Counter is the simplest non-trivial CRDT. Each of $n$ replicas owns one entry in a vector of per-replica counts. The value is the sum, and merge takes the element-wise maximum:
 
 $$
-x \sqcup x = x \qquad \text{(idempotence)}
+\mathrm{value}(P) = \sum_{k=1}^{n} P[k] \qquad \mathrm{merge}(P, Q)[k] = \max\bigl(P[k],\, Q[k]\bigr)
 $$
 
-If every local update only moves a replica's state *upward* in this order (it is *inflationary*: $x \le f(x)$), then no matter how merges and updates interleave — including duplicated or reordered messages — all replicas monotonically climb toward the same least upper bound of the delivered updates. Duplication is harmless (idempotence) and reordering is harmless (commutativity and associativity), which is exactly why CRDTs tolerate the unreliable, out-of-order delivery typical of a mobile network.
-
-### Worked Example: A Grow-Only Counter (G-Counter)
-
-The simplest non-trivial CRDT. Each of $n$ replicas owns one entry of a vector of per-replica counts; the logical value is the sum. Merge takes the element-wise maximum.
-
-For replicas $i$ and $j$ with state vectors $P$ and $Q$:
-
-$$
-\mathrm{value}(P) = \sum_{k=1}^{n} P[k]
-$$
-
-$$
-\mathrm{merge}(P, Q)[k] = \max\bigl(P[k],\, Q[k]\bigr)
-$$
-
-Element-wise `max` is commutative, associative, and idempotent, so it is a valid join; and `increment` (which only raises the owning replica's own entry) is inflationary. Hence the G-Counter converges.
+Element-wise `max` is a valid join, and `increment` only raises the replica's own entry, so it is inflationary.
 
 ```python
 class GCounter:
@@ -170,6 +195,7 @@ class GCounter:
         self.p = [0] * num_replicas          # per-replica counts
 
     def increment(self, amount=1):
+        assert amount >= 0                   # grow-only
         self.p[self.id] += amount            # only ever raise our own entry
 
     def value(self):
@@ -180,139 +206,155 @@ class GCounter:
         self.p = [max(a, b) for a, b in zip(self.p, other.p)]
         return self
 
-# Two replicas increment while partitioned, then merge in EITHER order.
-a = GCounter(0, 2); b = GCounter(1, 2)
-a.increment(3)        # a.p = [3, 0]
-b.increment(5)        # b.p = [0, 5]
-a.merge(b)            # a.p = [3, 5]  -> value 8
-b.merge(a)            # b.p = [3, 5]  -> value 8  (same result)
+a, b = GCounter(0, 2), GCounter(1, 2)
+a.increment(3); b.increment(5)       # a.p = [3, 0], b.p = [0, 5]
+a.merge(b); b.merge(a)               # both [3, 5] whichever order
 assert a.value() == b.value() == 8
 ```
 
-To support decrement you use a **PN-Counter**: two G-Counters, one for increments ($P$) and one for decrements ($N$), with value $\sum P - \sum N$.
+A **PN-Counter** supports decrements. It pairs two G-Counters, $P$ for increments and $N$ for decrements, and its value is $\sum P - \sum N$.
 
-### The CRDT Zoo
+### Common CRDTs
 
-Real applications compose larger types from these primitives:
+| CRDT | Models | Merge rule |
+|------|--------|------------|
+| **G-Counter / PN-Counter** | Counters | Element-wise max of per-replica counts |
+| **G-Set** | Grow-only set | Union |
+| **2P-Set** | Add/remove set, no re-add | Union of an add set and a tombstone set |
+| **OR-Set** (observed-remove) | Add/remove set with re-add | Tag each add with a unique ID; a remove deletes only the tags it observed |
+| **LWW-Register** | Single value | Highest (timestamp, replica ID) wins |
+| **MV-Register** | Single value | Keep every causally concurrent value and surface the conflict |
+| **LWW-Map / OR-Map** | JSON-like documents | A register or nested CRDT per key |
+| **Sequence (RGA, YATA, Fugue)** | Ordered lists and text | Stable per-element IDs with deterministic interleaving |
 
-| CRDT | Models | Merge idea |
-|------|--------|-----------|
-| **G-Counter / PN-Counter** | counters | element-wise max of per-replica counts |
-| **G-Set** | grow-only set | set union |
-| **2P-Set** | add/remove set (no re-add) | union of an add-set and a tombstone-set |
-| **OR-Set** (observed-remove) | add/remove set with re-add | tag each add with a unique id; remove only the ids you observed |
-| **LWW-Register** | a single value | keep the value with the highest timestamp |
-| **MV-Register** | a single value | keep all causally-concurrent values, surface the conflict |
-| **RGA / sequence** | ordered text/list | position ids that interleave deterministically |
+The **OR-Set** shows the kind of problem CRDTs solve. A naive add/remove set has an add-versus-remove conflict: one replica adds `x` while another removes `x`, so which result is right? The OR-Set answers deterministically. Every add carries a unique tag, and a remove deletes only the tagged adds it has actually seen. A concurrent add that the remover never saw survives. This "add wins" bias is chosen because data that reappears usually surprises users less than data that vanishes.
 
-The **OR-Set** illustrates the subtlety that motivates CRDTs. A naive add/remove set has an *add-vs-remove* conflict: if one replica adds `x` while another removes `x`, what is the result? The OR-Set resolves it deterministically by tagging every add with a unique id and stipulating that a remove only deletes the *specific tagged adds it has observed* — so a concurrent add (which the remover never saw) survives. The bias is "add wins," chosen because re-appearing data is usually less surprising to a user than vanishing data.
+### Sequence CRDTs and collaborative text
 
-### Sequence CRDTs and Collaborative Text
+Collaborative text uses a **sequence CRDT** (RGA, Logoot, YATA in Yjs, Fugue). Integer positions shift under concurrent inserts and cause the "we both inserted at position 5" problem. Instead, each character gets a stable, globally unique identifier, usually a (replica ID, counter) pair plus a reference to its left and/or right neighbour at insertion time. Concurrent inserts at the same position are ordered by a deterministic tiebreak, so every replica interleaves them the same way. Deletes leave **tombstones**, so a concurrent insert next to a deleted character still has a valid anchor.
 
-The crown jewel for collaborative editing is the **sequence CRDT** (RGA, Logoot, Yjs's YATA). Instead of integer indices — which shift under concurrent inserts and cause the classic "we both inserted at position 5" conflict — each character gets a stable, globally unique, densely-orderable identifier. Concurrent inserts at "the same place" are ordered by a deterministic tiebreak (e.g. replica id), so every replica interleaves them identically. Deletes leave **tombstones** so that a concurrent insert "after the deleted character" still has a valid anchor.
+A good sequence CRDT also has to avoid **interleaving anomalies**. When two users type whole words at the same spot concurrently, some algorithms merge the characters letter by letter into a jumble. Weidner and Kleppmann's *Fugue* (2023) characterizes the anomaly and gives an algorithm with *maximal non-interleaving*.
 
-This is what powers production tools like Yjs and Automerge: peer-to-peer collaborative editing with **no central server required for correctness** — a server, if present, is merely a relay and a durability point, not an arbiter.
+### Cost and recent progress
 
-### The Cost
+The main cost of a CRDT is metadata. Tombstones and per-element IDs build up, so memory grows with edit history, not just with live content. Mature libraries address this in several ways:
 
-CRDTs are not free. Tombstones and per-element metadata accumulate, so memory can grow with edit *history*, not just live content. Mature libraries fight this with garbage collection of tombstones once all replicas have observed a delete, and with **delta-state CRDTs** that ship only the recent changes instead of whole states. Budget for the metadata overhead before choosing CRDTs for very large or very long-lived documents.
+- **Tombstone garbage collection** once every replica has seen a delete. This needs knowledge of the replica set, which is hard in open peer-to-peer settings.
+- **Columnar, run-length-encoded storage.** Automerge 3.0 (2025) keeps its compressed on-disk format in memory as well, and cut memory use by more than 10x for typical documents.
+- **Delta-state sync**, which ships only recent changes instead of whole states.
 
-## Operational Transformation (OT)
+Budget for this overhead before using CRDTs on very large or very long-lived documents.
 
-Operational Transformation predates CRDTs (it powered Google Docs and earlier groupware) and reaches the same goal — convergent concurrent editing — by a different route. Instead of designing data types that commute by construction, OT keeps a simple data model (a plain string) and **transforms operations against each other** so that applying them in different orders yields the same result.
+## Operational transformation (OT)
 
-### The Core Idea
+Operational transformation is older than CRDTs. It powered Jupiter (1995), Google Wave, Google Docs, and Etherpad. It reaches the same goal of convergent concurrent editing by a different route. The data model stays plain, just a string, and concurrent operations are **transformed against each other** so that applying them in different orders produces the same result.
 
-Suppose two users start from `"abc"`. User 1 inserts `"X"` at position 0; User 2 deletes the character at position 2 (`"c"`). If the server naively applies User 1's op and then User 2's *original* op, User 2's "delete position 2" now deletes the wrong character, because User 1's insert shifted everything right.
+### The core idea
 
-OT fixes this with a **transform function** $T$. Given two concurrent operations $op_1$ and $op_2$ defined against the *same* base state, $T$ produces transformed versions so that applying them in either order converges:
+Start both users from `"abc"`. User 1 inserts `"X"` at position 0, and User 2 deletes position 2 (the `"c"`). If the server applies User 1's insert and then User 2's *original* delete, it removes the wrong character, because the insert shifted everything one place to the right.
+
+OT resolves this with a **transform function** $T$. Given two concurrent operations built against the same base state, $T$ rewrites each one so that both application orders converge:
 
 $$
-\mathrm{apply}\bigl(\mathrm{apply}(s, op_1),\, T(op_2, op_1)\bigr) = \mathrm{apply}\bigl(\mathrm{apply}(s, op_2),\, T(op_1, op_2)\bigr)
+\mathrm{apply}\bigl(\mathrm{apply}(s, o_1),\, T(o_2, o_1)\bigr) = \mathrm{apply}\bigl(\mathrm{apply}(s, o_2),\, T(o_1, o_2)\bigr)
 $$
 
-This is the **transformation property TP1** (convergence). In the example, $T$ shifts User 2's delete from position 2 to position 3 to account for the inserted character, so both orders end at `"XabC-deleted"` = `"Xab"`.
+This is transformation property **TP1**. In the example, $T$ moves User 2's delete from position 2 to position 3, and User 1's insert at position 0 is unchanged. Both orders end at `"Xab"`.
 
-```python
-# Transform op_a so it can apply AFTER op_b, where both were created against
-# the same base state. (Insert/insert case shown.)
-def transform_insert_insert(op_a, op_b):
-    if op_a.pos < op_b.pos or (op_a.pos == op_b.pos and op_a.site < op_b.site):
-        return op_a                       # a is unaffected by b
-    else:
-        return Op('insert', op_a.pos + len(op_b.text), op_a.text)  # shift right
+```mermaid
+flowchart LR
+    S0["'abc'"] -->|"o1: ins X@0"| S1["'Xabc'"]
+    S0 -->|"o2: del @2"| S2["'ab'"]
+    S1 -->|"T(o2,o1): del @3"| F["'Xab'"]
+    S2 -->|"T(o1,o2): ins X@0"| F
 ```
 
-### OT vs CRDT: The Trade-off
+```python
+# Transform op_a so it can apply AFTER op_b; both were generated against the
+# same base state. Insert/insert case; ties broken by site id.
+def transform_insert_insert(op_a, op_b):
+    if op_a.pos < op_b.pos or (op_a.pos == op_b.pos and op_a.site < op_b.site):
+        return op_a                                   # unaffected
+    return Op('insert', op_a.pos + len(op_b.text), op_a.text, op_a.site)
+```
 
-| | Operational Transformation | CRDT |
+A second property, **TP2**, is required when operations can be transformed along different paths, as happens in peer-to-peer OT without a central order. Several published algorithms turned out to violate TP2. That is why practical OT systems (the Jupiter model, Google Docs) route every operation through a server that imposes a single total order, which leaves only TP1 to satisfy.
+
+### OT compared with CRDTs
+
+| | Operational transformation | CRDT |
 |---|---|---|
-| Data model | Simple (plain string/array) | Rich, with per-element ids/metadata |
-| Coordination | Usually needs a **central server** to order ops | **No coordinator** needed; true P2P |
-| Correctness burden | Many transform functions; subtle to get right (TP1, TP2) | Convergence proven once per data type |
-| Metadata overhead | Low | Higher (ids, tombstones) |
-| Canonical users | Google Docs, Etherpad | Yjs, Automerge, Figma |
+| Data model | Plain string or array | Per-element IDs and metadata |
+| Coordination | Usually a central server to order operations | None needed; works peer-to-peer |
+| Correctness burden | Many transform functions, easy to get wrong (TP1/TP2) | Convergence proven once per data type |
+| Steady-state memory | Low | Higher (IDs, tombstones) |
+| Merging long offline branches | Slow (transforms grow as O(n·m)) | Fast |
+| Examples | Google Docs, Etherpad, ShareDB | Yjs, Automerge, Loro |
 
-The conventional wisdom: OT is lean and battle-tested but pushes correctness into a thicket of transform functions and typically assumes a server to impose a total order; CRDTs front-load the proof burden into the data type and then merge anywhere, anytime, even peer-to-peer — at the price of metadata. Modern collaborative apps increasingly choose CRDTs precisely to *avoid* a mandatory central authority on the edit path.
+The gap between the two approaches is narrowing. **Eg-walker** (Gentle and Kleppmann, EuroSys 2025) stores a plain operation log like OT, and only when merging concurrent branches does it build a temporary CRDT-style structure. The paper reports steady-state memory an order of magnitude below existing CRDTs, and merges of long-diverged branches orders of magnitude faster than OT. Loro uses a related event-graph design.
 
-## Session Guarantees (the Client's-Eye View)
+## Session guarantees
 
-Eventual consistency makes no promise about what a *single user's own session* sees, and the anomalies it allows are exactly the ones users notice: posting a comment and not seeing it, or watching a counter jump backwards. **Session guarantees** (Terry et al., Bayou, 1994) restore the minimum that makes eventual consistency *feel* sane to one client, without paying for global strong consistency.
+Eventual consistency promises nothing about what a single user's session sees, and the anomalies it allows are exactly the ones users notice. **Session guarantees** (Terry et al., Bayou project, 1994) restore the minimum needed for eventual consistency to feel sane to one client, without paying for global strong consistency.
 
-There are four, and you usually want all four for a given session:
+| Guarantee | Promise | Anomaly without it |
+|-----------|---------|--------------------|
+| **Read your writes (RYW)** | Later reads in the session reflect your earlier writes | You save a profile edit, the next read hits a stale replica, and the change "didn't take" |
+| **Monotonic reads** | Reads never go back in time | A post shows 10 likes, and after a refresh it shows 7 |
+| **Monotonic writes** | Your writes apply in the order you issued them, on every replica | "draft" then "published" land out of order, and the post reverts to draft |
+| **Writes follow reads (WFR)** | A write made after a read is ordered after what you read, everywhere | Your reply appears on some replica before the comment it answers |
 
-- **Read Your Writes (RYW)** — once you've written a value, every later read in your session reflects it (or something newer). *Without it:* you save a profile edit, the read hits a stale replica, and your change "didn't take."
-- **Monotonic Reads** — successive reads never go backwards in time; once you've seen a value, you never see an older one. *Without it:* a feed shows 10 likes, refresh shows 7.
-- **Monotonic Writes** — your writes are applied in the order you issued them on every replica. *Without it:* "set status = draft" then "set status = published" can land out of order and you're back to draft.
-- **Writes Follow Reads (WFR)** — a write you make after reading some value is ordered *after* that value everywhere. *Without it:* you reply to a comment, but on another replica your reply appears before the comment you replied to.
+When every client gets all four, the result is equivalent to causal consistency (Brzezinski, Sobaniec and Wawrzyniak, 2004). See the [consistency models](consensus-and-coordination.html#consistency-models) table for where that sits.
 
-### How They're Enforced
+### How they are enforced
 
-The classic mechanism is **version vectors** carried *in the session*, not server-wide. The client tracks the set of writes it has observed; each read demands a replica at least as fresh as that set, and each write is stamped with the dependencies it must not precede.
+The classic mechanism is a **version vector carried in the session**, not held server-wide. The client tracks which writes it has observed. Each read requires a replica at least that fresh, and each write carries the dependencies it must not precede.
 
 ```python
-# Session-scoped read-your-writes via a version vector the client carries.
+# Session-scoped guarantees via a version vector the client carries.
 class Session:
     def __init__(self):
         self.observed = {}        # replica_id -> highest version seen by THIS client
 
     def read(self, replica):
-        # Refuse a replica that is behind what we've already observed.
-        if not replica.dominates(self.observed):
-            replica = pick_replica_at_least(self.observed)   # route to a fresh one
+        if not replica.dominates(self.observed):             # too stale for us
+            replica = pick_replica_at_least(self.observed)   # or wait / retry
         value, version = replica.read()
-        self.merge_observed(version)        # monotonic reads: never go backward
+        self.merge_observed(version)        # monotonic reads
         return value
 
     def write(self, replica, value):
-        version = replica.write(value, deps=self.observed)   # writes-follow-reads
-        self.merge_observed(version)        # read-your-writes for later reads
+        version = replica.write(value, deps=self.observed)   # writes follow reads
+        self.merge_observed(version)        # read your writes
         return version
 ```
 
-Crucially, session guarantees are **per client, cheap, and composable with weak global consistency**. A system can be globally eventually consistent yet still give each user RYW + monotonic reads by routing that user's requests through version-vector–aware replicas (or, pragmatically, "sticky" routing to the same replica for a session). For the formal placement of these guarantees in the consistency hierarchy, see the [consistency models in the hub](consensus-and-coordination.html#consistency-models) and the [formal treatment in Distributed Systems Theory](../advanced/distributed-systems-theory/#consistency-models).
+Session guarantees are per client, cheap, and compatible with weak global consistency. Common production shortcuts:
 
-## Sync Protocols
+- **Sticky routing** sends a session to the same replica. This is simple, but it breaks on failover.
+- **Read-after-write tokens** return a log position, LSN, or GTID with each write. Later reads say "at least this position" and wait for, or skip, replicas that are further behind. MongoDB's causally consistent sessions and many Postgres read-replica routers work this way.
+- **Read from the primary for N seconds after a write.** Crude, but common.
 
-A sync protocol is the wire-level dance that moves divergent state between client and server (or peer and peer) and reconciles it. The choices below trade bandwidth, server complexity, and merge quality.
+Formal definitions are in [Distributed Systems Theory](../advanced/distributed-systems-theory/#consistency-models).
 
-### What Travels on the Wire
+## Sync protocols
 
-```mermaid
-flowchart TD
-    Q{What does the client send?}
-    Q -->|whole record| Snap[Snapshot / state-based<br/>simple, bandwidth-heavy, LWW merges]
-    Q -->|the operations| Ops[Operation log<br/>OT or op-based CRDT, replayable]
-    Q -->|only the changes| Delta[Delta / delta-state CRDT<br/>minimal bytes, needs causal tracking]
-```
+A sync protocol is the wire-level exchange that moves divergent state between client and server, or between peers, and reconciles it.
 
-- **Snapshot (state-based):** ship the whole record; merge with LWW or a state CRDT `merge`. Dead simple, robust to lost messages, but wasteful and lossy for fine-grained edits.
-- **Operation log:** ship an ordered, idempotent log of operations and replay them. This is what OT and op-based CRDTs use; it gives precise merges and a natural audit trail, at the cost of reliable, causal delivery.
-- **Delta / delta-state CRDT:** ship only what changed since the peer's last known version — the best of both worlds (CRDT correctness, near-op bandwidth) and the modern default for libraries like Yjs.
+### What travels on the wire
 
-### Incremental Pull with a Cursor
+| Payload | Used with | Strengths | Weaknesses |
+|---------|-----------|-----------|------------|
+| **Snapshot** (full record) | LWW, state CRDTs | Simple; tolerates lost messages | Bandwidth-heavy; LWW loses fine-grained edits |
+| **Operation log** | OT, op-based CRDTs, server reconciliation | Precise merges; natural audit trail and undo | Needs reliable, ordered or causal delivery |
+| **Delta / delta-state** | Yjs, Automerge, Loro sync | CRDT correctness at close to operation-log bandwidth | Needs causal tracking (state vectors) |
+| **Row-level change stream** | Postgres-backed sync (Electric, Zero) | Reuses the database's replication log | Merge semantics are the server's (usually LWW or rebase) |
 
-Whatever the payload, clients should pull *incrementally*. The server exposes an ordered change feed and the client remembers a **cursor** (a sequence number, a logical clock, or an opaque token) marking the last change it has durably applied. On reconnect it asks only for changes after the cursor — turning a re-sync from "download everything" into "download the diff."
+Yjs shows the delta approach clearly. Each peer sends a compact **state vector**, a map from client ID to the highest clock value seen. The other peer answers with exactly the updates that vector is missing. The exchange takes one round trip in each direction and is independent of document size.
+
+### Incremental pull with a cursor
+
+Whatever the payload, clients should pull incrementally. The server exposes an ordered change feed, and the client remembers a **cursor**: a sequence number, logical clock, or opaque token marking the last change it has durably applied. On reconnect it asks only for changes after the cursor.
 
 ```python
 # Idempotent, resumable incremental pull keyed on a durable cursor.
@@ -322,56 +364,77 @@ async def pull_changes(client_cursor):
         if change.seq <= client_cursor:
             continue                          # already applied; safe to skip
         apply_change(change)                  # local merge (CRDT / OT / LWW)
-        client_cursor = change.seq            # advance only after durable apply
-    persist(client_cursor)                    # survive a crash mid-sync
+        client_cursor = change.seq
+    persist(client_cursor)                    # ideally in the same transaction as the applies
     return client_cursor
 ```
 
-Anchoring cursor advancement *after* a durable local apply makes the pull crash-safe: a client that dies mid-sync simply resumes from the last persisted cursor, re-receiving (and idempotently re-applying) at most the in-flight batch.
+If the cursor is persisted in the same local transaction as the changes it covers, the pull is crash-safe. A client that dies mid-sync resumes from the last persisted cursor and re-applies, idempotently, at most the batch that was in flight. The server also needs a policy for cursors older than its retained change log, usually a forced full resync.
 
-### Efficient Reconciliation: Set Reconciliation & Merkle Trees
+### Efficient reconciliation
 
-When two peers each hold a large set and need to find the *difference* without shipping everything, naive sync sends $O(n)$ data. Better protocols send roughly $O(d)$ where $d$ is the number of differences:
+When two peers each hold a large set and need only the *difference*, naive sync sends $O(n)$ data. Better protocols send roughly $O(d)$, where $d$ is the number of differences:
 
-- **Merkle trees** — hash the data into a tree; peers compare root hashes, and where roots match they prune the whole subtree, recursing only into mismatched branches. This is how anti-entropy works in Dynamo-style stores (Cassandra, Riak) and how Git compares histories.
-- **Range-based set reconciliation** — recursively split the key range and exchange fingerprints (hashes) per range, descending only into ranges whose fingerprints differ.
+- **Merkle trees.** Hash the data into a tree and compare root hashes. Matching subtrees are pruned, and only mismatched branches are explored. Dynamo-style anti-entropy (Cassandra, Riak) and Git use this. See [Failure Detection & Gossip](failure-detection.html#anti-entropy-and-merkle-trees).
+- **Range-based set reconciliation.** Recursively split the key range, exchange a fingerprint per range, and descend only where fingerprints differ. The Negentropy protocol used in Nostr relays is an example.
+- **Invertible Bloom lookup tables.** A fixed-size sketch from which the symmetric difference can be decoded in a single message, provided $d$ is below the sketch's capacity.
 
-These keep re-sync cost proportional to the *divergence*, not the dataset — essential when a client returns after a long offline stretch but only a handful of things actually changed.
+All three keep re-sync cost proportional to how far the replicas have diverged, not to the size of the dataset.
 
-### Real-Time Transport
+### Real-time transport
 
-For live collaboration the transport must be **bidirectional and low-latency** so remote ops fan out within a frame or two of being made: WebSockets are the workhorse; WebRTC data channels enable true peer-to-peer sync (used by some CRDT setups to drop the server from the hot path); and HTTP long-poll / Server-Sent Events serve as graceful fallbacks. Underneath, op-based CRDTs and OT both require the transport (or an application-level sequencing layer) to provide **reliable, causal-order delivery** — out-of-order or dropped ops break their convergence assumptions unless the layer above repairs ordering. Causal order rests on the happens-before relation and logical clocks covered in [Distributed Systems Theory](../advanced/distributed-systems-theory/#time-and-clocks).
+Live collaboration needs a bidirectional, low-latency transport so remote operations arrive within a frame or two:
 
-## Putting It Together: A Decision Guide
+- **WebSockets** are the workhorse.
+- **Server-Sent Events** and HTTP long-polling are fallbacks, and suit read-mostly change streams (Electric uses plain HTTP long-polling so that responses can be cached by CDNs).
+- **WebRTC data channels** allow direct peer-to-peer sync.
+- **WebTransport** over HTTP/3 is an emerging option.
+
+Op-based CRDTs and OT both need **reliable, causally ordered delivery**, either from the transport or from an application-level sequencing layer. Causal order rests on happens-before and logical clocks (see [Distributed Systems Theory](../advanced/distributed-systems-theory/#time-and-clocks)).
+
+## Libraries and sync engines (2026)
+
+| Project | Model | Notes |
+|---------|-------|-------|
+| **Yjs** | Sequence and map CRDTs (YATA) | 13.6.x is the stable line. v14 (pre-release in 2026) adds attribution and change tracking. Large editor ecosystem (ProseMirror, Tiptap, BlockNote, CodeMirror, Monaco). |
+| **Automerge** | JSON-document CRDT | 3.0 (2025) uses compressed columnar storage in memory. `automerge-repo` handles networking and storage. |
+| **Loro** | Event-graph CRDTs (text, list, map, movable tree) | 1.0 (2024) stabilized the format. Built-in version history. |
+| **Replicache / Zero** (Rocicorp) | Server reconciliation | Zero adds a query-driven partial-sync layer over Postgres. |
+| **Electric** | Postgres read-path sync ("shapes") over HTTP | 1.0 GA in March 2025. Writes go through your own API. |
+
+## Decision guide
 
 ```mermaid
 flowchart TD
     Start{What are you syncing?}
-    Start -->|Independent scalar fields<br/>profile, settings| LWW2[LWW per field<br/>+ session guarantees]
-    Start -->|Sets / counters / maps| CRDT2[Off-the-shelf CRDTs<br/>OR-Set, PN-Counter]
-    Start -->|Collaborative text / rich docs| Seq[Sequence CRDT or OT<br/>Yjs / Automaton / OT server]
-    Start -->|Global invariant<br/>uniqueness, balance, inventory| CP2[Server-authoritative CP write<br/>client shows 'pending']
-    LWW2 --> Off[All wrapped in an offline-first<br/>local store + idempotent outbox]
+    Start -->|Independent scalar fields<br/>profile, settings| LWW2[LWW per field, server-ordered or HLC<br/>+ session guarantees]
+    Start -->|Sets, counters, maps| CRDT2[Off-the-shelf CRDTs<br/>OR-Set, PN-Counter, OR-Map]
+    Start -->|Collaborative text or rich docs| Seq[Sequence CRDT or OT<br/>Yjs, Automerge, Loro, or an OT server]
+    Start -->|App data with business rules<br/>permissions, validation| Rebase[Server reconciliation<br/>client replays pending mutations]
+    Start -->|Hard global invariant<br/>uniqueness, balance, inventory| CP2[Server-authoritative CP write<br/>client shows 'pending']
+    LWW2 --> Off[All inside an offline-first<br/>local store + idempotent outbox]
     CRDT2 --> Off
     Seq --> Off
+    Rebase --> Off
     CP2 --> Off
 ```
 
-The throughline: make the local store authoritative for UX, choose a merge strategy matched to the *shape* of the data (LWW for independent fields, CRDTs/OT for structured concurrent edits, server-authoritative CP for true invariants), guarantee each user RYW + monotonic reads within their session, and move bytes with incremental, idempotent, causally-ordered sync.
+In summary: make the local store authoritative for the user experience, and match the merge strategy to the shape of the data. Use LWW for independent fields, CRDTs or OT for concurrent structured edits, server reconciliation where business rules must hold, and a CP write for true invariants. Give every user read-your-writes and monotonic reads within their session. Move data with incremental, idempotent, causally ordered sync.
 
-## Key Takeaways
+## See also
 
-- **The client is a replica.** An offline-capable client mutates state, diverges, and must converge — it plays by replication rules, just without a coordinator on the write path.
-- **Idempotency makes offline safe.** Clients must retry blindly, so every mutation needs a stable id and a server that dedupes. Without it, sync double-applies.
-- **CRDTs converge by construction.** Semilattice merges (commutative, associative, idempotent) guarantee Strong Eventual Consistency with no central authority — at a metadata cost.
-- **OT trades data simplicity for transform complexity.** It keeps plain strings but needs subtle transform functions and usually a server to order ops; CRDTs invert that bargain.
-- **Session guarantees rescue UX.** Read-your-writes and monotonic reads make eventual consistency feel sane per user — cheaply, without global linearizability.
-- **Sync the diff, not the dataset.** Cursors, delta-state CRDTs, and Merkle reconciliation keep re-sync proportional to what changed, not to how much you store.
+- **[Distributed Systems Hub](./)**: overview of the section
+- **[Consensus & Coordination](consensus-and-coordination.html)**: CAP, PACELC, and the consistency-model spectrum
+- **[Replication Strategies](replication-strategies.html)**: server-side leader, multi-leader, and leaderless replication
+- **[Failure Detection & Gossip](failure-detection.html)**: anti-entropy and Merkle-tree reconciliation between servers
+- **[Distributed Systems Theory](../advanced/distributed-systems-theory/)**: formal consistency models, impossibility results, logical clocks
+- **[Database Design](../technology/database-design/)**: replication, sharding, and server-side consistency
+- **[Networking](../technology/networking/)**: transport fundamentals behind WebSockets, long-polling, and P2P sync
 
-## See Also
+### References
 
-- **[Distributed Systems Hub](./)** — CAP, consistency models, sagas, and the patterns this page builds on
-- **[Distributed Systems Theory](../advanced/distributed-systems-theory/)** — formal consistency models, FLP/CAP impossibility, logical clocks and happens-before
-- **[Database Design](../technology/database-design/)** — replication, sharding, and server-side consistency models
-- **[Networking](../technology/networking/)** — transport fundamentals behind WebSockets, long-polling, and P2P sync
-- **[Quantum Computing](../quantum-computing/)** — distributed quantum networking and entanglement-based coordination
+- Terry et al., *Session Guarantees for Weakly Consistent Replicated Data* (1994)
+- Shapiro, Preguiça, Baquero, Zawirski, *Conflict-free Replicated Data Types* (2011)
+- Kleppmann, Wiggins, van Hardenberg, McGranaghan, *Local-First Software: You Own Your Data, in Spite of the Cloud* (2019)
+- Weidner, Kleppmann, *The Art of the Fugue: Minimizing Interleaving in Collaborative Text Editing* (2023)
+- Gentle, Kleppmann, *Collaborative Text Editing with Eg-walker: Better, Faster, Smaller* (EuroSys 2025)

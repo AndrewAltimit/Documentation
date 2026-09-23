@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Database Design
+description: "Reference guides to relational modeling, indexing and query execution, transactions, storage engines, distributed and NoSQL databases, and database operations."
 permalink: /docs/technology/database-design/
 toc: false
 hide_title: true
@@ -8,130 +9,146 @@ hide_title: true
 
 <div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2.25rem;">Database Design</h1>
-  <p style="font-size: 1.1rem; margin-top: 0.75rem; opacity: 0.9;">Relational modeling, indexing, and distributed database architecture</p>
+  <p style="font-size: 1.1rem; margin-top: 0.75rem; opacity: 0.9;">Relational modeling, indexing, transactions, storage, and distributed architecture</p>
 </div>
 
-Every application needs to store data, and they all face the same questions: how should data be organized, how can many users access it at once, and what happens when the system crashes? This is the **deep-dive companion** to the crash course — relational modeling and normalization, indexing internals, query execution, transactions, storage engines, and distributed/NoSQL architecture.
+Every application that stores data runs into the same questions: how should the data be organised, how can many users read and change it at once without corrupting it, what happens when a machine crashes, and how does the system grow beyond one server? This section answers them in depth — from normalization and SQL execution, through transactions and storage engines, to replication, distributed transactions and NoSQL data models, and finally to running databases in production.
 
-> **New to databases?** If you just need tables, SQL basics, and enough to be productive, read the [Database Crash Course](../database-crash-course.html) first — tables, SQL, relationships, indexes, and transactions in five minutes — then come back here for the theory, internals, and scaling concerns.
+> **New to databases?** The [Database Crash Course](../database-crash-course.html) covers tables, SQL, relationships, indexes and transactions in a single page. Read it first, then return here for the internals and the scaling concerns.
 
-## Explore Database Design
+## Guides
 
 | Area | Guide | What it covers |
 |------|-------|----------------|
-| **Modeling** | [Data Modeling & Normalization](modeling.html) | From files to the relational model, ACID, normalization (1NF–3NF), modeling relationships, star/snowflake/EAV patterns, and design anti-patterns |
-| **Querying** | [Indexing & Query Execution](indexing-and-queries.html) | Index types and strategies, how the planner parses, optimizes, and executes queries, plus optimizer, memory, and lock internals |
-| **Transactions** | [Transactions & Concurrency](transactions-and-concurrency.html) | The concurrency problem, locking vs MVCC, serializability, isolation levels, practical locking patterns, and database security |
-| **Storage** | [Storage Engines & Recovery](storage-internals.html) | Pages, the buffer pool, B+ trees and LSM trees, write-ahead logging, backup and recovery, troubleshooting, and performance tuning |
-| **Distributed** | [Distributed Databases & NoSQL](distributed-and-nosql.html) | Sub-hub: CAP theorem, consensus overview, NoSQL landscape, the future of databases, case studies, and a selection guide |
-| **Distributed** | [Replication & Consensus](replication-and-consensus.html) | Replication topologies, streaming & logical replication, Raft/Paxos, read replicas, failover, and quorums |
-| **Distributed** | [Distributed Transactions](distributed-transactions.html) | 2PC/3PC, sagas, the outbox pattern, idempotency, distributed deadlocks, and exactly-once semantics |
-| **Distributed** | [NoSQL Data Models](nosql-data-models.html) | Document, key-value, wide-column, graph, and time-series stores — and how to model for each |
-| **Operations** | [Operations & Monitoring](operations-and-monitoring.html) | Backups & PITR, disaster recovery, VACUUM, connection pooling, observability, and incident response |
+| **Modeling** | [Data Modeling & Normalization](modeling.html) | The relational model, keys, normal forms (1NF to BCNF), modeling relationships, star and snowflake schemas, EAV, and design anti-patterns |
+| **Querying** | [Indexing & Query Execution](indexing-and-queries.html) | Index types and design, when indexes hurt, the query pipeline, reading `EXPLAIN ANALYZE`, and the optimizer's cost model and statistics |
+| **Transactions** | [Transactions & Concurrency](transactions-and-concurrency.html) | ACID, locking and MVCC, serializability, isolation levels and their anomalies, practical locking patterns |
+| **Storage** | [Storage Engines & Recovery](storage-internals.html) | Pages, the buffer pool, B+ trees and LSM trees, write-ahead logging, crash recovery, and performance tuning |
+| **Distributed** | [Distributed & NoSQL Databases](distributed-and-nosql.html) | Sub-hub: replication and partitioning, CAP and PACELC, consistency models, choosing a database, industry direction, case studies |
+| **Distributed** | [Replication & Consensus](replication-and-consensus.html) | Replication topologies, streaming and logical replication, replication lag, Raft and Paxos, failover, quorums |
+| **Distributed** | [Distributed Transactions](distributed-transactions.html) | Two-phase commit, commit over consensus, sagas, the outbox pattern, idempotency, exactly-once processing |
+| **Distributed** | [NoSQL Data Models](nosql-data-models.html) | Document, key-value, wide-column, graph, time-series and vector stores, and how to model for each |
+| **Operations** | [Operations & Monitoring](operations-and-monitoring.html) | Backups and point-in-time recovery, disaster recovery, VACUUM, connection pooling, observability, incident response |
 | **Operations** | [ORMs & Data-Access Patterns](orm-patterns.html) | Object-relational mapping, the impedance mismatch, the N+1 problem, and when to drop to SQL |
-| **Operations** | [Schema Evolution & Migrations](schema-evolution-and-migrations.html) | Migration tooling, zero-downtime expand–contract, backfills, online schema change, and safe rollbacks |
+| **Operations** | [Schema Evolution & Migrations](schema-evolution-and-migrations.html) | Migration tooling, zero-downtime expand and contract, backfills, online schema change, rollbacks |
 
-## Why Databases Matter
+### Suggested reading order
 
-Imagine building an online store. You start by storing product information in files:
+The guides build on one another. Each later topic assumes the guarantees described by the earlier ones:
 
-```python
-# products.json
+```mermaid
+flowchart LR
+    M["Modeling &<br/>normalization"] --> I["Indexing &<br/>query execution"]
+    I --> T["Transactions &<br/>concurrency"]
+    T --> S["Storage engines<br/>& recovery"]
+    S --> D["Distributed &<br/>NoSQL (sub-hub)"]
+    D --> R["Replication &<br/>consensus"]
+    D --> DT["Distributed<br/>transactions"]
+    D --> N["NoSQL data<br/>models"]
+    S --> O["Operations &<br/>monitoring"]
+    M --> ORM["ORMs &<br/>data access"]
+    M --> SE["Schema evolution<br/>& migrations"]
+```
+
+## Why a Database
+
+Consider an online store that keeps its products in a file:
+
+```json
 [
-    {"id": 1, "name": "Laptop", "price": 999, "stock": 50},
-    {"id": 2, "name": "Mouse", "price": 29, "stock": 200}
+  {"id": 1, "name": "Laptop", "price": 999, "stock": 50},
+  {"id": 2, "name": "Mouse",  "price": 29,  "stock": 200}
 ]
 ```
 
-This works initially, but problems emerge quickly:
-- What if two customers buy the same product simultaneously?
-- How do you ensure stock never goes negative?
-- What if the server crashes during a purchase?
-- How do you find all products under $50 efficiently?
+This works until the questions a database exists to answer arrive:
 
-Databases solve these problems through carefully designed systems that have evolved over decades. The guides below explore how they work, starting with practical needs and building up to the theory that makes modern databases possible.
+| Question | What a database provides | Where it is covered |
+|---|---|---|
+| Two customers buy the last laptop at the same moment — who gets it? | Isolation through locking or multi-version concurrency control | [Transactions & Concurrency](transactions-and-concurrency.html) |
+| How do we guarantee stock never goes negative? | Constraints and atomic transactions | [Data Modeling](modeling.html) |
+| The server crashes halfway through a purchase — what survives? | Atomicity and durability through write-ahead logging | [Storage Engines & Recovery](storage-internals.html) |
+| How do we find all products under $50 among millions? | Indexes and a cost-based query planner | [Indexing & Query Execution](indexing-and-queries.html) |
+| One server is no longer enough, or must not be a single point of failure | Replication, partitioning and consensus | [Distributed & NoSQL Databases](distributed-and-nosql.html) |
 
-## Key Takeaways
+## Core Principles
 
-- **Model for integrity first.** Normalization removes redundant data so updates can't leave the database in a contradictory state; denormalize deliberately, for performance.
-- **Indexes trade writes for reads.** A B+ tree index turns a full-table scan into a logarithmic lookup, but every index adds cost to inserts, updates, and storage.
-- **ACID guarantees reliability.** Atomicity, consistency, isolation, and durability let many users hit the same data concurrently without corruption or lost work.
-- **The query planner is your ally.** SQL is declarative — you describe the result and the optimizer chooses the access path. Read `EXPLAIN` output to understand and tune it.
-- **Scaling forces trade-offs.** Replication and sharding add capacity but invoke the CAP theorem: under a partition you choose between consistency and availability.
-- **Pick the model to fit the access pattern.** Relational, document, key-value, graph, and vector stores each optimize different queries. Choose by how the data is read, not by hype.
+- **Model for integrity first.** Normalization removes redundant copies so that an update cannot leave the data contradicting itself. Denormalize deliberately, for measured performance needs.
+- **Indexes trade write cost for read speed.** A B+ tree index turns a full scan into a logarithmic lookup, but every index is maintained on every relevant write and occupies cache.
+- **Transactions make concurrency tractable.** Atomicity, consistency, isolation and durability let many clients use shared data without corrupting it. Weaker isolation levels are faster but admit specific, documented anomalies.
+- **The planner decides how a query runs.** SQL describes the result; the optimizer chooses the access paths and join order from statistics. `EXPLAIN ANALYZE` shows what it chose and whether its estimates were right.
+- **Distribution forces trade-offs.** Replication and partitioning add capacity and resilience, but during a network partition a system must choose between consistency and availability, and even without one, stronger consistency costs latency.
+- **Choose the data model by access pattern.** Relational, document, key-value, wide-column, graph, time-series and vector stores each make different queries cheap. Start relational unless a specific pattern or scale requirement says otherwise.
 
-## Glossary of Database Terms
+## Glossary
 
-**ACID**: Atomicity, Consistency, Isolation, Durability - properties that guarantee reliable transactions
-
-**B-Tree/B+ Tree**: Balanced tree data structure used in most database indexes
-
-**CAP Theorem**: States you can have at most 2 of: Consistency, Availability, Partition tolerance
-
-**Cardinality**: Number of unique values in a column (affects index efficiency)
-
-**Deadlock**: When two transactions wait for each other indefinitely
-
-**Foreign Key**: Column that references primary key in another table
-
-**Index**: Data structure that speeds up queries
-
-**MVCC**: Multi-Version Concurrency Control - allows concurrent access without locking
-
-**Normalization**: Process of organizing data to reduce redundancy
-
-**OLTP/OLAP**: Online Transaction Processing vs Online Analytical Processing
-
-**Primary Key**: Unique identifier for each row
-
-**Query Planner**: Component that decides how to execute queries efficiently
-
-**Replication**: Copying data to multiple servers for availability
-
-**Sharding**: Splitting data across multiple servers horizontally
-
-**Transaction**: Group of operations that succeed or fail together
-
-**WAL**: Write-Ahead Logging - ensures durability by logging before applying changes
+| Term | Definition |
+|---|---|
+| **ACID** | Atomicity, Consistency, Isolation, Durability — the guarantees of a database transaction |
+| **B+ tree** | Balanced search tree with all keys in linked leaf pages; the standard on-disk index structure |
+| **Buffer pool** | The database's in-memory cache of disk pages |
+| **CAP theorem** | During a network partition, a distributed store must give up either linearizable consistency or availability |
+| **Cardinality** | The number of distinct values in a column; also the estimated number of rows an operator returns |
+| **Change data capture (CDC)** | Streaming committed changes out of a database, usually by reading its replication log |
+| **Consensus** | Protocols (Raft, Paxos) by which nodes agree on a value or ordered log despite failures |
+| **Deadlock** | Two or more transactions each waiting for a lock the other holds |
+| **Foreign key** | A column whose values must match a key in another table |
+| **Idempotency** | The property that repeating an operation has the same effect as doing it once |
+| **Index** | An auxiliary structure that locates rows by key without scanning the table |
+| **Isolation level** | How much concurrent transactions may observe each other's effects (read committed, repeatable read, serializable) |
+| **LSM tree** | Log-structured merge tree: buffers writes in memory, flushes sorted files, and compacts them; optimised for writes |
+| **MVCC** | Multi-version concurrency control: readers see a snapshot while writers create new row versions |
+| **Normalization** | Organising tables so each fact is stored once, eliminating update anomalies |
+| **OLTP / OLAP** | Online transaction processing (many small reads and writes) versus online analytical processing (large scans and aggregations) |
+| **PACELC** | Extension of CAP: if partitioned, choose availability or consistency; else, latency or consistency |
+| **Partitioning (sharding)** | Splitting data into disjoint subsets stored on different nodes |
+| **Primary key** | The column or columns that uniquely identify each row |
+| **Query planner** | The component that chooses an execution plan for a query from estimated costs |
+| **Replication** | Keeping copies of the same data on several nodes |
+| **Saga** | A sequence of local transactions with compensating actions, used instead of a distributed commit |
+| **Transaction** | A group of operations that commit or abort as a unit |
+| **Vector index** | An approximate nearest-neighbour index (such as HNSW) over embedding vectors |
+| **WAL** | Write-ahead log: changes are logged durably before data pages are modified, enabling crash recovery and replication |
 
 ## References
 
-### Essential Literature
+### Books
 
-**Foundational Texts**:
-- Kleppmann, M. (2017). *Designing Data-Intensive Applications* - Best modern overview
-- Karwin, B. (2010). *SQL Antipatterns* - Learn from common mistakes
+- Kleppmann, M. *Designing Data-Intensive Applications* (O'Reilly, 2017; a revised second edition co-authored with Chris Riccomini followed). The standard overview of storage, replication, partitioning, transactions and stream processing.
+- Petrov, A. *Database Internals* (O'Reilly, 2019). Storage engines and distributed-systems algorithms in detail.
+- Karwin, B. *SQL Antipatterns* (Pragmatic Bookshelf; 2nd edition 2022). Common schema and query mistakes and their fixes.
+- Winand, M. *SQL Performance Explained*, also available free as [Use The Index, Luke](https://use-the-index-luke.com/). Indexing from the developer's side.
+- Ramakrishnan, R. and Gehrke, J. *Database Management Systems* (3rd edition, 2003). A thorough university textbook.
 
-**Going Deeper**:
-- Ramakrishnan & Gehrke (2003). *Database Management Systems* - Solid textbook
-- Petrov, A. (2019). *Database Internals* - How databases actually work
+### Courses, documentation and papers
 
-**Research Frontiers**:
-- Recent SIGMOD, VLDB, and ICDE conference proceedings
-- [The Morning Paper](https://blog.acolyer.org/) - Database paper summaries
+- [CMU Database Group](https://www.youtube.com/c/CMUDatabaseGroup) — recorded lectures from Andy Pavlo's introductory and advanced database systems courses.
+- [PostgreSQL documentation](https://www.postgresql.org/docs/current/) — particularly the chapters on indexes, `EXPLAIN`, concurrency control and the planner's statistics.
+- [Jepsen analyses](https://jepsen.io/analyses) — independent tests of distributed databases' consistency claims.
+- [The Morning Paper](https://blog.acolyer.org/) — summaries of database and systems papers (archive; publication ended in 2021).
+- Proceedings of SIGMOD, VLDB and CIDR for current research.
 
-### Online Resources
+### Practice
 
-**Interactive Learning**:
-- [Use The Index, Luke](https://use-the-index-luke.com/) - SQL indexing tutorial
-- [PostgreSQL Exercises](https://pgexercises.com/) - Practice SQL
-- [Mystery: SQL Murder Mystery](https://mystery.knightlab.com/) - Learn SQL solving a mystery
+- [PostgreSQL Exercises](https://pgexercises.com/) — graded SQL practice against a sample schema.
+- [SQL Murder Mystery](https://mystery.knightlab.com/) — learn SQL by solving a case.
 
-**Talks and Videos**:
-- [CMU Database Group](https://www.youtube.com/c/CMUDatabaseGroup) - Excellent lectures
-- [Designing Data-Intensive Applications](https://www.youtube.com/watch?v=PdtlXdse7pw) - Kleppmann's talks
+### Build-your-own projects
 
-### Hands-On Projects
+Building a small database is the most direct way to understand one. A progression, each step building on the last:
 
-1. **Build a Mini Database**: Implement B+ tree, buffer pool, and simple queries
-2. **Benchmark Different Databases**: Compare PostgreSQL, MySQL, MongoDB for your use case
-3. **Distributed System**: Build a simple distributed key-value store with Raft
-4. **Query Optimizer**: Write a cost-based optimizer for simple queries
+1. **Log-structured key-value store** — an append-only log plus an in-memory hash index; add compaction and crash recovery.
+2. **B+ tree** — insertion with node splits, deletion, and range scans over linked leaves, backed by fixed-size pages and a buffer pool.
+3. **Query engine** — parse a subset of SQL, build an iterator-model operator tree (scan, filter, project, nested-loop and hash join), and add a simple cost-based choice between plans.
+4. **Transactions** — write-ahead logging with redo recovery, then two-phase locking or MVCC for isolation.
+5. **Replicated key-value store** — Raft leader election and log replication across three nodes (MIT's distributed-systems labs follow this path).
+
+CMU's educational database, BusTub, provides a skeleton for steps 2–4.
 
 ## See Also
 
-- [Database Crash Course](../database-crash-course.html) — the fast on-ramp to tables and SQL
-- [AWS](../aws/) — managed database services and DynamoDB internals
-- [Docker](../docker/) — containerizing databases for local development
-- [Cybersecurity](../cybersecurity/) — database security and encryption
-- [Networking](../networking/) — protocols behind distributed databases
+- [Database Crash Course](../database-crash-course.html) — the fast introduction to tables and SQL.
+- [AWS](../aws/) — managed relational, key-value and serverless database services.
+- [Docker](../docker/) — running databases in containers for local development.
+- [Cybersecurity](../cybersecurity/) — access control, encryption and SQL injection.
+- [Networking](../networking/) — the protocols beneath distributed databases.

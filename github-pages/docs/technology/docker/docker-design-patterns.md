@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Docker: Design Patterns"
+description: "Multi-container composition patterns (sidecar, ambassador, adapter, init) in Compose and Kubernetes, plus image-hardening and runtime-security patterns for production containers."
 permalink: /docs/technology/docker/docker-design-patterns.html
 toc: true
 toc_sticky: true
@@ -9,308 +10,431 @@ hide_title: true
 
 [Docker](./) &raquo; Design Patterns
 
-A single container rarely lives alone in production. Once you move past a lone web server, recurring shapes emerge for how containers are composed: a main application paired with helpers that handle logging, proxying, format translation, or one-time setup. These are the classic **multi-container design patterns** — Sidecar, Ambassador, Adapter, and Init — and they keep your application image focused while pushing cross-cutting concerns into reusable companions. This page covers those patterns, then turns to **image and runtime security patterns** (distroless images, non-root execution, runtime threat detection) that make the resulting deployments safe at scale.
+A production workload is rarely one container. Operational concerns such as log shipping, TLS, protocol translation, and one-time setup are usually handled by **helper containers** that run beside the application and share some of its resources. The recurring arrangements have names: **sidecar**, **ambassador**, **adapter**, and **init**. They were catalogued by Burns and Oppenheimer in *Design Patterns for Container-based Distributed Systems* (USENIX HotCloud 2016) and are now built into Kubernetes and approximated in Docker Compose. This page describes each pattern and how to express it in both, then covers the **image and runtime security patterns** (minimal base images, least privilege, runtime detection) that production containers are expected to follow.
 
-## Why Multi-Container Patterns Exist
+## Why Helper Containers
 
-The single-responsibility principle applies to containers as much as to code. An application container should run *one* concern — your business logic — and nothing else. But real deployments need logging, metrics, TLS termination, secret fetching, and protocol translation. You have two choices:
+An application image should contain the application. When cross-cutting tooling is baked into it instead, every change to the log shipper or proxy configuration forces an application rebuild, the image grows (with more CVEs), and the application's release cycle becomes coupled to the platform team's. Running the concern in a separate container keeps each image single-purpose and lets the helper be reused across many applications and upgraded independently.
 
-1. **Bake everything into the application image.** This couples your app to its operational tooling. Every time you change the log shipper or rotate the proxy config, you rebuild and redeploy the application.
-2. **Run the cross-cutting concern in a separate container** that shares resources with the application. The app image stays minimal; the helper evolves independently.
+What makes this possible is that containers can **share namespaces and volumes**:
 
-The patterns below are all instances of the second choice. They differ in *what* the helper does and *how* it couples to the main container. The shared substrate that makes them possible is the container runtime's ability to let multiple containers share a network namespace, a volume, or a process namespace.
+| Shared resource | Enables | Compose | Kubernetes Pod |
+|-----------------|---------|---------|----------------|
+| Network namespace | Helper reachable on `localhost`; can intercept traffic | `network_mode: "service:<name>"` | Always shared by all containers in a Pod |
+| Volume | Helper reads files the app writes (logs, sockets, config) | Named volume mounted in both services | `emptyDir` or other volume mounted in both |
+| PID namespace | Helper can see and signal the app's processes | `pid: "service:<name>"` | `shareProcessNamespace: true` |
+| Lifecycle | Helper starts before / stops after the app | Approximated with `depends_on` | Native: init containers and sidecar containers |
+
+Kubernetes has a unit for co-scheduled containers, the **Pod**. Compose does not: each service is scheduled separately, and the grouping is expressed through the sharing options above. On a single host this is close enough; across a Swarm cluster, services that share a volume or namespace must also be constrained to the same node.
 
 ```mermaid
-flowchart TB
-    subgraph Pod["Shared context (Pod / Compose service group)"]
-        App["Main container<br/>(business logic)"]
-        Helper["Helper container<br/>(sidecar / ambassador / adapter)"]
-        App <-->|shared volume / localhost / IPC| Helper
+flowchart LR
+    subgraph Pod["Pod / group of Compose services"]
+        Init["init<br/>(runs first, exits)"]
+        App["application"]
+        Side["sidecar<br/>(augments)"]
+        Amb["ambassador<br/>(proxies out)"]
+        Adp["adapter<br/>(normalizes)"]
+        Init -.->|then| App
+        App -->|writes files| Side
+        App -->|localhost| Amb
+        Adp -->|polls| App
     end
-    Helper <-->|external systems| Ext[("Log store · Proxy<br/>Registry · Metrics")]
+    Side --> Logs[("Log backend")]
+    Amb --> Deps[("Remote services")]
+    Mon["Monitoring"] -->|scrapes| Adp
 ```
-
-> **Compose vs. Kubernetes.** In Docker Compose the "shared context" is a set of services wired together with a shared volume or `network_mode: "service:..."`. In Kubernetes it is a **Pod** — multiple containers that always co-schedule and share a network namespace and volumes. The patterns are identical in spirit; only the manifest syntax differs. Examples below show both where it clarifies the pattern.
 
 ## Sidecar Pattern
 
-The **sidecar** runs alongside the main container and augments it without the application being aware. The classic example is log forwarding: the application writes logs to a shared volume, and a sidecar tails that volume and ships the logs elsewhere. The application never learns where its logs go.
+A **sidecar** extends the application without the application knowing about it, typically by sharing a volume. The canonical example is log forwarding: the application writes log files, and the sidecar tails them and ships each line to a backend.
 
 ```yaml
-# Logging sidecar example (compose.yaml)
+# compose.yaml
 services:
   app:
-    image: my-app:latest
+    image: my-app:1.4.0
     volumes:
       - logs:/var/log/app
 
   log-forwarder:
-    image: fluent/fluent-bit:latest
+    image: fluent/fluent-bit:4.0
     volumes:
       - logs:/var/log/app:ro
-      - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
-    environment:
-      - ELASTICSEARCH_HOST=elasticsearch
+      - ./fluent-bit.yaml:/fluent-bit/etc/fluent-bit.yaml:ro
+    command: ["-c", "/fluent-bit/etc/fluent-bit.yaml"]
+    depends_on: [app]
 
 volumes:
   logs:
 ```
 
-**How it works.** Both containers mount the named volume `logs`. The app mounts it read-write at `/var/log/app` and writes log files there. The `log-forwarder` mounts the same volume read-only (`:ro`), tails the files, and forwards each line to Elasticsearch. Because the volume is shared, no network round-trip or log API is needed between them.
+The application mounts the volume read-write; the forwarder mounts it read-only. No network hop or logging API is involved.
 
-**When to use it.** Reach for a sidecar when the helper needs to *read from* or *write to* the same files or local sockets as the application, and when the helper's lifecycle is tied to the app's. Common sidecars:
+### Native sidecars in Kubernetes
 
-- **Log shippers** — Fluent Bit, Vector, Promtail tailing a shared volume.
-- **Metrics agents** — a Prometheus exporter scraping the app over `localhost`.
-- **Config/secret reloaders** — a process watching a config source and rewriting a file the app reads.
-- **Service-mesh proxies** — Envoy injected as a sidecar to intercept all traffic (this is the Ambassador pattern specialized for meshes).
-
-**Trade-offs.** A sidecar doubles the container count and consumes its own CPU and memory. Keep sidecar images tiny and resource-limited; a leaky log shipper should never starve the application it serves.
-
-## Ambassador Pattern
-
-An **ambassador** is a proxy container that brokers the main container's *outbound* (or inbound) network communication. The application connects to `localhost` as if the dependency were local; the ambassador handles the real work — TLS, retries, service discovery, load balancing, circuit breaking — transparently.
-
-```yaml
-# Service mesh ambassador
-services:
-  app:
-    image: my-app:latest
-    network_mode: "service:envoy"
-
-  envoy:
-    image: envoyproxy/envoy:v1.31-latest
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./envoy.yaml:/etc/envoy/envoy.yaml
-```
-
-**How it works.** The key line is `network_mode: "service:envoy"`: it places the `app` container in the *same network namespace* as `envoy`. They now share one loopback interface and one set of ports. The app dials `localhost:9000` for its database; Envoy is listening there and forwards the connection to the real, possibly remote, database — adding mutual TLS, connection pooling, and retries along the way. The application's code stays ignorant of all of it.
-
-**Why this matters.** The ambassador decouples the application from the *topology* of its dependencies. Move the database, add a read replica, or wrap every call in mTLS, and you change only the ambassador's config — never the application image. This is precisely the mechanism behind service meshes (Istio, Linkerd), where an Envoy sidecar-ambassador is injected next to every workload to form the mesh data plane.
-
-**Inbound ambassadors** work the same way in reverse: the proxy terminates TLS and rate-limits before forwarding clean HTTP to the app on `localhost`, so the application never handles certificates or abusive clients directly.
-
-## Adapter Pattern
-
-An **adapter** (sometimes called a *normalizer*) standardizes the output of a container so the outside world sees a uniform interface. Where the ambassador adapts the *connection*, the adapter adapts the *data or interface shape* — most often to expose a legacy or third-party app's metrics, logs, or health in a format your platform expects.
-
-```yaml
-# Metrics adapter example
-services:
-  legacy-app:
-    image: legacy-app:latest
-
-  metrics-adapter:
-    image: prom-exporter:latest
-    environment:
-      - LEGACY_APP_URL=http://legacy-app:8080
-      - METRICS_PATH=/legacy/stats
-    ports:
-      - "9090:9090"
-```
-
-**How it works.** The `legacy-app` exposes statistics in its own idiosyncratic format at `/legacy/stats`. Your monitoring stack speaks Prometheus, which expects metrics in the OpenMetrics text format on a `/metrics` endpoint. The `metrics-adapter` polls the legacy endpoint, translates each value into a Prometheus metric, and serves the result on port `9090`. Prometheus scrapes the adapter; neither the legacy app nor Prometheus needs to change.
-
-**Typical adapters.**
-
-- **Metrics exporters** — `node_exporter`, `redis_exporter`, JMX exporters that turn app-specific stats into Prometheus format.
-- **Log format normalizers** — a container that reshapes unstructured app logs into structured JSON before shipping.
-- **Health-check shims** — translate a non-standard liveness signal into the HTTP `200`/`503` your orchestrator probes.
-
-### Choosing Between the Three
-
-The three composition patterns are easy to confuse because they all run a helper next to the app. The distinction is *what* the helper mediates:
-
-| Pattern | Mediates | Direction | Canonical example |
-|---------|----------|-----------|-------------------|
-| **Sidecar** | Shared local resources (files, sockets) | Augments the app in place | Log shipper on a shared volume |
-| **Ambassador** | Network connections | Brokers traffic in/out | Envoy proxy for mTLS and discovery |
-| **Adapter** | Data/interface shape | Normalizes the app's external surface | Prometheus exporter for a legacy app |
-
-A single Pod may use all three at once: an init container seeds config, an ambassador handles egress mTLS, a sidecar ships logs, and an adapter exposes metrics — while the application container does nothing but serve requests.
-
-## Init Containers
-
-An **init container** runs *before* the main container starts, performs one-time setup, then exits. The main container does not start until every init container has completed successfully. This is the pattern for any work that must happen *once, before the app*, and must *block* startup if it fails: schema migrations, fetching secrets or config, waiting on a dependency, or fixing volume permissions.
-
-Init containers are a first-class Kubernetes concept. In Docker Compose the same ordering is approximated with `depends_on` plus a service that runs to completion.
-
-**Kubernetes:**
+Historically, a Kubernetes sidecar was just another entry in `containers`, which caused two problems: the sidecar could start *after* the app (a proxy not yet ready when the app made its first call), and a Job never completed because the sidecar kept running after the main container exited. Kubernetes 1.28 introduced **native sidecar containers**, stable since 1.33: an entry in `initContainers` with `restartPolicy: Always`.
 
 ```yaml
 apiVersion: v1
 kind: Pod
 metadata:
-  name: web-with-init
+  name: app-with-log-shipper
 spec:
   initContainers:
-  - name: wait-for-db
-    image: busybox:1.36
-    # Block until the database accepts connections
-    command: ['sh', '-c', 'until nc -z db 5432; do echo waiting for db; sleep 2; done']
-  - name: run-migrations
-    image: myregistry/migrations:latest
-    command: ['/app/migrate', 'up']
-    env:
-    - name: DATABASE_URL
-      valueFrom:
-        secretKeyRef:
-          name: db-credentials
-          key: url
+    - name: log-shipper
+      image: fluent/fluent-bit:4.0
+      restartPolicy: Always          # makes this a sidecar, not a one-shot init
+      volumeMounts:
+        - name: logs
+          mountPath: /var/log/app
+          readOnly: true
   containers:
-  - name: web
-    image: myregistry/web:latest
-    ports:
-    - containerPort: 8080
+    - name: app
+      image: my-app:1.4.0
+      volumeMounts:
+        - name: logs
+          mountPath: /var/log/app
+  volumes:
+    - name: logs
+      emptyDir: {}
 ```
 
-The `web` container starts only after `wait-for-db` confirms the database is reachable *and* `run-migrations` applies the schema. If either init container fails, Kubernetes restarts the Pod and retries — the application never sees a half-migrated database.
+```mermaid
+sequenceDiagram
+    participant K as kubelet
+    participant I as init: migrate
+    participant S as sidecar: log-shipper
+    participant A as app
+    K->>I: start
+    I-->>K: exit 0
+    K->>S: start
+    S-->>K: started (startupProbe passes)
+    K->>A: start
+    Note over A,S: both run; sidecar restarts independently if it crashes
+    K->>A: SIGTERM (Pod deleted)
+    A-->>K: exited
+    K->>S: SIGTERM (after app has stopped)
+```
 
-**Docker Compose equivalent:**
+A native sidecar starts before the main containers, in declaration order with other init containers, restarts on failure, does not block Job completion, and is terminated only after the main containers have exited, so it can ship the application's last log lines or proxy its final requests.
+
+Common sidecars: log shippers (Fluent Bit, Vector, the OpenTelemetry Collector), configuration and secret reloaders (Vault Agent, config watchers), certificate rotators, and service-mesh proxies. Give each sidecar explicit CPU and memory limits; a leaking helper should not starve the application.
+
+## Ambassador Pattern
+
+An **ambassador** is a proxy that brokers the application's network connections. The application talks to `localhost` as if the dependency were local; the ambassador handles discovery, TLS, retries, timeouts, and circuit breaking.
+
+```yaml
+# compose.yaml
+services:
+  envoy:
+    image: envoyproxy/envoy:v1.39-latest
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml:ro
+    ports:
+      - "8080:8080"                  # inbound traffic enters via the proxy
+
+  app:
+    image: my-app:1.4.0
+    network_mode: "service:envoy"    # share envoy's network namespace
+    environment:
+      DATABASE_URL: postgres://app@localhost:15432/app   # envoy listens here
+```
+
+`network_mode: "service:envoy"` places the application in the proxy's network namespace; they share one loopback interface and one port space. When the app connects to `localhost:15432`, Envoy accepts the connection and forwards it to the real database, adding mutual TLS, connection pooling, and retries. Ports must be published on the service that owns the namespace (`envoy`), not on `app`.
+
+```mermaid
+flowchart LR
+    subgraph NS["shared network namespace"]
+        App["app"] -->|"localhost:15432"| Env["Envoy"]
+    end
+    Env -->|"mTLS, retries,<br/>discovery"| DB[("Database<br/>(any host)")]
+    Client((Client)) -->|":8080"| Env
+```
+
+The ambassador decouples the application from the *topology* of its dependencies: moving the database, adding replicas, or enforcing mTLS changes proxy configuration, not the application. An inbound ambassador works the same way in reverse, terminating TLS and applying rate limits before passing plain HTTP to the app.
+
+### Service meshes: sidecar and sidecar-less
+
+A service mesh automates the ambassador pattern fleet-wide: Istio or Linkerd inject a proxy next to every workload, and a control plane configures all of them. The per-Pod proxy has costs (memory per replica, an extra hop, restarts to upgrade the proxy), which led to **sidecar-less** designs. Istio's **ambient mode** (generally available since Istio 1.24, late 2024) splits the proxy into a per-node layer-4 component (`ztunnel`) that provides mTLS, plus optional per-namespace **waypoint** proxies for layer-7 policy. Cilium's service mesh similarly moves much of the work into eBPF and per-node proxies.
+
+| | Sidecar proxy per Pod | Per-node / ambient |
+|---|---|---|
+| Isolation between workloads | Strong (one proxy each) | Shared node component |
+| Resource overhead | Grows with replica count | Grows with node count |
+| Proxy upgrade | Restart every workload | Upgrade node components |
+| L7 features | Always available | Opt-in waypoint proxies |
+
+The pattern, a proxy that owns the application's network connections, is unchanged; only where the proxy runs differs.
+
+## Adapter Pattern
+
+An **adapter** presents the application's output through a standard interface. The ambassador adapts *connections*; the adapter adapts *data and interfaces*, most often to expose a legacy or third-party application's metrics, logs, or health in the format the platform expects.
+
+```yaml
+# compose.yaml
+services:
+  legacy-app:
+    image: legacy-app:2.3            # exposes stats in its own format at /legacy/stats
+
+  metrics-adapter:
+    image: example/legacy-exporter:1.0   # placeholder: an exporter for this app
+    environment:
+      LEGACY_APP_URL: http://legacy-app:8080/legacy/stats
+    ports:
+      - "9100:9100"                  # Prometheus scrapes /metrics here
+```
+
+The adapter polls the proprietary endpoint, converts each value into Prometheus/OpenMetrics text format, and serves it on `/metrics`. Neither the application nor the monitoring system changes. Real examples are the Prometheus exporter ecosystem (`redis_exporter`, `postgres_exporter`, the JMX exporter), log normalizers that turn unstructured output into structured JSON, and health shims that translate an application-specific status into an HTTP `200`/`503` for probes.
+
+### Choosing between the three
+
+| Pattern | Mediates | Coupling to the app | Canonical example |
+|---------|----------|---------------------|-------------------|
+| **Sidecar** | Local resources (files, sockets, processes) | Shared volume or PID namespace | Log shipper tailing a shared volume |
+| **Ambassador** | Outbound or inbound connections | Shared network namespace (`localhost`) | Envoy providing mTLS and discovery |
+| **Adapter** | The shape of the app's external interface | Network or volume, read-only | Prometheus exporter for a legacy app |
+
+The terms overlap in practice: a mesh proxy is often called a "sidecar" because of how it is deployed, even though its job is the ambassador's. The distinction that matters is what the helper mediates.
+
+## Init Containers
+
+An **init container** runs to completion before the application starts; if it fails, the application does not start. It is the pattern for work that must happen once, before the app, and must block startup on failure: schema migrations, waiting for a dependency, fetching configuration, or fixing volume permissions.
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web
+spec:
+  initContainers:
+    - name: wait-for-db
+      image: busybox:1.37
+      command: ['sh', '-c', 'until nc -z db 5432; do echo waiting for db; sleep 2; done']
+    - name: migrate
+      image: registry.example.com/migrations:1.4.0
+      command: ['/app/migrate', 'up']
+      env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef: { name: db-admin, key: url }
+  containers:
+    - name: web
+      image: registry.example.com/web:1.4.0
+      ports:
+        - containerPort: 8080
+```
+
+Init containers run sequentially in declaration order. If one fails, the kubelet retries it according to the Pod's `restartPolicy`, and `web` never sees a partially migrated schema.
+
+In Compose, the equivalent is a one-shot service plus `depends_on` conditions:
 
 ```yaml
 services:
+  db:
+    image: postgres:18
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 10
+
   migrate:
-    image: myregistry/migrations:latest
+    image: registry.example.com/migrations:1.4.0
     command: ["/app/migrate", "up"]
     depends_on:
       db:
         condition: service_healthy
-    restart: "no"            # run once, do not restart
+    restart: "no"
 
   web:
-    image: myregistry/web:latest
-    ports:
-      - "8080:8080"
+    image: registry.example.com/web:1.4.0
     depends_on:
       migrate:
-        condition: service_completed_successfully   # wait for migrate to exit 0
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+        restart: true          # restart web if Compose restarts db
 ```
 
-The `service_completed_successfully` condition is Compose's way to express "start `web` only after `migrate` exits cleanly" — the same ordering guarantee an init container provides.
+`service_completed_successfully` starts `web` only after `migrate` exits with status 0.
 
-**Why a separate container, not a startup script?** Putting migrations in an init container keeps the application image free of migration tooling and database admin credentials. The init container can use a different, more privileged image and identity, run to completion, and disappear — leaving the long-running app with the minimal image and least-privileged credentials it actually needs.
+A separate container rather than a startup script keeps migration tooling and database-admin credentials out of the application image: the init container can use a different image and a more privileged identity, and then it is gone. Two caveats: with many replicas, every Pod runs its init containers, so migrations must be idempotent or guarded by a lock; and large schema changes are often better run as a separate Job in the deployment pipeline than as an init step in every Pod.
 
 ## Image Security Patterns
 
-The composition patterns above shape *how containers run together*; the next two sections shape *what is inside the image* and *what it is allowed to do at runtime*. Both reduce attack surface.
+The composition patterns decide how containers run together. The next patterns decide what is inside an image and what the process may do.
 
-### Distroless Images
+### Distroless and hardened base images
 
-A "distroless" image contains *only* your application and its runtime dependencies — no shell, no package manager, no `ls`, no `cat`. There is nothing for an attacker who lands a remote-code-execution bug to pivot with: no `sh` to spawn, no `curl` to exfiltrate, no `apt` to install tools. The image is also dramatically smaller, which means fewer CVEs to patch and faster pulls.
+A **distroless** image contains the application and its runtime dependencies and nothing else: no shell, no package manager, no coreutils. An attacker who achieves code execution has no `sh`, `curl`, or `apt` to work with, the image has far fewer packages to accumulate CVEs, and it pulls faster.
 
 ```dockerfile
-# Multi-stage build with distroless
-FROM golang:1.23 AS builder
-WORKDIR /app
+# syntax=docker/dockerfile:1
+FROM golang:1.26 AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -o myapp .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/app .
 
-# Distroless image - no shell, package manager, or utilities
-FROM gcr.io/distroless/static:nonroot
-COPY --from=builder /app/myapp /
-USER nonroot:nonroot
-ENTRYPOINT ["/myapp"]
+FROM gcr.io/distroless/static-debian13:nonroot
+COPY --from=build /out/app /app
+ENTRYPOINT ["/app"]
 ```
 
-**How it works.** A multi-stage build does all the messy compilation in a full `golang` image, then copies *only the resulting static binary* into `gcr.io/distroless/static`. `CGO_ENABLED=0` produces a statically linked binary with no libc dependency, so the runtime image needs nothing but the binary itself. The `:nonroot` tag and `USER nonroot:nonroot` ensure the process runs as an unprivileged user.
+`CGO_ENABLED=0` produces a statically linked binary, so the runtime image needs no libc. The `:nonroot` tag already sets `USER` to UID 65532.
 
-**The distroless family** (from Google's `distroless` project, with similar offerings from Chainguard's `wolfi`) is tiered by how much runtime the language needs:
+Google's distroless images (currently based on Debian 13) are tiered by how much runtime the language needs:
 
-| Image | Contains | Use for |
-|-------|----------|---------|
-| `distroless/static` | CA certs, tzdata, `/etc/passwd` | Statically linked Go/Rust binaries |
-| `distroless/base` | The above + glibc, libssl | Dynamically linked native binaries |
-| `distroless/cc` | base + libgcc, libstdc++ | C/C++ and some Rust binaries |
-| `distroless/java`, `python3`, `nodejs` | base + the language runtime | JVM, CPython, Node apps |
+| Image | Adds | For |
+|-------|------|-----|
+| `static-debian13` | CA certificates, tzdata, `/etc/passwd` | Static Go and Rust binaries |
+| `base-debian13` | glibc, OpenSSL | Dynamically linked native binaries |
+| `cc-debian13` | libgcc, libstdc++ | C/C++ and some Rust binaries |
+| `java21-debian13`, `java25-debian13` | A JRE | JVM applications |
+| `nodejs22-debian13`, `nodejs24-debian13` | Node.js | Node applications |
+| `python3-debian13` | CPython | Python applications (dependencies copied in from a build stage) |
 
-**The debugging caveat.** With no shell, `docker exec -it container sh` will not work — there is no `sh`. Use the `:debug` variant of a distroless image (which adds BusyBox) for local troubleshooting, or attach an *ephemeral debug container* in Kubernetes (`kubectl debug`) that brings its own tools into the Pod without modifying the hardened production image.
+Each is published with `:latest`, `:nonroot`, `:debug`, and `:debug-nonroot` tags; the `debug` variants add a BusyBox shell for troubleshooting.
 
-### Run as Non-Root and Drop Privileges
+Distroless is one of several **minimal, hardened image** families:
 
-Distroless gives you a non-root *user*; defense in depth means also stripping the *capabilities* and write access the process does not need. A hardened production image and run spec typically combines:
+| Family | Characteristics |
+|--------|-----------------|
+| Google distroless | Debian packages, no shell; free |
+| Chainguard Images | Built on the Wolfi distribution, rebuilt continuously for low CVE counts; `-dev` variants include a shell and package manager |
+| Docker Hardened Images | Maintained by Docker on Debian and Alpine; non-root by default; signed SBOMs, VEX, and SLSA Build Level 3 provenance; the core catalog is free under Apache 2.0, with paid tiers for remediation SLAs |
+| `scratch` | Empty; you supply everything (CA certificates and `/etc/passwd` included) |
 
-```dockerfile
-# In the Dockerfile: never run as root
-FROM gcr.io/distroless/base:nonroot
-COPY --from=builder /app/server /server
-USER nonroot:nonroot          # UID 65532, not root
-ENTRYPOINT ["/server"]
+The build-and-runtime split of dev and runtime variants follows the multi-stage pattern in [Dockerfiles](dockerfiles.html#multi-stage-builds): compile in the variant with tools, ship the one without.
+
+**Debugging without a shell.** `docker exec -it app sh` fails on a distroless container because there is no `sh`. Instead, attach a tools container to its namespaces, which leaves the production image unchanged:
+
+```bash
+# Docker: a tools container sharing the target's network and PID namespaces
+docker run --rm -it --network container:app --pid container:app nicolaka/netshoot
+
+# Docker Desktop: docker debug attaches a toolbox shell without modifying the image
+docker debug app
+
+# Kubernetes: an ephemeral debug container targeting the app's process namespace
+kubectl debug -it pod/web --image=busybox:1.37 --target=web
 ```
+
+### Least privilege at runtime
+
+The image should run as non-root; the runtime specification should remove what the process does not need:
 
 ```yaml
-# In the runtime spec (Compose): least privilege at launch
+# compose.yaml
 services:
   server:
-    image: myregistry/server:latest
+    image: registry.example.com/server:1.4.0
+    user: "65532:65532"
     read_only: true                 # immutable root filesystem
-    cap_drop:
-      - ALL                         # drop every Linux capability
-    security_opt:
-      - no-new-privileges:true      # block setuid escalation
     tmpfs:
-      - /tmp                        # writable scratch where actually needed
+      - /tmp                        # writable scratch space only where needed
+    cap_drop: [ALL]                 # no Linux capabilities
+    security_opt:
+      - no-new-privileges:true      # setuid binaries cannot escalate
+    pids_limit: 256
 ```
 
-Each control closes a path an attacker would otherwise use: `read_only` prevents writing a payload to disk, `cap_drop: ALL` removes powers like `CAP_NET_RAW` and `CAP_SYS_ADMIN`, and `no-new-privileges` stops a setuid binary from re-escalating. (Storage and capability hardening are covered in depth in [Storage &amp; Security](storage-security.html); the point here is that the *image pattern* and the *runtime pattern* reinforce each other.)
+The Kubernetes equivalent is a `securityContext` with `runAsNonRoot: true`, `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false`, `capabilities: { drop: [ALL] }`, and `seccompProfile: { type: RuntimeDefault }`, which together satisfy the Pod Security Standards *restricted* profile.
+
+| Control | Blocks |
+|---------|--------|
+| Non-root UID | Writing to root-owned paths; many container-escape techniques |
+| Read-only root filesystem | Dropping and running payloads, tampering with binaries |
+| `cap_drop: ALL` | Raw sockets (`NET_RAW`), mounts and namespace tricks (`SYS_ADMIN`), ownership changes |
+| `no-new-privileges` | Escalation through setuid/setgid binaries |
+| Default seccomp profile | Rarely needed, dangerous syscalls |
+| User namespaces (rootless Docker, `userns-remap`, Kubernetes `hostUsers: false`) | Container root mapping to host root |
+
+Volume, secrets, and capability hardening are covered in more depth in [Storage &amp; Security](storage-security.html); user namespaces in [Container Runtimes](../container-runtimes.html#user-namespaces-and-rootless-containers).
 
 ## Runtime Security Patterns
 
-Image hardening shrinks the attack surface; **runtime detection** catches the cases where an attacker gets in anyway. The pattern is to watch system calls and container behavior against a policy of what is expected, and alert (or block) on anything outside it.
+Hardening shrinks the attack surface; **runtime detection** catches what gets through anyway. The pattern is to observe system calls and container behavior, compare them against expected behavior, and alert on or block deviations.
+
+[Falco](https://falco.org/), a CNCF graduated project, taps the kernel's syscall stream (with its modern eBPF probe by default) and evaluates each event against rules:
 
 ```yaml
-# falco-rules.yaml
-- rule: Unauthorized Process in Container
-  desc: Detect unauthorized process execution
+# custom-rules.yaml
+- list: web_allowed_processes
+  items: [nginx, node]
+
+- rule: Unexpected process in web container
+  desc: A process not on the allowlist started in a web-tier container
   condition: >
-    container and
-    not proc.name in (allowed_processes) and
-    not container.image.repository in (trusted_images)
+    spawned_process and container
+    and container.image.repository = "registry.example.com/web"
+    and not proc.name in (web_allowed_processes)
   output: >
-    Unauthorized process in container
-    (user=%user.name command=%proc.cmdline container=%container.name)
+    Unexpected process in web container
+    (command=%proc.cmdline user=%user.name container=%container.name image=%container.image.repository)
   priority: WARNING
+  tags: [container, process]
 ```
 
-**How it works.** [Falco](https://falco.org/) is a CNCF runtime-security engine that taps the kernel's system-call stream (via eBPF) and evaluates each event against rules like the one above. The rule fires when a process starts inside a container whose name is *not* on an allowlist and whose image is *not* trusted — a strong signal that an attacker has spawned a shell or dropped a tool inside a container that should only ever run its one known process. Because distroless images have *no* extra processes, this rule pairs naturally with them: any unexpected process is, by construction, anomalous.
+`spawned_process` and `container` are macros from Falco's default ruleset. The rule fires when anything other than the expected processes starts in the web image, such as a shell spawned through a remote-code-execution bug. It pairs well with distroless images, where the legitimate process set is a single binary and any other process is anomalous by construction.
 
-**Layers of runtime defense.** Falco is one tool in a broader runtime-security pattern:
+Runtime detection is one layer in a chain of controls, each covering a different point in an image's life:
 
-- **Behavioral detection** (Falco, Tetragon) — alert on unexpected syscalls, file writes, or network connections.
-- **Admission control** (OPA Gatekeeper, Kyverno) — reject Pods at deploy time that run as root, lack resource limits, or use untrusted registries.
-- **Image scanning and provenance** (Docker Scout, Trivy, SLSA attestations) — block images with known CVEs or without a verifiable build origin before they ever run.
+```mermaid
+flowchart LR
+    B["Build<br/>minimal base,<br/>multi-stage"] --> S["Scan and attest<br/>Scout, Trivy, Grype;<br/>SBOM, provenance, signature"]
+    S --> A["Admit<br/>Kyverno, OPA Gatekeeper,<br/>Pod Security Admission"]
+    A --> R["Run<br/>non-root, read-only,<br/>no capabilities"]
+    R --> D["Detect and respond<br/>Falco, Tetragon"]
+    D -.->|findings feed back| B
+```
 
-Together these enforce a closed loop: only vetted images deploy, they run with least privilege, and any deviation at runtime is detected. No single layer is sufficient — a scanned image can still be exploited at runtime, and a runtime alert is too late if a privileged container has already been deployed.
+| Stage | Tools | Catches |
+|-------|-------|---------|
+| Scan and attest | Docker Scout, Trivy, Grype; SBOM and SLSA provenance; cosign or Notation signatures | Known CVEs; images of unknown origin |
+| Admission | Kyverno, OPA Gatekeeper, Pod Security Admission, signature-verification policies | Privileged, root, unsigned, or unapproved-registry workloads |
+| Runtime detection and enforcement | Falco, Tetragon (eBPF, can kill offending processes) | Exploitation of unknown bugs, attacker activity inside a container |
+
+No single layer is sufficient: a clean scan says nothing about zero-days, and a runtime alert comes too late if a privileged container was admitted.
 
 ## Putting the Patterns Together
 
-A production deployment usually layers several of these patterns at once. A typical hardened web workload looks like:
-
 ```mermaid
 flowchart TB
-    subgraph Pod["Pod"]
-        Init["initContainer:<br/>wait-for-db + migrate"]
-        App["app container<br/>(distroless, non-root,<br/>read-only FS)"]
-        Amb["ambassador:<br/>Envoy mTLS proxy"]
-        Side["sidecar:<br/>log shipper"]
-        Init -.->|runs first, then exits| App
+    subgraph Pod["Pod: web"]
+        Init["init: migrate<br/>(exits before app)"]
+        App["app<br/>distroless, non-root,<br/>read-only FS"]
+        Amb["sidecar: Envoy<br/>(ambassador, mTLS)"]
+        Side["sidecar: log shipper"]
+        Init -.-> App
         App <-->|localhost| Amb
         App -->|shared volume| Side
     end
-    Amb <-->|mTLS| Mesh[("Service mesh /<br/>databases")]
-    Side -->|ships| Logs[("Log store")]
-    Falco["Falco (node agent)"] -.->|watches syscalls| Pod
+    Amb <-->|mTLS| Deps[("Other services,<br/>database")]
+    Side --> Logs[("Log store")]
+    Falco["Falco / Tetragon<br/>(node agent)"] -.->|observes syscalls| Pod
 ```
 
-The init container guarantees the schema is ready before the app starts; the distroless, non-root, read-only app container minimizes what an attacker can do; the ambassador handles encryption and discovery; the sidecar ships logs; and a node-level Falco agent watches every container for anomalous behavior. Each pattern owns one concern, and the application image stays focused on business logic.
+The init container ensures the schema exists before the app starts; the application image contains only the application and runs with least privilege; the ambassador handles encryption and discovery; the sidecar ships logs; and a node agent watches every container for anomalous behavior. Each component owns one concern.
 
 ## See Also
 
-- [Docker Fundamentals](fundamentals.html) - Images, containers, and core concepts
-- [Docker: Storage &amp; Security](storage-security.html) - Volumes, network drivers, and container hardening
-- [Docker: Dockerfiles &amp; CI/CD](dockerfiles.html) - Multi-stage builds and pipelines
-- [Docker: Advanced Patterns](advanced.html) - Production architectures, case studies, and WebAssembly runtimes
-- [Kubernetes](../kubernetes/) - Pods, init containers, and orchestration at scale
-- [Docker Essentials](../docker-essentials.html) - Quick command reference
+- [Fundamentals](fundamentals.html) - Images, containers, and namespaces
+- [Dockerfiles &amp; CI/CD](dockerfiles.html) - Multi-stage builds and build-time secrets
+- [Networking](docker-networking.html) - Shared network namespaces and Compose networking
+- [Storage &amp; Security](storage-security.html) - Volumes, capabilities, and secrets
+- [Registries &amp; Supply Chain](registry.html) - Signing, SBOMs, and provenance
+- [Production Patterns](advanced.html) - Compose in production, Swarm, and reference architectures
+- [Container Runtimes](../container-runtimes.html) - Sandboxed runtimes and user namespaces
+- [Kubernetes](../kubernetes/) - Pods, init containers, and sidecars at scale
+
+## References
+
+- B. Burns and D. Oppenheimer, "Design Patterns for Container-based Distributed Systems," USENIX HotCloud 2016
+- [Kubernetes: Sidecar containers](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/)
+- [Compose file reference: depends_on](https://docs.docker.com/reference/compose-file/services/#depends_on)
+- [Distroless container images](https://github.com/GoogleContainerTools/distroless)
+- [Docker Hardened Images](https://docs.docker.com/dhi/)
+- [Falco rules documentation](https://falco.org/docs/concepts/rules/)

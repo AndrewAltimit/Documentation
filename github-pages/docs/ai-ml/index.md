@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: AI/ML Documentation
+description: "Hub for the AI/ML section: diffusion-based image generation (Stable Diffusion, SDXL, SD3, FLUX), ComfyUI, LoRA training, ControlNet and editing, optimisation, production pipelines, MLOps, and game AI."
 nav_order: 20
 has_children: true
 permalink: /docs/ai-ml/
@@ -10,220 +11,212 @@ hide_title: true
 
 <div class="hero-section" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">AI/ML Documentation</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Your comprehensive guide to AI image generation, custom model training, and automated creative workflows.</p>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Diffusion image generation, custom model training, and running generative models in production.</p>
 </div>
 
-This section takes you from your first generated image to training your own artistic styles and shipping them to production. It is organized in three arcs:
+This section is a reference for **open-weight image generation**: how diffusion and flow-matching models work, how the major model families differ, how to steer and customise them with ComfyUI, LoRAs, ControlNet and editing models, and how to run them efficiently and reliably at scale. It also includes a separate page on [game AI](game-ai.html). General machine-learning theory lives in [AI Fundamentals](../technology/ai/).
 
-- **Foundations** — how diffusion turns noise into images, the model stack, and how to choose a base model for your task and hardware.
-- **Tools** — build node workflows in ComfyUI, train your own LoRAs, edit existing images, and steer composition precisely with ControlNet.
-- **Production** — optimize for your hardware, compress models, automate pipelines, and run reliable, observable services with MLOps.
+## How the Section Is Organised
 
-> **Suggested path:** start with the **Foundations**, pick up the **Tools** that match your goal, then move into **Production** workflows. Use the "Choose Your Path" table below to jump straight to your starting point.
-
-## Why Learn AI Image Generation?
-
-AI image generation has transformed from a research curiosity into a practical creative tool. Artists use it to explore new styles, designers prototype concepts in minutes instead of hours, and developers build automated content pipelines. The technology is accessible enough to run on consumer hardware, yet powerful enough for professional applications.
-
-**Consider the following before diving in:**
-
-- **What do you want to create?** Photorealistic images, artistic illustrations, anime characters, or product mockups each benefit from different approaches
-- **How much control do you need?** Quick generation versus precise artistic direction require different tools and workflows
-- **Will you need custom styles or subjects?** Training your own models unlocks personalized results that generic models cannot achieve
-
-This documentation covers the practical skills you need, from understanding how the technology works to building production-ready workflows.
-
-## Quick Start: Your First Image
-
-The fastest way to generate an image is through ComfyUI's web interface:
-
-```bash
-# Start ComfyUI and open http://localhost:8188
-docker compose up -d comfyui-server
+```mermaid
+flowchart LR
+    subgraph F["Foundations"]
+        F1["Stable Diffusion<br/>Fundamentals"]
+        F2["Model Types"]
+        F3["Base Models<br/>Comparison"]
+    end
+    subgraph M["Model families"]
+        M1["SDXL"]
+        M2["SD3"]
+        M3["FLUX"]
+        M4["Pony &<br/>fine-tunes"]
+    end
+    subgraph T["Tools and control"]
+        T1["ComfyUI"]
+        T2["LoRA Training"]
+        T3["ControlNet"]
+        T4["Inpainting &<br/>Editing"]
+    end
+    subgraph P["Production"]
+        P1["Optimization"]
+        P2["Model<br/>Compression"]
+        P3["Production<br/>Pipelines"]
+        P4["MLOps"]
+    end
+    F --> M --> T --> P
 ```
 
-Once the interface loads, you can use the default workflow immediately. Type your prompt, click "Queue Prompt," and watch your image generate.
+Start with the foundations if the vocabulary (latent, sampler, CFG, text encoder) is new; otherwise jump straight to the page for your task.
 
-For programmatic access or automation, the MCP API accepts JSON requests:
+| Your goal | Start here | Then |
+|-----------|-----------|------|
+| Understand how generation works | [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) | [Model Types](model-types.html) |
+| Pick a base model | [Base Models Comparison](base-models-comparison.html) | The family guide: [SDXL](sdxl-guide.html), [SD3](sd3-guide.html), [FLUX](flux-guide.html), [Pony & Fine-Tunes](pony-and-finetunes.html) |
+| Generate images | [ComfyUI Guide](comfyui-guide.html) | [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) |
+| Train a style, character or concept | [LoRA Training](lora-training.html) | [Advanced Techniques](advanced-techniques.html) |
+| Control pose and composition | [ControlNet](controlnet.html) | [ComfyUI Guide](comfyui-guide.html) |
+| Edit an existing image | [Inpainting & Editing](inpainting-editing.html) | [FLUX Guide](flux-guide.html) (Kontext, FLUX.2) |
+| Produce video, audio or 3D | [Output Formats](output-formats.html) | [Advanced Techniques](advanced-techniques.html) |
+| Fit a model on a smaller GPU or run it faster | [Optimization & Performance](optimization-guide.html) | [Model Compression](model-compression.html) |
+| Generate at scale | [Production Pipelines](production-pipelines.html) | [MLOps & Production](mlops-production.html) |
+| Build NPC behavior | [Game AI Systems](game-ai.html) | [Game Development](../gamedev/) |
 
-```bash
-curl -X POST http://localhost:8189/mcp/tool \
-  -H "Content-Type: application/json" \
-  -d '{"tool": "generate-image", "arguments": {"prompt": "mountain landscape at sunset"}}'
+## How Image Generation Works
+
+A modern text-to-image model is a pipeline of separately trained components. The prompt is encoded once; the denoiser then runs for a number of steps, gradually turning random noise in a compressed **latent** space into a latent image, which the VAE decodes to pixels. Add-ons attach to specific points in this pipeline.
+
+```mermaid
+flowchart LR
+    Prompt["Prompt"] --> TE["Text encoder(s)<br/>CLIP, T5, or an LLM"]
+    Noise["Random latent<br/>(seed)"] --> Den["Denoiser<br/>U-Net or transformer<br/>runs N steps"]
+    TE --> Den
+    Den --> VAE["VAE decoder"]
+    VAE --> Img["Image"]
+    LoRA["LoRA<br/>(weight patch)"] -.-> Den
+    CN["ControlNet<br/>(pose, depth, edges)"] -.-> Den
+    IPA["IP-Adapter / reference<br/>images"] -.-> Den
+    Samp["Sampler + scheduler<br/>steps, guidance"] -.-> Den
 ```
 
-**Hardware at a glance** — requirements scale with the models you run:
+- **Denoiser.** Older families (SD 1.5, SDXL) use a convolutional **U-Net** trained to predict noise. Newer ones (SD3, FLUX, Qwen-Image, Z-Image) use a **diffusion transformer** trained with **flow matching**, which predicts a velocity from noise toward the image.
+- **Text encoder.** CLIP for SD 1.5/SDXL; CLIP plus T5 for SD3 and FLUX.1; full language or vision-language models (Qwen, Mistral) in the newest families, which is why they follow long prompts and render text well.
+- **Guidance.** Classifier-free guidance (CFG) runs the denoiser with and without the prompt and extrapolates; guidance-distilled models such as FLUX.1 [dev] take a guidance value directly and keep CFG at 1.
+- **Steps.** Standard models need roughly 20-40 steps; distilled "turbo", "lightning", LCM and schnell-style models need 1-8.
 
-| Use Case | GPU VRAM | System RAM | Storage |
-|----------|----------|------------|---------|
-| Basic generation (SD 1.5) | 4-6 GB | 16 GB | 50 GB |
-| Standard workflows (SDXL) | 8-12 GB | 32 GB | 200 GB |
-| Advanced models (FLUX, SD3) | 16-24 GB | 64 GB | 500 GB |
-| LoRA training | 8-24 GB | 32-64 GB | 100 GB |
+[Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) explains each stage in detail, and [Model Types](model-types.html) covers the file formats and add-ons.
 
-Most modern NVIDIA GPUs work well. AMD and Apple Silicon have growing support but may require additional configuration. See the [ComfyUI Guide](comfyui-guide.html) for detailed setup, and the [Optimization & Performance](optimization-guide.html) guide if you need to fit larger models on smaller cards.
+## The Model Landscape (2026)
 
-## Choose Your Path
+| Family | Released | Denoiser | License | Notes |
+|--------|----------|----------|---------|-------|
+| SD 1.5 | 2022 | ~0.9B U-Net, 512 px | CreativeML OpenRAIL-M | Legacy, but the largest LoRA/ControlNet back-catalogue |
+| SDXL (and Pony, Illustrious, etc.) | 2023 | ~2.6B U-Net, 1024 px | CreativeML OpenRAIL++-M | Still the most-used base for fine-tunes and anime models |
+| SD 3.5 Large / Medium | Oct 2024 | 8.1B / 2.5B MMDiT | Stability AI Community License | Flow matching, T5 + CLIP encoders |
+| FLUX.1 [dev] / [schnell] | Aug 2024 | 12B rectified-flow transformer | Non-commercial / Apache-2.0 | Kontext (editing) and Krea variants followed in 2025 |
+| Qwen-Image | Aug 2025 | 20B MMDiT | Apache-2.0 | Strong English and Chinese text rendering; Qwen-Image-Edit for editing |
+| Z-Image Turbo | Nov 2025 | 6B single-stream DiT | Apache-2.0 | ~8 steps; fits in 16 GB |
+| FLUX.2 [dev] / [klein] | Nov 2025 / Jan 2026 | 32B / 4B-9B | Non-commercial / Apache-2.0 (4B) | Unified generation and multi-reference editing |
 
-Different goals require different starting points. Find your path below:
+The trend since 2024 is larger transformer denoisers, language-model text encoders, and single models that both generate and edit. SDXL-based fine-tunes remain popular because they are cheap to run and train. See the [Base Models Comparison](base-models-comparison.html) for a detailed comparison.
 
-| Your Goal | Start Here | Then Explore |
-|-----------|------------|--------------|
-| Generate images quickly | [ComfyUI Guide](comfyui-guide.html) | [Base Models Comparison](base-models-comparison.html) |
-| Understand the technology | [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) | [Model Types](model-types.html) |
-| Train custom styles | [LoRA Training](lora-training.html) | [Advanced Techniques](advanced-techniques.html) |
-| Edit existing images | [Inpainting & Editing](inpainting-editing.html) | [ControlNet](controlnet.html) |
-| Control composition precisely | [ControlNet](controlnet.html) | [ComfyUI Guide](comfyui-guide.html) |
-| Make it fit / run faster | [Optimization & Performance](optimization-guide.html) | [Model Compression](model-compression.html) |
-| Automate generation at scale | [Production Pipelines](production-pipelines.html) | [Output Formats](output-formats.html) |
-| Run reliable ML services | [MLOps & Production](mlops-production.html) | [Production Pipelines](production-pipelines.html) |
+## Getting Started
 
-## Key Concepts
+### Choosing an Interface
 
-Understanding a few core ideas will help you make better decisions about models, settings, and workflows.
+| Interface | Style | Status (2026) | Good for |
+|-----------|-------|---------------|----------|
+| ComfyUI | Node graph | Very active; first to support new models; also a desktop app | Complex workflows, automation, anything new |
+| SwarmUI | Simple UI over a ComfyUI backend | Active | A friendlier front end with ComfyUI's model support |
+| InvokeAI | Canvas and layers | Active | Editing, inpainting, art-directed work |
+| Forge and its forks | A1111-style tabs | Sporadic upstream updates; active forks | Users coming from Automatic1111 |
+| Automatic1111 WebUI | Tabs and extensions | Largely unmaintained since 2024 | Existing setups only |
+| Fooocus | Minimal prompt box | Bug fixes only | Quick SDXL generation |
 
-### How Diffusion Models Create Images
+These pages use **ComfyUI** because its graph makes every component explicit and because it can be driven headlessly for [production pipelines](production-pipelines.html).
 
-Diffusion models learn by studying how images gradually dissolve into random noise, then learning to reverse that process. When you generate an image, the model starts with pure noise and progressively refines it into a coherent picture, guided by your text prompt.
+### First Image
 
-This happens in "latent space" (a compressed mathematical representation) rather than pixel-by-pixel, which is why modern models can run on consumer hardware. Each generation step removes a bit of noise while steering toward your described content.
+ComfyUI can be installed as the desktop application, the Windows portable build, or from source:
 
-| Generation Approach | Steps Needed | Best For |
-|---------------------|--------------|----------|
-| Standard diffusion | 20-50 | High quality, most control |
-| LCM (Latent Consistency) | 4-8 | Fast iteration, previews |
-| Turbo models | 1-4 | Real-time, interactive use |
+```bash
+git clone https://github.com/comfyanonymous/ComfyUI.git
+cd ComfyUI
+python -m venv .venv && source .venv/bin/activate
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128   # match your CUDA version
+pip install -r requirements.txt
+python main.py            # then open http://127.0.0.1:8188
+```
 
-### The Model Stack
+Put a checkpoint in `models/checkpoints/`, load the default workflow, type a prompt and queue it. The [ComfyUI Guide](comfyui-guide.html) covers the containerised setup used elsewhere on this site, model folders, custom nodes and the HTTP API.
 
-AI image generation uses several specialized components working together:
+### Hardware
 
-- **Base Model** - The foundation that understands image-text relationships (SD 1.5, SDXL, FLUX)
-- **VAE** - Compresses images for efficient processing, then decompresses the result
-- **Text Encoder** - Translates your prompt into numbers the model understands
-- **LoRA** - Small add-ons that teach the base model new styles or subjects
-- **ControlNet** - Guides composition using reference images, poses, or edges
+VRAM is the constraint that matters most. Figures are for comfortable 1024 px generation with common fp16/fp8 weights; quantised (GGUF, 4-bit) builds and CPU offload lower them at a speed cost.
 
-Think of the base model as a skilled artist, LoRAs as specialized training, and ControlNet as a reference sketch the artist follows.
+| Workload | GPU VRAM | System RAM |
+|----------|----------|------------|
+| SD 1.5 | 4-6 GB | 16 GB |
+| SDXL and its fine-tunes | 8-12 GB | 16-32 GB |
+| SD 3.5 Medium, Z-Image Turbo, FLUX.2 [klein] 4B | 12-16 GB | 32 GB |
+| FLUX.1 [dev] (fp8), SD 3.5 Large | 12-24 GB | 32-64 GB |
+| Qwen-Image, FLUX.2 [dev] (quantised) | 24-32 GB | 64 GB+ |
+| LoRA training (SDXL / FLUX.1) | 12-24 GB | 32-64 GB |
 
-### Choosing a Workflow Tool
+NVIDIA GPUs have the broadest support. Apple Silicon works through PyTorch's MPS backend and AMD through ROCm (Linux) or DirectML/ZLUDA-style layers, with fewer optimised kernels and occasional node incompatibilities. Plan for 100-500 GB of disk once you collect several model families. The [Optimization & Performance](optimization-guide.html) guide covers quantisation and offloading.
 
-Several interfaces exist for working with these models:
+## All Pages
 
-| Tool | Best For | Learning Curve |
-|------|----------|----------------|
-| ComfyUI | Complex workflows, automation, experimentation | Moderate |
-| Automatic1111/Forge | Feature-rich UI, extensions ecosystem | Low |
-| Fooocus | Simple generation, beginners | Very low |
-| InvokeAI | Professional canvas-based editing | Low-moderate |
+**Foundations**
 
-This documentation focuses on **ComfyUI** because its node-based approach teaches you how the components connect and enables the most advanced workflows.
+- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) — diffusion, latents, samplers, CFG and the parameters that control results.
+- [Model Types](model-types.html) — checkpoints, LoRAs, VAEs, text encoders, ControlNets and IP-Adapters, and how they combine.
+- [Base Models Comparison](base-models-comparison.html) — choosing among SD 1.5, SDXL, SD3, FLUX and fine-tunes.
 
-### Model Generations at a Glance
+**Model families**
 
-The field evolves quickly. Here is how the major model families compare:
+- [SDXL Guide](sdxl-guide.html) — the U-Net workhorse, its refiner, and settings.
+- [Stable Diffusion 3 Guide](sd3-guide.html) — the MM-DiT flow-matching family from Stability AI.
+- [FLUX Guide](flux-guide.html) — FLUX.1 and FLUX.2: architecture, guidance distillation, variants and licenses.
+- [Pony & Community Fine-Tunes](pony-and-finetunes.html) — Pony, Illustrious and other SDXL-derived models.
 
-| Model | Resolution | VRAM Needed | Strengths | Best For |
-|-------|------------|-------------|-----------|----------|
-| SD 1.5 | 512x512 | 4-6 GB | Huge LoRA ecosystem, fast | Beginners, resource-limited setups |
-| SDXL | 1024x1024 | 8-12 GB | Quality, composition | General creative work |
-| SD3 | 1024x1024 | 10-16 GB | Text rendering, prompt following | Text-heavy images, precision |
-| FLUX | 1024x1024+ | 12-24 GB | Photorealism, coherence | Professional quality, portraits |
+**Tools and control**
 
-Start with **SDXL** for the best balance of quality, speed, and ecosystem; use **SD 1.5** on limited hardware or for legacy LoRAs; choose **FLUX** when photorealism matters most; pick **SD3** for text-heavy or precision work. See [Base Models Comparison](base-models-comparison.html) for detailed technical differences.
+- [ComfyUI Guide](comfyui-guide.html) — the node-based workflow builder.
+- [LoRA Training](lora-training.html) — datasets, captions, hyperparameters and trainers.
+- [ControlNet](controlnet.html) — pose, edge, depth and other spatial conditioning.
+- [Inpainting & Editing](inpainting-editing.html) — masking, inpainting, outpainting and instruction editing.
+- [Advanced Techniques](advanced-techniques.html) — regional prompting, latent tricks, flow matching and distillation.
+- [Output Formats](output-formats.html) — diffusion for video, audio and 3D, and exporting each.
 
-## Documentation Overview
+**Production**
 
-Explore the full library, grouped by purpose:
+- [Optimization & Performance](optimization-guide.html) — quantisation, VRAM reduction and inference speed-ups.
+- [Model Compression](model-compression.html) — pruning, distillation, quantisation and low-rank methods.
+- [Production Pipelines](production-pipelines.html) — batch generation, the ComfyUI API, queues and asset pipelines.
+- [MLOps & Production](mlops-production.html) — experiment tracking, registries, rollouts and monitoring.
 
-### Understanding the Foundations
+**Other**
 
-- **[Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html)** — how diffusion models turn noise into images, and the parameters that control your results.
-- **[Model Types](model-types.html)** — the building blocks (checkpoints, LoRAs, VAEs, CLIP/T5, ControlNet, IP-Adapter) and how they fit together.
-- **[Base Models Comparison](base-models-comparison.html)** — SD 1.5 vs SDXL vs SD3 vs FLUX vs Pony: choosing the right foundation for your task and hardware.
-
-### Practical Tools
-
-- **[ComfyUI Guide](comfyui-guide.html)** — the node-based workflow builder for complex, automatable generation pipelines.
-- **[LoRA Training](lora-training.html)** — train custom models for your own styles, characters, or concepts on consumer hardware.
-- **[ControlNet](controlnet.html)** — guide composition with poses, edges, depth maps, and segmentation for precise control.
-- **[Inpainting & Editing](inpainting-editing.html)** — mask, regenerate, extend, and blend regions to edit existing images instead of rerolling them.
-
-### Going Further
-
-- **[Output Formats](output-formats.html)** — diffusion across every medium (image, video, audio, 3D) and how to export each.
-- **[Advanced Techniques](advanced-techniques.html)** — latent interpolation, regional prompting, flow matching, distillation, and expert optimization.
-- **[Game AI Systems](game-ai.html)** — pathfinding, behavior trees, steering, and ML-driven NPCs for real-time interactive AI.
-
-### Optimization & Production
-
-- **[Optimization & Performance](optimization-guide.html)** — quantization, VRAM-reduction tactics, inference speedups, and batching for diffusion models and LLMs.
-- **[Model Compression](model-compression.html)** — pruning, distillation, quantization, low-rank factorization, and edge deployment, with the accuracy you trade.
-- **[Production Pipelines](production-pipelines.html)** — headless generation at scale: batch jobs, parameter sweeps, the ComfyUI API, queues, and asset pipelines.
-- **[MLOps & Production](mlops-production.html)** — reproducible training, experiment tracking, model registries, rollouts, and drift monitoring for reliable services.
+- [Game AI Systems](game-ai.html) — pathfinding, behavior trees, utility AI, planners and ML-driven NPCs.
 
 ## Troubleshooting
 
-When something goes wrong, these are the most common causes and fixes.
+| Symptom | Likely cause | First fixes |
+|---------|--------------|-------------|
+| CUDA out of memory | Model plus resolution exceed VRAM | fp8 or GGUF weights; lower resolution; enable offloading; close other GPU applications |
+| Very slow generation | Running on CPU, or models reloading each run | Check `nvidia-smi` during generation; keep the server running between jobs; use fewer steps or a distilled model |
+| Black, grey or noisy output | VAE mismatch or fp16 VAE overflow (SDXL) | Use the VAE made for the model family (the SDXL fp16-fix VAE for fp16) |
+| Burnt, oversaturated images | Guidance too high; CFG above 1 on a guidance-distilled model | Lower CFG; on FLUX keep `cfg = 1` and adjust guidance |
+| Wrong or ignored composition | Prompt cannot express layout | Describe layout explicitly on modern models, or use [ControlNet](controlnet.html) |
+| LoRA has no effect or breaks the image | LoRA trained for a different base family; missing trigger word | Match the family; check the trigger word and strength |
+| Blurry or smeared details | Too few steps for a non-distilled model; resolution far from native | 20-30 steps; generate near the model's native resolution and upscale |
 
-### Out of Memory Errors
+Prompting differs by family: SD 1.5 and SDXL fine-tunes respond to comma-separated tags and weighting, while T5- and LLM-encoded models (SD3, FLUX, Qwen-Image) respond best to plain descriptive sentences. Put the subject first and describe lighting, composition and style explicitly.
 
-Your GPU ran out of VRAM. Try these solutions in order:
+## Resources
 
-1. Use a smaller model version (fp16 instead of fp32, fp8 for FLUX)
-2. Reduce image resolution
-3. Enable "low VRAM" or "CPU offloading" in your workflow tool
-4. Close other applications using the GPU
+**Models and code**
 
-For systematic VRAM reduction and quantization, see [Optimization & Performance](optimization-guide.html).
+- [Hugging Face](https://huggingface.co/) — official releases and research models
+- [Civitai](https://civitai.com/) — community checkpoints and LoRAs
+- [ComfyUI](https://github.com/comfyanonymous/ComfyUI) and the [ComfyUI documentation](https://docs.comfy.org/)
+- [Hugging Face diffusers](https://huggingface.co/docs/diffusers/) — the reference Python library
 
-### Slow Generation
+**Papers**
 
-Generation taking too long usually means inefficient settings:
+- [High-Resolution Image Synthesis with Latent Diffusion Models](https://arxiv.org/abs/2112.10752) (Rombach et al., 2022) — Stable Diffusion
+- [Flow Matching for Generative Modeling](https://arxiv.org/abs/2210.02747) (Lipman et al., 2022) and [Rectified Flow](https://arxiv.org/abs/2209.03003) (Liu et al., 2022)
+- [Scaling Rectified Flow Transformers for High-Resolution Image Synthesis](https://arxiv.org/abs/2403.03206) (Esser et al., 2024) — SD3 and MM-DiT
+- [Adding Conditional Control to Text-to-Image Diffusion Models](https://arxiv.org/abs/2302.05543) (Zhang et al., 2023) — ControlNet
+- [LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685) (Hu et al., 2021)
 
-1. Reduce sampling steps (20-30 is often sufficient)
-2. Switch to a faster sampler (DPM++ 2M, Euler)
-3. Verify GPU is being used (check `nvidia-smi`)
-4. Ensure models are loaded once, not reloaded per image
+**Community**
 
-### Poor Quality Results
-
-When images do not match your expectations:
-
-| Problem | Solution |
-|---------|----------|
-| Blurry images | Increase steps (30-50), try a different sampler |
-| Wrong composition | Revise prompt structure, consider [ControlNet](controlnet.html) |
-| Artifacts/glitches | Lower CFG scale, check model compatibility |
-| Style not matching | Adjust LoRA strength, verify trigger words |
-
-**Prompt tips:** put the subject first ("a knight in armor" beats "detailed, 4k, masterpiece, knight"), be specific, include lighting/setting/style, and use negative prompts to exclude what you do not want.
-
-## Resources and Community
-
-### Where to Find Models
-
-- [CivitAI](https://civitai.com/) - Largest collection of LoRAs, checkpoints, and community models
-- [Hugging Face](https://huggingface.co/) - Official model releases and research models
-
-### Learning and Help
-
-- [Reddit r/StableDiffusion](https://reddit.com/r/stablediffusion) - Active community discussions
-- [ComfyUI GitHub](https://github.com/comfyanonymous/ComfyUI) - Official documentation and issues
-- [Stable Diffusion Discord](https://discord.gg/stablediffusion) - Real-time community help
-
-### Research Papers
-
-- [Stable Diffusion Paper](https://arxiv.org/abs/2112.10752) - Original architecture
-- [Stable Diffusion 3 Paper](https://arxiv.org/abs/2403.03206) - Latest architecture advances
+- [r/StableDiffusion](https://www.reddit.com/r/StableDiffusion/) — news and discussion across all open image models
 
 ## Related Documentation
 
-Broader AI and machine learning concepts beyond image generation:
-
-- [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) - Conceptual introduction without heavy math
-- [AI Fundamentals - Complete](../technology/ai/) - Technical deep-dive into AI concepts
-- [AI Documentation Hub](../artificial-intelligence/) - All AI-related documentation
-- [Game AI Systems](game-ai.html) - Real-time AI for NPCs and interactive behaviors
-
-> **Hardware Note:** This documentation assumes NVIDIA GPU access. AMD and Apple Silicon support is improving but may require additional configuration and have limited feature availability.
+- [AI Fundamentals - Simplified](../technology/ai-fundamentals-simple.html) — conceptual introduction without heavy math
+- [AI Fundamentals - Complete](../technology/ai/) — machine learning and deep learning in depth
+- [AI Documentation Hub](../artificial-intelligence/) — all AI-related documentation on this site
+- [Game Development](../gamedev/) — the wider context for the game AI page

@@ -1,406 +1,477 @@
 ---
 layout: docs
 title: "Quantum Mechanics: Advanced Formalism"
+description: "Graduate-level quantum formalism: rigged Hilbert spaces, density matrices, POVMs, quantum channels and the Lindblad equation, path integrals, coherent and squeezed states, Wigner functions, and relativistic wave equations."
 permalink: /docs/physics/quantum-mechanics/qm-advanced-formalism.html
 toc: true
 toc_sticky: true
 ---
 
-## Advanced Formalism
-
 [Quantum Mechanics](./) &raquo; Advanced Formalism
 
-**Level and scope.** This page is graduate-level reference material. It assumes comfort with the working formalism — Hilbert spaces, Dirac notation, the Schrödinger equation, and the harmonic oscillator ladder operators developed on the [States, Operators & Dynamics](formalism.html) page. Nothing here is a linear prerequisite for the earlier pages; it is collected for reference and for readers who want the mathematically complete picture.
+This page collects the graduate-level machinery that extends the textbook formalism of normalizable state vectors, Hermitian observables and unitary evolution. It assumes the material on [States, Operators & Dynamics](formalism.html) (Hilbert spaces, Dirac notation, the Schrödinger and Heisenberg pictures, ladder operators). None of it is a prerequisite for the introductory pages; it is here for readers who want the mathematically complete picture or need the tools used in quantum optics, quantum information and field theory.
 
-## Why Go Beyond the Textbook Formalism
+## Overview
 
-The introductory formalism — normalizable states $|\psi\rangle$ in a Hilbert space $\mathcal{H}$, Hermitian observables, unitary evolution — is enough to solve the standard problems. But it quietly breaks down in five places that this page repairs:
+The introductory formalism is sufficient for bound-state problems, but it fails or becomes awkward in several places. Each section below addresses one of them.
 
-1. **Continuous spectra.** The position and momentum eigenstates $|x\rangle$ and $|p\rangle$ are *not* elements of $\mathcal{H}$ — they are not normalizable. The honest home for them is the **rigged Hilbert space**.
-2. **Incomplete knowledge.** A system that is not in a definite pure state — a beam from a thermal source, or a subsystem of an entangled pair — cannot be written as any $|\psi\rangle$. It needs a **density matrix**.
-3. **An alternative to operators entirely.** Feynman's **path integral** reproduces all of quantum mechanics by summing $e^{iS/\hbar}$ over histories, and it is the natural language of field theory and statistical mechanics.
-4. **The classical–quantum boundary of light and oscillators.** **Coherent states** are the "most classical" quantum states; **squeezed states** beat the naive uncertainty bound in one quadrature and underpin precision metrology.
-5. **Real systems are open.** No system is perfectly isolated. The **Lindblad master equation** governs how coupling to an environment produces decoherence and dissipation.
+| Gap in the textbook formalism | Extension | Central object |
+|---|---|---|
+| Position and momentum eigenkets are not normalizable | [Rigged Hilbert space](#rigged-hilbert-spaces) | Gelfand triple $\Phi \subset \mathcal{H} \subset \Phi'$ |
+| Mixtures and subsystems have no state vector | [Density operator](#density-matrices-and-mixed-states) | $\hat\rho \ge 0$, $\operatorname{Tr}\hat\rho = 1$ |
+| Real detectors are not projective measurements | [POVMs](#generalized-measurements-povms) | Effects $\hat E_m \ge 0$, $\sum_m \hat E_m = \mathbb{1}$ |
+| Real systems are not isolated | [Channels and Lindblad dynamics](#open-quantum-systems-and-the-lindblad-equation) | CPTP maps, GKSL generator |
+| Operators obscure the classical limit and field theory | [Path integral](#the-path-integral-formulation) | $\int \mathcal{D}[x]\, e^{iS/\hbar}$ |
+| Oscillators and light near the classical limit | [Coherent and squeezed states](#coherent-and-squeezed-states), [Wigner function](#phase-space-representation-the-wigner-function) | $\hat a\lvert\alpha\rangle = \alpha\lvert\alpha\rangle$, $W(x,p)$ |
+| Schrödinger equation is not Lorentz invariant | [Relativistic wave equations](#relativistic-quantum-mechanics) | Klein–Gordon, Dirac |
 
 ## Rigged Hilbert Spaces
 
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/pdf/quant-ph/0101012.pdf"> Paper: <b><i>Mathematical Foundations of Quantum Mechanics</i></b> - John von Neumann</a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/abs/quant-ph/0502053"> Paper: <b><i>The role of the rigged Hilbert space in quantum mechanics</i></b> - R. de la Madrid</a></p>
 
-### The problem a Hilbert space cannot solve
+### The problem
 
-A **Hilbert space** $\mathcal{H}$ is a complete inner product space over $\mathbb{C}$ — its defining properties are:
+A **Hilbert space** $\mathcal{H}$ is a complete inner-product space over $\mathbb{C}$; the spaces used in quantum mechanics are also **separable** (they have a countable orthonormal basis). For a particle on a line, $\mathcal{H} = L^2(\mathbb{R})$.
 
-- **Inner product:** $\langle\psi|\phi\rangle \in \mathbb{C}$ with $\langle\psi|\phi\rangle^* = \langle\phi|\psi\rangle$.
-- **Norm:** $\lVert\psi\rVert = \sqrt{\langle\psi|\psi\rangle}$.
-- **Completeness:** every Cauchy sequence converges (no "holes").
-- **Separability:** there is a countable dense subset, so a countable orthonormal basis exists.
-
-The trouble is that the most useful "states" in physics are not in $\mathcal{H}$. The position eigenstate obeys $\hat{x}|x\rangle = x|x\rangle$ and $\langle x'|x\rangle = \delta(x'-x)$, so $\langle x|x\rangle = \delta(0) = \infty$ — it has infinite norm. The same is true of the plane-wave momentum eigenstate $\langle x|p\rangle = (2\pi\hbar)^{-1/2}e^{ipx/\hbar}$. These objects are indispensable (every wave function is an expansion over them), yet Dirac's bra–ket manipulations with them are formally illegal inside $\mathcal{H}$ alone. Von Neumann's original cure was to banish them in favor of spectral measures; the more physicist-friendly cure is the rigged Hilbert space.
+The most-used "states" in physics are not in $\mathcal{H}$. A position eigenket satisfies $\hat x\lvert x\rangle = x\lvert x\rangle$ and $\langle x'\vert x\rangle = \delta(x'-x)$, so its norm is $\delta(0) = \infty$. The momentum eigenfunction $\langle x\vert p\rangle = (2\pi\hbar)^{-1/2}e^{ipx/\hbar}$ is not square-integrable either. Correspondingly, $\hat x$ and $\hat p$ have purely continuous spectra and no eigenvectors in $L^2$ at all. Von Neumann's resolution was to avoid eigenkets and work with projection-valued spectral measures. The **rigged Hilbert space** keeps Dirac's notation and makes it rigorous.
 
 ### The Gelfand triple
 
-A **rigged Hilbert space**, or **Gelfand triple**, is a chain of three spaces:
+A rigged Hilbert space is a triple
 
 $$
 \Phi \subset \mathcal{H} \subset \Phi'
 $$
 
-- $\Phi$ is a dense **nuclear space** of especially well-behaved "test" vectors — typically Schwartz functions that are smooth and fall off faster than any power. Every observable of interest and all its powers map $\Phi$ into itself, so expressions like $\langle\psi|\hat{p}^n|\phi\rangle$ are always finite for $\psi,\phi \in \Phi$.
-- $\mathcal{H}$ is the ordinary Hilbert space of normalizable states.
-- $\Phi'$ is the **dual space** of continuous linear functionals on $\Phi$. It is *larger* than $\mathcal{H}$ and contains the non-normalizable "states" — $|x\rangle$, $|p\rangle$, and the like live here as functionals, not as vectors.
+- $\Phi$ is a dense subspace of well-behaved test vectors with a finer (nuclear) topology. For a particle on a line it is typically the **Schwartz space** $\mathcal{S}(\mathbb{R})$ of smooth functions that decay faster than any power. The operators of interest, and all their powers, map $\Phi$ into itself, so quantities such as $\langle\psi\vert\hat p^n\vert\phi\rangle$ are finite.
+- $\mathcal{H}$ is the usual space of normalizable states.
+- $\Phi'$ is the space of continuous linear functionals on $\Phi$ (for $\mathcal{S}$, the tempered distributions). It is larger than $\mathcal{H}$ and contains the generalized eigenkets: $\langle x_0\rvert$ is the functional $\phi \mapsto \phi(x_0)$, that is, the Dirac delta.
 
-The picture to keep: physical, normalizable states sit in the middle ($\mathcal{H}$); the smooth states you actually compute with sit in the smallest space ($\Phi$); the idealized eigenkets of continuous-spectrum operators sit in the largest space ($\Phi'$). The triple is exactly what makes the **nuclear spectral theorem** hold, guaranteeing a complete set of (generalized) eigenvectors for self-adjoint operators with continuous spectra.
+```mermaid
+flowchart TB
+  subgraph PHIP["Φ′: continuous functionals on Φ (tempered distributions)"]
+    direction TB
+    GEN["Generalized eigenkets: δ(x − x₀), plane waves e^(ipx/ħ)"]
+    subgraph HS["ℋ = L²: normalizable states"]
+      direction TB
+      ROUGH["Square-integrable but non-smooth or slowly decaying states"]
+      subgraph PHI["Φ = Schwartz space: smooth, rapidly decaying test functions"]
+        TEST["Gaussian wave packets, oscillator eigenstates"]
+      end
+    end
+  end
+```
 
-### Spectral theory in the triple
+The **nuclear spectral theorem** (Gelfand–Maurin) guarantees that a self-adjoint operator leaving $\Phi$ invariant has a complete set of generalized eigenvectors in $\Phi'$. This is what justifies expanding every state over $\lvert x\rangle$ or $\lvert p\rangle$.
 
-For a self-adjoint operator $\hat{A}$ the **spectral theorem** gives a spectral decomposition
+### Spectral decomposition
 
-$$
-\hat{A} = \int \lambda \, dE_\lambda
-$$
-
-where $E_\lambda$ is the projection-valued spectral measure. In bra–ket form the two limiting cases are
-
-$$
-\hat{A} = \sum_n a_n |a_n\rangle\langle a_n| \qquad \text{(discrete spectrum)}
-$$
-
-$$
-\hat{A} = \int a \, |a\rangle\langle a| \, da \qquad \text{(continuous spectrum)}
-$$
-
-and the **resolution of identity** that ties them together is
-
-$$
-\mathbb{1} = \sum_n |n\rangle\langle n| + \int |\alpha\rangle\langle\alpha| \, d\alpha .
-$$
-
-The discrete kets are genuine $\mathcal{H}$ vectors; the continuous kets $|\alpha\rangle$ are elements of $\Phi'$. The rigged structure is what makes this single equation rigorous.
-
-### Stone's theorem and continuity in time
-
-The dynamics fit the same framework. **Stone's theorem** states that any strongly continuous one-parameter group of unitaries $U(t)$ has a self-adjoint generator:
+For a self-adjoint $\hat A$ the spectral theorem gives $\hat A = \int \lambda\, d\hat E_\lambda$ with $\hat E_\lambda$ a projection-valued measure. In Dirac notation, a spectrum with both discrete and continuous parts gives
 
 $$
-U(t) = e^{-i\hat{H}t/\hbar}
+\hat{A} = \sum_n a_n \lvert a_n\rangle\langle a_n\rvert + \int a \,\lvert a\rangle\langle a\rvert \, da,
+\qquad
+\mathbb{1} = \sum_n \lvert a_n\rangle\langle a_n\rvert + \int \lvert a\rangle\langle a\rvert \, da .
 $$
 
-with $\hat{H}$ the (self-adjoint) Hamiltonian. The group laws
+The discrete eigenkets (bound states) are vectors in $\mathcal{H}$; the continuum kets (scattering states) live in $\Phi'$. The hydrogen Hamiltonian is the standard example with both.
 
-$$
-U(0) = \mathbb{1}, \qquad U(t_1)U(t_2) = U(t_1 + t_2), \qquad U(t)^\dagger = U(-t)
-$$
+### Self-adjointness and Stone's theorem
 
-are exactly the statement that time evolution is reversible and composes consistently. Self-adjointness — not mere Hermiticity — is the precise condition Stone's theorem requires, and it is why boundary conditions and operator domains matter for a well-posed quantum problem.
+**Stone's theorem** states that every strongly continuous one-parameter unitary group has the form $U(t) = e^{-i\hat H t/\hbar}$ with $\hat H$ self-adjoint, and conversely. The group laws $U(0) = \mathbb{1}$, $U(t_1)U(t_2) = U(t_1+t_2)$ and $U(t)^\dagger = U(-t)$ express reversible, composable time evolution.
+
+The theorem requires **self-adjointness**, which is stronger than symmetry ("Hermiticity" in the physics sense): the operator's domain must equal the domain of its adjoint. On unbounded operators this is a statement about boundary conditions. The momentum operator $-i\hbar\,d/dx$ on the half-line $[0,\infty)$, for example, is symmetric but has no self-adjoint extension, which is why there is no well-defined radial-momentum observable conjugate to $r$. On a finite interval it has a one-parameter family of self-adjoint extensions, one for each boundary phase $\psi(L) = e^{i\theta}\psi(0)$.
 
 ## Density Matrices and Mixed States
 
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Density_matrix"> Article: <b><i>Density Matrix - Wikipedia</i></b></a></p>
 
-### Pure states are not enough
+A state vector describes a **pure** state, one of maximal knowledge. Two common situations have no state vector:
 
-A state vector $|\psi\rangle$ describes a system about which we have **maximal** information — a *pure* state. But two very common situations have no such description:
+- **Classical uncertainty**: a source emits $\lvert\psi_1\rangle$ with probability $p_1$ and $\lvert\psi_2\rangle$ with probability $p_2$ (a thermal source, an imperfect preparation). This is a statistical mixture, not a superposition.
+- **Entanglement**: if $AB$ is in an entangled pure state, subsystem $A$ alone has no state vector.
 
-- **Classical uncertainty.** A source emits $|\psi_1\rangle$ with probability $p_1$ and $|\psi_2\rangle$ with probability $p_2$ (a thermal beam, an imperfectly prepared qubit). This is a *statistical mixture*, not a superposition: there is no single ket for it.
-- **Entanglement.** If $AB$ is in an entangled pure state, the subsystem $A$ alone has no state vector at all.
+The **density operator** handles both.
 
-The object that handles both is the **density operator** $\hat{\rho}$.
+### Definition and properties
 
-### Definition and defining properties
-
-For an ensemble that is in $|\psi_i\rangle$ with probability $p_i$,
+For an ensemble $\lbrace p_i, \lvert\psi_i\rangle\rbrace$,
 
 $$
-\hat{\rho} = \sum_i p_i |\psi_i\rangle\langle\psi_i| .
+\hat{\rho} = \sum_i p_i \lvert\psi_i\rangle\langle\psi_i\rvert ,
+\qquad
+\langle \hat{A} \rangle = \operatorname{Tr}(\hat{\rho}\,\hat{A}) .
 $$
 
-Every physical density operator satisfies, and is characterized by, three conditions:
+An operator is a valid density operator if and only if it is
 
-- $\operatorname{Tr}(\hat\rho) = 1$ — normalization (the probabilities sum to one).
-- $\hat\rho^\dagger = \hat\rho$ — Hermiticity.
-- $\hat\rho \geq 0$ — positive semi-definite (all eigenvalues, being probabilities, are $\ge 0$).
+- **normalized**: $\operatorname{Tr}\hat\rho = 1$;
+- **positive semidefinite**: $\hat\rho \ge 0$, which implies Hermiticity.
 
-Expectation values are computed by a trace,
+Its eigenvalues therefore form a probability distribution. Unitary evolution becomes the **von Neumann equation** $i\hbar\, d\hat\rho/dt = [\hat H, \hat\rho]$, and a thermal equilibrium state is the Gibbs state $\hat\rho = e^{-\beta\hat H}/Z$ with $Z = \operatorname{Tr} e^{-\beta \hat H}$.
 
-$$
-\langle \hat{A} \rangle = \operatorname{Tr}(\hat{\rho}\,\hat{A}) ,
-$$
+**Ensembles are not unique.** Different ensembles can give the same $\hat\rho$, and no measurement can tell them apart. An equal mixture of $\lvert 0\rangle,\lvert 1\rangle$ and an equal mixture of $\lvert +\rangle,\lvert -\rangle$ both give $\hat\rho = \mathbb{1}/2$. The density operator, not the ensemble, is the physical state. (The Schrödinger–HJW theorem characterizes all ensembles that realize a given $\hat\rho$.)
 
-which reproduces $\langle\psi|\hat A|\psi\rangle$ for a pure state and the probability-weighted average for a mixture.
+### Purity and the Bloch ball
 
-### Pure versus mixed: the purity test
-
-The single number that distinguishes pure from mixed states is the **purity** $\operatorname{Tr}(\hat\rho^2)$:
+The **purity** $\operatorname{Tr}(\hat\rho^2)$ distinguishes pure from mixed states:
 
 $$
-\operatorname{Tr}(\hat\rho^2) \leq 1, \qquad \text{with equality if and only if } \hat\rho \text{ is pure.}
+\frac{1}{d} \le \operatorname{Tr}(\hat\rho^2) \le 1 ,
 $$
 
-For a $d$-dimensional system the minimum purity is $1/d$, attained by the maximally mixed state $\hat\rho = \mathbb{1}/d$. On the Bloch sphere of a single qubit, pure states sit on the surface ($\operatorname{Tr}\hat\rho^2 = 1$) and mixed states sit strictly inside ($\operatorname{Tr}\hat\rho^2 < 1$), with the center being maximally mixed.
+with the upper bound attained exactly for pure states and the lower bound for the maximally mixed state $\mathbb{1}/d$ in dimension $d$.
 
-A worked qubit example makes the distinction concrete. The equal superposition and the equal mixture look superficially alike but are physically different:
+For a qubit every density matrix can be written $\hat\rho = \tfrac12(\mathbb{1} + \mathbf{r}\cdot\boldsymbol{\sigma})$ with Bloch vector $\lvert\mathbf{r}\rvert \le 1$, and $\operatorname{Tr}\hat\rho^2 = \tfrac12(1 + \lvert\mathbf r\rvert^2)$. Pure states lie on the surface of the **Bloch ball**, mixed states inside, and $\mathbb{1}/2$ at the centre. Compare the equal superposition and the equal mixture:
 
 $$
-\hat\rho_{\text{pure}} = |+\rangle\langle +| = \frac{1}{2}\begin{pmatrix} 1 & 1 \\ 1 & 1 \end{pmatrix}, \qquad
+\hat\rho_{\text{pure}} = \lvert +\rangle\langle +\rvert = \frac{1}{2}\begin{pmatrix} 1 & 1 \\ 1 & 1 \end{pmatrix}, \qquad
 \hat\rho_{\text{mixed}} = \frac{1}{2}\begin{pmatrix} 1 & 0 \\ 0 & 1 \end{pmatrix} .
 $$
 
-The off-diagonal **coherences** of $\hat\rho_{\text{pure}}$ encode the relative phase that produces interference; the mixed state has none. Their purities are $1$ and $1/2$ respectively, and decoherence is precisely the process that drives the first toward the second by erasing the off-diagonal terms.
+Both give 50/50 outcomes in the $\lbrace \lvert 0\rangle, \lvert 1\rangle\rbrace$ basis. The off-diagonal **coherences** of $\hat\rho_{\text{pure}}$ carry the relative phase responsible for interference; a measurement in the $\lbrace \lvert\pm\rangle\rbrace$ basis gives $+$ with certainty for the first and 50/50 for the second. Decoherence is the process that suppresses these off-diagonal terms.
 
 ### Von Neumann entropy
 
-The entropy of a density matrix quantifies how mixed it is:
-
 $$
-S(\hat{\rho}) = -\operatorname{Tr}(\hat{\rho} \ln \hat{\rho}) = -\sum_i \lambda_i \ln \lambda_i ,
+S(\hat{\rho}) = -\operatorname{Tr}(\hat{\rho} \ln \hat{\rho}) = -\sum_i \lambda_i \ln \lambda_i
 $$
 
-where $\lambda_i$ are the eigenvalues of $\hat\rho$. It vanishes for a pure state and reaches its maximum $\ln d$ for the maximally mixed state. It is the quantum analog of the Gibbs/Shannon entropy and is the foundation of quantum information measures.
+where $\lambda_i$ are the eigenvalues of $\hat\rho$. It is zero for pure states, maximal ($\ln d$) for $\mathbb{1}/d$, invariant under unitary evolution, and reduces to the Shannon entropy of the eigenvalue distribution. It is the basic quantity of quantum information theory (quantum data compression, entanglement measures, the thermodynamic entropy of a Gibbs state).
 
-### Reduced density matrices and entanglement
+### Partial trace, Schmidt decomposition and purification
 
-Given a bipartite state $\hat\rho_{AB}$, the state of $A$ alone is obtained by **partial trace** over $B$:
-
-$$
-\hat{\rho}_A = \operatorname{Tr}_B(\hat{\rho}_{AB}) .
-$$
-
-For a *pure* entangled state $\hat\rho_{AB} = |\Psi\rangle\langle\Psi|$, the reduced state $\hat\rho_A$ is **mixed** — and its entropy $S(\hat\rho_A)$ is exactly the entanglement entropy. The maximally entangled Bell state $|\Phi^+\rangle = (|00\rangle + |11\rangle)/\sqrt{2}$, for instance, has $\hat\rho_A = \mathbb{1}/2$ and $S(\hat\rho_A) = \ln 2$: a globally pure state with maximally mixed parts. This is the operational signature of entanglement and the reason mixed-state language is unavoidable once subsystems are involved.
-
-## The Path-Integral Formulation
-
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.fisica.net/mecanica-quantica/Feynman-thesis.pdf"> Paper: <b><i>The Principle of Least Action in Quantum Mechanics</i></b> - Richard Feynman</a></p>
-
-### Sum over histories
-
-Feynman's reformulation replaces operators and wave functions with a single intuitive prescription: **the amplitude to go from $(x_i,t_i)$ to $(x_f,t_f)$ is a sum over every conceivable path between them, each weighted by a phase $e^{iS/\hbar}$.** The transition amplitude — the **propagator** — is
+The state of subsystem $A$ of a composite system is the **reduced density matrix**
 
 $$
-K(x_f,t_f;x_i,t_i) = \int \mathcal{D}[x(t)] \, \exp\!\left(\frac{i}{\hbar}S[x]\right) ,
+\hat{\rho}_A = \operatorname{Tr}_B(\hat{\rho}_{AB}) = \sum_j \big(\mathbb{1}_A \otimes \langle j\rvert_B\big)\, \hat\rho_{AB}\, \big(\mathbb{1}_A \otimes \lvert j\rangle_B\big) ,
 $$
 
-where the **classical action** is the time integral of the Lagrangian along the path,
+the unique operator that reproduces $\langle \hat A\otimes\mathbb{1}\rangle$ for every observable on $A$.
+
+Every pure bipartite state has a **Schmidt decomposition**, obtained from the singular value decomposition of its coefficient matrix:
 
 $$
-S[x] = \int_{t_i}^{t_f} L(x,\dot{x},t) \, dt .
+\lvert\Psi\rangle_{AB} = \sum_{k=1}^{r} \sqrt{\lambda_k}\, \lvert u_k\rangle_A \otimes \lvert v_k\rangle_B ,
+\qquad \lambda_k > 0,\quad \sum_k \lambda_k = 1 .
 $$
 
-The classical path is the one of stationary action, $\delta S = 0$; nearby paths interfere constructively, distant ones destructively. In the limit $\hbar \to 0$ only the stationary path survives, which is exactly how **classical mechanics emerges** from the principle of least action.
+Both reduced states then have the same nonzero eigenvalues $\lambda_k$, so $S(\hat\rho_A) = S(\hat\rho_B)$. This common value is the **entanglement entropy**. The state is a product state if and only if the Schmidt rank $r$ is 1. For the Bell state $\lvert\Phi^+\rangle = (\lvert 00\rangle + \lvert 11\rangle)/\sqrt 2$, $\hat\rho_A = \mathbb{1}/2$ and $S = \ln 2$: a pure global state whose parts are maximally mixed.
 
-### Making the measure precise
+Conversely, every mixed state $\hat\rho_A$ can be written as the reduced state of a pure state on a larger system (a **purification**): with $\hat\rho_A = \sum_k \lambda_k\lvert k\rangle\langle k\rvert$, take $\lvert\Psi\rangle = \sum_k \sqrt{\lambda_k}\lvert k\rangle_A\lvert k\rangle_R$. Purifications underlie the Stinespring picture of channels below.
 
-The symbol $\mathcal{D}[x(t)]$ is defined by **time-slicing**: cut $[t_i,t_f]$ into $N$ steps of width $\varepsilon = (t_f - t_i)/N$, integrate over the intermediate positions $x_1,\dots,x_{N-1}$, and take $N\to\infty$:
+## Generalized Measurements (POVMs)
 
-$$
-K = \lim_{N \to \infty} \left(\frac{m}{2\pi i\hbar\varepsilon}\right)^{N/2} \prod_{j=1}^{N-1} \int dx_j \, \exp\!\left(\frac{i}{\hbar}S_N\right) ,
-$$
-
-with $S_N$ the discretized action $\sum_j \big[\tfrac{m}{2}(x_j-x_{j-1})^2/\varepsilon - \varepsilon V(x_j)\big]$. The prefactor powers of $\sqrt{m/2\pi i\hbar\varepsilon}$ are the normalization of each slice.
-
-### The free particle, worked
-
-Every slice is a **Gaussian integral**, evaluated using
+Projective measurements are an idealization. Photodetectors with finite efficiency, unsharp measurements, and measurements performed through an ancilla are described by a **positive operator-valued measure** (POVM): a set of **effects** $\hat E_m$ with
 
 $$
-\int_{-\infty}^{\infty} e^{-ax^2 + bx} \, dx = \sqrt{\frac{\pi}{a}} \, \exp\!\left(\frac{b^2}{4a}\right) .
+\hat E_m \ge 0, \qquad \sum_m \hat E_m = \mathbb{1}, \qquad p(m) = \operatorname{Tr}(\hat\rho\, \hat E_m) .
 $$
 
-Chaining the Gaussian integrals for $V = 0$ telescopes the product down to the closed-form free propagator
+When the post-measurement state matters, each outcome has **measurement operators** $\hat M_m$ with $\hat E_m = \hat M_m^\dagger \hat M_m$, and the state updates as $\hat\rho \to \hat M_m \hat\rho \hat M_m^\dagger / p(m)$. Projective measurements are the special case $\hat E_m = \hat P_m$ with $\hat P_m \hat P_n = \delta_{mn}\hat P_m$.
 
-$$
-K_0(x_f,t_f;x_i,t_i) = \sqrt{\frac{m}{2\pi i\hbar(t_f-t_i)}} \, \exp\!\left(\frac{im(x_f-x_i)^2}{2\hbar(t_f-t_i)}\right) .
-$$
-
-This agrees with the propagator obtained from the Schrödinger equation — a concrete check that the two formulations are equivalent. For any quadratic action (free particle, harmonic oscillator, constant force) the integral is exactly Gaussian and the propagator is $e^{iS_{\text{cl}}/\hbar}$ times a one-loop prefactor, where $S_{\text{cl}}$ is the action of the classical path.
-
-### Why the path integral matters
-
-- **Field theory.** It generalizes directly to fields, where the operator approach becomes cumbersome; gauge theories and the Standard Model are most naturally quantized this way.
-- **Statistical mechanics.** A **Wick rotation** $t \to -i\tau$ turns $e^{iS/\hbar}$ into the Boltzmann-like weight $e^{-S_E/\hbar}$, mapping quantum amplitudes onto thermal partition functions and underpinning lattice Monte Carlo.
-- **Semiclassical methods.** Stationary-phase evaluation gives the WKB approximation and instanton (tunneling) amplitudes systematically.
-
-## Coherent and Squeezed States
-
-These are the states of the harmonic oscillator that sit closest to classical behavior, and the states that beat the classical noise floor. Both are built from the ladder operators $\hat a, \hat a^\dagger$ with $[\hat a, \hat a^\dagger] = 1$ and number states $|n\rangle$.
-
-### Coherent states: the most classical states
-
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Coherent_state"> Article: <b><i>Coherent States - Wikipedia</i></b></a></p>
-
-A **coherent state** $|\alpha\rangle$ (with $\alpha \in \mathbb{C}$) is the eigenstate of the annihilation operator,
-
-$$
-\hat{a}|\alpha\rangle = \alpha|\alpha\rangle ,
-$$
-
-and expands over number states as a Poissonian superposition:
-
-$$
-|\alpha\rangle = e^{-|\alpha|^2/2} \sum_{n=0}^{\infty} \frac{\alpha^n}{\sqrt{n!}} \, |n\rangle .
-$$
-
-The prefactor guarantees normalization, $\langle\alpha|\alpha\rangle = 1$. The photon-number distribution is **Poissonian**, $P(n) = e^{-|\bar n|}\,|\bar n|^n/n!$ with mean $\bar n = |\alpha|^2$, which is the defining statistical fingerprint of an ideal laser field.
-
-Their distinctive properties:
-
-- **Minimum uncertainty.** $|\alpha\rangle$ saturates the uncertainty relation with $\Delta x\,\Delta p = \hbar/2$ and shares its noise equally between the two quadratures — a circular "blob" in phase space.
-- **Non-orthogonality.** Different coherent states overlap,
-  $$
-  |\langle\alpha|\beta\rangle|^2 = \exp\!\left(-|\alpha - \beta|^2\right) ,
-  $$
-  so they become nearly orthogonal only when widely separated.
-- **Overcompleteness.** They form an overcomplete (linearly dependent) resolution of the identity,
-  $$
-  \frac{1}{\pi}\int |\alpha\rangle\langle\alpha| \, d^2\alpha = \mathbb{1} ,
-  $$
-  which is what makes them so useful as a basis for phase-space methods.
-- **Classical-like evolution.** Under the oscillator Hamiltonian a coherent state stays coherent, its label simply rotating in phase space:
-  $$
-  |\alpha(t)\rangle = e^{-i\omega t/2}\,|\alpha e^{-i\omega t}\rangle ,
-  $$
-  so $\langle\hat x\rangle$ and $\langle\hat p\rangle$ trace out the classical ellipse without spreading. This is why a coherent state is the quantum counterpart of a classical oscillation, and why the laser field is described by one.
-
-A coherent state can also be generated from the vacuum by the **displacement operator** $\hat D(\alpha) = \exp(\alpha\hat a^\dagger - \alpha^*\hat a)$, with $|\alpha\rangle = \hat D(\alpha)|0\rangle$ — it literally displaces the ground-state blob to the point $\alpha$ in phase space.
-
-### Squeezed states: beating the symmetric noise floor
-
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Squeezed_coherent_state"> Article: <b><i>Squeezed Coherent State - Wikipedia</i></b></a></p>
-
-A coherent state spreads its $\hbar/2$ of uncertainty *equally* between $\hat x$ and $\hat p$. A **squeezed state** redistributes it — narrowing one quadrature at the cost of widening the conjugate one, while still respecting the uncertainty principle. The tool is the **squeeze operator**
-
-$$
-\hat{S}(\xi) = \exp\!\left(\tfrac{1}{2}\big(\xi^*\hat{a}^2 - \xi\,\hat{a}^{\dagger 2}\big)\right), \qquad \xi = r e^{i\theta} ,
-$$
-
-and the **squeezed vacuum** is
-
-$$
-|\xi\rangle = \hat{S}(\xi)|0\rangle .
-$$
-
-The product of uncertainties is still minimal,
-
-$$
-\Delta x \, \Delta p = \frac{\hbar}{2} ,
-$$
-
-but the individual spreads are no longer balanced. For squeezing along the position quadrature,
-
-$$
-\Delta x = \sqrt{\frac{\hbar}{2m\omega}}\,e^{-r} < \sqrt{\frac{\hbar}{2m\omega}}, \qquad
-\Delta p = \sqrt{\frac{m\omega\hbar}{2}}\,e^{+r} > \sqrt{\frac{m\omega\hbar}{2}} .
-$$
-
-In phase space the circular blob becomes an ellipse: thinner in the squeezed quadrature, fatter in the anti-squeezed one. The number distribution is no longer Poissonian — squeezed vacuum contains only even photon numbers, since $\hat a^{\dagger 2}$ creates photons in pairs.
-
-**Why squeezing is built and not just studied.** Any measurement of the narrowed quadrature has reduced quantum noise. The headline application is gravitational-wave detection: LIGO and Virgo inject squeezed vacuum into the interferometer's dark port to push shot noise below the standard quantum limit, directly increasing the detection range. Squeezed light also enables sub-shot-noise spectroscopy and continuous-variable quantum information protocols.
+POVMs can have more outcomes than the Hilbert-space dimension and need not be orthogonal. The standard example is **unambiguous state discrimination** of two non-orthogonal states, which uses a three-outcome POVM ("state 1", "state 2", "don't know") and never errs when it answers. **Naimark's dilation theorem** shows that every POVM is a projective measurement on the system coupled to an ancilla, so POVMs add no new physics; they are the correct description of what an experiment accessing only the system actually does.
 
 ## Open Quantum Systems and the Lindblad Equation
 
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/abs/1902.00967"> Review: <b><i>Lindbladians and Open Quantum Systems</i></b></a></p>
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://arxiv.org/abs/1902.00967"> Lecture notes: <b><i>Lecture Notes on the Theory of Open Quantum Systems</i></b> - D. A. Lidar</a></p>
 
-### Real systems are never closed
+A system $S$ coupled to an environment $E$ evolves unitarily only as part of the whole. Its own state is $\hat\rho_S = \operatorname{Tr}_E\,\hat\rho_{SE}$, and its dynamics are non-unitary: energy and phase information leak into $E$, and pure states become mixed.
 
-The Schrödinger equation describes an **isolated** system, evolving unitarily and reversibly. No real system is isolated: a qubit couples to electromagnetic modes, an atom radiates, a molecule jostles its solvent. To describe a system $S$ alone while its environment $E$ carries away energy and phase information, we trace the environment out and work with the reduced density matrix $\hat\rho_S = \operatorname{Tr}_E(\hat\rho_{SE})$. The resulting dynamics are **non-unitary**: probability and energy flow out, and pure states become mixed.
+### Quantum channels
 
-### The Lindblad master equation
+Any physically allowed transformation of a density matrix over a fixed time interval is a **quantum channel**: a linear, **completely positive, trace-preserving (CPTP)** map $\mathcal{E}$. Complete positivity (positivity of $\mathcal{E}\otimes\mathrm{id}$ on any extension) is required because the system might be entangled with something else; the transpose map is positive but not completely positive, and is therefore not physical.
 
-Under the standard assumptions — weak coupling (Born), a memoryless environment (Markov), and a coarse-grained time scale (secular/rotating-wave approximation) — the most general physically valid generator of such evolution is the **Lindblad (GKSL) master equation**:
+Every channel has two equivalent representations:
 
-$$
-\frac{d\hat{\rho}}{dt} = -\frac{i}{\hbar}[\hat{H},\hat{\rho}] + \sum_k \gamma_k\!\left(\hat{L}_k \hat{\rho}\, \hat{L}_k^\dagger - \tfrac{1}{2}\big\{\hat{L}_k^\dagger\hat{L}_k,\, \hat{\rho}\big\}\right) .
-$$
+- **Kraus (operator-sum) form**:
+  $$
+  \mathcal{E}(\hat\rho) = \sum_i \hat{K}_i\, \hat\rho\, \hat{K}_i^\dagger, \qquad \sum_i \hat{K}_i^\dagger \hat{K}_i = \mathbb{1} .
+  $$
+  The completeness condition is trace preservation. The Kraus operators are not unique; any unitary mixing of them gives the same channel.
+- **Stinespring dilation**: $\mathcal{E}(\hat\rho) = \operatorname{Tr}_E\big[\hat U (\hat\rho \otimes \lvert 0\rangle\langle 0\rvert_E)\hat U^\dagger\big]$. Every channel is unitary evolution on a larger system followed by discarding the environment.
 
-The first term is the familiar unitary part; the **jump operators** $\hat{L}_k$ (with non-negative rates $\gamma_k$) encode the dissipative channels. The specific double-commutator structure of the **dissipator** is not arbitrary — it is exactly what is required to keep $\hat\rho$ a valid density matrix (Hermitian, unit-trace, positive) at all times. A qubit coupled to a zero-temperature bath, for example, uses $\hat L = \hat\sigma_-$ to describe spontaneous emission, driving any initial state toward the ground state.
+The standard single-qubit noise channels, all used in error-correction analysis:
 
-### Quantum channels: the discrete-time view
+| Channel | Kraus operators | Effect on the Bloch vector |
+|---|---|---|
+| Amplitude damping ($\gamma$) | $$\begin{pmatrix}1&0\\0&\sqrt{1-\gamma}\end{pmatrix}$$, $$\begin{pmatrix}0&\sqrt\gamma\\0&0\end{pmatrix}$$ | Pulled toward $\lvert 0\rangle$ (north pole); models $T_1$ decay |
+| Phase damping ($\lambda$) | $$\begin{pmatrix}1&0\\0&\sqrt{1-\lambda}\end{pmatrix}$$, $$\begin{pmatrix}0&0\\0&\sqrt\lambda\end{pmatrix}$$ | $x,y$ components shrink by $\sqrt{1-\lambda}$; models pure dephasing |
+| Depolarizing ($p$) | $\sqrt{1-\tfrac{3p}{4}}\,\mathbb{1}$, $\sqrt{\tfrac{p}{4}}\,\hat\sigma_{x,y,z}$ | Whole vector shrinks by $1-p$ toward the centre |
 
-Stroboscopically, open-system evolution is described by a **quantum channel** $\varepsilon$ — a **completely positive, trace-preserving (CPTP)** map. Every such channel has a **Kraus representation**
+### The Lindblad (GKSL) master equation
 
-$$
-\varepsilon(\rho) = \sum_i \hat{K}_i\, \rho\, \hat{K}_i^\dagger, \qquad \sum_i \hat{K}_i^\dagger \hat{K}_i = \mathbb{1} .
-$$
-
-The completeness condition on the Kraus operators $\hat K_i$ is the discrete analog of trace preservation. The Lindblad equation is the differential (continuous-time) limit of a CPTP channel; the two pictures describe the same physics at different time resolutions. Standard noise channels — amplitude damping, phase damping, depolarizing — are all written compactly in Kraus form and are the workhorses of quantum error-correction analysis.
-
-### Decoherence and dissipation time scales
-
-Two characteristic times summarize how a qubit relaxes:
-
-- $T_1$ — **energy relaxation** (longitudinal): the time for population to decay toward equilibrium, set by $\hat L \sim \hat\sigma_-$ processes.
-- $T_2$ — **phase coherence** (transverse): the time for the off-diagonal coherences to decay, i.e. for a superposition to become a mixture.
-
-They are constrained by
+If the channels form a continuous, memoryless family, $\mathcal{E}_{t+s} = \mathcal{E}_t \circ \mathcal{E}_s$ (a **quantum dynamical semigroup**), the Gorini–Kossakowski–Sudarshan–Lindblad theorem (1976) fixes the most general form of the generator:
 
 $$
-\frac{1}{T_2} = \frac{1}{2T_1} + \frac{1}{T_\phi} \quad \Longrightarrow \quad T_2 \le 2T_1 ,
+\frac{d\hat{\rho}}{dt} = -\frac{i}{\hbar}[\hat{H},\hat{\rho}] + \sum_k \gamma_k\left(\hat{L}_k \hat{\rho}\, \hat{L}_k^\dagger - \frac{1}{2}\left\{\hat{L}_k^\dagger\hat{L}_k,\, \hat{\rho}\right\}\right), \qquad \gamma_k \ge 0 .
 $$
 
-where $T_\phi$ is the **pure dephasing** time. The often-quoted chain $T_2^* \le T_2 \le 2T_1$ adds $T_2^*$, the *observed* dephasing time, which includes inhomogeneous (e.g. slow frequency-drift) broadening on top of the intrinsic $T_2$. These numbers are the figures of merit that quantum-hardware engineers fight to extend, since every coherent operation must finish well within $T_2$.
+The commutator is the unitary part (with $\hat H$ possibly renormalized by the environment, e.g. a Lamb shift). The **dissipator** contains a "jump" term $\hat L_k\hat\rho\hat L_k^\dagger$ and an anticommutator that compensates for it so that the trace is conserved; together they keep $\hat\rho$ a valid density matrix at all times. Spontaneous emission of a two-level atom at zero temperature is $\hat L = \hat\sigma_-$ with $\gamma$ the Einstein $A$ coefficient; pure dephasing is $\hat L = \hat\sigma_z$.
+
+The same equation can be reached from a microscopic model:
+
+```mermaid
+flowchart LR
+  A["System + environment<br/>closed, unitary"] --> B["Trace out environment<br/>ρ_S = Tr_E ρ_SE"]
+  B --> C["Born: weak coupling<br/>Markov: short bath memory<br/>Secular: drop fast-rotating terms"]
+  C --> D["Lindblad / GKSL<br/>master equation"]
+  E["Axiomatic route:<br/>CPTP dynamical semigroup"] --> D
+  D --> F["Unravelling into<br/>quantum trajectories"]
+```
+
+When the bath correlation time is not short compared with the system's dynamics (structured spectral densities, strong coupling, low temperature), the semigroup property fails and the dynamics are **non-Markovian**; information can flow back from the environment. Such cases need time-convolution master equations, the hierarchical equations of motion (HEOM), or tensor-network treatments of system plus bath.
+
+### Relaxation and dephasing times
+
+For a qubit, two time constants summarize Lindblad dynamics:
+
+- $T_1$, **energy relaxation** (longitudinal): populations decay toward thermal equilibrium, driven by $\hat\sigma_\pm$ processes.
+- $T_2$, **phase coherence** (transverse): off-diagonal elements $\rho_{01}$ decay, turning superpositions into mixtures.
+
+With a pure-dephasing time $T_\phi$ they are related by
+
+$$
+\frac{1}{T_2} = \frac{1}{2T_1} + \frac{1}{T_\phi} \quad \Longrightarrow \quad T_2 \le 2T_1 .
+$$
+
+Experiments also quote $T_2^{\ast}$, the free-induction (Ramsey) decay time, which includes inhomogeneous broadening from slow frequency fluctuations; spin-echo sequences refocus that part, so $T_2^{\ast} \le T_2$. These times bound how many coherent operations a qubit can perform (see [Quantum Computing](qm-computing.html#decoherence-why-quantum-computers-are-hard)).
+
+## The Path-Integral Formulation
+
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.fisica.net/mecanica-quantica/Feynman-thesis.pdf"> Thesis: <b><i>The Principle of Least Action in Quantum Mechanics</i></b> - Richard Feynman</a></p>
+
+### Sum over histories
+
+Feynman's formulation (1948) writes the **propagator** $K(x_f,t_f;x_i,t_i) = \langle x_f\vert e^{-i\hat H(t_f-t_i)/\hbar}\vert x_i\rangle$ as a sum over all paths between the endpoints, each weighted by a phase set by its classical action:
+
+$$
+K(x_f,t_f;x_i,t_i) = \int \mathcal{D}[x(t)] \, \exp\!\left(\frac{i}{\hbar}S[x]\right),
+\qquad
+S[x] = \int_{t_i}^{t_f} L(x,\dot{x},t) \, dt .
+$$
+
+Paths near the classical one, where $\delta S = 0$, have nearly equal phases and add constructively; elsewhere the phases vary rapidly and cancel. As $\hbar \to 0$ only the neighbourhood of the stationary path contributes, which is how the principle of least action emerges from quantum mechanics.
+
+<figure style="margin:1.5em auto; max-width:520px;">
+<svg viewBox="0 0 480 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Several paths connecting two spacetime points; the classical path is drawn solid and alternative paths dashed" style="width:100%; height:auto; font-family:sans-serif; color:currentColor;">
+  <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.55">
+    <path d="M60 160 C 140 20, 260 40, 420 40"/>
+    <path d="M60 160 C 120 180, 300 160, 420 40"/>
+    <path d="M60 160 C 100 60, 180 150, 260 90 S 380 20, 420 40"/>
+    <path d="M60 160 C 200 190, 220 10, 420 40"/>
+  </g>
+  <path d="M60 160 C 170 110, 300 70, 420 40" fill="none" stroke="currentColor" stroke-width="2.6"/>
+  <circle cx="60" cy="160" r="5" fill="currentColor"/>
+  <circle cx="420" cy="40" r="5" fill="currentColor"/>
+  <text x="48" y="186" font-size="13" fill="currentColor">(x_i, t_i)</text>
+  <text x="392" y="26" font-size="13" fill="currentColor">(x_f, t_f)</text>
+  <text x="250" y="122" font-size="12" fill="currentColor">classical path, δS = 0</text>
+</svg>
+<figcaption style="font-size:0.9em; text-align:center;">Every path contributes a phase e<sup>iS/ħ</sup>; contributions near the stationary-action path reinforce.</figcaption>
+</figure>
+
+### Time slicing
+
+The measure $\mathcal{D}[x(t)]$ is defined by dividing $[t_i,t_f]$ into $N$ steps of length $\varepsilon = (t_f-t_i)/N$, inserting a resolution of the identity at each intermediate time, and taking $N\to\infty$:
+
+$$
+K = \lim_{N \to \infty} \left(\frac{m}{2\pi i\hbar\varepsilon}\right)^{N/2} \int \prod_{j=1}^{N-1} dx_j \; \exp\!\left(\frac{i}{\hbar}\sum_{j=1}^{N}\left[\frac{m(x_j-x_{j-1})^2}{2\varepsilon} - \varepsilon V(x_j)\right]\right),
+$$
+
+with $x_0 = x_i$ and $x_N = x_f$. Each factor $\sqrt{m/2\pi i\hbar\varepsilon}$ is the short-time free-particle normalization. The Trotter product formula $e^{-i(\hat T+\hat V)\varepsilon/\hbar} \approx e^{-i\hat T\varepsilon/\hbar}e^{-i\hat V\varepsilon/\hbar}$ is what makes this limit equal to the operator propagator.
+
+### Exact propagators
+
+Each slice is a Gaussian integral,
+
+$$
+\int_{-\infty}^{\infty} e^{-ax^2 + bx} \, dx = \sqrt{\frac{\pi}{a}} \, \exp\!\left(\frac{b^2}{4a}\right), \qquad \operatorname{Re} a \ge 0 ,
+$$
+
+and for $V = 0$ the chain of integrals collapses to the free propagator, with $T = t_f - t_i$:
+
+$$
+K_0(x_f,x_i;T) = \sqrt{\frac{m}{2\pi i\hbar T}} \, \exp\!\left(\frac{im(x_f-x_i)^2}{2\hbar T}\right) .
+$$
+
+For any action at most quadratic in $x$ and $\dot x$ the integral is Gaussian and $K = A(T)\,e^{iS_{\text{cl}}/\hbar}$, where $S_{\text{cl}}$ is the action of the classical path and the prefactor is given by the Van Vleck–Pauli–Morette determinant. For the harmonic oscillator this yields the Mehler kernel
+
+$$
+K_{\text{HO}}(x_f,x_i;T) = \sqrt{\frac{m\omega}{2\pi i\hbar \sin\omega T}}\,
+\exp\!\left\{\frac{im\omega}{2\hbar\sin\omega T}\Big[(x_f^2 + x_i^2)\cos\omega T - 2x_f x_i\Big]\right\},
+$$
+
+which reduces to $K_0$ as $\omega\to 0$.
+
+### Imaginary time and statistical mechanics
+
+The substitution $t = -i\tau$ (a **Wick rotation**) turns the phase $e^{iS/\hbar}$ into a real weight $e^{-S_E/\hbar}$, with Euclidean action $S_E = \int_0^{\beta\hbar}\big[\tfrac{m}{2}\dot x^2 + V(x)\big]d\tau$. The trace of the imaginary-time propagator over periodic paths is the thermal partition function:
+
+$$
+Z = \operatorname{Tr}\, e^{-\beta \hat H} = \oint_{x(0)=x(\beta\hbar)} \mathcal{D}[x(\tau)]\; e^{-S_E[x]/\hbar} .
+$$
+
+A quantum particle at temperature $T$ maps to a classical closed polymer ("ring polymer") of length $\beta\hbar$. This isomorphism is the basis of path-integral Monte Carlo and ring-polymer molecular dynamics (see [Computational Methods](qm-computational-methods.html#quantum-monte-carlo)).
+
+### Where the path integral is used
+
+- **Semiclassics**: stationary-phase evaluation gives the WKB approximation, the Gutzwiller trace formula, and instanton expressions for tunnelling rates.
+- **Field theory**: the formulation extends directly to fields, where it is the standard route to gauge-theory quantization, Feynman rules and the renormalization group (see [Quantum Field Theory](../quantum-field-theory.html)).
+- **Numerics**: lattice QCD and path-integral Monte Carlo sample the Euclidean weight $e^{-S_E/\hbar}$ directly.
+
+## Coherent and Squeezed States
+
+Both families are built from the oscillator ladder operators $\hat a, \hat a^\dagger$ with $[\hat a,\hat a^\dagger] = 1$. It is convenient to use dimensionless **quadratures** $\hat X = (\hat a + \hat a^\dagger)/\sqrt 2$ and $\hat P = (\hat a - \hat a^\dagger)/(i\sqrt 2)$, so that $[\hat X,\hat P] = i$ and $\Delta X\,\Delta P \ge 1/2$; the physical position and momentum are $\hat x = \sqrt{\hbar/m\omega}\,\hat X$ and $\hat p = \sqrt{\hbar m\omega}\,\hat P$. For a mode of the electromagnetic field, $\hat X$ and $\hat P$ are the in-phase and out-of-phase field amplitudes.
+
+### Coherent states
+
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Coherent_state"> Article: <b><i>Coherent States - Wikipedia</i></b></a></p>
+
+A **coherent state** $\lvert\alpha\rangle$, $\alpha\in\mathbb{C}$, is an eigenstate of the annihilation operator. It is the vacuum displaced in phase space:
+
+$$
+\hat{a}\lvert\alpha\rangle = \alpha\lvert\alpha\rangle, \qquad
+\lvert\alpha\rangle = \hat D(\alpha)\lvert 0\rangle = e^{-\lvert\alpha\rvert^2/2} \sum_{n=0}^{\infty} \frac{\alpha^n}{\sqrt{n!}} \lvert n\rangle,
+\qquad \hat D(\alpha) = e^{\alpha\hat a^\dagger - \alpha^*\hat a} .
+$$
+
+Properties:
+
+- **Poissonian photon statistics**: $P(n) = e^{-\bar n}\,\bar n^{\,n}/n!$ with $\bar n = \lvert\alpha\rvert^2$ and variance $\Delta n^2 = \bar n$. This is the statistics of an ideal single-mode laser.
+- **Minimum uncertainty with equal quadrature noise**: $\Delta X = \Delta P = 1/\sqrt 2$, the same as the vacuum. The mean values are $\langle\hat X\rangle = \sqrt2\,\operatorname{Re}\alpha$ and $\langle\hat P\rangle = \sqrt2\,\operatorname{Im}\alpha$.
+- **Non-orthogonal and overcomplete**:
+  $$
+  \lvert\langle\alpha\vert\beta\rangle\rvert^2 = e^{-\lvert\alpha - \beta\rvert^2}, \qquad \frac{1}{\pi}\int \lvert\alpha\rangle\langle\alpha\rvert \, d^2\alpha = \mathbb{1} .
+  $$
+  The overcomplete resolution of the identity is the starting point of the Glauber–Sudarshan $P$ and Husimi $Q$ phase-space representations.
+- **Classical motion without spreading**: under $\hat H = \hbar\omega(\hat a^\dagger\hat a + \tfrac12)$,
+  $$
+  \lvert\alpha(t)\rangle = e^{-i\omega t/2}\,\lvert\alpha e^{-i\omega t}\rangle ,
+  $$
+  so the state remains coherent and its centre follows the classical trajectory. A classical current driving the field mode produces exactly such a displacement, which is why coherent states describe classical light.
+
+### Squeezed states
+
+<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Squeezed_coherent_state"> Article: <b><i>Squeezed Coherent State - Wikipedia</i></b></a></p>
+
+A **squeezed state** redistributes quantum noise between the quadratures, reducing one below the vacuum level at the cost of increasing the other. It is generated by the **squeeze operator**
+
+$$
+\hat{S}(\xi) = \exp\!\left[\frac{1}{2}\left(\xi^*\hat{a}^2 - \xi\,\hat{a}^{\dagger 2}\right)\right], \qquad \xi = r e^{i\theta} ,
+$$
+
+which is produced physically by a degenerate parametric process (a pump photon at $2\omega$ splitting into two photons at $\omega$). The squeezed vacuum is $\lvert\xi\rangle = \hat S(\xi)\lvert 0\rangle$; a displaced squeezed state is $\hat D(\alpha)\hat S(\xi)\lvert 0\rangle$. For real $\xi = r$,
+
+$$
+\Delta X = \frac{e^{-r}}{\sqrt 2}, \qquad \Delta P = \frac{e^{+r}}{\sqrt 2}, \qquad \Delta X\,\Delta P = \frac{1}{2} .
+$$
+
+Squeezing is usually quoted in decibels of noise-power reduction, $10\log_{10}e^{2r} \approx 8.7\,r$ dB. Because $\hat a^{\dagger 2}$ creates photons in pairs, squeezed vacuum contains only even photon numbers, with mean $\bar n = \sinh^2 r$.
+
+**Applications.** A measurement of the squeezed quadrature has sub-vacuum noise, which beats the **standard quantum limit** set by vacuum fluctuations. Gravitational-wave detectors inject squeezed vacuum into the interferometer's output port. Since the fourth observing run (O4, 2023), both LIGO detectors use **frequency-dependent squeezing**: a 300 m filter cavity rotates the squeezing angle with frequency, reducing shot noise at high frequencies without adding radiation-pressure noise at low frequencies. The reported reductions were 4.0 dB (Hanford) and 5.8 dB (Livingston) near 1 kHz ([Ganapathy et al., *Phys. Rev. X* 13, 041021 (2023)](https://journals.aps.org/prx/abstract/10.1103/PhysRevX.13.041021)). Squeezed states are also the resource for continuous-variable quantum information and for Gaussian boson sampling.
+
+### Phase-space representation: the Wigner function
+
+The **Wigner function** represents any state as a real quasi-probability distribution on phase space:
+
+$$
+W(x,p) = \frac{1}{\pi\hbar}\int_{-\infty}^{\infty} \langle x + y\vert\hat\rho\vert x - y\rangle\, e^{-2ipy/\hbar}\, dy .
+$$
+
+Its marginals are the true position and momentum distributions, $\int W\,dp = \langle x\vert\hat\rho\vert x\rangle$ and $\int W\,dx = \langle p\vert\hat\rho\vert p\rangle$, and expectation values of symmetrically ordered operators are phase-space averages. Unlike a probability density, $W$ can be negative.
+
+- The vacuum, coherent states and squeezed states have **Gaussian** Wigner functions: a circle of radius set by the vacuum noise, the same circle displaced to $\alpha$, and an ellipse.
+- Number states are not Gaussian: $W_{\lvert n\rangle}(0,0) = (-1)^n/(\pi\hbar)$, so every odd Fock state is negative at the origin.
+- **Hudson's theorem**: a pure state has a non-negative Wigner function if and only if it is Gaussian.
+
+Wigner negativity is used as a marker of non-classicality. Gaussian states and Gaussian operations alone can be simulated efficiently on a classical computer, so non-Gaussian resources (Fock states, cat states, GKP states, photon-number measurement) are required for a quantum advantage in continuous-variable systems.
+
+<figure style="margin:1.5em auto; max-width:520px;">
+<svg viewBox="0 0 440 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Phase-space sketch: vacuum is a circle at the origin, a coherent state is the same circle displaced, a squeezed state is an ellipse narrow along X" style="width:100%; height:auto; font-family:sans-serif; color:currentColor;">
+  <defs>
+    <marker id="qmaf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+    </marker>
+  </defs>
+  <line x1="30" y1="200" x2="420" y2="200" stroke="currentColor" stroke-width="1.2" marker-end="url(#qmaf-arrow)"/>
+  <line x1="120" y1="290" x2="120" y2="15" stroke="currentColor" stroke-width="1.2" marker-end="url(#qmaf-arrow)"/>
+  <text x="408" y="222" font-size="14" fill="currentColor">X</text>
+  <text x="130" y="24" font-size="14" fill="currentColor">P</text>
+  <circle cx="120" cy="200" r="26" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.8"/>
+  <text x="60" y="248" font-size="12" fill="currentColor">vacuum |0⟩</text>
+  <line x1="120" y1="200" x2="300" y2="90" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#qmaf-arrow)"/>
+  <circle cx="300" cy="90" r="26" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.8"/>
+  <text x="292" y="52" font-size="12" fill="currentColor">coherent |α⟩</text>
+  <text x="196" y="132" font-size="12" fill="currentColor">D(α)</text>
+  <ellipse cx="320" cy="210" rx="11" ry="60" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.8"/>
+  <text x="342" y="262" font-size="12" fill="currentColor">squeezed in X</text>
+</svg>
+<figcaption style="font-size:0.9em; text-align:center;">Uncertainty contours in phase space. Displacement moves the vacuum blob without changing its shape; squeezing trades width in one quadrature for width in the other at constant area.</figcaption>
+</figure>
 
 ## Relativistic Quantum Mechanics
 
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Dirac_equation"> Article: <b><i>The Dirac Equation - Wikipedia</i></b></a></p>
 
-### Why the Schrödinger equation is not enough
+The Schrödinger equation is first order in time and second order in space, so it cannot be Lorentz covariant. Relativistic single-particle wave equations were the historical bridge to quantum field theory. Their difficulties (negative-energy solutions, the absence of a consistent single-particle probability interpretation, and particle creation at energies of order $mc^2$) are resolved only by reinterpreting the wave function as a quantum field; see [Research Frontiers](qm-research-frontiers.html#second-quantization) and [Quantum Field Theory](../quantum-field-theory.html). The conventions below use the metric $g^{\mu\nu} = \operatorname{diag}(+1,-1,-1,-1)$ and $\partial_\mu = (\partial_t/c, \nabla)$.
 
-The Schrödinger equation treats time and space asymmetrically — it is first order in $\partial_t$ but second order in $\nabla$ — so it cannot be Lorentz invariant. The moment a particle's kinetic energy approaches its rest energy $mc^2$, non-relativistic quantum mechanics breaks down. Making the theory consistent with special relativity forces two profound new features: **antiparticles** and **spin** emerge automatically, not as add-ons. The first-quantized relativistic wave equations below are the historical bridge from quantum mechanics to quantum field theory; their negative-energy solutions are ultimately what compel the switch to second quantization (developed on the [Research Frontiers](qm-research-frontiers.html) page).
+### Klein–Gordon equation
 
-### The Klein–Gordon equation
-
-The simplest relativistic wave equation is obtained by quantizing the relativistic energy–momentum relation $E^2 = (pc)^2 + (mc^2)^2$ via $E \to i\hbar\,\partial_t$ and $\mathbf{p} \to -i\hbar\nabla$. The result is second order in time:
+Applying $E \to i\hbar\,\partial_t$ and $\mathbf{p} \to -i\hbar\nabla$ to $E^2 = (pc)^2 + (mc^2)^2$ gives
 
 $$
-\left(\Box + \frac{m^2 c^2}{\hbar^2}\right)\psi = 0, \qquad \Box \equiv \frac{1}{c^2}\frac{\partial^2}{\partial t^2} - \nabla^2 .
+\left(\Box + \frac{m^2 c^2}{\hbar^2}\right)\phi = 0, \qquad \Box \equiv \frac{1}{c^2}\frac{\partial^2}{\partial t^2} - \nabla^2 .
 $$
 
-Here $\Box$ is the d'Alembertian, the manifestly Lorentz-invariant wave operator. The Klein–Gordon equation correctly describes spin-0 (scalar) particles such as the pion and the Higgs boson. Its drawback in a first-quantized reading is severe: because it is second order in time, $|\psi|^2$ is not a positive-definite probability density, and the spectrum contains negative-energy solutions. These pathologies are resolved only when $\psi$ is reinterpreted as a quantized field rather than a single-particle wave function.
-
-### The Dirac equation
-
-Dirac's insight was to seek an equation **first order** in both space and time, restoring a positive-definite density. This requires the wave function to be a four-component **spinor** and introduces four anticommuting $4\times 4$ matrices $\gamma^\mu$:
+It describes spin-0 particles (pions, the Higgs boson) once $\phi$ is treated as a field. As a single-particle equation it fails: being second order in time, its conserved density
 
 $$
-\left(i\gamma^\mu \partial_\mu - \frac{mc}{\hbar}\right)\psi = 0 .
+\rho = \frac{i\hbar}{2mc^2}\left(\phi^*\frac{\partial\phi}{\partial t} - \phi\frac{\partial\phi^*}{\partial t}\right)
 $$
 
-Lorentz invariance forces the gamma matrices to satisfy the **Clifford algebra**
+is not positive definite, and solutions with $E = -\sqrt{(pc)^2 + (mc^2)^2}$ are unavoidable. In field theory $\rho$ becomes a charge density, which is naturally allowed to take either sign (particles versus antiparticles).
+
+### Dirac equation
+
+Dirac (1928) sought an equation first order in both time and space. This requires a four-component **spinor** $\psi$ and four $4\times4$ matrices $\gamma^\mu$:
 
 $$
-\{\gamma^\mu, \gamma^\nu\} = 2 g^{\mu\nu}\,\mathbb{1},
+\left(i\gamma^\mu \partial_\mu - \frac{mc}{\hbar}\right)\psi = 0,
+\qquad
+\{\gamma^\mu, \gamma^\nu\} = 2 g^{\mu\nu}\,\mathbb{1} .
 $$
 
-where $g^{\mu\nu} = \operatorname{diag}(+,-,-,-)$ is the Minkowski metric. Squaring the Dirac operator recovers the Klein–Gordon equation component by component, confirming consistency with $E^2 = (pc)^2 + (mc^2)^2$.
+The **Clifford algebra** relation guarantees that applying the Dirac operator twice gives the Klein–Gordon equation for every component, so each solution satisfies the relativistic energy–momentum relation. The conserved density $\psi^\dagger\psi$ is positive definite. Written in Hamiltonian form, $i\hbar\,\partial_t\psi = \big(c\,\boldsymbol{\alpha}\cdot\hat{\mathbf p} + \beta mc^2\big)\psi$ with $\beta = \gamma^0$ and $\alpha^i = \gamma^0\gamma^i$.
 
-### What the Dirac equation predicts
+### Consequences
 
-Two of the most important facts about ordinary matter fall out of this single equation with no extra assumptions:
+- **Spin 1/2 is built in.** The four-component structure carries two spin states and, with minimal coupling $\hat{\mathbf p} \to \hat{\mathbf p} - q\mathbf A$, the non-relativistic limit is the Pauli equation with gyromagnetic ratio $g = 2$. The small measured deviation, $a_e = (g-2)/2 \approx 0.00116$, comes from QED radiative corrections; the electron value $g/2 = 1.001\,159\,652\,180\,59(13)$ was measured to 0.13 parts per trillion in 2023 (Fan et al., *Phys. Rev. Lett.* 130, 071801).
+- **Hydrogen fine structure.** The Dirac equation with a Coulomb potential is exactly solvable. With $\alpha$ the fine-structure constant,
+  $$
+  E_{nj} = mc^2\left[1 + \left(\frac{\alpha}{n - \left(j+\frac{1}{2}\right) + \sqrt{\left(j+\frac{1}{2}\right)^2 - \alpha^2}}\right)^{2}\right]^{-1/2} .
+  $$
+  Levels depend only on $n$ and $j$, so $2S_{1/2}$ and $2P_{1/2}$ are degenerate. The measured splitting between them (the **Lamb shift**, 1947) is a QED effect beyond the Dirac equation.
+- **Antiparticles.** Negative-energy solutions cannot be discarded, because interactions would drive transitions into them. Dirac's hole theory, and later the field-theoretic reinterpretation of negative-frequency modes, predicted the **positron**, observed by Anderson in 1932.
+- **Relativistic single-particle anomalies.** Zitterbewegung (a trembling motion at frequency $2mc^2/\hbar$) and the Klein paradox (unexpected transmission through a potential step higher than $2mc^2$) are signs that the single-particle picture is incomplete; both are explained by pair creation in QFT. Low-energy Dirac equations reappear in condensed matter as effective descriptions of graphene and topological insulators.
 
-- **Spin-½ is automatic.** Coupling the Dirac equation to an electromagnetic field reproduces the electron's magnetic moment with $g = 2$, a number the Schrödinger equation can only insert by hand. Spin is a relativistic phenomenon.
-- **Antimatter is required.** The four spinor components split into positive- and negative-energy solutions. Reinterpreting the filled negative-energy "Dirac sea" — or, in modern terms, the negative-frequency field modes — predicts the **positron**, the electron's antiparticle, discovered by Anderson in 1932 just years after Dirac's 1928 paper. Every charged fermion has a corresponding antiparticle.
+## Further Reading
 
-The Dirac equation is the cornerstone of relativistic quantum mechanics and the natural entry point to [Quantum Field Theory](../quantum-field-theory.html), where the wave functions $\psi$ are promoted to operator-valued fields and particle creation and annihilation become first-class processes.
-
-## Key Takeaways
-
-- **Rigged Hilbert spaces legalize Dirac kets.** The Gelfand triple $\Phi \subset \mathcal{H} \subset \Phi'$ gives a rigorous home to non-normalizable position and momentum eigenstates.
-- **Density matrices handle mixedness.** $\hat\rho$ describes statistical mixtures and subsystems; $\operatorname{Tr}(\hat\rho^2) = 1$ iff the state is pure.
-- **The path integral sums over histories.** Amplitudes are $\int \mathcal{D}[x]\,e^{iS/\hbar}$; classical mechanics is the stationary-phase $\hbar \to 0$ limit.
-- **Coherent states are the most classical.** Eigenstates of $\hat a$, minimum-uncertainty, Poissonian photon statistics — the quantum picture of a laser.
-- **Squeezing beats the symmetric noise floor.** Narrowing one quadrature below the standard quantum limit powers gravitational-wave detection.
-- **Open systems obey Lindblad dynamics.** The CPTP, $T_1/T_2$-governed master equation captures decoherence and dissipation in real hardware.
-- **Relativity forces spin and antimatter.** The Dirac equation is first order in space and time; spin-½ and the positron emerge automatically, bridging to QFT.
-
----
-
-## Continue Reading
-
-- **Up:** [Quantum Mechanics Hub](./)
-- **Related:** [Computing, Information &amp; Advanced Formalism](computing-and-advanced.html) — qubits, gates, algorithms, and the broader advanced-topics survey.
+- R. de la Madrid, "The role of the rigged Hilbert space in quantum mechanics," *Eur. J. Phys.* 26, 287 (2005), [arXiv:quant-ph/0502053](https://arxiv.org/abs/quant-ph/0502053).
+- M. A. Nielsen and I. L. Chuang, *Quantum Computation and Quantum Information* (Cambridge), chapters 2 and 8 for density operators, POVMs and channels.
+- H.-P. Breuer and F. Petruccione, *The Theory of Open Quantum Systems* (Oxford).
+- D. A. Lidar, "Lecture Notes on the Theory of Open Quantum Systems," [arXiv:1902.00967](https://arxiv.org/abs/1902.00967).
+- R. P. Feynman and A. R. Hibbs, *Quantum Mechanics and Path Integrals* (emended edition, Dover).
+- C. Gerry and P. Knight, *Introductory Quantum Optics* (Cambridge), for coherent, squeezed and Wigner-function material.
+- J. J. Sakurai and J. Napolitano, *Modern Quantum Mechanics*, chapter 8, for relativistic quantum mechanics.
 
 ## See Also
 
-- [States, Operators &amp; Dynamics](formalism.html) — the working formalism these constructions extend.
-- [Systems &amp; Phenomena](systems-and-phenomena.html) — the oscillator and other solvable systems behind coherent and squeezed states.
-- [Quantum Field Theory](../quantum-field-theory.html) — the path integral and second quantization developed fully.
-- [Statistical Mechanics](../statistical-mechanics/) — density matrices, partition functions, and the Wick-rotated path integral.
+- [Quantum Mechanics Hub](./)
+- [States, Operators &amp; Dynamics](formalism.html): the working formalism these constructions extend.
+- [Systems &amp; Phenomena](systems-and-phenomena.html): the harmonic oscillator and other exactly solvable systems.
+- [Quantum Computing](qm-computing.html): qubits, gates, decoherence and error correction built on density matrices and channels.
+- [Computational Methods](qm-computational-methods.html): numerical Lindblad propagation, path-integral Monte Carlo and tensor networks.
+- [Computing, Information &amp; Advanced Formalism](computing-and-advanced.html): overview of the advanced pages.
+- [Quantum Field Theory](../quantum-field-theory.html): second quantization and the path integral for fields.
+- [Statistical Mechanics](../statistical-mechanics/): density matrices, partition functions and the imaginary-time formalism.

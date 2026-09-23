@@ -8,168 +8,153 @@ hide_title: true
 
 <div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 1.5rem 2rem; margin: -2rem -3rem 2rem -3rem;">
   <h1 style="color: white; margin: 0; font-size: 2rem;">Quantum Mechanics</h1>
-  <p style="margin-top: 0.5rem; opacity: 0.9;">The fundamental theory describing nature at atomic and subatomic scales, where particles exhibit wave-like behavior and uncertainty reigns.</p>
+  <p style="margin-top: 0.5rem; opacity: 0.9;">The fundamental theory of matter and radiation at atomic and subatomic scales, where states are complex amplitudes and measurement outcomes are probabilistic.</p>
 </div>
 
-Quantum mechanics is the operating system of the microscopic world. It replaces the definite trajectories of classical physics with *amplitudes* — complex numbers whose squared magnitudes give probabilities — and in doing so explains the stability of atoms, the colors of light, the periodic table, and the transistor in the device you are reading this on. These pages build from the core formalism (states, operators, the Schrödinger equation) through worked examples to the modern research frontier.
+**Quantum mechanics** is the physical theory that describes matter and light at the scale of atoms and below, and — through its consequences — chemistry, solids, lasers, and semiconductors. It replaces the definite trajectories of classical mechanics with *probability amplitudes*: complex numbers whose squared magnitudes give the probabilities of measurement outcomes, and which can interfere. This hub states the postulates and the foundational relations, lists the pages in this section, and corrects the most common misconceptions. The detailed formalism, solvable systems, and graduate material live on the sub-pages.
 
-- **The state is a wave function.** A system is a vector $\lvert\psi\rangle$; $\lvert\psi\rvert^2$ gives probabilities, and amplitudes can interfere.
-- **Observables are operators.** Measurable quantities are Hermitian operators; their eigenvalues are the only possible outcomes.
-- **Measurement is special.** Smooth, deterministic evolution is interrupted by abrupt, probabilistic collapse — the measurement problem.
-- **Entanglement is real.** Composite systems share correlations with no classical counterpart — the engine of quantum information.
+In brief:
 
-## Explore Quantum Mechanics
+- **States are vectors.** A system is described by a unit vector $\lvert\psi\rangle$ in a complex Hilbert space; amplitudes add, so alternatives can interfere.
+- **Observables are operators.** Measurable quantities are Hermitian operators; the only possible results are their eigenvalues, with probabilities given by the Born rule.
+- **Evolution is unitary; measurement is not.** Between measurements the Schrödinger equation evolves the state deterministically; a measurement yields one outcome at random.
+- **Composite systems can be entangled.** Their joint states need not factor into states of the parts, producing correlations that no local classical model can reproduce.
 
-The four core pages plus four deep-dive references are listed with full descriptions in the [What These Pages Cover](#what-these-pages-cover) table below.
+## Pages in This Section
 
-## What These Pages Cover
+| Page | What it covers |
+|------|----------------|
+| [States, Operators & Dynamics](formalism.html) | Dirac notation, observables and commutators, measurement, the Schrödinger equation and its pictures, symmetries, angular momentum and spin, perturbation theory, WKB, decoherence, interpretations |
+| [Systems & Phenomena](systems-and-phenomena.html) | Particle in a box, harmonic oscillator, hydrogen atom; tunneling, entanglement, superposition; key experiments |
+| [Bell's Theorem & Experimental Tests](bell-inequalities-and-tests.html) | EPR, the CHSH inequality, Tsirelson's bound, loopholes, loophole-free tests, device-independent applications |
+| [Computing & Advanced Topics](computing-and-advanced.html) | Sub-hub for the four graduate-level pages below |
+| [Quantum Computing](qm-computing.html) | Qubits, gates, Shor, Grover, variational algorithms, error correction, hardware |
+| [Advanced Formalism](qm-advanced-formalism.html) | Rigged Hilbert spaces, density matrices, path integrals, coherent and squeezed states, Lindblad dynamics, Dirac equation |
+| [Computational Methods](qm-computational-methods.html) | Exact diagonalization, tensor networks and DMRG, quantum Monte Carlo, time propagation, QuTiP |
+| [Research Frontiers](qm-research-frontiers.html) | Many-body physics, Berry phases, topological matter, measurement-induced phenomena, open questions |
 
-| Section | What it covers |
-|---------|----------------|
-| Fundamental Concepts (below) | The five postulates, duality, uncertainty, wave functions |
-| [States, Operators & Dynamics](formalism.html) | Schrödinger equation, observables, measurement, angular momentum, time evolution, perturbation theory |
-| [Systems & Phenomena](systems-and-phenomena.html) | The box, oscillator, and hydrogen atom; tunneling, entanglement, superposition; experiments |
-| [Computing, Information & Advanced Formalism](computing-and-advanced.html) | Overview hub for quantum information and the graduate machinery |
-| [Quantum Computing](qm-computing.html) | Qubits, gates, entanglement as a resource, Shor/Grover/VQE, error correction |
-| [Advanced Formalism](qm-advanced-formalism.html) | Rigged Hilbert spaces, density matrices, path integrals, coherent states, open systems |
-| [Computational Methods](qm-computational-methods.html) | Exact diagonalization, tensor networks/DMRG, quantum Monte Carlo, time propagation |
-| [Research Frontiers](qm-research-frontiers.html) | Many-body theory, geometric phases, topological matter, open questions |
-| [Bell's Theorem & Experimental Tests](bell-inequalities-and-tests.html) | EPR, CHSH inequality, Tsirelson's bound, loophole-free experiments |
-
-## How to Think Quantum
-
-Before the mathematics, it helps to internalize how quantum systems behave differently from classical ones:
-
-- **Classical coin:** heads OR tails. **Quantum coin:** heads AND tails simultaneously (superposition).
-- **Classical information:** copy it freely. **Quantum information:** the no-cloning theorem forbids copying an unknown state.
-- **Classical measurement:** look without disturbing. **Quantum measurement:** fundamentally changes the system.
-- **Classical correlation:** local interactions only. **Quantum correlation:** instant correlations via entanglement.
-
-### Visualizing Quantum States
-
-Think of quantum states as **vectors in an abstract space**. A classical bit is the north pole ($|0\rangle$) OR the south pole ($|1\rangle$); a qubit can be ANY point on the Bloch sphere, with equal superpositions like $(|0\rangle + |1\rangle)/\sqrt{2}$ sitting on the equator. Measurement projects the state onto a measurement axis. Pure states lie on the sphere's surface (radius $= 1$); mixed states lie inside it (radius $< 1$).
-
-### How the Pieces Fit Together
-
-It is easy to lose the forest for the trees in quantum mechanics. The map below organizes the machinery: the state vector sits at the center, observables and dynamics act on it, and the strange phenomena (superposition, entanglement, tunneling) are consequences, not separate rules. Applications and interpretations branch off the same trunk.
+A suggested reading order, with arrows pointing from prerequisites to the pages that use them:
 
 ```mermaid
-graph TD
-    PSI["State vector |psi&gt;<br/>in Hilbert space"] --> OBS["Observables<br/>(Hermitian operators)"]
-    PSI --> DYN["Dynamics<br/>(Schrodinger equation)"]
-    OBS --> MEAS["Measurement<br/>(Born rule, collapse)"]
-    PSI --> SUP["Superposition"]
-    SUP --> ENT["Entanglement<br/>(composite systems)"]
-    DYN --> TUN["Tunneling"]
-    MEAS --> DEC["Decoherence<br/>(classical limit)"]
-    ENT --> QC["Quantum computing<br/>and information"]
-    DEC --> CL["Classical physics<br/>emerges"]
-    classDef core fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
-    classDef phenom fill:#e3f2fd,stroke:#1976d2,stroke-width:2px;
-    classDef app fill:#fff3e0,stroke:#e65100,stroke-width:2px;
-    class PSI,OBS,DYN,MEAS core;
-    class SUP,ENT,TUN,DEC phenom;
-    class QC,CL app;
+flowchart TD
+    HUB["This page:<br/>postulates and core relations"] --> F["States, Operators<br/>and Dynamics"]
+    F --> SP["Systems and<br/>Phenomena"]
+    F --> BELL["Bell's Theorem and<br/>Experimental Tests"]
+    SP --> BELL
+    SP --> CA["Computing and<br/>Advanced Topics"]
+    CA --> QC["Quantum<br/>Computing"]
+    CA --> AF["Advanced<br/>Formalism"]
+    AF --> CM["Computational<br/>Methods"]
+    AF --> RF["Research<br/>Frontiers"]
+    CM --> RF
 ```
 
-## Fundamental Concepts
+## The Postulates of Quantum Mechanics
 
-### The Postulates of Quantum Mechanics
+The theory rests on a short list of postulates; uncertainty relations, quantization, tunneling, and entanglement are consequences. Textbooks differ slightly in how they split and number them, but the content is standard.
 
-Beneath the wave functions and operators, the entire theory rests on a short list of postulates. Everything else — uncertainty, quantization, tunneling, entanglement — is a logical consequence. It is worth seeing them assembled in one place; the rest of these pages are essentially these five statements worked out in detail.
+| # | Postulate | Statement | Developed in |
+|---|-----------|-----------|--------------|
+| 1 | State | A closed system is described by a unit vector $\lvert\psi\rangle$ (up to a global phase) in a complex Hilbert space | [Dirac notation](formalism.html#hilbert-space-and-dirac-notation) |
+| 2 | Observables | Measurable quantities are Hermitian operators $\hat{A}$; possible results are their eigenvalues | [Observables](formalism.html#observables-and-operators) |
+| 3 | Born rule and state update | Outcome $a_n$ occurs with probability $\lvert\langle a_n\vert\psi\rangle\rvert^2$, after which the state is $\lvert a_n\rangle$ | [Measurement](formalism.html#measurement) |
+| 4 | Dynamics | Between measurements, $i\hbar\,\partial_t\lvert\psi\rangle = \hat{H}\lvert\psi\rangle$ | [Time evolution](formalism.html#time-evolution-and-pictures) |
+| 5 | Composite systems | The state space of a composite system is the tensor product of the parts' spaces | [Entanglement](systems-and-phenomena.html#entanglement) |
+| 6 | Identical particles | States of identical particles are symmetric (bosons) or antisymmetric (fermions) under exchange | [Research Frontiers](qm-research-frontiers.html#second-quantization) |
 
-| # | Postulate | Statement | Where it appears |
-|---|-----------|-----------|------------------|
-| 1 | State | A system is fully described by a normalized vector $\lvert\psi\rangle$ in a Hilbert space | Wave functions, Dirac notation |
-| 2 | Observables | Measurable quantities are Hermitian operators $\hat{A}$; possible results are their eigenvalues | Position, momentum, energy operators |
-| 3 | Measurement (Born rule) | The probability of result $a_n$ is $\lvert\langle a_n\lvert\psi\rangle\rvert^2$, and the state collapses to $\lvert a_n\rangle$ | Measurement and decoherence |
-| 4 | Dynamics | Between measurements the state evolves by the Schrödinger equation, $i\hbar\,\partial_t\lvert\psi\rangle = \hat{H}\lvert\psi\rangle$ | Time evolution |
-| 5 | Composite systems | The state space of a combined system is the tensor product of the parts | Entanglement, many-body QM |
+Postulates 3 and 4 describe two different kinds of change. Schrödinger evolution is continuous, deterministic, and reversible; measurement is abrupt, probabilistic, and irreversible. Explaining how the second arises from, or coexists with, the first is the **measurement problem**. Decoherence explains why interference between macroscopically distinct outcomes disappears, but not why one outcome occurs; the competing answers are the [interpretations](formalism.html#the-measurement-problem-and-interpretations) of quantum mechanics.
 
-**The two kinds of change.** Notice that postulates 4 and 3 describe two utterly different ways a quantum state can change. Schrödinger evolution (postulate 4) is smooth, deterministic, and reversible — given $\lvert\psi(0)\rangle$ the future is fixed. Measurement (postulate 3) is abrupt, probabilistic, and irreversible — the state jumps to an eigenstate and information about the others is lost. Reconciling these two — when and why one becomes the other — is the *measurement problem*, and decoherence is the modern bridge between them. Hold this tension in mind; it is the conceptual heart of quantum mechanics.
+## Foundational Relations
 
-### Wave-Particle Duality
+### Constants
+
+Since the 2019 redefinition of the SI, Planck's constant has an exact defined value.
+
+| Constant | Symbol | Value |
+|----------|--------|-------|
+| Planck constant | $h$ | $6.626\,070\,15 \times 10^{-34}$ J s (exact) |
+| Reduced Planck constant | $\hbar = h/2\pi$ | $1.054\,571\,817\ldots \times 10^{-34}$ J s |
+| | | $6.582\,119\,569\ldots \times 10^{-16}$ eV s |
+| Bohr radius | $a_0$ | $5.291\,772 \times 10^{-11}$ m |
+| Rydberg energy | $R_\infty hc$ | $13.605\,693$ eV |
+
+### Wave–particle duality
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.fisica.net/mecanica-quantica/de_broglie_thesis.pdf"> Paper: <b><i>On the Theory of Quanta</i></b> - Louis de Broglie</a></p>
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/play-btn-fill.svg" class="icon"><a href="https://www.youtube.com/watch?v=qCmtegdqOOA"> Video: <b><i>Double Slit Experiment Explained</i></b></a></p>
 
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://en.wikipedia.org/wiki/Wave-particle_duality"> Article: <b><i>Wave-Particle Duality - Wikipedia</i></b></a></p>
+Light of frequency $\nu$ is absorbed and emitted in quanta of energy $E = h\nu$ (Planck 1900, Einstein 1905), and matter with momentum $p$ has an associated wavelength (de Broglie 1924, confirmed by electron diffraction in 1927):
 
-All matter and radiation exhibit both wave and particle properties. This duality is captured by de Broglie's relation:
+$$E = h\nu = \hbar\omega, \qquad \lambda = \frac{h}{p}, \qquad \mathbf p = \hbar\mathbf k.$$
 
-$$\lambda = \frac{h}{p}$$
+Neither "wave" nor "particle" is the underlying description. The state is an amplitude that propagates and interferes like a wave, while detection events are discrete and localized. Single-particle interference has been observed with electrons, neutrons, atoms, and molecules of about 2,000 atoms.
 
-Where:
-- $\lambda$ = de Broglie wavelength
-- $h$ = Planck's constant ($6.626 \times 10^{-34}$ J·s)
-- $p$ = momentum
-
-### The Uncertainty Principle
+### The uncertainty principle
 <p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-pdf-fill.svg" class="icon"><a href="https://www.phys.lsu.edu/faculty/oconnell/p7221/Heisenberg_zpk_1927.pdf"> Paper: <b><i>Über den anschaulichen Inhalt der quantentheoretischen Kinematik und Mechanik</i></b> - Werner Heisenberg</a></p>
 
-Heisenberg's uncertainty principle sets fundamental limits on simultaneous knowledge of complementary variables:
+For position and momentum along the same axis, the standard deviations over identically prepared systems satisfy
 
-<p class="referenceBoxes type3"><img src="https://andrewaltimit.github.io/Documentation/images/file-text-fill.svg" class="icon"><a href="https://scienceexchange.caltech.edu/topics/quantum-science-explained/uncertainty-principle"> Tutorial: <b><i>Understanding the Uncertainty Principle</i></b> - Caltech</a></p>
+$$\sigma_x\,\sigma_p \geq \frac{\hbar}{2}.$$
 
-**Position-Momentum Uncertainty:**
-$$\Delta x\,\Delta p \geq \frac{\hbar}{2}$$
+This follows from the commutator $[\hat x, \hat p] = i\hbar$ and is a property of the state, not a limitation of instruments; the general form for any pair of observables is derived on the [formalism page](formalism.html#the-uncertainty-relation). The energy–time relation, $\sigma_E\,\tau \gtrsim \hbar/2$, has a different meaning: $\tau$ is the time over which the system changes appreciably, not an uncertainty in a clock reading.
 
-**Energy-Time Uncertainty:**
-$$\Delta E\,\Delta t \geq \frac{\hbar}{2}$$
-Note: $\Delta t$ is the time scale for significant change in the system, not an uncertainty in clock time.
+### Wave functions and probability
 
-Where $\hbar = h/2\pi$ (reduced Planck's constant).
+In the position representation the state is a wave function $\psi(\mathbf r, t) = \langle\mathbf r\vert\psi(t)\rangle$. Its squared magnitude is a probability density, which must integrate to one:
 
-### Wave Functions and Probability
+$$P(\mathbf r, t) = |\psi(\mathbf r,t)|^2, \qquad \int |\psi(\mathbf r,t)|^2\, d^3r = 1.$$
 
-The state of a quantum system is described by a wave function $\psi(x,t)$. The probability density of finding a particle at position $x$ is:
+The probability of finding the particle in a region $V$ is $\int_V \lvert\psi\rvert^2\,d^3r$. Two wave functions differing only by a global phase $e^{i\theta}$ describe the same state; relative phases between components are physical and determine interference.
 
-$$P(x) = |\psi(x,t)|^2$$
+### The qubit and the Bloch sphere
 
-**Normalization condition:**
-$$
-\int_{-\infty}^{\infty} |\psi(x,t)|^2 \, dx = 1
-$$
+The simplest quantum system has two basis states, $\lvert 0\rangle$ and $\lvert 1\rangle$. Every pure state can be written, up to a global phase, as
 
-The probability of finding the particle in a region is $P(a < x < b) = \int_a^b |\psi(x,t)|^2\,dx$. Because the wave function carries all knowable information about the system, everything that follows — quantization, tunneling, interference — is a property of $\psi$ and the operators that act on it.
+$$|\psi\rangle = \cos\frac{\theta}{2}\,|0\rangle + e^{i\phi}\sin\frac{\theta}{2}\,|1\rangle,$$
+
+which is a point on the unit sphere with polar angle $\theta$ and azimuth $\phi$ (the **Bloch sphere**). The poles are the basis states, equal superpositions lie on the equator, and mixed states lie inside the sphere. A measurement along an axis yields one of the two antipodal points on that axis, with probabilities set by the state's projection onto it. The same mathematics describes a spin-½ particle, a photon's polarization, and a qubit in a quantum computer (see [Quantum Computing](qm-computing.html#qubits-and-the-bloch-sphere)).
+
+## Historical Development
+
+```mermaid
+timeline
+    title Milestones in quantum mechanics
+    1900-1913 : Planck's quantum hypothesis : Einstein's light quanta (1905) : Bohr atom (1913)
+    1924-1928 : de Broglie matter waves : Heisenberg matrix mechanics (1925) : Schrodinger equation and Born rule (1926) : Uncertainty principle (1927) : Dirac equation (1928)
+    1935-1964 : EPR paradox and Schrodinger's cat (1935) : Bohm pilot wave (1952) : Everett relative states (1957) : Bell's theorem (1964)
+    1970s-1990s : Decoherence theory : Aspect experiments (1982) : Shor's algorithm (1994) : Bose-Einstein condensation (1995)
+    2015-2025 : Loophole-free Bell tests (2015) : Nobel Prize for Bell tests (2022) : Centenary of quantum mechanics (2025) : Nobel Prize for macroscopic quantum tunnelling (2025)
+```
+
+The United Nations designated 2025 the International Year of Quantum Science and Technology, marking a century since Heisenberg's 1925 matrix-mechanics paper. The 2025 Nobel Prize in Physics went to John Clarke, Michel Devoret, and John Martinis "for the discovery of macroscopic quantum mechanical tunnelling and energy quantisation in an electric circuit" — experiments from 1984–85 on superconducting Josephson-junction circuits that are the ancestors of today's superconducting qubits.
 
 ## Common Misconceptions
 
-Quantum mechanics is unusually prone to plausible-sounding errors. They come in two flavors: **conceptual pitfalls** — wrong mental pictures — and **technical notes** — bookkeeping that quietly produces wrong answers even when the physics is understood.
+### Conceptual pitfalls
 
-### Conceptual Pitfalls
+| Claim | Correction |
+|-------|------------|
+| "Observation requires a conscious observer." | Any interaction that records which-state information suppresses interference. Decoherence, not consciousness, explains why outcomes look definite. |
+| "The uncertainty principle is about measurement disturbance." | $\sigma_x\sigma_p \ge \hbar/2$ constrains the state itself: no state has sharp position and momentum. Disturbance relations exist but are a separate result. |
+| "A superposition means the system is secretly in one state and we don't know which." | That describes a classical mixture. Superpositions produce interference that mixtures cannot. |
+| "Quantum effects only happen at microscopic scales." | Superconductivity, superfluidity, Bose–Einstein condensates, and the macroscopic tunnelling recognized by the 2025 Nobel Prize are quantum effects in large systems. |
+| "Tunneling is teleportation." | The wave function extends continuously into and through the barrier; nothing jumps discontinuously. |
+| "Entanglement sends signals faster than light." | Measurement outcomes are correlated, but the no-communication theorem guarantees that local statistics are unaffected by distant choices. |
+| "The electron orbits the nucleus." | Stationary states are orbitals: time-independent probability distributions, not trajectories. |
+| "Many-worlds means anything can happen." | Branches are weighted by Born-rule amplitudes; outcomes with zero amplitude never occur. |
+| "Virtual particles are real particles popping in and out of existence." | They are terms in a perturbative expansion, not observable objects. |
 
-- **"Observation requires consciousness."** No. Any interaction that distinguishes quantum states causes apparent collapse; decoherence, not a conscious observer, explains why we see definite outcomes.
-- **"The uncertainty principle is measurement disturbance."** No. It is a fundamental property of wave-like systems — position and momentum do not have simultaneous definite values, they are not merely unknown.
-- **"Quantum effects only occur at small scales."** More common there, but macroscopic quantum phenomena exist (superconductivity, superfluidity, Bose–Einstein condensates).
-- **"Quantum tunneling is teleportation."** No. The wave function extends continuously through the barrier; nothing jumps.
-- **"Entanglement transmits information faster than light."** No. Correlations exist, but the no-communication theorem forbids using them to signal.
-- **"The electron orbits the nucleus."** No. The electron occupies an orbital — a probability distribution, a cloud, not a trajectory.
-- **"Many-worlds means anything can happen."** No. Only outcomes consistent with the wave function occur.
-- **"Virtual particles are real particles popping in and out."** No. They are calculational tools in perturbation theory, not physical objects.
+### Technical notes
 
-### Technical Notes
-
-These are the bookkeeping traps that produce wrong numbers even when the concepts are clear:
-
-- **Normalization.** Every physical state must satisfy $\int|\psi|^2\,dx = 1$; forgetting to renormalize after a projection or a basis change is the most common arithmetic error.
-- **Representation mixing.** Position $\psi(x)$ and momentum $\tilde\psi(p)$ are the *same* state in two bases, related by a Fourier transform — never combine them as if they lived in one space.
-- **Operator ordering.** Because $[\hat x,\hat p]=i\hbar$, the operators do not commute: $\hat x\hat p \neq \hat p\hat x$. Order matters whenever you build or factor a Hamiltonian.
-- **Global vs. relative phase.** A global phase $e^{i\theta}\lvert\psi\rangle$ is unphysical, but *relative* phase is real and measurable: $\lvert 0\rangle + \lvert 1\rangle \neq \lvert 0\rangle - \lvert 1\rangle$.
-
-## Key Takeaways
-
-- **The state is a wave function.** All knowable information lives in $\psi$; $|\psi|^2$ gives the probability density of measurement outcomes.
-- **Observables are operators.** Measurable quantities correspond to Hermitian operators; their eigenvalues are the possible results.
-- **Uncertainty is fundamental.** $\Delta x\,\Delta p \geq \hbar/2$ is not a measurement limitation but a property of conjugate observables.
-- **Evolution is unitary, measurement is not.** The Schrödinger equation evolves states deterministically; measurement projects them probabilistically.
-- **Entanglement has no classical analog.** Correlations between subsystems can exceed anything classical, powering quantum computing and teleportation.
-- **Classical physics is the $\hbar \to 0$ limit.** Decoherence and the correspondence principle recover familiar classical behavior at macroscopic scales.
+- **Normalization.** Renormalize after projections and basis changes; unnormalized states give wrong probabilities.
+- **Representations.** $\psi(x)$ and $\tilde\psi(p)$ are the same state in two bases, related by a Fourier transform; do not mix them.
+- **Operator ordering.** $\hat x\hat p \neq \hat p\hat x$; ordering matters when building or factoring Hamiltonians (for example, in ladder-operator methods).
+- **Global versus relative phase.** A global phase is unobservable; a relative phase is physical: $\lvert 0\rangle + \lvert 1\rangle$ and $\lvert 0\rangle - \lvert 1\rangle$ are orthogonal states.
+- **Degeneracy.** Non-degenerate perturbation formulas fail when levels are degenerate; diagonalize the perturbation within the degenerate subspace first.
 
 ## See Also
 
-- [Classical Mechanics](../classical-mechanics/) — the classical limit recovered as $\hbar \to 0$.
+- [Classical Mechanics](../classical-mechanics/) — the classical limit, Hamiltonian mechanics, and Poisson brackets.
 - [Quantum Field Theory](../quantum-field-theory.html) — quantum mechanics made relativistic, with particles as field excitations.
 - [Statistical Mechanics](../statistical-mechanics/) — quantum statistics (Bose–Einstein, Fermi–Dirac) and many-body systems.
 - [Condensed Matter Physics](../condensed-matter/) — quantum mechanics applied to solids and emergent phases.
 - [Quantum Computing](../../quantum-computing/) — superposition and entanglement as a computational resource.
-- [Physics Hub](../) — browse all physics topics.
+- [Physics Hub](../) — all physics topics.

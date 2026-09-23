@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Please Build
+description: "Please (plz), Thought Machine's Bazel-style build system for polyglot monorepos: build graph and labels, plugins, configuration, BUILD rules, testing, CI, remote caching and execution, querying, and migration."
 permalink: /docs/technology/please-build.html
 toc: true
 toc_sticky: true
@@ -11,182 +12,247 @@ hide_title: true
 
 [Technology](./) &raquo; Please Build
 
-Please (the `plz` command) is a high-performance, extensible build system that brings the power of Google's Blaze/Bazel to a wider audience with a more approachable syntax. Built for polyglot monorepos, it emphasizes correctness, reproducibility, and speed: targets declare their inputs so Please rebuilds only what changed, builds run hermetically and content-addressed so they reproduce everywhere, and one consistent build spans Go, Python, Java, C++, Rust, and more.
+**Please** (command `plz`) is an open-source build system from Thought Machine. It follows the model of Google's Blaze/Bazel: every target declares its inputs and dependencies in a `BUILD` file, Please assembles those declarations into a dependency graph, and it rebuilds only the targets whose inputs have changed. Each action runs in its own isolated directory, and outputs are cached by the hash of their inputs. Language support comes from versioned **plugins** (Go, Python, Java, C/C++, protobuf, and more), so one tool builds and tests a polyglot monorepo. Please is written in Go, ships as a single self-updating binary, and runs on Linux and macOS.
 
-**When does a tool like Please earn its keep?** For a single-language app, your language's native tool (`go build`, `npm`, `cargo`) is simpler. Please shines in **polyglot monorepos** where you need one consistent, cached, parallel build across many languages — and where reproducibility and incremental rebuilds across a large dependency graph actually matter.
+This page covers the model, setup, configuration, rules, testing, CI, remote builds, and graph queries. For how Please compares with Nx, Turborepo, Bazel, Buck2, and Pants, see [Monorepo Tooling](../advanced/monorepo-tooling/).
 
-### How Please thinks: the build graph
+*Versions cited are current as of September 2026 (Please v17.33).*
 
-Every target declares its inputs and dependencies in a `BUILD` file. Please assembles these into a directed graph, then builds only what changed — running independent branches in parallel and reusing cached results for everything else.
+## When to use it
+
+A graph-based build system pays for itself when several of the following are true:
+
+- The repository mixes languages. Go services, Python tooling, Java libraries, and protobuf definitions all depend on each other.
+- Full builds are slow, and developers or CI would benefit from rebuilding and retesting only what a change affects.
+- Reproducibility matters. The same commit should produce the same outputs on every laptop and CI runner.
+- A team-wide remote cache would save substantial compute.
+
+For a single-language repository, the language's own tool (`go build`, `cargo`, `uv`, Gradle) is simpler and usually good enough. Every build system in this category makes you declare dependencies explicitly, and that is an ongoing cost as well as the source of its correctness.
+
+## Core concepts
+
+### Packages, targets, and labels
+
+Any directory that contains a `BUILD` file (or `BUILD.plz`) is a **package**. Each rule call in that file defines a **target**, and targets are addressed by **build labels**:
+
+| Label form | Meaning |
+|------------|---------|
+| `//src/server:server` | Target `server` in package `src/server` (absolute from the repo root) |
+| `//src/server` | Shorthand for `//src/server:server` |
+| `:lib` | Target `lib` in the current package |
+| `//src/...` | Every target in `src` and below (a wildcard for commands) |
+| `//src:all` | Every target in package `src` only |
+| `///go//build_defs:go` | A target inside a **subrepo** (here, the Go plugin) |
+
+**Visibility** decides who may depend on a target. The default is the target's own package. `visibility = ["//services/..."]` opens it to a subtree, and `["PUBLIC"]` opens it to everyone. Keeping visibility narrow is how a large repository enforces its architectural boundaries.
+
+### The build graph
 
 ```mermaid
 flowchart BT
-    UTILS["//common:utils"] --> LIB["//src:lib"]
-    LIB --> APP["//src:app (binary)"]
-    LIB --> TEST["//src:lib_test"]
-    REQ["//third_party/python:requests"] --> APP
-    style APP fill:#4facfe,color:#fff
-    style TEST fill:#00c9a7,color:#fff
+    UTILS["//common:utils<br/>(python_library)"] --> LIB["//src:lib<br/>(python_library)"]
+    LIB --> APP["//src:app<br/>(python_binary)"]
+    LIB --> TEST["//src:lib_test<br/>(python_test)"]
+    REQ["//third_party/python:requests<br/>(pip_library)"] --> APP
 ```
 
-Change `utils` and Please rebuilds `lib`, `app`, and `lib_test`; change only the test, and just the test reruns.
+Arrows point from a dependency to the target that uses it. A change to `utils` invalidates `lib`, `app`, and `lib_test`. A change to `lib_test.py` reruns only that test. Targets that don't depend on each other build in parallel.
 
-## Key Features
+### How a target is built
 
-- **Language-agnostic** — first-class rules for Go, Python, Java, C++, JavaScript, and Rust, with custom rules for anything else.
-- **Hermetic builds** — each action runs in an isolated sandbox, so the same inputs always produce the same outputs.
-- **Parallel and incremental** — independent targets build concurrently; content-addressed caching rebuilds only what changed.
-- **Remote execution** — fan builds out across a worker pool and share a remote cache for team-wide speedups.
-- **Extensible** — write custom rules in `build_defs` using a Python-like dialect (Starlark-style).
-- **Queryable graph** — inspect, visualize, and reason about dependencies with `plz query`.
+```mermaid
+flowchart LR
+    P["Parse BUILD files<br/>(only packages needed)"] --> G["Add targets to graph"]
+    G --> H["Hash rule definition<br/>+ source files<br/>+ dependency outputs"]
+    H --> C{"Output with this hash<br/>in local / remote cache?"}
+    C -- hit --> O["Link outputs into plz-out/"]
+    C -- miss --> T["Build in isolated plz-out/tmp/ dir<br/>containing only declared inputs"]
+    T --> S["Store outputs in cache"]
+    S --> O
+```
 
-### How it compares
+Two consequences follow:
 
-Please occupies the same niche as Bazel and Buck — correct, cached, graph-driven builds — but trades some of Bazel's ecosystem breadth for a gentler learning curve.
+- **Undeclared inputs fail loudly.** A command can see only the files listed in `srcs`, `deps`, and `tools`. A build that works with `go build` but fails under Please is almost always reading a file it never declared.
+- **Caching is safe.** The cache key covers the rule's command and attributes as well as its inputs, so editing a `BUILD` file invalidates exactly the targets whose definitions changed.
 
-| | Please | Bazel | Native tools (`go`/`npm`/`cargo`) |
-|---|--------|-------|-----------------------------------|
-| **Sweet spot** | Polyglot monorepos | Very large polyglot monorepos | Single-language projects |
-| **Learning curve** | Moderate | Steep | Low |
-| **Hermeticity** | Yes (sandboxed) | Yes (sandboxed) | No (relies on local env) |
-| **Remote cache / exec** | Built-in (REAPI) | Built-in (REAPI) | None |
-| **Rule language** | Python-like build defs | Starlark | N/A |
+The temporary directory keeps a target from seeing *files* it did not declare. On Linux, Please can also put each build or test action in a **sandbox** that cuts it off from the network, IPC, and the rest of the repository's filesystem. Sandboxing is off by default. Turn it on with `[sandbox]` (see [Configuration](#configuration)), and opt individual targets out with `sandbox = False`. On macOS the temporary directory is the only isolation.
 
-> **Both Please and Bazel speak REAPI.** Remote caching and execution use the **Remote Execution API** standard, so Please can share a cache/executor backend (such as BuildBarn or BuildBuddy) with other REAPI-compatible build tools.
+### Output layout
+
+| Path | Contents |
+|------|----------|
+| `plz-out/gen/` | Generated files and library outputs |
+| `plz-out/bin/` | Binaries (`plz-out/bin/src/app.pex`, `plz-out/bin/src/server/server`) |
+| `plz-out/tmp/` | Per-target working directories (kept for inspection with `--keep_workdirs`) |
+| `plz-out/log/` | `build.log`, `test_results.xml` (JUnit), `coverage.json` and `coverage.xml` |
 
 ## Installation
 
-### Quick Install (Recommended)
-
 ```bash
-# Latest stable version
+# Installs the latest release into ~/.please and puts `plz` on your PATH
 curl -sSfL https://get.please.build | bash
-
-# Or pin a specific version (recommended for reproducibility)
-curl -sSfL https://get.please.build | bash -s -- --version=17.8.0
-```
-
-> **Pin the version.** Pin a specific release here and in `.plzconfig` — check the [releases page](https://github.com/thought-machine/please/releases) for the current one. Pinning is what keeps every machine on an identical `plz`.
-
-### Alternative Installation Methods
-
-```bash
-# macOS with Homebrew
-brew tap thought-machine/please
-brew install please
-
-# From source
-git clone https://github.com/thought-machine/please.git
-cd please
-./bootstrap.sh
-
-# Using Go
-go install github.com/thought-machine/please@latest
-```
-
-### Verify Installation
-
-```bash
 plz --version
-# Output: Please version 17.8.0
 ```
 
-## Getting Started
-
-### Creating a New Project
+In practice, repositories do not depend on a global install. `plz init` writes a `pleasew` wrapper script at the repo root. It downloads and runs the exact version pinned in `.plzconfig`, so contributors and CI need only a shell and `curl`:
 
 ```bash
-# Initialize Please in the current repository
-plz init
+./pleasew build //...      # same result on every machine, whatever is installed globally
 ```
 
-This creates:
-- `.plzconfig` — the main configuration file at the repo root
-- `pleasew` — a wrapper script that bootstraps the pinned Please version, so contributors and CI don't need Please pre-installed (commit it and run `./pleasew build //...`)
+With `selfupdate` enabled, a globally installed `plz` also switches itself to the repo's pinned `version`. Please supports Linux and macOS on amd64 and arm64. Windows is not supported natively; use WSL2.
 
-Language support is added through **plugins** rather than templates. Pull in the rules for a language with:
+## Setting up a repository
 
 ```bash
-plz init plugin go
-plz init plugin python
-plz init plugin java
+plz init                 # creates .plzconfig and the pleasew wrapper
+plz init plugin go       # adds the Go plugin
+plz init plugin python   # adds the Python plugin
 ```
 
-> **Plugins, not templates.** Older guides reference per-language `plz init --template=…` flags; current Please uses the plugin system above. Check `plz init --help` for the options your installed version supports.
+Since Please v17, language rules are no longer built in. They live in separately versioned plugin repositories under the `please-build` GitHub organization, and a repo pins them like any other dependency. `plz init plugin` writes two things: a `plugin_repo` target and a `[Plugin "…"]` config section pointing at it.
+
+```python
+# plugins/BUILD
+plugin_repo(
+    name = "go",
+    revision = "vX.Y.Z",     # pin a go-rules release
+)
+
+plugin_repo(
+    name = "python",
+    revision = "vX.Y.Z",     # pin a python-rules release
+)
+```
+
+| Plugin | Rules it provides |
+|--------|-------------------|
+| `go` | `go_library`, `go_binary`, `go_test`, `go_repo` (third-party modules) |
+| `python` | `python_library`, `python_binary` (builds a `.pex`), `python_test`, `pip_library`, `python_wheel` |
+| `java` | `java_library`, `java_binary`, `java_test`, `maven_jar` |
+| `cc` | `cc_library`, `cc_binary`, `cc_test` (C and C++) |
+| `proto`, `go-proto`, `python-proto` | `proto_library`, `grpc_library` and per-language code generation |
+| `shell` | `sh_binary`, `sh_test` |
+| `docker`, `k8s` (community rules) | Container images and Kubernetes manifests |
+
+Core built-ins such as `genrule`, `gentest`, `filegroup`, `remote_file`, `export_file`, `subinclude`, and `plugin_repo` need no plugin. [Puku](https://github.com/please-build/puku) generates and updates Go `BUILD` files from import statements, much as Gazelle does for Bazel.
 
 ## Configuration
 
-### Basic Configuration
+`.plzconfig` is an INI-style file at the repo root. Please merges it with optional overlays, in increasing priority:
 
-Edit `.plzconfig` to configure Please Build:
+| File | Purpose | Commit it? |
+|------|---------|------------|
+| `/etc/please/plzconfig`, `~/.config/please/plzconfig` | Machine and user defaults | — |
+| `.plzconfig` | Project configuration | Yes |
+| `.plzconfig_<os>_<arch>` | Platform-specific overrides (for example `.plzconfig_linux_amd64`) | Yes |
+| `.plzconfig.<profile>` | Loaded with `--profile <profile>` (for example `ci`, `remote`) | Yes |
+| `.plzconfig.local` | Personal overrides | No (add to `.gitignore`) |
+
+Any single value can also be overridden on the command line with `-o section.key:value`, for example `-o build.timeout:1200`.
 
 ```ini
 [please]
-version = 17.8.0
-selfupdate = true
-location = ~/.please
+version = 17.33.0              ; pinned; pleasew and selfupdate honour this
+
+[parse]
+; make plugin rules available in every BUILD file without a subinclude()
+preloadsubincludes = ///go//build_defs:go
+preloadsubincludes = ///python//build_defs:python
 
 [build]
-path = src/
-languages = python,go,java
-timeout = 600
-workers = 4
+timeout = 600                  ; per-action timeout, seconds
+passenv = HOME                 ; environment variables allowed into build actions
+
+[sandbox]
+build = true                   ; Linux only; off by default
+test = true
 
 [cache]
-dir = ~/.cache/please
-httpurl = https://cache.example.com  # Optional remote cache
+dir = ~/.cache/please          ; local directory cache
 
-[python]
-defaultinterpreter = python3
-piptool = pip3
-moduledir = third_party/python
+[Plugin "go"]
+Target = //plugins:go
+ImportPath = github.com/example/monorepo
 
-[go]
-goroot = /usr/local/go
-importpath = github.com/myorg/myproject
+[Plugin "python"]
+Target = //plugins:python
+DefaultInterpreter = python3
+ModuleDir = third_party.python
 ```
 
-### Advanced Configuration
+Concurrency is set per invocation with `-n/--num_threads`, which defaults to the number of CPUs plus 2. `plz query config` prints the fully merged configuration, which helps when several overlays interact. The [config reference](https://please.build/config.html) lists every section and key.
 
-```ini
-[remote]
-url = grpc://remote-execution.example.com:8980
-instancename = main
-numexecutors = 100
+## Writing BUILD files
 
-[metrics]
-pushgatewayurl = http://prometheus-pushgateway:9091
+`BUILD` files use the **Please build language**, a restricted Python dialect similar to Bazel's Starlark. It has functions, list and dict literals, comprehensions, and string formatting, but no imports, classes, or I/O. Evaluating it is deterministic and fast.
 
-[experimental]
-go_modules = true
-python_wheel = true
-rust_cargo = true
-```
-
-## Build Rules
-
-### Core Concepts
-
-Build rules define how to build targets. Create `BUILD` files (or `BUILD.plz`) in directories:
-
-### Python Example
+### Go
 
 ```python
-# BUILD file
+# src/server/BUILD
+go_binary(
+    name = "server",
+    srcs = ["main.go"],
+    deps = [
+        "//src/server/handlers",
+        "//third_party/go:mux",
+    ],
+)
+```
+
+```python
+# src/server/handlers/BUILD
+go_library(
+    name = "handlers",
+    srcs = glob(["*.go"], exclude = ["*_test.go"]),
+    visibility = ["//src/server/..."],
+)
+
+go_test(
+    name = "handlers_test",
+    srcs = glob(["*_test.go"]),
+    deps = [
+        ":handlers",
+        "//third_party/go:testify",
+    ],
+)
+```
+
+Third-party modules are declared once, usually in `third_party/go/BUILD`. Only the listed packages are compiled:
+
+```python
+go_repo(
+    name = "testify",
+    module = "github.com/stretchr/testify",
+    version = "v1.9.0",
+    install = ["assert", "require"],
+)
+
+go_repo(
+    name = "mux",
+    module = "github.com/gorilla/mux",
+    version = "v1.8.1",
+)
+```
+
+### Python
+
+```python
+# src/BUILD
+python_library(
+    name = "lib",
+    srcs = glob(["*.py"], exclude = ["*_test.py", "main.py"]),
+    deps = ["//common:utils"],
+)
+
 python_binary(
-    name = "app",
+    name = "app",                        # builds plz-out/bin/src/app.pex
     main = "main.py",
     deps = [
         ":lib",
         "//third_party/python:requests",
-    ],
-)
-
-python_library(
-    name = "lib",
-    srcs = glob(["*.py"], exclude=["*_test.py", "main.py"]),
-    deps = [
-        "//common:utils",
     ],
 )
 
@@ -197,412 +263,236 @@ python_test(
 )
 ```
 
-### Go Example
-
-```python
-go_binary(
-    name = "server",
-    srcs = ["main.go"],
-    deps = [
-        ":handlers",
-        "//third_party/go:github.com_gorilla_mux",
-    ],
-)
-
-go_library(
-    name = "handlers",
-    srcs = glob(["*.go"], exclude=["*_test.go", "main.go"]),
-    visibility = ["//service/..."],
-)
-
-go_test(
-    name = "handlers_test",
-    srcs = ["handlers_test.go"],
-    deps = [":handlers"],
-)
-```
-
-> **Hermeticity gotcha.** Because builds run in a sandbox, a target can only see files it explicitly declares as `srcs` or `deps`. A build that "works on my machine" but fails under Please is almost always reading an undeclared file. List every input — that strictness is exactly what makes the build reproducible.
-
-### Cross-Language Dependencies
-
-```python
-# Protocol buffers used by multiple languages
-proto_library(
-    name = "api_proto",
-    srcs = ["api.proto"],
-    languages = ["python", "go", "java"],
-    visibility = ["PUBLIC"],
-)
-
-# Docker image with multi-language app
-docker_image(
-    name = "microservice",
-    srcs = [
-        ":go_server",
-        ":python_worker",
-    ],
-    base = "alpine:3.18",
-    dockerfile = "Dockerfile",
-)
-```
-
-## Testing
-
-### Writing Tests
-
-Please Build has first-class support for testing:
-
-```python
-# Unit tests
-python_test(
-    name = "unit_tests",
-    srcs = glob(["*_test.py"]),
-    deps = [":lib"],
-    size = "small",
-)
-
-# Integration tests
-python_test(
-    name = "integration_tests",
-    srcs = ["integration_test.py"],
-    deps = [":app"],
-    size = "medium",
-    timeout = 300,
-    labels = ["integration"],
-)
-
-# Benchmarks
-go_test(
-    name = "bench",
-    srcs = ["bench_test.go"],
-    deps = [":lib"],
-    flags = "-bench=.",
-    labels = ["benchmark"],
-)
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-plz test
-
-# Run specific test
-plz test //src:unit_tests
-
-# Run tests matching pattern
-plz test //..._test
-
-# Run tests with specific label
-plz test --include integration
-
-# Run each test multiple times (e.g. to flush out flaky tests)
-plz test //src:unit_tests --num_runs=10
-
-# Generate coverage report
-plz cover //src:unit_tests
-```
-
-### Test Sharding
-
-```python
-# Automatically shard large test suites
-python_test(
-    name = "large_test_suite",
-    srcs = glob(["test_*.py"]),
-    shard_count = 4,  # Split across 4 parallel jobs
-)
-```
-
-## Continuous Integration
-
-### GitHub Actions
-
-```yaml
-name: Please Build CI
-
-on: [push, pull_request]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Please
-      run: |
-        curl -sSfL https://get.please.build | bash
-        # Make plz available to every subsequent step (PATH set with `export`
-        # only survives within a single `run:` block).
-        echo "$HOME/.please/bin" >> "$GITHUB_PATH"
-    
-    - name: Build
-      run: plz build //...
-    
-    - name: Test
-      run: plz test //...
-    
-    - name: Coverage
-      run: plz cover //... --coverage_results_file=cover.xml
-    
-    - uses: codecov/codecov-action@v4
-      with:
-        file: ./cover.xml
-```
-
-### GitLab CI
-
-```yaml
-image: ubuntu:22.04
-
-before_script:
-  - apt-get update && apt-get install -y curl
-  - curl -sSfL https://get.please.build | bash
-  - export PATH="$HOME/.please/bin:$PATH"
-
-build:
-  script:
-    - plz build //...
-  artifacts:
-    paths:
-      - plz-out/
-
-test:
-  script:
-    - plz test //...
-  artifacts:
-    reports:
-      # Please writes combined results in xUnit/JUnit format here by default.
-      junit: plz-out/log/test_results.xml
-```
-
-> **Pin the version in CI.** The `version` field in `.plzconfig` makes Please self-bootstrap to that exact release on every machine, so the CI bootstrap script and every developer's laptop all run the same `plz`. Combined with a shared remote cache, this is what makes "it builds the same everywhere" true rather than aspirational.
-
-### Remote Caching for CI
-
-```ini
-# .plzconfig for CI
-[cache]
-dir = ~/.cache/please
-httpurl = https://please-cache.example.com
-httpwriteable = true
-httpheaders = Authorization: Bearer $CACHE_TOKEN
-```
-
-## Advanced Features
-
-### Remote Execution
-
-Distribute builds across multiple machines:
-
-```ini
-# .plzconfig
-[remote]
-url = grpc://remote.example.com:8980
-instancename = main
-numexecutors = 50
-casurl = grpc://cas.example.com:8981
-```
-
-### Custom Build Rules
-
-```python
-# build_defs/BUILD
-filegroup(
-    name = "rules",
-    srcs = ["rust_rules.build_defs"],
-    visibility = ["PUBLIC"],
-)
-```
-
-```python
-# build_defs/rust_rules.build_defs
-def rust_binary(name, srcs, deps=None, visibility=None):
-    """Build a Rust binary."""
-    return build_rule(
-        name = name,
-        srcs = srcs,
-        deps = deps,
-        outs = [name],
-        cmd = "rustc $SRCS -o $OUT",
-        binary = True,
-        visibility = visibility,
-    )
-```
-
-### Build Graph Analysis
-
-```bash
-# Visualize dependencies
-plz query graph --to //src:app | dot -Tpng > graph.png
-
-# Find all reverse dependencies
-plz query revdeps //common:utils
-
-# Query for specific attributes
-plz query print //src:app --field=deps
-
-# Find all tests
-plz query alltargets --include test
-```
-
-### Performance Optimization
-
-```ini
-[build]
-workers = 16  # Parallel build jobs
-memorylimit = 8GB
-
-[test]
-defaulttimeout = 300
-workers = 8
-
-[metrics]
-pushgatewayurl = http://prometheus:9091
-namespace = please_build
-```
-
-### Integration with Modern Tools
-
-#### Docker Support
-```python
-docker_image(
-    name = "app_image",
-    srcs = [":app_binary"],
-    dockerfile = "Dockerfile",
-    labels = ["latest", "$VERSION"],
-    repo = "myorg/myapp",
-)
-```
-
-#### Kubernetes Deployment
-```python
-k8s_config(
-    name = "deployment",
-    srcs = ["k8s/*.yaml"],
-    containers = {
-        "app": ":app_image",
-    },
-)
-```
-
-#### Protocol Buffers & gRPC
-```python
-grpc_library(
-    name = "api_grpc",
-    srcs = ["api.proto"],
-    languages = ["python", "go"],
-    protoc_flags = ["--experimental_allow_proto3_optional"],
-)
-```
-
-## Best Practices
-
-### Monorepo Organization
-
-```
-/
-├── .plzconfig
-├── BUILD              # Root build file
-├── build_defs/        # Custom build rules
-├── common/            # Shared libraries
-├── services/          # Microservices
-│   ├── api/
-│   ├── auth/
-│   └── worker/
-├── tools/             # Development tools
-└── third_party/       # External dependencies
-    ├── go/
-    ├── python/
-    └── java/
-```
-
-### Dependency Management
-
 ```python
 # third_party/python/BUILD
 pip_library(
     name = "requests",
-    version = "2.31.0",
-    hashes = ["sha256:..."],
-    deps = [
-        ":urllib3",
-        ":certifi",
-    ],
+    version = "2.32.3",
+    deps = [":urllib3", ":certifi", ":idna", ":charset_normalizer"],
 )
 
-# Lock dependencies
-# Run: plz hash --update //third_party/python/...
+pip_library(
+    name = "numpy",
+    version = "2.1.3",
+    zip_safe = False,     # compiled extensions can't be imported from inside a zip
+)
 ```
 
-### Build Optimization Tips
+Transitive Python dependencies are declared explicitly. There is no resolver running at build time, so the `BUILD` file is itself the lock file.
 
-1. **Use Remote Caching**: Share build artifacts across team
-2. **Minimize Dependencies**: Keep build graphs shallow
-3. **Parallelize Tests**: Use test sharding for large suites
-4. **Per-environment config**: keep CI-specific overrides in `.plzconfig.ci` and select it with `plz build --profile=ci //...`
-5. **Incremental Builds**: Design rules for maximum incrementality
+### Generic rules
 
-## Troubleshooting
+`genrule` wraps an arbitrary command. The command runs in the target's temporary directory with these variables set: `$SRCS` (inputs), `$OUT` or `$OUTS` (outputs to produce), `$TOOL` or `$TOOLS` (declared tool binaries), `$PKG` (package path), and `$TMP_DIR`.
 
-### Common Issues
+```python
+genrule(
+    name = "version",
+    srcs = ["VERSION"],
+    outs = ["version.go"],
+    cmd = "echo \"package version\n\nconst V = \\\"$(cat $SRCS)\\\"\" > $OUT",
+)
+```
+
+### Custom rules
+
+Reusable macros go in a `.build_defs` file that is exported through a `filegroup`. A `BUILD` file pulls them in with `subinclude`:
+
+```python
+# build_defs/BUILD
+filegroup(
+    name = "markdown",
+    srcs = ["markdown.build_defs"],
+    visibility = ["PUBLIC"],
+)
+```
+
+```python
+# build_defs/markdown.build_defs
+def markdown_html(name:str, src:str, visibility:list=None):
+    """Render one Markdown file to HTML with an in-repo converter."""
+    return genrule(
+        name = name,
+        srcs = [src],
+        outs = [name + ".html"],
+        tools = ["//tools:md2html"],      # a python_binary elsewhere in the repo
+        cmd = "$TOOL $SRCS > $OUT",
+        visibility = visibility,
+    )
+```
+
+```python
+# docs/BUILD
+subinclude("//build_defs:markdown")
+
+markdown_html(name = "guide", src = "guide.md")
+```
+
+Because `//tools:md2html` is itself a target, changing the converter's source rebuilds every page it produced. Non-hermetic tools taken from the host's `PATH` would not get this.
+
+## Testing
+
+A test target is a build target whose output is run. Its result is cached against the same input hash, so `plz test //...` on an unchanged tree reruns nothing.
 
 ```bash
-# Clean all cached outputs (forces a full rebuild next time)
-plz clean
-
-# Clean and rebuild just one target
-plz clean //src:app && plz build //src:app
-
-# Drop into a debugger for a failing test
-plz test //src:app_test --debug
-
-# Stream full subprocess output instead of Please's summary view
-plz build //src:app --show_all_output
-
-# Record a Chrome-tracing timeline of the build
-plz build //src:app --trace_file=trace.json
+plz test //...                              # all tests (cached results reused)
+plz test //src:lib_test                     # one target
+plz test //src:lib_test TestParse           # one test case (selector passed to the runner)
+plz test -i integration //...               # only targets labelled "integration"
+plz test -e e2e //...                       # everything except "e2e"
+plz test --num_runs=20 //src:lib_test       # repeat to flush out flakiness
+plz test --rerun //src:lib_test             # ignore the cached result
+plz test -f                                 # rerun only the tests that failed last time
+plz cover //src/...                         # run with coverage instrumentation
 ```
 
-### Build Reproducibility
+Test attributes worth knowing:
 
-Hermetic, content-addressed builds should be bit-for-bit reproducible: the same inputs produce the same output hash. You can verify this by building, clearing the cache, and rebuilding:
+| Attribute | Effect |
+|-----------|--------|
+| `labels = ["integration"]` | Lets `-i`/`-e` select the test |
+| `size = "medium"` | Applies a named timeout class (small, medium, large, enormous; configurable in `[size]`) |
+| `timeout = 300` | Explicit per-test timeout, in seconds |
+| `flaky = 3` | Reruns up to 3 times before reporting failure (`True` uses the default count). Treat it as a stopgap, not a fix |
+| `data = [...]` | Runtime files the test reads, copied into its sandbox |
 
-```bash
-plz build //src:app
-sha256sum plz-out/bin/src/app
+## Continuous integration
 
-plz clean
-plz build //src:app
-sha256sum plz-out/bin/src/app   # hash should match the first build
+The two things that matter most in CI are running the pinned version (through `pleasew`) and building and testing only what changed.
+
+```mermaid
+flowchart LR
+    PR["Pull request"] --> CH["plz query changes<br/>--since origin/main --level=-1"]
+    CH --> F["Changed targets +<br/>transitive dependents"]
+    F --> B["plz build / plz test<br/>(reads targets from stdin)"]
+    B --> RC[("Remote cache")]
+    RC -.->|"hits skip work"| B
+    B --> R["JUnit + coverage XML<br/>in plz-out/log/"]
 ```
 
-## Migration Guide
+### GitHub Actions
+
+```yaml
+name: ci
+on: [pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0              # `query changes` needs the merge base
+
+      - name: Test affected targets
+        run: |
+          ./pleasew query changes --since origin/${GITHUB_BASE_REF} --level=-1 \
+            | ./pleasew test --profile ci -
+
+      - name: Publish test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            plz-out/log/test_results.xml
+            plz-out/log/coverage.xml
+```
+
+`query changes` compares the working tree with the given revision and prints the affected targets. `--level=-1` adds every transitive dependent, so a library change also retests its consumers. The trailing `-` makes `plz test` read its targets from stdin. On pushes to `main`, run a full `./pleasew test //...` instead, which also refreshes the cache.
+
+### Remote cache
+
+```ini
+; .plzconfig.ci
+[cache]
+httpurl = https://please-cache.example.com
+httpwriteable = true            ; CI populates the cache; developers usually read-only
+```
+
+The HTTP cache is a simple content-addressed GET/PUT store, and any service that speaks the protocol works. A common arrangement lets CI write and developers only read. That way, a bad local environment cannot poison the shared cache.
+
+## Remote execution
+
+Please implements the **Remote Execution API** (REAPI v2.1), the same gRPC protocol Bazel and Buck2 use. It can therefore send actions to a build farm such as BuildBarn, BuildBuddy, or BuildGrid, or to a commercial REAPI service, instead of running them locally:
+
+```ini
+; .plzconfig.remote   (use with: plz build --profile remote //...)
+[remote]
+url = remote.example.com:443
+secure = true                   ; use TLS
+instance = main
+numexecutors = 100
+```
+
+Please's documentation still labels remote execution as experimental. Every tool an action uses has to be available on the workers, and `remote_file` needs a Remote Asset API implementation on the server. Most teams start with the HTTP cache alone, which gives most of the benefit for much less operational work.
+
+## Querying the graph
+
+`plz query` answers questions about the dependency graph without building anything:
+
+| Command | Answers |
+|---------|---------|
+| `plz query deps //src:app` | What does `app` depend on (transitively by default; `--level=1` for direct only)? |
+| `plz query deps --dot //src:app \| dot -Tsvg > app.svg` | The same, rendered as a Graphviz diagram |
+| `plz query revdeps //common:utils` | What depends directly on `utils`? Add `--level=-1` for all transitive dependents |
+| `plz query somepath //src:app //third_party/python:urllib3` | Why is `urllib3` in `app`'s closure? |
+| `plz query whatinputs src/lib/parse.py` | Which targets consume this file? |
+| `plz query changes --since origin/main` | Which targets did a branch affect? |
+| `plz query print //src:app` | The fully evaluated rule, after macros have run (`-f deps` for a single field) |
+| `plz query alltargets //src/...` | Every target under a path (`-i`/`-e` to filter by label) |
+| `plz query graph //src/...` | The graph as JSON, for your own tooling |
+| `plz query outputs //src:app` | The files a target produces |
+
+## Debugging builds
+
+| Symptom | Tool |
+|---------|------|
+| Need to see what a failing action actually ran | `plz build //x --shell` opens a shell in the target's prepared build directory, with its environment set |
+| Want the full compiler or test output | `--show_all_output` streams all subprocess output; `plz-out/log/build.log` keeps the full log |
+| Need to inspect working files after a success | `--keep_workdirs` preserves `plz-out/tmp/…` |
+| Build is slow and you don't know why | `--trace_file=trace.json`, then open it in `chrome://tracing` or Perfetto |
+| Python test failing | `plz test -d //x:test` drops into the debugger on failure |
+| Binary under a debugger | `plz debug //x:bin` (for rule types that support it) |
+| Suspect stale state | `plz clean //x` or `plz clean` (the whole `plz-out`) |
+| Unused targets piling up | `plz gc` lists targets that nothing depends on |
+
+`plz fmt` (alias of `plz format`) formats `BUILD` files consistently. `plz watch //x` rebuilds or retests whenever a target's sources change.
+
+## Migrating to Please
 
 ### From Bazel
 
-Core rule names and the `//package:target` label syntax are deliberately close to Bazel's, so simple targets often port verbatim:
+Labels (`//pkg:target`), `BUILD` files, `glob`, `visibility`, and most rule attribute names carry over. Ordinary targets often port with little more than a plugin swap. The differences are in the surrounding machinery:
 
-```python
-# Bazel and Please both spell this the same way
-cc_binary(
-    name = "app",
-    srcs = ["main.cc"],
-    deps = [":lib"],
-)
-```
+| Bazel | Please |
+|-------|--------|
+| `MODULE.bazel` / Bzlmod (WORKSPACE was removed in Bazel 9) | `plugins/BUILD` (`plugin_repo`) plus third-party targets (`go_repo`, `pip_library`, `maven_jar`) |
+| `.bazelrc` configs | `.plzconfig` profiles (`--profile ci`) and `-o` overrides |
+| Starlark `.bzl` files, `load()` | `.build_defs` files, `subinclude()` |
+| Rule implementations with providers and actions | Macros over `build_rule`/`genrule`; simpler to write, less expressive |
+| `bazel query` / `cquery` | `plz query` |
+| Remote cache and execution (REAPI) | The same protocol, so the same backends work |
 
-The real differences are in the surrounding ecosystem: Bazel's `WORKSPACE`/`MODULE.bazel` and `http_archive` become Please's `.plzconfig` plus per-language rules like `pip_library` and `go_module`, and Please's rule language is a Python-like dialect rather than strict Starlark. Expect to rewrite third-party dependency declarations rather than your own targets.
+Bazel's advantages are ecosystem size, platform/toolchain modeling, and first-class Windows support. Please's are a smaller conceptual surface, faster onboarding, and a simpler rule model. For a detailed comparison, see [Monorepo Tooling](../advanced/monorepo-tooling/).
 
 ### From Make
 
+Make tracks file modification times and only the dependencies you remember to write down. Please tracks content hashes and enforces declared inputs. A mechanical translation turns each Make target into a `genrule`, or into a language rule where one exists, with its prerequisites as `srcs` and `deps`:
+
 ```makefile
 # Makefile
-app: main.o lib.o
-    gcc -o app main.o lib.o
+app: main.c lib.c lib.h
+	cc -o app main.c lib.c
+```
 
-# Please BUILD file
+```python
+# BUILD (with the cc plugin)
+cc_library(
+    name = "lib",
+    srcs = ["lib.c"],
+    hdrs = ["lib.h"],
+)
+
 cc_binary(
     name = "app",
     srcs = ["main.c"],
@@ -610,42 +500,18 @@ cc_binary(
 )
 ```
 
-## FAQ
-
-**Q: How does Please compare to Bazel?**
-A: Please is inspired by Bazel but focuses on simplicity and ease of use. It has a gentler learning curve while maintaining most of Bazel's power.
-
-**Q: Can I use Please for small projects?**
-A: Yes! Please scales from single-file projects to massive monorepos.
-
-**Q: Does Please support Windows?**
-A: Please has experimental Windows support via WSL2.
-
-**Q: How do I debug failing builds?**
-A: Run with `--show_all_output` to see full subprocess logs, drop into a debugger on a failing test with `plz test //... --debug`, or inspect the per-target logs under `plz-out/log/`.
-
-For more FAQs, see the [official FAQ](https://please.build/faq.html).
-
-## Key Takeaways
-
-- **Please targets polyglot monorepos** — one build system across Go, Python, Java, C++, and more, with a gentler learning curve than Bazel.
-- **The build graph drives everything:** declare inputs and deps in `BUILD` files, and Please rebuilds only what changed.
-- **Content-addressed caching plus parallelism** deliver fast, incremental builds; remote caching and execution scale this across a team.
-- **Hermetic builds** make results reproducible — the same inputs always produce the same outputs.
-- **Use native tooling for single-language projects;** reach for Please when scale, polyglot needs, or reproducibility justify it.
-
 ## Resources
 
-- [Official Documentation](https://please.build/)
-- [GitHub Repository](https://github.com/thought-machine/please)
-- [Rule Examples](https://github.com/thought-machine/please/tree/master/test)
-- [Please Community Discussions](https://github.com/thought-machine/please/discussions)
-- [Build Language Reference](https://please.build/language.html)
-- [Please FAQ](https://please.build/faq.html) - Common questions and answers
+- [please.build](https://please.build/): official documentation, codelabs, and the [config reference](https://please.build/config.html)
+- [thought-machine/please](https://github.com/thought-machine/please): source code and [releases](https://github.com/thought-machine/please/releases)
+- [please-build/please-rules](https://github.com/please-build/please-rules): a curated index of language and technology plugins
+- [Build language reference](https://please.build/language.html)
+- [Please FAQ](https://please.build/faq.html)
 
 ## See Also
 
-- [CI/CD](ci-cd/) — wire Please builds into automated pipelines
-- [Git Version Control](git/) — monorepo strategies and large-repo tooling
-- [Docker](docker/) — package Please build artifacts into container images
-- [Kubernetes](kubernetes/) — deploy the services Please builds
+- [Monorepos](../advanced/monorepo/) and [Monorepo Tooling](../advanced/monorepo-tooling/): where graph-based build systems fit
+- [CI/CD](ci-cd/): pipeline design around incremental builds
+- [Git Version Control](git/): large-repository practices
+- [Docker](docker/): packaging build outputs as images
+- [Kubernetes](kubernetes/): deploying the services Please builds

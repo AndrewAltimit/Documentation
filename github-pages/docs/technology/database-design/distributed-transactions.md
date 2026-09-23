@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Database Design: Distributed Transactions"
+description: "Atomic commitment across machines: two- and three-phase commit, commit over consensus (Spanner, CockroachDB), sagas, the transactional outbox, idempotency keys, distributed deadlocks and exactly-once processing."
 permalink: /docs/technology/database-design/distributed-transactions.html
 toc: true
 toc_sticky: true
@@ -11,219 +12,276 @@ hide_title: true
 
 # Distributed Transactions
 
-## Atomicity Across Machines
+A single-node database makes a transaction atomic by writing one commit record to its write-ahead log: either the record is durable and every change survives, or it is not and none do. When a logical operation touches **several independent nodes** — shards of one database, separate databases, or a database plus a message broker — there is no single log to write. Each participant can crash independently, and the network between them can drop, delay or reorder messages. This page covers the ways systems restore "all or nothing" in that setting: coordinated atomic commit (two- and three-phase commit, and their modern consensus-backed forms), and the application-level alternatives that most service architectures use instead (sagas, the transactional outbox, idempotency and deduplication).
 
-A single-node database gives you atomicity for free: the storage engine writes a commit record to the write-ahead log, and either the whole transaction is durable or none of it is. Once data spans **multiple machines**—shards, microservices, or independent databases—that guarantee evaporates. Each node has its own log, its own clock, and its own failure modes, and the network between them can drop, delay, or reorder messages at any moment.
+## The Atomic Commitment Problem
 
-The central question of distributed transactions is: **how do you make `N` independent participants either all commit or all abort, despite crashes and network partitions?** There is no perfect answer—the [FLP impossibility result](#why-2pc-blocks) proves you cannot have a protocol that is simultaneously safe, live, and fault-tolerant in an asynchronous network. Every technique below is a different point on that trade-off curve.
+The problem is to make $N$ participants reach the same decision, commit or abort, such that:
 
-<div class="notice--info">
-  <p><strong>Two philosophies.</strong> You can either coordinate a single atomic commit across all participants (<strong>2PC/3PC</strong>—strong consistency, blocking, tight coupling), or accept that each participant commits independently and stitch the steps together with application logic (<strong>sagas, outbox, idempotency</strong>—eventual consistency, non-blocking, loose coupling). Modern microservice architectures overwhelmingly choose the second.</p>
-</div>
+- **Agreement** — no two participants decide differently.
+- **Validity** — commit is decided only if every participant voted to commit; if all vote yes and nothing fails, the outcome is commit.
+- **Termination** — every correct participant eventually decides.
+
+Atomic commitment is closely related to consensus, and it inherits consensus's limits. The FLP result (Fischer, Lynch and Paterson, 1985) shows that in a fully asynchronous network no deterministic protocol can guarantee termination if even one node may crash, and Skeen (1981) showed that no commit protocol can be non-blocking when the network can partition. Practical systems therefore choose which property to weaken, and when.
+
+| Approach | Consistency | Blocks on failure? | Coupling | Typical use |
+|---|---|---|---|---|
+| **Two-phase commit (2PC / XA)** | Atomic | Yes, if the coordinator fails | Tight | Within one database cluster or datacenter |
+| **2PC over consensus groups** | Atomic, often serializable | Only if a majority of a group is lost | Tight, but hidden inside the database | Distributed SQL: Spanner, CockroachDB, YugabyteDB, TiDB |
+| **Saga** | Eventual; no isolation | No | Loose | Long-running business processes across services |
+| **Outbox + idempotent consumers** | Eventual; effectively-once effects | No | Loose | Publishing events reliably from a service's database |
+
+The first two approaches give a true atomic commit; the last two accept that participants commit independently and restore consistency through application logic.
 
 ## Two-Phase Commit (2PC)
 
-Two-phase commit is the classic protocol for an *atomic* distributed commit. A designated **coordinator** drives the protocol; the other nodes are **participants** (also called cohorts or resource managers). It works like a wedding ceremony: first everyone is asked whether they consent, then—only if all agree—the union is finalized.
+Two-phase commit (described by Jim Gray in 1978) uses one **coordinator** (the transaction manager) and several **participants** (resource managers).
 
-**Phase 1 — Prepare (voting):**
-
-```python
-# Coordinator (the officiant)
-def prepare_transaction(tx_id, participants):
-    responses = []
-    for participant in participants:
-        # "Can you commit? Promise not to back out."
-        response = participant.prepare(tx_id)
-        responses.append(response)
-
-    if all(r == "YES" for r in responses):
-        decision = "COMMIT"
-    else:
-        decision = "ABORT"
-
-    log_decision(tx_id, decision)  # Write to disk BEFORE telling anyone
-    return decision
+```mermaid
+sequenceDiagram
+    participant C as Coordinator
+    participant A as Participant A
+    participant B as Participant B
+    Note over C,B: Phase 1: prepare (voting)
+    C->>A: PREPARE
+    C->>B: PREPARE
+    A->>A: write changes and PREPARED record to log, keep locks
+    B->>B: write changes and PREPARED record to log, keep locks
+    A-->>C: YES
+    B-->>C: YES
+    C->>C: force COMMIT decision to log (commit point)
+    Note over C,B: Phase 2: commit (decision)
+    C->>A: COMMIT
+    C->>B: COMMIT
+    A->>A: commit, release locks
+    B->>B: commit, release locks
+    A-->>C: ACK
+    B-->>C: ACK
+    C->>C: write END record, forget transaction
 ```
 
-When a participant votes `YES`, it does something crucial: it makes the changes durable in its own log (so it can survive a crash) but does **not** release locks. It is now **in doubt**—bound by its promise, unable to act unilaterally until the coordinator tells it the outcome.
+**Phase 1 — prepare.** The coordinator asks each participant whether it can commit. A participant that votes **yes** first makes its changes and a `PREPARED` record durable in its own log, and keeps its locks. From that moment it has given up the right to abort on its own: it is **in doubt** until it learns the outcome. A participant that votes **no** can abort immediately.
 
-**Phase 2 — Commit/Abort (decision):**
+**Phase 2 — commit or abort.** If every vote is yes, the coordinator decides commit; if any vote is no or a participant does not answer in time, it decides abort. It sends the decision to all participants, which apply it and release their locks.
 
 ```python
-def finish_transaction(tx_id, participants, decision):
-    for participant in participants:
-        participant.apply(tx_id, decision)  # COMMIT or ABORT
-        # Participant applies changes (or rolls back) and releases locks
+def two_phase_commit(tx_id, participants, log):
+    votes = [p.prepare(tx_id) for p in participants]      # phase 1
+    decision = "COMMIT" if all(v == "YES" for v in votes) else "ABORT"
+    log.force_write(tx_id, decision)                      # the commit point
+    for p in participants:                                # phase 2 (retried until acked)
+        p.finish(tx_id, decision)
+    log.write(tx_id, "END")
 ```
 
 ### The commit point
 
-The single most important moment in 2PC is when the coordinator **forces its decision to its own log**. Before that write, the default is abort; after it, the default is commit. This is the "point of no return." If the coordinator crashes after logging `COMMIT` but before notifying participants, recovery reads the log and resends the decision. This is why both the coordinator and the participants must use durable, recoverable logging—2PC is built on top of each node's local WAL, not a replacement for it.
+The decisive moment is when the coordinator **forces its decision to its own log**. Before that write, a crash leads to abort; after it, recovery re-reads the log and re-sends `COMMIT` until every participant acknowledges. Participants that crash after voting yes recover from their own logs, find the `PREPARED` record, and ask the coordinator for the outcome. 2PC is therefore built on top of each node's local write-ahead log, not a replacement for it.
 
-```
-   Coordinator                Participant A            Participant B
-       |                           |                        |
-       |------ PREPARE ----------->|                        |
-       |------ PREPARE ------------------------------------>|
-       |                           | (flush to log, lock)   |
-       |<----- YES ----------------|                        |
-       |<----- YES -----------------------------------------|
-       |                           |                        |
-   [force COMMIT to log]  <-- commit point                  |
-       |                           |                        |
-       |------ COMMIT ------------>| (apply, release locks) |
-       |------ COMMIT ------------------------------------->|
-       |<----- ACK ----------------|                        |
-       |<----- ACK -----------------------------------------|
+A common optimisation, **presumed abort**, lets the coordinator skip logging abort decisions: if a participant asks about a transaction the coordinator has no record of, the answer is "abort".
+
+Each participant moves through a small state machine; the `Prepared` state is where it can get stuck:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Working
+    Working --> Aborted: votes NO, or times out before voting
+    Working --> Prepared: votes YES (changes and PREPARED record durable)
+    Prepared --> Committed: receives COMMIT
+    Prepared --> Aborted: receives ABORT
+    Committed --> [*]
+    Aborted --> [*]
+    note right of Prepared
+        In doubt: holds locks and
+        cannot decide unilaterally
+    end note
 ```
 
 ### Why 2PC blocks
 
-2PC is **safe** (it never lets some nodes commit while others abort) but it is **not live** under failure. Consider the coordinator crashing right after every participant has voted `YES` but before sending any decision:
+2PC is **safe** — it never lets some participants commit while others abort — but it is **not live** when the coordinator fails. Suppose the coordinator crashes after every participant has voted yes but before any has received the decision:
 
-- Participants are **stuck holding locks** ("standing at the altar"), in doubt.
-- They cannot commit—the coordinator might have decided to abort.
-- They cannot abort—the coordinator might have decided to commit, and other participants might already have applied it.
-- They cannot even ask each other, because a peer that voted `YES` knows no more than they do.
+- Each participant is in the `Prepared` state, holding its locks.
+- It cannot commit, because the coordinator might have decided abort (for instance, if another vote arrived late).
+- It cannot abort, because the coordinator might have decided commit and another participant may already have applied it.
+- Asking the other participants does not help if they are all in doubt too.
 
-This is the famous **blocking problem**. In-doubt transactions hold locks indefinitely, stalling unrelated work, until the coordinator recovers. Worse, a *participant* crash during phase 2 leaves the coordinator unable to complete until that node returns. For this reason 2PC is best confined to a single datacenter with a highly available coordinator, and it is the reason most internet-scale systems avoid it.
+Those locks stay held until the coordinator recovers, stalling every other transaction that touches the same rows. Two further operational costs follow:
 
-<div class="notice--warning">
-  <p><strong>2PC couples availability.</strong> A transaction across N participants is only as available as the <em>least</em> available participant <em>and</em> the coordinator. The probability that all are up multiplies down quickly: five 99.9%-available services give roughly 99.5% combined availability for a cross-service commit. This multiplicative fragility, not just the blocking window, is why 2PC scales poorly.</p>
-</div>
+- **Availability multiplies down.** A cross-participant commit needs the coordinator and every participant to be up. Five services at 99.9% availability give about $0.999^5 \approx 99.5\%$ for the combined operation.
+- **Latency adds up.** Every commit costs at least two round trips plus two forced log writes on the critical path.
+
+### 2PC in practice: XA and prepared transactions
+
+The X/Open **XA** standard defines the interface between a transaction manager and resource managers, and most relational databases expose the participant side directly:
+
+```sql
+-- PostgreSQL participant side (requires max_prepared_transactions > 0; default is 0)
+BEGIN;
+UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+PREPARE TRANSACTION 'tx-7f3a';      -- phase 1: durable, locks retained, session detached
+
+-- later, from any session, once the coordinator has decided
+COMMIT PREPARED 'tx-7f3a';          -- or ROLLBACK PREPARED 'tx-7f3a'
+```
+
+MySQL offers the equivalent `XA START`, `XA PREPARE` and `XA COMMIT`. The operational hazard is the **orphaned prepared transaction**: if the external coordinator is lost, the prepared transaction survives restarts, keeps its locks, and in PostgreSQL also holds back `VACUUM`'s cleanup horizon. Monitor `pg_prepared_xacts` and alert on old entries. For this reason PostgreSQL disables prepared transactions by default and recommends enabling them only when an external transaction manager is actually in use.
 
 ## Three-Phase Commit (3PC)
 
-Three-phase commit was designed to make distributed commit **non-blocking** by inserting an extra round. The insight: in 2PC, a participant moves directly from "voted yes" to "committed," so a recovering node can't tell which side of the commit point the cluster was on. 3PC adds an intermediate **pre-commit** state that all participants reach *before* anyone commits.
+Three-phase commit (Skeen, 1981) tries to remove 2PC's blocking by adding a round between voting and committing:
 
-**The three phases:**
+1. **CanCommit** — the coordinator collects votes, as in 2PC.
+2. **PreCommit** — if all voted yes, the coordinator tells everyone so; participants acknowledge and enter a *pre-committed* state.
+3. **DoCommit** — the coordinator tells participants to commit.
 
-1. **CanCommit** — coordinator asks, participants vote yes/no (like 2PC prepare, but participants do not yet lock resources irrevocably).
-2. **PreCommit** — if all voted yes, the coordinator sends `PRECOMMIT`; participants acknowledge and enter a "prepared to commit" state. Reaching this state means *everyone agreed*.
-3. **DoCommit** — coordinator sends `DOCOMMIT`; participants commit and release locks.
+Because no participant commits until all have reached pre-commit, a participant that times out can decide on its own: if it has seen `PRECOMMIT`, everyone voted yes and it is safe to commit; if not, no one can have committed and it is safe to abort.
 
+3PC is essentially unused in production. Its non-blocking argument holds only in a synchronous network with reliable failure detection. Under a network partition it can violate safety: one side that has seen `PRECOMMIT` commits by timeout while the other side, which has not, aborts. It also adds a round trip to every commit. The approach that replaced it is to make the coordinator itself fault-tolerant by replicating it with consensus.
+
+## Commit Over Consensus
+
+Modern distributed SQL databases keep 2PC but remove its single point of failure: **every participant and the coordinator's record are themselves replicated state machines** (Paxos or Raft groups; see [Replication & Consensus](replication-and-consensus.html)). A "node" in the 2PC protocol is then a group that survives the loss of a minority of its replicas, so the in-doubt window lasts only as long as a leader election, not as long as a machine repair.
+
+```mermaid
+flowchart LR
+    subgraph G1["Shard 1: Raft group (holds transaction record)"]
+        L1["Leader"] --- F1a["Follower"]
+        L1 --- F1b["Follower"]
+    end
+    subgraph G2["Shard 2: Raft group"]
+        L2["Leader"] --- F2a["Follower"]
+        L2 --- F2b["Follower"]
+    end
+    subgraph G3["Shard 3: Raft group"]
+        L3["Leader"] --- F3a["Follower"]
+        L3 --- F3b["Follower"]
+    end
+    CL["Client transaction"] --> L1
+    L1 -->|"prepare / write intents"| L2
+    L1 -->|"prepare / write intents"| L3
 ```
-Phase 1: CanCommit?  --->  yes/no votes
-Phase 2: PreCommit   --->  acks   (now everyone knows everyone said yes)
-Phase 3: DoCommit    --->  commit
-```
 
-Because the `PRECOMMIT` state is reached by all participants before any commit, a recovering participant can reason about the global state using a **timeout-based default**: if it has received `PRECOMMIT`, it can safely commit even without hearing from the coordinator (everyone must have agreed); if it has not, it can safely abort. This removes the indefinite blocking of 2PC.
+- **Google Spanner** runs 2PC across Paxos groups. One group's leader acts as coordinator, and both the prepare records and the decision are Paxos-replicated. Transactions get commit timestamps from **TrueTime**, a clock API that returns an interval with bounded uncertainty (backed by GPS and atomic clocks); the coordinator *waits out* that uncertainty before making a commit visible, which gives **external consistency** (strict serializability) across the globe.
+- **CockroachDB** writes provisional *write intents* on each range and a single transaction record whose status flip from pending to committed is the commit point. Its **parallel commits** protocol (since v19.2) writes the intents and a `STAGING` transaction record concurrently, so a distributed commit completes in roughly one round of consensus instead of two. It uses hybrid logical clocks rather than specialised hardware and defaults to `SERIALIZABLE` isolation.
+- **Amazon Aurora DSQL** (generally available since 2025) is a PostgreSQL-compatible distributed SQL service that uses **optimistic concurrency control** with snapshot isolation: transactions take no locks, conflicts are checked at commit, and the loser receives a serialization failure (`SQLSTATE 40001`) that the application must retry. There are no lock waits and therefore no deadlocks, at the cost of more retries under contention.
 
-<div class="notice--warning">
-  <p><strong>Why nobody uses 3PC.</strong> 3PC only achieves non-blocking under a synchronous network with reliable failure detection and no network partitions. Real networks <em>do</em> partition, and under a partition 3PC can violate safety: a partitioned group that has seen <code>PRECOMMIT</code> commits while another group times out and aborts—a split-brain. The extra round-trip also adds latency. In practice, production systems skip 3PC and instead use a partition-tolerant <strong>consensus protocol</strong> (Raft, Paxos, or Spanner's Paxos-over-TrueTime) to replicate the commit decision itself, which gives both safety and availability with a majority quorum.</p>
-</div>
-
-> **See also:** Consensus protocols like Raft and Paxos—covered in [Distributed Databases &amp; NoSQL](distributed-and-nosql.html)—are the modern replacement for a fragile single coordinator. A consensus group can lose a minority of nodes and still make progress, eliminating the single point of failure that makes 2PC block.
+From the application's point of view these systems offer an ordinary `BEGIN ... COMMIT`. The costs are commit latency that includes at least one consensus round trip (cross-region if replicas span regions) and the need to retry on serialization failures.
 
 ## The Saga Pattern
 
-For business processes that span multiple services or run for a long time (booking a trip, fulfilling an order, onboarding a customer), holding distributed locks for the whole duration—as 2PC requires—is untenable. The **saga pattern** trades atomicity for availability: a saga is a *sequence of local transactions*, each of which commits independently. If a later step fails, the saga runs **compensating transactions** to semantically undo the earlier steps.
+For a business process that spans services or takes minutes to days — booking a trip, fulfilling an order, onboarding a customer — holding locks across all participants for the whole duration is not practical. A **saga** (Garcia-Molina and Salem, 1987) is a sequence of local transactions $T_1, T_2, \ldots, T_n$, each of which commits on its own. Each step $T_i$ has a **compensating transaction** $C_i$ that semantically undoes it. If step $T_k$ fails, the saga runs $C_{k-1}, \ldots, C_1$ in reverse order.
 
-```python
-class TripBookingSaga:
-    def execute(self):
-        flight_id = hotel_id = car_id = None
-        try:
-            flight_id = book_flight()        # Step 1 (local commit)
-            hotel_id = book_hotel()          # Step 2 (local commit)
-            car_id = book_rental_car()       # Step 3 (local commit)
-            send_confirmation()              # Step 4
-        except Exception as e:
-            # Compensate in REVERSE order
-            if car_id:    cancel_rental_car(car_id)
-            if hotel_id:  cancel_hotel(hotel_id)
-            if flight_id: cancel_flight(flight_id)
-            raise e
+```mermaid
+sequenceDiagram
+    participant O as Orchestrator
+    participant F as Flights
+    participant H as Hotels
+    participant R as Car rental
+    O->>F: T1 book flight
+    F-->>O: booked
+    O->>H: T2 book hotel
+    H-->>O: booked
+    O->>R: T3 book car
+    R-->>O: failed (no cars)
+    Note over O: run compensations in reverse
+    O->>H: C2 cancel hotel
+    H-->>O: cancelled
+    O->>F: C1 cancel flight (refund)
+    F-->>O: cancelled
 ```
 
 ### Compensation is semantic, not physical
 
-A compensating transaction does not "roll back" in the storage-engine sense—the original local transaction already committed and is visible to everyone. Instead it performs a *new* transaction that **semantically reverses** the effect: a `cancel_flight` that issues a refund and frees the seat, not a magical un-booking. This has consequences:
+A compensating transaction is not a rollback: the original step already committed and may have been observed. It is a *new* transaction that reverses the business effect — a refund, not an erased charge. This has consequences:
 
-- **Compensations may themselves be complex.** Refunding money is not the inverse of charging it; it may incur fees, trigger notifications, or be impossible after a cutoff.
-- **Some actions are irreversible.** You cannot un-send an email or un-launch a missile. For these, the saga must place the irreversible step **last** (a *pivot transaction*), or split it into a reversible reservation plus a separate, idempotent confirmation.
-- **Compensations must commute with concurrent activity.** Between booking and cancelling, another process may have read the booking. Sagas therefore provide weaker isolation than a single ACID transaction—see "lack of isolation" below.
+- **Compensations can be complex or lossy.** A refund may carry fees or be impossible after a cutoff.
+- **Some steps cannot be undone.** An email cannot be unsent. Order the saga so that irreversible steps come after the **pivot transaction** — the step after which the saga is committed to completing — and make the steps after the pivot *retriable* rather than compensatable. Alternatively, split an irreversible action into a reversible reservation followed by a confirmation.
+- **Compensations must be idempotent and retried until they succeed.** A compensation that fails leaves the system inconsistent, so it is retried (with backoff) rather than abandoned, and escalated to a human if it keeps failing.
 
-### Orchestration vs. choreography
-
-Sagas come in two coordination styles:
+### Orchestration and choreography
 
 | | **Orchestration** | **Choreography** |
 |---|---|---|
-| Control | A central orchestrator tells each service what to do next | Each service emits events; others react |
-| Coupling | Orchestrator knows the whole flow | No central knowledge; flow is emergent |
-| Visibility | Easy to see/trace the whole saga | Hard to reason about end-to-end |
-| Risk | Orchestrator is a focal point of logic | Cyclic event dependencies, hard to debug |
-| Good for | Complex flows, many steps, clear ownership | Simple flows, highly decoupled teams |
+| Control | A central orchestrator invokes each step and records progress | Each service reacts to events emitted by others |
+| Knowledge of the flow | In one place | Spread across services; emerges from subscriptions |
+| Observability | The saga's state can be queried directly | Must be reconstructed from events and traces |
+| Failure risk | Orchestrator logic grows complex | Cyclic dependencies; hard-to-trace failures |
+| Suits | Many steps, clear ownership, frequent change | Few steps, highly independent teams |
 
-**Orchestrated saga** (a stateful coordinator drives the steps and records progress in a saga log):
+An orchestrator must persist its progress so that it can resume after a crash:
 
 ```python
-class OrderSagaOrchestrator:
-    def handle(self, saga_id):
-        state = self.load_state(saga_id)   # durable saga log
+STEPS = [
+    ("payment.charge",    "payment.refund"),
+    ("inventory.reserve", "inventory.release"),
+    ("shipping.dispatch", None),                 # pivot: no compensation, retried until done
+]
 
-        if state.step == "START":
-            self.invoke("payment.charge", saga_id)
-            self.save_state(saga_id, step="CHARGED")
+def run_saga(saga_id, store, invoke):
+    state = store.load(saga_id)                  # durable saga log
+    for i in range(state.next_step, len(STEPS)):
+        action, _ = STEPS[i]
+        try:
+            invoke(action, saga_id, idempotency_key=f"{saga_id}:{action}")
+        except PermanentFailure:
+            compensate(saga_id, completed=i, store=store, invoke=invoke)
+            return "ABORTED"
+        store.save(saga_id, next_step=i + 1)     # record progress after each step
+    return "COMPLETED"
 
-        elif state.step == "CHARGED":
-            self.invoke("inventory.reserve", saga_id)
-            self.save_state(saga_id, step="RESERVED")
-
-        elif state.step == "RESERVED":
-            self.invoke("shipping.dispatch", saga_id)
-            self.save_state(saga_id, step="COMPLETE")
-
-    def on_failure(self, saga_id, failed_step):
-        # walk the saga log backward, invoking compensations
-        for step in reversed(self.completed_steps(saga_id)):
-            self.invoke(self.compensation_for(step), saga_id)
+def compensate(saga_id, completed, store, invoke):
+    for action, undo in reversed(STEPS[:completed]):
+        if undo:
+            invoke(undo, saga_id, idempotency_key=f"{saga_id}:{undo}")  # retried until it succeeds
 ```
 
-**Choreographed saga** (services react to each other's events, no central brain):
+Writing this machinery by hand — durable state, timers, retries, versioning of in-flight workflows — is where most home-grown sagas go wrong. **Durable execution** engines (Temporal, AWS Step Functions, Azure Durable Functions, Restate, DBOS and similar) provide it as a platform: the workflow is ordinary code whose progress is persisted after each step, so a crashed worker resumes where it stopped. They are the usual way to implement orchestrated sagas today.
 
-```
-OrderCreated      -> Payment service charges, emits PaymentCompleted
-PaymentCompleted  -> Inventory service reserves, emits StockReserved
-StockReserved     -> Shipping service dispatches, emits OrderShipped
+A choreographed version of an order saga, expressed as events:
 
-# Failure path:
-PaymentFailed     -> Order service marks order failed (nothing to compensate yet)
-StockReservationFailed -> Payment service refunds (compensation), Order cancels
+```text
+OrderCreated            -> Payment charges card,        emits PaymentCompleted
+PaymentCompleted        -> Inventory reserves stock,     emits StockReserved
+StockReserved           -> Shipping dispatches,          emits OrderShipped
+
+PaymentFailed           -> Order marks order failed (nothing to compensate)
+StockReservationFailed  -> Payment refunds (compensation); Order cancels
 ```
 
 ### Sagas lack isolation
 
-Because each step commits independently, a saga has **no isolation** by default—intermediate states are visible to other transactions. A trip might briefly show a booked flight before the hotel step fails and the flight is cancelled; a reader in that window sees a state that never "really" existed. Mitigations borrow from the literature on long-lived transactions:
+Because each step commits independently, other transactions can see a saga's intermediate states: a flight appears booked for a few seconds before the saga fails and cancels it. The anomalies are the familiar ones — lost updates, dirty reads, non-repeatable reads — at the level of business entities. Standard countermeasures:
 
-- **Semantic lock** — mark a record as "pending"/"reserved" so other sagas know it is in flight (a flag, not a database lock).
-- **Commutative updates** — design operations so order does not matter (increment/decrement rather than absolute set).
-- **Reread / version check** — before compensating, re-read and verify nothing incompatible happened (optimistic concurrency, see [Transactions &amp; Concurrency](transactions-and-concurrency.html)).
-- **By-pass the dirty read at the app layer** — hide pending entities from other users' views until the saga completes.
+- **Semantic lock** — mark records as `PENDING` so other sagas and readers know they are in flight.
+- **Commutative updates** — prefer increments and decrements that give the same result in any order over absolute sets.
+- **Reread and version check** — before acting or compensating, reread the record and verify its version (optimistic concurrency; see [Transactions & Concurrency](transactions-and-concurrency.html)).
+- **Hide pending state** — exclude in-flight entities from other users' views until the saga completes.
 
 ## The Outbox Pattern
 
-Sagas, choreography, and event-driven systems all share a deceptively hard sub-problem: **how do you update your database AND publish a message atomically?** A service that does this—
+Event-driven services all face the same sub-problem: **update the database and publish a message, atomically**. The naive version is a *dual write*:
 
 ```python
-# BROKEN: dual write, no atomicity
+# Broken: two systems, no shared transaction
 def place_order(order):
-    db.insert(order)              # commits to Postgres
-    broker.publish("OrderCreated", order)  # sends to Kafka/RabbitMQ
+    db.insert(order)                          # commits to PostgreSQL
+    broker.publish("OrderCreated", order)     # sends to Kafka / RabbitMQ
 ```
 
-—has a *dual-write* bug. If the process crashes between the two lines, you get one of two corruptions:
-
-- DB commit succeeds, publish fails ⇒ order exists but **no event** (downstream never reacts; lost message).
-- Publish succeeds, DB commit rolls back ⇒ event exists but **no order** (downstream acts on a phantom; ghost message).
-
-You cannot fix this by reordering the two operations or wrapping them in a try/except—the broker and the database are separate systems with no shared transaction. (You *could* use 2PC/XA across them, but that reintroduces all the blocking and coupling problems above, and many brokers don't support it.)
+If the process crashes between the two calls, the order exists but no event is ever sent. If the calls are reversed, an event can describe an order that was never committed. Reordering or `try/except` cannot fix this, because the broker and the database do not share a transaction. XA across both would reintroduce 2PC's blocking, and most brokers do not support it.
 
 ### The transactional outbox
 
-The fix is to make the message part of the **same local database transaction** as the state change, by writing it to an `outbox` table:
+Write the message into an `outbox` table **in the same local transaction** as the state change, and let a separate relay move it to the broker:
+
+```mermaid
+flowchart LR
+    APP["Service"] -->|"one local transaction"| DB[("Database<br/>orders + outbox")]
+    DB -->|"poll unpublished rows,<br/>or tail the WAL (CDC)"| RELAY["Relay<br/>(poller or Debezium)"]
+    RELAY -->|"publish, at-least-once"| BROKER["Message broker"]
+    BROKER --> C1["Consumer<br/>(dedup by message id)"]
+```
 
 ```sql
 BEGIN;
@@ -232,166 +290,180 @@ BEGIN;
 
   INSERT INTO outbox (id, aggregate_id, topic, payload, created_at)
   VALUES (gen_random_uuid(), 'ord-1', 'OrderCreated',
-          '{"orderId":"ord-1","total":49.99}', now());
-COMMIT;   -- both rows commit together, atomically, via the local WAL
+          '{"orderId": "ord-1", "total": 49.99}', now());
+COMMIT;   -- both rows become durable together, through the local WAL
 ```
 
-A separate **relay** (message relay / publisher) then reads unpublished rows from the outbox and pushes them to the broker, marking them sent (or deleting them) afterward:
+The relay can work in two ways:
 
-```python
-def relay_outbox():
-    rows = db.query(
-        "SELECT * FROM outbox WHERE published_at IS NULL "
-        "ORDER BY created_at LIMIT 100 FOR UPDATE SKIP LOCKED")
-    for row in rows:
-        broker.publish(row.topic, row.payload, key=row.aggregate_id)
-        db.execute("UPDATE outbox SET published_at = now() WHERE id = %s",
-                   (row.id,))
-```
+- **Polling publisher.** A worker repeatedly selects unpublished rows, publishes them, and marks them sent. `FOR UPDATE SKIP LOCKED` lets several workers share the table without blocking each other (the same technique as a database-backed job queue; see [Transactions & Concurrency](transactions-and-concurrency.html)). Simple, but adds query load and polling latency.
 
-Two ways to drive the relay:
+  ```python
+  def relay_batch():
+      with db.transaction():
+          rows = db.query(
+              "SELECT id, topic, aggregate_id, payload FROM outbox "
+              "WHERE published_at IS NULL ORDER BY created_at "
+              "LIMIT 100 FOR UPDATE SKIP LOCKED")
+          for row in rows:
+              broker.publish(row.topic, row.payload, key=row.aggregate_id)
+          db.execute("UPDATE outbox SET published_at = now() WHERE id = ANY(%s)",
+                     ([r.id for r in rows],))
+  ```
 
-- **Polling publisher** — a worker polls the table on an interval (simple, but adds query load and latency; `FOR UPDATE SKIP LOCKED` lets many workers share the table safely—see the queue pattern in [Transactions &amp; Concurrency](transactions-and-concurrency.html)).
-- **Change Data Capture (CDC)** — a tool like Debezium tails the database's WAL/binlog and emits an event for every committed outbox row. No polling, lower latency, no extra query load, but more infrastructure.
+- **Change data capture (CDC).** A connector such as Debezium reads the database's replication stream (PostgreSQL logical decoding, the MySQL binlog) and turns each committed outbox insert into a broker message; Debezium's *outbox event router* handles the routing. No polling and lower latency, at the cost of running the CDC infrastructure and managing a replication slot. In PostgreSQL, `pg_logical_emit_message()` can write a message directly into the WAL for a CDC reader, avoiding the outbox table altogether.
 
-<div class="notice--info">
-  <p><strong>Outbox guarantees at-least-once, not exactly-once.</strong> The relay may crash <em>after</em> publishing but <em>before</em> recording the row as sent, so the same message can be published again. That is fine—and intentional. The outbox guarantees the message is <strong>never lost</strong>; making the redelivered message harmless is the job of <a href="#idempotency-keys">idempotency</a> on the consumer side. Together, outbox (no loss) + idempotent consumer (no duplicate effect) yield effective <a href="#exactly-once-semantics">exactly-once processing</a>.</p>
-</div>
+Publish with the aggregate id as the message key so that events for one entity land in the same partition and stay in order. Delete or archive published rows regularly, or the outbox becomes the largest table in the database.
 
-The mirror image on the receiving side is the **inbox pattern**: a consumer records each processed message id in an `inbox` table inside the same transaction as its effect, and skips messages whose id it has already seen—turning at-least-once delivery into exactly-once processing.
+The outbox gives **at-least-once** delivery, not exactly-once: the relay can crash after publishing but before marking the row sent, and will publish it again. That is by design. The outbox guarantees that no message is lost; making duplicates harmless is the consumer's job, through [idempotency](#idempotency-keys). The mirror image on the receiving side is the **inbox pattern**: the consumer records each processed message id in an `inbox` table inside the same transaction as the effect, and skips ids it has seen.
 
 ## Idempotency Keys
 
-An operation is **idempotent** if applying it more than once has the same effect as applying it once. In distributed systems, retries are unavoidable—timeouts, redeliveries, relays, and client retries all cause the same request to arrive twice—so idempotency is the workhorse that makes those retries safe.
+An operation is **idempotent** if applying it several times has the same effect as applying it once. Timeouts, broker redeliveries, relays and client retries all cause the same request to arrive more than once, so idempotency is what makes retries safe.
 
-Some operations are *naturally* idempotent: `SET status = 'shipped'`, `PUT /users/42` with a full body, `DELETE`. Others are not: `balance = balance + 100`, "create order," "charge card," "send email." For the non-idempotent ones you attach an **idempotency key**—a unique client-generated identifier for the *logical* operation—and the server deduplicates on it.
+Some operations are naturally idempotent: `SET status = 'shipped'`, an HTTP `PUT` of a full resource, `DELETE`. Others are not: `balance = balance + 100`, "create order", "charge card". For those, the client attaches an **idempotency key** — a unique identifier for the *logical* operation, generated once and reused on every retry — and the server deduplicates on it. The pattern is widely used in payment APIs (Stripe's `Idempotency-Key` header is the best-known example), and an IETF HTTP API working-group draft standardises the header.
+
+A check-then-insert implementation has a race: two concurrent retries can both see "no such key" and both do the work. Claim the key first with a unique constraint, then do the work:
 
 ```python
-def charge(idempotency_key, amount, customer):
-    # 1. Has this key been seen? Return the stored result if so.
-    existing = db.query(
-        "SELECT response FROM idempotency WHERE key = %s", (idempotency_key,))
-    if existing:
-        return existing.response       # same answer, no double charge
+def charge(key, request):
+    # 1. Claim the key atomically. The PRIMARY KEY on idempotency.key makes
+    #    concurrent duplicates collide instead of both proceeding.
+    inserted = db.execute(
+        "INSERT INTO idempotency (key, request_hash, status, created_at) "
+        "VALUES (%s, %s, 'started', now()) ON CONFLICT (key) DO NOTHING",
+        (key, hash_of(request)))
+    if not inserted:
+        row = db.query_one("SELECT request_hash, status, response "
+                           "FROM idempotency WHERE key = %s", (key,))
+        if row.request_hash != hash_of(request):
+            raise Conflict("key reused with different parameters")
+        if row.status == "done":
+            return row.response                  # replay the stored result
+        raise RetryLater("original request still in progress")
 
-    # 2. First time: do the work and record key + result atomically.
-    with db.transaction():
-        result = payment_gateway.charge(amount, customer)
-        db.execute(
-            "INSERT INTO idempotency (key, response, created_at) "
-            "VALUES (%s, %s, now())",
-            (idempotency_key, result))
+    # 2. Do the work. Pass the key downstream so the payment provider
+    #    deduplicates too, in case we crash after it charged.
+    result = payment_gateway.charge(request, idempotency_key=key)
+
+    # 3. Record the outcome so retries get the same answer.
+    db.execute("UPDATE idempotency SET status = 'done', response = %s "
+               "WHERE key = %s", (result, key))
     return result
 ```
 
-### Getting idempotency right
+Rules that matter:
 
-- **Key uniqueness is on the client.** The client must generate the key (a UUID) once and reuse it across retries of the *same* logical request—if it generates a new key per retry, dedup is impossible. Stripe's API, for example, takes an `Idempotency-Key` header for exactly this.
-- **Insert the key in the same transaction as the effect.** If you record the key separately, a crash in between can either double-apply (effect committed, key not recorded) or lose the operation (key recorded, effect not). A `UNIQUE` constraint on the key column turns a concurrent duplicate into a constraint violation you can catch and treat as "already done."
-- **Store the response, not just the key.** A retry should get the *same answer* (same order id, same charge id), not a fresh one or a generic "duplicate" error.
-- **Scope and expire keys.** Keys are usually scoped per endpoint/operation and may expire (e.g., 24h) once the window for retries has passed.
-- **Beware non-deterministic side effects.** If the original attempt half-completed (charged the card but crashed before recording the key), reconciliation against the downstream system is needed—idempotency keys reduce, but do not entirely remove, the need for reconciliation.
+- **The client owns the key.** It must generate the key (typically a random UUID) once per logical operation and reuse it on every retry. A fresh key per attempt defeats deduplication.
+- **Store the response, not just the key.** A retry should receive the same order id or charge id as the original. Stripe, for instance, stores the status code and body of the first request that began executing, including `500` errors.
+- **Reject reuse with different parameters.** Comparing a hash of the request catches client bugs that reuse keys.
+- **Make local effects atomic with the key.** When the effect is a local database write, perform it in the same transaction as the key update. When it is an external call, as above, propagate the key downstream so the external system deduplicates as well.
+- **Expire keys.** Keys only need to live as long as the retry window; Stripe may prune keys once they are 24 hours old.
+- **Plan for reconciliation.** A request that crashed mid-way (status `started` forever) needs a sweeper that checks the downstream system and completes or fails it. Idempotency reduces the need for reconciliation; it does not remove it.
 
 ## Distributed Deadlocks
 
-A [deadlock](transactions-and-concurrency.html) on one node is a cycle in the local lock graph, and the database detects it by inspecting that graph and killing a victim. Across multiple nodes the cycle can span machines, and **no single node can see the whole graph**:
+On one node, a [deadlock](transactions-and-concurrency.html) is a cycle in the local *wait-for graph*, and the lock manager finds it and aborts a victim. Across nodes the cycle can span machines, and no single node sees all of it:
 
+```mermaid
+flowchart LR
+    subgraph N1["Node 1"]
+        T1["T1 holds row A"]
+    end
+    subgraph N2["Node 2"]
+        T2["T2 holds row B"]
+    end
+    T1 -->|"waits for row B"| T2
+    T2 -->|"waits for row A"| T1
 ```
-Node 1:  T1 holds row A, waits for row B (on Node 2)
-Node 2:  T2 holds row B, waits for row A (on Node 1)
 
-# Node 1's local graph:  T1 -> (waiting for B, off-node)   -- no cycle visible
-# Node 2's local graph:  T2 -> (waiting for A, off-node)   -- no cycle visible
-# Global graph:          T1 -> T2 -> T1                     -- a cycle nobody sees
-```
+Each node's local graph contains only one edge, so neither sees a cycle. Solutions fall into three families:
 
-Three families of solution:
+**Timeouts.** Abort any transaction that waits longer than a deadline, and retry with backoff. Simple and partition-tolerant, but hard to tune: too short aborts slow but healthy transactions, too long lets deadlocks linger. Many application-level lock managers rely on this.
 
-**1. Timeout-based (the pragmatic default).** Give every distributed lock/transaction a deadline; if it waits too long, abort and retry with backoff. Simple and partition-tolerant, but tuning is hard—too short causes spurious aborts of slow-but-live transactions, too long means deadlocks linger. Most distributed databases (including CockroachDB's earlier versions and many app-level lock managers) lean on timeouts.
+**Distributed detection.** Combine wait-for information across nodes and search for cycles. Doing it centrally is precise but expensive, and the combined graph may be stale (a *phantom deadlock* that has already resolved), so detectors confirm before aborting. CockroachDB does a distributed variant: a waiting transaction "pushes" the holder through the holder's transaction record, and the per-range wait queues propagate dependency information until a cycle is found and one transaction is aborted.
 
-**2. Global deadlock detection.** Periodically aggregate every node's local *wait-for* graph into a global graph and search it for cycles, then kill a victim. This is precise but expensive and adds latency; the aggregated graph can also be stale (a "phantom deadlock"—a cycle that has already resolved by the time it's detected), so detectors confirm before killing.
+**Prevention by timestamp ordering.** Give each transaction a start timestamp and allow waiting in only one direction of age, so no cycle can form:
 
-**3. Deadlock prevention via ordering.** Avoid cycles by construction. Two classic timestamp schemes assign each transaction a start timestamp and only ever let an *older* transaction wait on a *younger* one (or vice versa), guaranteeing no cycle:
+| Scheme | Older requests lock held by younger | Younger requests lock held by older |
+|---|---|---|
+| **Wait-die** (non-preemptive) | Older waits | Younger aborts ("dies") |
+| **Wound-wait** (preemptive) | Older aborts the younger ("wounds" it) | Younger waits |
 
-- **Wait-Die** (non-preemptive): if an older transaction requests a lock held by a younger one, it **waits**; if a younger one requests a lock held by an older one, it **dies** (aborts and retries with its *original* timestamp, so it eventually becomes oldest and wins).
-- **Wound-Wait** (preemptive): if an older transaction wants a lock held by a younger one, it **wounds** (aborts) the younger; if a younger one wants a lock held by an older one, it **waits**.
+An aborted transaction restarts with its **original** timestamp, so it becomes relatively older over time and cannot starve. Spanner uses wound-wait for read-write transactions.
 
-Keeping the original timestamp on retry prevents starvation: a transaction only gets older relative to its peers, so it cannot be aborted forever.
+A fourth option is to avoid locks entirely: optimistic systems such as Aurora DSQL cannot deadlock, and resolve conflicts by aborting at commit time instead.
 
-> **Cheapest mitigation: consistent lock ordering.** Most application-level distributed deadlocks come from two code paths acquiring the same resources in opposite orders (A-then-B vs. B-then-A). Enforce a **global ordering** (e.g., always lock rows in ascending primary-key order, always lock accounts by lowest id first) and the cycle becomes impossible — no detector or timeout needed. This single discipline eliminates the majority of real-world deadlocks.
+> **Cheapest mitigation: consistent lock ordering.** Most application-level deadlocks come from two code paths acquiring the same resources in opposite orders. Always acquire locks in a single global order — ascending primary key, lowest account id first — and the cycle cannot form, with no detector or timeout needed.
 
 ## Exactly-Once Semantics
 
-"Exactly-once delivery" is the most misunderstood phrase in distributed systems. Over an unreliable network it is **provably impossible** to deliver a message exactly once: the sender cannot distinguish "the message was lost" from "the message arrived but the ack was lost," so it must either risk loss (at-most-once) or risk duplication (at-least-once). You only ever get to pick:
+Over an unreliable network, exactly-once *delivery* is impossible: a sender that receives no acknowledgement cannot tell whether the message or the acknowledgement was lost, so it must either risk loss (not retry) or risk duplication (retry).
 
 | Guarantee | Mechanism | Risk |
 |---|---|---|
-| **At-most-once** | Fire and forget; never retry | Messages can be **lost** |
-| **At-least-once** | Retry until acknowledged | Messages can be **duplicated** |
-| **Exactly-once** | *Not* a delivery guarantee — see below | (achieved at the processing layer) |
+| **At-most-once** | Send once, never retry | Messages can be lost |
+| **At-least-once** | Retry until acknowledged | Messages can be duplicated |
+| **Exactly-once processing** | At-least-once delivery plus deduplication, with effect and dedup record committed atomically | None at the level of effects, within the system's boundary |
 
-What is actually achievable, and what people mean when they say "exactly-once," is **exactly-once *processing***: the message may be *delivered* many times, but its *effect* is applied exactly once. You get there by combining the building blocks already covered:
+What systems actually provide under the name "exactly-once" is **exactly-once processing** (also called *effectively-once*): a message may be delivered several times, but its effect is applied once. The recipe combines the pieces above:
 
-```
-  at-least-once delivery        guarantees no message is lost
-+ idempotent / deduplicated processing  guarantees no duplicate effect
-= exactly-once effect (effective exactly-once)
-```
-
-### How to build it
-
-1. **No loss on the producer side** — use the [outbox pattern](#the-outbox-pattern) so the state change and the message commit atomically. The message *will* eventually be published (at-least-once).
-2. **Dedup on the consumer side** — give each message a stable id and process it with an [idempotency key](#idempotency-keys) or the inbox pattern, so reprocessing the same id is a no-op that returns the prior result.
-3. **Atomic "consume + act + ack"** — the consumer must record "I processed message X" in the *same transaction* as the effect of X. If ack and effect are separate, a crash in between reintroduces either loss or duplication.
+1. **No loss at the producer** — the [outbox](#the-outbox-pattern) commits state change and message together; the relay publishes at least once.
+2. **Deduplication at the consumer** — each message carries a stable id, checked against an inbox or [idempotency](#idempotency-keys) table.
+3. **Atomic effect and dedup record** — the consumer records "processed message X" in the same transaction as X's effect, and acknowledges the broker only after that transaction commits.
 
 ```python
 def handle(message):
     with db.transaction():
-        # Dedup: have we already processed this message id?
-        if db.exists("SELECT 1 FROM inbox WHERE msg_id = %s", message.id):
-            return                      # duplicate delivery -> no-op
-
-        apply_business_effect(message)              # the real work
-        db.insert("inbox", msg_id=message.id)       # record in SAME tx
-    # only now ack the broker; redelivery before ack is harmless (dedup catches it)
-    broker.ack(message)
+        inserted = db.execute(
+            "INSERT INTO inbox (msg_id, processed_at) VALUES (%s, now()) "
+            "ON CONFLICT (msg_id) DO NOTHING", (message.id,))
+        if not inserted:
+            return                          # duplicate delivery: already applied
+        apply_business_effect(message)      # same transaction as the inbox row
+    broker.ack(message)                     # a crash before this only causes a harmless redelivery
 ```
 
-<div class="notice--info">
-  <p><strong>"Exactly-once" platforms still rely on this.</strong> Kafka's exactly-once semantics (idempotent producer + transactional writes that bind the consumed-offset commit to the produced output in one transaction) is exactly this pattern implemented inside the platform: at-least-once delivery underneath, deduplication and atomic offset+output commit on top. There is no magic that makes the network reliable — only careful placement of idempotency and atomic commits around an at-least-once core.</p>
-</div>
+**Kafka's exactly-once semantics** implement the same idea inside the platform. The *idempotent producer* (enabled by default since Kafka 3.0) attaches a producer id and sequence numbers so brokers discard duplicate writes, and *transactions* (since 0.11) commit a consumer's input offsets and its output records atomically, so a read-process-write pipeline within Kafka applies each input once. The guarantee stops at Kafka's boundary: a consumer that writes to an external database or calls an external API still needs its own deduplication. KIP-939, an accepted Kafka improvement proposal, extends this by letting Kafka act as a participant in an external two-phase commit, so that a database write and a Kafka write can commit atomically.
 
-### Choosing a guarantee
+When to use which:
 
-- **At-most-once** is fine for high-volume, loss-tolerant data: metrics, logs, telemetry where an occasional dropped sample doesn't matter.
-- **At-least-once + idempotent processing** is the right default for almost everything with side effects: payments, orders, notifications. Duplicates are caught; nothing is lost.
-- **True exactly-once delivery** is a marketing claim; ask what the system actually does at the producer and consumer, and you will find the outbox/idempotency pattern underneath.
+- **At-most-once** suits loss-tolerant, high-volume data such as metrics and telemetry.
+- **At-least-once with idempotent processing** is the right default for anything with side effects: payments, orders, notifications.
+- Treat claims of "exactly-once delivery" as a prompt to ask what happens at the producer and at the consumer. The answer is almost always the outbox and deduplication pattern described here.
 
-## Putting It Together: a Distributed Order
+## Putting It Together: A Distributed Order
 
-A realistic e-commerce checkout combines every technique on this page:
+A typical checkout across services combines the techniques on this page without any distributed lock:
 
+```mermaid
+sequenceDiagram
+    participant OS as Order service
+    participant K as Broker
+    participant PS as Payment service
+    participant IS as Inventory service
+    OS->>OS: one local transaction: insert order (pending) and outbox row
+    OS->>K: relay publishes OrderCreated (at-least-once)
+    K->>PS: OrderCreated
+    PS->>PS: dedupe on order id, charge card, outbox PaymentCompleted
+    PS->>K: PaymentCompleted
+    K->>IS: PaymentCompleted
+    IS->>IS: dedupe, reserve stock, outbox StockReserved
+    IS->>K: StockReserved
+    K->>OS: StockReserved
+    OS->>OS: mark order confirmed
+    Note over OS,IS: On failure: StockReservationFailed leads to refund (compensation) and order cancelled
 ```
-1. Order service:  BEGIN; insert order(status=pending);
-                          insert outbox(OrderCreated); COMMIT;   <- outbox, no dual-write
-2. Relay/CDC publishes OrderCreated (at-least-once)              <- no message lost
-3. Payment service consumes it with idempotency key=order_id     <- duplicate deliveries deduped
-       charges card, emits PaymentCompleted (via its own outbox)
-4. Inventory service reserves stock, emits StockReserved         <- saga step (local commit)
-5. If any step fails -> compensations run in reverse:
-       refund payment, release stock, mark order failed          <- saga compensation
-6. Locks across services are never held -> no distributed 2PC,   <- non-blocking
-       so no blocking and no multiplicative availability hit
-```
 
-No global coordinator, no distributed locks, no blocking—just local ACID transactions glued together by an at-least-once event backbone with idempotent, compensatable steps. That is how internet-scale systems get *effective* atomicity without paying the price of 2PC.
+Each step is a local ACID transaction; the outbox guarantees that no event is lost, idempotent consumers make redelivery harmless, and compensations undo completed steps if a later step fails. No participant waits on another's locks, so one slow or failed service delays the order instead of blocking unrelated transactions.
 
-> **Code Reference:** For working implementations of these algorithms, see [`distributed_systems.py`](../../../code-examples/technology/database-design/distributed_systems.py).
+> **Code reference:** Implementations of 2PC, sagas and related algorithms are in [`distributed_systems.py`](../../../code-examples/technology/database-design/distributed_systems.py).
 
 ## See Also
 
-- **Foundations:** [Transactions & Concurrency](transactions-and-concurrency.html) — single-node ACID, locking, MVCC, and isolation levels that distributed transactions build on.
-- **Related:** [Distributed Databases & NoSQL](distributed-and-nosql.html) — CAP, Raft/Paxos consensus, and the NewSQL systems that implement distributed commit for you.
-- **Durability:** [Storage Engines & Recovery](storage-internals.html) — the write-ahead log that makes every local commit (and the outbox) atomic and recoverable.
+- [Transactions & Concurrency](transactions-and-concurrency.html) — single-node ACID, locking, MVCC and isolation levels.
+- [Replication & Consensus](replication-and-consensus.html) — the Raft and Paxos groups that consensus-backed commit is built on.
+- [Distributed & NoSQL Databases](distributed-and-nosql.html) — CAP, PACELC and the distributed SQL systems that implement commit for you.
+- [Storage Engines & Recovery](storage-internals.html) — the write-ahead log that makes every local commit, and the outbox, durable.
 - **Up:** [Database Design hub](./)
-- See also: [Networking](../networking/) for the protocols beneath distributed coordination, and [AWS](../aws/) for managed queues and event services (SQS, EventBridge) that implement the outbox/relay plumbing.
+- Related: [Networking](../networking/) for the protocols beneath distributed coordination, and [AWS](../aws/) for managed queues, event buses and workflow services.

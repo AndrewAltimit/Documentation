@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Condensed Matter: Experimental Techniques"
+description: "How condensed-matter experiments measure band structure, order and excitations: linear response, ARPES, STM/STS, neutron and X-ray scattering including RIXS, Raman and optics, NMR, muSR and NV magnetometry, quantum oscillations, transport, and thermodynamics."
 permalink: /docs/physics/condensed-matter/experimental-techniques.html
 toc: true
 toc_sticky: true
@@ -8,460 +9,347 @@ toc_sticky: true
 
 [Condensed Matter Physics](./) &raquo; Experimental Techniques
 
-<!-- Custom styles are now loaded via main.scss -->
+This page surveys the main experimental probes of condensed matter: what each one couples to, which correlation function it measures, and what it can and cannot tell you. The spectroscopies (ARPES, STM, scattering, optics) come first, then local magnetic probes, then the bulk measurements (quantum oscillations, transport, thermodynamics) that every new material goes through first. The last section describes how the probes are combined. The theoretical objects being measured, such as Green's functions, self-energies, and response functions, are developed on [Graduate-Level Formalism](advanced-formalism.html).
 
-## Experimental Techniques
+## Linear response: what a probe measures
 
-## Why probes, and what they each "see"
+Almost every experiment couples a weak external field to the sample: photons, electrons, neutrons, a magnetic field, or a temperature gradient. It then records the response. If the perturbation couples to an operator $\hat{B}$, the change in an observable $\hat{A}$ is governed by the **retarded response function**
 
-A theory of a solid is only as good as our ability to test it. Every experimental
-technique in condensed matter is, at bottom, a way of coupling an external field —
-photons, electrons, neutrons, a magnetic field, a temperature gradient — to a
-material and reading off the response. What makes a probe powerful is **which
-correlation function it measures** and **in what variables it is resolved** (energy,
-momentum, position, or temperature).
+$$\chi_{AB}(\mathbf{q},\omega) = \frac{i}{\hbar}\int_0^\infty dt\, e^{i\omega t}\,\langle [\hat{A}(\mathbf{q},t),\hat{B}(-\mathbf{q},0)]\rangle .$$
 
-The single most useful organizing idea is the **linear-response / fluctuation–dissipation**
-picture. A weak external perturbation that couples to some operator $\hat{B}$ produces
-a measurable change in the conjugate observable $\hat{A}$, governed by the retarded
-response function
+Scattering experiments measure the **dynamical structure factor**, the Fourier transform of the equilibrium correlation function. The **fluctuation-dissipation theorem** relates it to the dissipative part of $\chi$:
 
-$$\chi_{AB}(\mathbf{q},\omega) = -\frac{i}{\hbar}\int_0^\infty dt\, e^{i\omega t}\,\langle [\hat{A}(\mathbf{q},t),\hat{B}(-\mathbf{q},0)]\rangle .$$
+$$S(\mathbf{q},\omega) = \frac{1}{\pi}\,\frac{1}{1 - e^{-\hbar\omega/k_B T}}\,\mathrm{Im}\,\chi(\mathbf{q},\omega).$$
 
-Scattering and spectroscopic experiments measure the **dynamical structure factor**,
-the imaginary part of $\chi$ weighted by a Bose factor,
+The prefactor $1/(1-e^{-\hbar\omega/k_BT}) = 1 + n_B(\omega)$ is the Bose factor, and it enforces **detailed balance**: $S(\mathbf{q},-\omega) = e^{-\hbar\omega/k_BT}S(\mathbf{q},\omega)$. A sample can only give energy to the probe if it is thermally excited. A probe with momentum transfer $\mathbf{q}$ and energy transfer $\hbar\omega$ therefore maps the excitation spectrum at $(\mathbf{q},\omega)$. Probes differ in which operator they couple to (charge, spin, single electrons) and in which variables they resolve: energy, momentum, position, or thermodynamic parameters.
 
-$$S(\mathbf{q},\omega) = \frac{1}{\pi}\frac{1}{1 - e^{-\hbar\omega/k_B T}}\,\mathrm{Im}\,\chi(\mathbf{q},\omega),$$
-
-so that a scattering experiment with momentum transfer $\mathbf{q}$ and energy transfer
-$\hbar\omega$ directly maps out the spectrum of the material's excitations. The table
-below summarizes the division of labor; the rest of the page treats each probe in detail.
-
-<div class="comparison-table" markdown="1">
-
-| Probe | Couples to | Resolved in | Reveals |
+| Probe | Couples to | Resolved in | Typical output |
 |---|---|---|---|
 | **ARPES** | Single-electron removal | $(\mathbf{k},\omega)$ | Band structure, Fermi surface, self-energy, gaps |
 | **STM / STS** | Single-electron tunneling | $(\mathbf{r},\omega)$ | Local DOS, atomic-scale order, QPI, gap maps |
-| **Neutron scattering** | Nuclear positions, spins | $(\mathbf{q},\omega)$ | Crystal & magnetic structure, phonons, magnons |
-| **Inelastic light (Raman/IR)** | Charge density, bonds | $\omega$ (near $\mathbf{q}=0$) | Phonons, magnons, electronic continua, symmetry |
-| **Quantum oscillations** | Landau quantization | $1/B$ | Fermi-surface areas, effective mass, scattering |
-| **Transport** | Charge / heat currents | $T, B, \omega$ | Carrier type & density, mobility, gaps, scattering |
-| **Thermodynamics** | Entropy, magnetization | $T, B$ | DOS at $E_F$, phase transitions, degrees of freedom |
+| **Neutron scattering** | Nuclei and electron spins | $(\mathbf{q},\omega)$ | Crystal and magnetic structure, phonons, magnons, spin continua |
+| **X-ray diffraction / RIXS** | Electron charge; resonant charge, orbital and spin | $(\mathbf{q},\omega)$ | Structure, charge order; dispersing magnons, orbital and charge excitations |
+| **Raman / infrared** | Charge density, polarizability, dipoles | $\omega$ at $\mathbf{q}\approx 0$ | Zone-center phonons, symmetry-resolved gaps, optical conductivity |
+| **NMR / $\mu$SR** | Local hyperfine fields | Site, $T$, $B$ | Local susceptibility, spin dynamics, superfluid density, weak magnetism |
+| **NV magnetometry** | Stray magnetic field | $\mathbf{r}$ (tens of nm) | Current flow, magnetization of 2D magnets, vortices |
+| **Quantum oscillations** | Landau quantization | $1/B$ | Fermi-surface areas, effective masses, scattering, Berry phase |
+| **Transport** | Charge and heat currents | $T$, $B$, $\omega$ | Carrier type and density, mobility, gaps, scattering |
+| **Thermodynamics** | Entropy, magnetization, volume | $T$, $B$, $P$ | DOS at $E_F$, phase transitions, degrees of freedom |
 
-</div>
+The same classification as a decision guide:
 
-## ARPES — mapping band structure and self-energy
+```mermaid
+flowchart TD
+    Q{"What do you need?"} --> E["Electronic bands<br/>E(k)"]
+    Q --> O["Order: structure<br/>or magnetism"]
+    Q --> X["Collective<br/>excitations"]
+    Q --> G["Ground state and<br/>phase diagram"]
+    E --> E1["ARPES (occupied states)"]
+    E --> E2["Quantum oscillations (bulk Fermi surface)"]
+    E --> E3["STS + QPI (real space, buried surfaces)"]
+    O --> O1["X-ray diffraction (charge, lattice)"]
+    O --> O2["Neutron diffraction (spins, light atoms)"]
+    O --> O3["NMR / muSR (local, small or disordered moments)"]
+    X --> X1["Inelastic neutrons (full q, omega)"]
+    X --> X2["RIXS (small samples, element-specific)"]
+    X --> X3["Raman / IR (q near 0, symmetry)"]
+    G --> G1["Transport (rho, Hall)"]
+    G --> G2["Specific heat, magnetization"]
+```
 
-**Angle-resolved photoemission spectroscopy** is the most direct experimental window
-onto the electronic band structure $E(\mathbf{k})$. A monochromatic photon of energy
-$h\nu$ ejects an electron from the solid; by measuring the photoelectron's kinetic
-energy and emission angle, one reconstructs the energy and crystal momentum the
-electron had *inside* the material.
+## ARPES: band structure and self-energy
+
+**Angle-resolved photoemission spectroscopy** measures the occupied electronic band structure $E(\mathbf{k})$ directly. A photon of energy $h\nu$ ejects an electron, and the photoelectron's kinetic energy and emission angle determine the energy and crystal momentum it had inside the solid.
 
 ### Kinematics
 
-Energy conservation fixes the binding energy relative to the Fermi level,
+Energy conservation gives the binding energy relative to the Fermi level:
 
 $$E_B = h\nu - W - E_{kin},$$
 
-where $W$ is the work function. Crucially, the **component of momentum parallel to the
-surface is conserved** across the sample boundary (the surface breaks translational
-symmetry only along the normal):
+where $W$ is the work function. The surface breaks translational symmetry only along its normal, so the **momentum component parallel to the surface is conserved**:
 
 $$k_\parallel = \frac{1}{\hbar}\sqrt{2 m E_{kin}}\,\sin\theta .$$
 
-Sweeping the emission angle $\theta$ thus sweeps $k_\parallel$, and a modern hemispherical
-analyzer records intensity as a 2D image over $(E_{kin},\theta)$ — i.e. a slice of the
-band structure $E(k_\parallel)$ in a single shot. The perpendicular component $k_\perp$ is
-not conserved and must be inferred (e.g. by varying $h\nu$, often using a nearly-free-electron
-final state), which is why ARPES is at its sharpest for quasi-2D materials (cuprates,
-graphene, transition-metal dichalcogenides) where $k_\perp$ dispersion is weak.
+A hemispherical analyzer with a 2D detector records intensity over $(E_{kin},\theta)$, which is one slice of $E(k_\parallel)$ per acquisition. Deflector-based analyzers map a 2D region of $\mathbf{k}$ without rotating the sample, and time-of-flight "momentum microscopes" collect the full $(k_x,k_y,E)$ volume at once. The perpendicular component $k_\perp$ is not conserved. It is reconstructed by varying $h\nu$, usually with a free-electron final-state model and an empirical inner potential. For this reason ARPES works best on quasi-2D materials (cuprates, graphene, transition-metal dichalcogenides, moiré heterostructures), where the $k_\perp$ dispersion is weak.
 
-### What is actually measured: the spectral function
+### The spectral function
 
-In the sudden approximation the photocurrent is proportional to the **single-particle
-spectral function** times the Fermi function and a matrix element:
+In the sudden approximation the photocurrent is the **single-particle spectral function**, multiplied by the Fermi function, a matrix element, and the experimental resolution:
 
-$$I(\mathbf{k},\omega) \propto |M_{fi}(\mathbf{k})|^2\, f(\omega)\, A(\mathbf{k},\omega).$$
+$$I(\mathbf{k},\omega) \propto |M_{fi}(\mathbf{k},h\nu)|^2\, f(\omega)\, A(\mathbf{k},\omega).$$
 
-The spectral function is the imaginary part of the retarded Green's function,
+The spectral function is the imaginary part of the retarded Green's function:
 
 $$A(\mathbf{k},\omega) = -\frac{1}{\pi}\,\mathrm{Im}\,G^R(\mathbf{k},\omega)
 = \frac{1}{\pi}\,\frac{|\Sigma''(\mathbf{k},\omega)|}{[\omega - \epsilon^0_\mathbf{k} - \Sigma'(\mathbf{k},\omega)]^2 + [\Sigma''(\mathbf{k},\omega)]^2}.$$
 
-For a non-interacting band $A$ is a delta function pinned to the bare dispersion
-$\epsilon^0_\mathbf{k}$. Interactions enter entirely through the **self-energy**
-$\Sigma = \Sigma' + i\Sigma''$, and ARPES is essentially a machine for measuring it:
+For non-interacting electrons $A$ is a delta function on the bare dispersion $\epsilon^0_\mathbf{k}$. Interactions enter through the **self-energy** $\Sigma = \Sigma' + i\Sigma''$, and ARPES can measure both parts:
 
-- The **real part** $\Sigma'$ shifts and renormalizes the dispersion. The renormalized
-  band crosses $E_F$ where $\omega - \epsilon^0_\mathbf{k} - \Sigma'=0$; the slope ratio
-  gives the mass enhancement $m^*/m = 1 + \lambda$, with $\lambda = -\partial\Sigma'/\partial\omega$.
-  A "kink" in the dispersion at a phonon or magnon energy is a textbook fingerprint of
-  electron–boson coupling.
-- The **imaginary part** $\Sigma''$ sets the linewidth: the peak width in a **momentum
-  distribution curve** (MDC, fixed $\omega$) is $\Delta k = 2\Sigma''/(\hbar v_F)$, giving
-  the quasiparticle scattering rate directly. A Fermi liquid shows $\Sigma'' \propto \omega^2 + (\pi k_B T)^2$;
-  cuprate "strange metals" famously show $\Sigma'' \propto |\omega|$ (marginal Fermi liquid).
+- **$\Sigma'$ renormalizes the dispersion.** The quasiparticle band crosses $E_F$ where $\omega - \epsilon^0_\mathbf{k} - \Sigma' = 0$. The ratio of bare to renormalized velocity gives the mass enhancement $m^*/m = 1 + \lambda$, with $\lambda = -\partial\Sigma'/\partial\omega|_{\omega=0}$. A **kink** in the dispersion at a phonon or magnon energy is the standard signature of electron-boson coupling.
+- **$\Sigma''$ sets the linewidth.** At fixed $\omega$ the peak width in momentum is $\Delta k = 2|\Sigma''|/(\hbar v_F)$, which gives the quasiparticle scattering rate. A Fermi liquid has $\Sigma'' \propto \omega^2 + (\pi k_B T)^2$. The cuprate strange metal instead shows $\Sigma'' \propto \max(|\omega|, k_BT)$, the marginal-Fermi-liquid form.
 
-### Practical analysis: MDCs vs EDCs
+The matrix element $M_{fi}$ depends on photon energy and polarization. It can suppress whole bands in some geometries. Experiments exploit this to identify orbital character, and it must be accounted for before drawing conclusions from missing intensity.
 
-Two orthogonal cuts through the $I(\mathbf{k},\omega)$ image are used:
+### EDCs and MDCs
 
-- **EDC** (energy distribution curve, fixed $\mathbf{k}$): natural for reading off
-  **gaps** — superconducting gaps, the cuprate pseudogap, charge-density-wave gaps —
-  as a suppression of weight at $E_F$ and a coherence peak at $\pm\Delta$.
-- **MDC** (momentum distribution curve, fixed $\omega$): a Lorentzian whose center
-  traces the dispersion and whose width gives $\Sigma''$. Because the bare dispersion is
-  locally linear, MDCs decouple $\Sigma'$ (peak position) from $\Sigma''$ (peak width)
-  cleanly, which is why self-energy extraction is usually done from MDCs.
+The $I(\mathbf{k},\omega)$ image is analyzed along two orthogonal cuts:
 
-### Fermi surfaces and modern variants
+| Cut | Fixed variable | Best for |
+|---|---|---|
+| **EDC** (energy distribution curve) | $\mathbf{k}$ | Gaps: superconducting gap, pseudogap, CDW gap, seen as loss of weight at $E_F$ and coherence peaks at $\pm\Delta$. Often symmetrized, $I(\omega)+I(-\omega)$, to remove the Fermi function. |
+| **MDC** (momentum distribution curve) | $\omega$ | Dispersion and self-energy. For a locally linear bare band the MDC is a Lorentzian whose center gives $\Sigma'$ and whose width gives $\Sigma''$. |
 
-Integrating $I(\mathbf{k},\omega)$ over a narrow window at $E_F$ and plotting versus
-$(k_x,k_y)$ produces a direct **image of the Fermi surface** — bright contours wherever a
-band crosses $E_F$. Spin-resolved ARPES adds a Mott or VLEED spin detector to map the
-**spin texture**, the decisive evidence for spin–momentum locking on topological-insulator
-surfaces. Time-resolved ARPES (pump–probe) populates and watches *unoccupied* states relax,
-accessing the band structure above $E_F$ and ultrafast dynamics.
+### Variants and current capabilities
 
-<div class="info-box" markdown="1">
-**What ARPES uniquely delivers:** the only probe that resolves the electronic spectral
-function in both energy and momentum, hence the gold standard for band dispersions, Fermi
-surfaces, anisotropic gaps, and the self-energy of correlated electrons.
-**Limitations:** surface sensitive (probing depth of a few atomic layers, demands atomically
-clean cleaved surfaces and UHV), needs $\mathbf{k}$-conserving geometry (best for 2D
-systems), and reads only *occupied* states unless pumped.
-</div>
+- **Fermi-surface mapping:** integrating a narrow window at $E_F$ and plotting against $(k_x,k_y)$ gives an image of the Fermi surface.
+- **Spin-resolved ARPES** adds a Mott or exchange-scattering (VLEED) spin detector. It confirmed spin-momentum locking on topological-insulator surfaces. Spin-integrated and spin-resolved ARPES are now also used to test altermagnets, whose band splitting was first observed in MnTe in 2024.
+- **Laser ARPES** (photon energies around 6–11 eV) reaches sub-meV energy resolution and larger probing depth, at the cost of a small accessible $k$ range.
+- **Micro- and nano-ARPES** focus synchrotron beams to micrometer and sub-micrometer spots. This is essential for exfoliated 2D materials and twisted moiré devices, which are rarely larger than tens of micrometers. Combined with gating, these instruments measure how bands change with carrier density.
+- **Time-resolved ARPES** (pump-probe, typically with high-harmonic or 6 eV laser sources) populates unoccupied states and follows their relaxation on femtosecond timescales. It gives access to the band structure above $E_F$, to coherent phonons, and to light-induced (Floquet) band replicas.
 
-## STM / STS — real-space local density of states
+**Strengths and limitations.** ARPES is the only probe that resolves the spectral function in both energy and momentum, so it is the reference measurement for dispersions, Fermi surfaces, anisotropic gaps, and self-energies. It probes only a few atomic layers, so it needs atomically clean surfaces (cleaved or grown in situ) in ultra-high vacuum. It is at its best for 2D-like band structures, and it sees only occupied states unless the sample is pumped.
 
-Where ARPES resolves momentum, **scanning tunneling microscopy** resolves *position* —
-down to single atoms. A sharp metal tip is brought within a nanometer of a conducting
-surface; the exponentially small overlap of tip and sample wavefunctions lets electrons
-**quantum-tunnel** across the vacuum gap, producing a current that is exponentially
-sensitive to the tip–sample separation $d$:
+## STM and STS: real-space local density of states
+
+**Scanning tunneling microscopy** resolves position rather than momentum, down to single atoms. A sharp metal tip is held a few ångströms from a conducting surface. Electrons tunnel through the vacuum barrier, giving a current that depends exponentially on the tip-sample distance $d$:
 
 $$I \propto e^{-2\kappa d}, \qquad \kappa = \frac{\sqrt{2m\phi}}{\hbar}.$$
 
-A typical $\kappa \approx 1\ \text{\AA}^{-1}$ means the current changes by an order of
-magnitude per Angstrom — the origin of STM's sub-atomic vertical resolution. Holding $I$
-constant with a feedback loop while raster-scanning gives a **topographic** image of the
-surface (more precisely a contour of constant integrated LDOS).
+For a typical barrier $\phi \approx 4$ eV, $\kappa \approx 1\ \text{\AA}^{-1}$, so the current changes by nearly an order of magnitude per ångström. This is the origin of STM's picometer vertical resolution. A feedback loop holds $I$ constant while the tip rasters, producing a **topograph**: a contour of constant integrated local density of states, not simply of atomic heights.
 
-### Tunneling spectroscopy and the LDOS
+### Tunneling spectroscopy
 
-Within the Tersoff–Hamann picture and a flat tip DOS, the tunneling current integrates the
-**local density of states** of the sample over the bias window:
+In the Tersoff-Hamann approximation with a featureless tip DOS, the current integrates the sample's **local density of states** over the bias window:
 
 $$I(\mathbf{r},V) \propto \int_0^{eV} \rho_s(\mathbf{r},\omega)\, T(\omega,eV)\, d\omega .$$
 
-Differentiating with respect to bias gives the centerpiece of **scanning tunneling
-spectroscopy (STS)** — the differential conductance is, to good approximation, the LDOS at
-energy $eV$ measured at the atomic position $\mathbf{r}$:
+The differential conductance, measured with a lock-in amplifier, is approximately the LDOS at energy $eV$:
 
 $$\left.\frac{dI}{dV}\right|_{\mathbf{r},V} \propto \rho_s(\mathbf{r},\, eV).$$
 
-By taking a full $dI/dV$ spectrum at every pixel one builds a **spectroscopic map**:
-the spatial variation of the density of states at a chosen energy. This is how
-superconducting gap inhomogeneity in cuprates, vortex cores, and impurity-bound states are
-imaged atom by atom.
+Recording a spectrum at every pixel gives a **spectroscopic map** of the LDOS at each energy. Such maps have imaged gap inhomogeneity in cuprates, Abrikosov vortex cores, impurity bound states, and correlated insulating states in moiré graphene. The thermal energy resolution is about $3.5\,k_BT$. This is why state-of-the-art instruments run in dilution refrigerators at tens of millikelvin, often in vector magnetic fields.
 
-### Quasiparticle interference (QPI)
+### Quasiparticle interference
 
-Defects scatter Bloch electrons, and the interference of incoming and outgoing waves prints
-standing-wave ripples in the LDOS at wavevector $\mathbf{q} = \mathbf{k}_f - \mathbf{k}_i$.
-Fourier-transforming a $dI/dV$ map turns these ripples into bright spots whose positions
-encode the **joint density of states** of the band structure:
+Defects scatter Bloch electrons. Interference between incoming and scattered waves produces standing-wave modulations of the LDOS at wavevectors $\mathbf{q} = \mathbf{k}_f - \mathbf{k}_i$ connecting points on the constant-energy contour $E(\mathbf{k}) = \omega$. The Fourier transform of a $dI/dV$ map turns these ripples into peaks whose positions reflect the contour's geometry, weighted by its joint density of states. **Quasiparticle interference** (QPI) therefore recovers momentum-space information, including gap anisotropy and, with phase-sensitive analysis, the sign structure of a superconducting order parameter, from a real-space measurement. It complements ARPES, and it can see unoccupied states and surfaces that cannot be cleaved.
 
-$$\rho(\mathbf{q},\omega) \;\leftrightarrow\; \text{scattering between } \mathbf{k}_i,\mathbf{k}_f \text{ on the contour } E(\mathbf{k})=\omega .$$
+### Extensions
 
-QPI thereby recovers momentum-space information (constant-energy contours, gap anisotropy,
-even the sign structure of an order parameter) from a real-space measurement — a beautiful
-complement to ARPES, and applicable to buried or non-cleavable Fermi surfaces ARPES cannot
-reach.
+- **Spin-polarized STM** uses a magnetic tip to image spin contrast and resolves noncollinear magnetic textures such as skyrmions atom by atom.
+- **ESR-STM** combines electron spin resonance with tunneling. It reaches neV energy resolution on single surface atoms and enables coherent control of individual spins.
+- **Josephson STM** uses a superconducting tip to map the local superfluid density and pair-density modulations.
+- **Non-contact AFM with qPlus sensors** resolves chemical bonds within single molecules and images insulating surfaces that STM cannot access.
 
-<div class="info-box" markdown="1">
-**What STM/STS uniquely delivers:** atomic-scale real-space imaging of the LDOS, with
-spectroscopic energy resolution set by temperature ($\sim 3.5\,k_B T$) and bias modulation.
-Indispensable for inhomogeneous states, single-impurity physics, and (via QPI) momentum-resolved
-gap structure. **Limitations:** surface-only, requires an atomically clean conducting surface,
-and measures a convolution of sample and tip DOS.
-</div>
+**Strengths and limitations.** STM gives atomic-scale real-space images of the LDOS with meV or better spectroscopic resolution. It is the natural tool for inhomogeneous states and single impurities, and through QPI it also gives momentum-resolved gap structure. It is surface-only, needs a clean conducting surface, and measures a convolution of tip and sample states. Spectra also depend on the tip-height setpoint, a well-known artifact to control for.
 
-## Neutron scattering — structure and magnetic order
+## Neutron scattering: structure and magnetism
 
-Neutrons are the workhorse for **structure** because they carry no charge (so they
-penetrate deep into bulk samples and scatter from nuclei, not the electron cloud) and
-because they carry a **magnetic moment** (so they scatter directly from electronic spins).
-Their de Broglie wavelength at thermal energies is $\sim 1\text{–}2\ \text{\AA}$ — comparable to
-interatomic spacings — and their energy at those wavelengths is $\sim$ meV — comparable to
-phonon and magnon energies. A single instrument therefore resolves both *where* atoms and
-spins sit and *how* they move.
+Thermal neutrons have wavelengths of 1–2 Å, comparable to interatomic spacings, and energies of a few to tens of meV, comparable to phonon and magnon energies. They carry no charge, so they penetrate bulk samples and sample environments (cryostats, magnets, pressure cells) and scatter from nuclei. They carry a magnetic moment, so they also scatter from unpaired electron spins. A single technique therefore determines both *where* atoms and spins sit and *how* they move.
 
 ### Elastic scattering: crystal and magnetic structure
 
-In a diffraction (elastic) experiment the scattered intensity is concentrated at reciprocal-lattice
-vectors $\mathbf{G}$, weighted by the structure factor:
+Diffraction intensity concentrates at reciprocal-lattice vectors, weighted by the nuclear structure factor:
 
 $$I(\mathbf{Q}) \propto |F(\mathbf{Q})|^2, \qquad F(\mathbf{Q}) = \sum_j b_j\, e^{i\mathbf{Q}\cdot\mathbf{r}_j}\, e^{-W_j},$$
 
-where $b_j$ is the **nuclear scattering length** of atom $j$ and $e^{-W_j}$ is the Debye–Waller
-factor. Because $b_j$ varies erratically (not monotonically) with atomic number, neutrons
-locate **light atoms next to heavy ones** (hydrogen, oxygen, lithium) where X-rays struggle,
-and distinguish neighboring elements and isotopes.
+where $b_j$ is the **scattering length** of nucleus $j$ and $e^{-W_j}$ its Debye-Waller factor. The scattering length varies irregularly with atomic number and isotope, whereas X-ray form factors grow with electron count. Neutrons therefore locate light atoms (H, Li, O) next to heavy ones, distinguish neighboring elements, and allow isotope contrast (H/D substitution).
 
-The magnetic moment of the neutron adds **magnetic Bragg peaks**. When spins order with a
-periodicity different from the lattice, new peaks appear at the magnetic propagation vector
-$\mathbf{k}$, often at half-integer positions for an antiferromagnet. Their intensity is
-governed by the magnetic structure factor with the all-important polarization factor:
+Magnetic scattering adds **magnetic Bragg peaks** at the ordering wavevector, for example at half-integer positions for a simple antiferromagnet. The magnetic cross-section carries a polarization factor:
 
 $$I_{mag}(\mathbf{Q}) \propto |f(\mathbf{Q})|^2\, \sum_{\alpha\beta}\big(\delta_{\alpha\beta} - \hat{Q}_\alpha\hat{Q}_\beta\big)\, S^\alpha(\mathbf{Q})\,S^\beta(-\mathbf{Q}).$$
 
-The transverse projector $\delta_{\alpha\beta}-\hat{Q}_\alpha\hat{Q}_\beta$ means **neutrons
-only see the spin component perpendicular to $\mathbf{Q}$** — by measuring at several $\mathbf{Q}$
-one reconstructs the full spin *direction*, making neutron diffraction the definitive probe
-of magnetic order (the very tool with which antiferromagnetism was first confirmed). Polarized
-neutrons further separate nuclear from magnetic and longitudinal from transverse channels.
+Neutrons see only the **spin component perpendicular to $\mathbf{Q}$**. Measuring several reflections therefore determines the spin direction as well as the ordering pattern. Neutron diffraction confirmed antiferromagnetic order for the first time (MnO, Shull and Smart, 1949) and remains the standard method for solving magnetic structures. Polarization analysis separates nuclear from magnetic scattering and longitudinal from transverse spin fluctuations.
 
-### Inelastic scattering: phonons and magnons
+### Inelastic scattering: phonons, magnons, and continua
 
-When the neutron exchanges energy with the sample it measures the **dynamical structure
-factor** directly:
+When the neutron exchanges energy with the sample, the double-differential cross-section measures $S(\mathbf{Q},\omega)$ directly:
 
-$$\frac{d^2\sigma}{d\Omega\, dE} \propto \frac{k_f}{k_i}\, S(\mathbf{Q},\omega),$$
+$$\frac{d^2\sigma}{d\Omega\, dE_f} \propto \frac{k_f}{k_i}\, S(\mathbf{Q},\omega).$$
 
-with $S(\mathbf{Q},\omega)$ as defined in the overview. Scanning $(\mathbf{Q},\omega)$ on a
-triple-axis or time-of-flight spectrometer maps **dispersion relations**: acoustic and optical
-**phonon** branches from nuclear (coherent) scattering, and **magnon / spin-wave** branches
-from the magnetic cross-section. Spin liquids and quantum-critical systems instead show a broad
-*continuum* of $S(\mathbf{Q},\omega)$ — the smoking gun of fractionalized (e.g. spinon)
-excitations — which is one of the most distinctive results only neutrons can deliver.
+Triple-axis spectrometers measure selected points of $(\mathbf{Q},\omega)$ with high precision. Time-of-flight spectrometers with large detector arrays record four-dimensional $(\mathbf{Q},\omega)$ volumes. Together they map **phonon** dispersions from nuclear scattering and **magnon** dispersions from magnetic scattering. Fitting a spin-wave model to magnon dispersions yields the exchange constants. Quantum spin liquids and quantum-critical magnets instead show a broad **continuum** in $S(\mathbf{Q},\omega)$. A continuum is the expected signature of fractionalized excitations such as spinons, although disorder can mimic it.
 
-<div class="info-box" markdown="1">
-**What neutron scattering uniquely delivers:** bulk-sensitive, quantitative crystal *and*
-magnetic structure, plus the full $(\mathbf{Q},\omega)$ map of phonons and magnons. The only
-routine probe of magnetic structure and spin dynamics in absolute units.
-**Limitations:** weak cross-section demands large single crystals and reactor/spallation
-sources; energy/momentum resolution and flux are perennial trade-offs.
-</div>
+### Facilities
 
-## Inelastic & Raman scattering — excitations near zero momentum
+Neutron flux is limited, so experiments run at reactor sources (ILL, NIST, HFIR, FRM II) and spallation sources (ISIS, SNS, J-PARC, PSI SINQ, CSNS). The European Spallation Source in Lund is completing its first instruments, with its user program scheduled to begin in 2027.
 
-Light-scattering probes complement neutrons by accessing excitations with extreme **energy
-resolution** but at essentially **zero momentum transfer** (the photon wavevector is tiny on
-the scale of the Brillouin zone). They are table-top, fast, and exquisitely sensitive to
-**symmetry**.
+**Strengths and limitations.** Neutron scattering is bulk-sensitive and quantitative, measuring crystal and magnetic structure plus the full $(\mathbf{Q},\omega)$ spectrum of phonons and magnons in absolute units. The weak interaction requires large samples (often grams of single crystal for inelastic work) and scarce beamtime, and resolution trades off against flux.
+
+## X-ray scattering and RIXS
+
+X-rays scatter from the electron charge density, so non-resonant diffraction measures crystal structure and, with high sensitivity, **charge-density waves** and lattice distortions. Brilliant synchrotron sources make it possible to study micrometer-sized crystals, surfaces (grazing incidence), and diffuse scattering from short-range order. Diffraction-limited fourth-generation storage rings such as MAX IV, ESRF-EBS, and the upgraded APS increase coherent flux by one to two orders of magnitude. X-ray free-electron lasers add femtosecond time resolution.
+
+**Resonant inelastic X-ray scattering** (RIXS) tunes the photon energy to an absorption edge of one element, such as the Cu or Ni $L_3$ edge. The virtual core-hole intermediate state couples the photon to charge, orbital, and, through core-level spin-orbit coupling, spin degrees of freedom. RIXS therefore measures **momentum-resolved** excitations like inelastic neutron scattering, but it is element-selective and works on micrometer-scale samples and thin films. At the Cu $L_3$ edge the best soft-X-ray instruments now reach about 25 meV resolution. That is sufficient to map paramagnons and charge-density-wave fluctuations across cuprate phase diagrams, $dd$ orbital excitations, plasmons, and phonons. The main limitation is kinematic: soft X-rays carry little momentum, so at the Cu $L$ edge the accessible $\mathbf{q}$ covers only part of the Brillouin zone. The cross-section also involves an intermediate state, which complicates quantitative interpretation.
+
+## Raman and infrared spectroscopy
+
+Photons of visible or infrared light have wavevectors far smaller than the Brillouin zone, so these probes access excitations at essentially **zero momentum**. In return they offer very high energy resolution, polarization-based **symmetry selection**, fast measurements, and small sample requirements.
 
 ### Raman scattering
 
-In Raman scattering a visible photon is inelastically scattered, shifting in frequency by the
-energy of an excitation it creates (Stokes) or absorbs (anti-Stokes):
+A visible photon scatters inelastically, losing (Stokes) or gaining (anti-Stokes) the energy of an excitation:
 
-$$\hbar\omega_{scattered} = \hbar\omega_{incident} \mp \hbar\Omega_{excitation}.$$
+$$\hbar\omega_{\text{scattered}} = \hbar\omega_{\text{incident}} \mp \hbar\Omega .$$
 
-The Stokes/anti-Stokes intensity ratio is set by thermal occupation,
-$I_{aS}/I_{S} = e^{-\hbar\Omega/k_B T}$, providing an internal thermometer. The measured
-cross-section is governed by the Raman response $\chi''_{\gamma}(\omega)$, where the symmetry
-of the light-polarization geometry selects a particular irreducible representation:
+The anti-Stokes to Stokes intensity ratio is approximately $e^{-\hbar\Omega/k_BT}$, which provides a local thermometer. The cross-section is set by the Raman response in a symmetry channel $\gamma$:
 
-$$\frac{d^2\sigma}{d\Omega\,d\omega} \propto \big[1 + n(\omega)\big]\, \chi''_\gamma(\omega).$$
+$$\frac{d^2\sigma}{d\Omega\,d\omega} \propto \big[1 + n_B(\omega)\big]\, \chi''_\gamma(\omega).$$
 
-Because each excitation transforms as a definite **irreducible representation of the crystal
-point group**, choosing incident/scattered polarizations ($A_{1g}$, $B_{1g}$, $B_{2g}$, …)
-filters phonons, magnons, and electronic continua by symmetry. This is how Raman fingerprints
-**phonon modes** (and through them lattice symmetry, strain, layer number in 2D materials),
-**two-magnon** scattering in antiferromagnets, the **electronic continuum** and pair-breaking
-$2\Delta$ peak in superconductors, and amplitude (Higgs) modes of order parameters.
+Each excitation transforms as an irreducible representation of the crystal point group. Choosing incident and scattered polarizations therefore selects a channel ($A_{1g}$, $B_{1g}$, $B_{2g}$, and so on). Raman spectroscopy is used to identify **phonon modes**, lattice symmetry, strain, and layer number in 2D materials. It also detects **two-magnon** scattering in antiferromagnets, the **pair-breaking peak** near $2\Delta$ in superconductors with its symmetry-dependent gap anisotropy, and **amplitude (Higgs) modes** of order parameters.
 
 ### Infrared and optical conductivity
 
-Infrared spectroscopy measures absorption/reflection, from which a Kramers–Kronig analysis
-yields the **complex optical conductivity** $\sigma(\omega)=\sigma_1+i\sigma_2$. The
-low-frequency Drude peak,
+Broadband reflectivity or transmission, combined with Kramers-Kronig analysis or ellipsometry, gives the complex **optical conductivity** $\sigma(\omega) = \sigma_1 + i\sigma_2$. Free carriers produce a Drude peak
 
-$$\sigma_1(\omega) = \frac{\sigma_0}{1 + (\omega\tau)^2},$$
+$$\sigma_1(\omega) = \frac{\sigma_0}{1 + (\omega\tau)^2}, \qquad \sigma_0 = \frac{ne^2\tau}{m},$$
 
-gives the scattering rate $1/\tau$ and plasma frequency (hence carrier density), while gaps
-appear as a clean suppression of $\sigma_1$ below a threshold. The optical sum rule
-$\int_0^\infty \sigma_1(\omega)\,d\omega = \pi n e^2/2m$ ties spectral-weight transfer to
-correlation physics. IR thus reads off charge gaps, the Drude weight, phonon and interband
-features, and the redistribution of spectral weight at phase transitions.
+whose width gives the scattering rate $1/\tau$ and whose weight gives $n/m$. Gaps appear as a suppression of $\sigma_1$ below a threshold. The **f-sum rule**
 
-<div class="info-box" markdown="1">
-**What light scattering uniquely delivers:** meV-to-sub-meV energy resolution, symmetry
-selectivity via polarization, and direct access to $\mathbf{q}\approx 0$ excitations
-(zone-center phonons, magnons, Higgs/amplitude modes, electronic continua) — fast and on small
-samples. **Limitations:** restricted to $\mathbf{q}\approx 0$; shallow optical penetration; and
-the response is convolved with light–matter matrix elements.
-</div>
+$$\int_0^\infty \sigma_1(\omega)\,d\omega = \frac{\pi n e^2}{2m}$$
 
-## Quantum oscillations — the Fermi surface
+constrains how spectral weight moves between frequencies at phase transitions. In a superconductor, the weight missing below $2\Delta$ condenses into a delta function at $\omega = 0$ (the Ferrell-Glover-Tinkham sum rule), which measures the superfluid density. Terahertz time-domain spectroscopy extends these measurements to the meV range and to thin films. Its pump-probe variants study light-driven non-equilibrium states.
 
-In a strong magnetic field the electronic states condense into **Landau levels**, and as the
-field is swept these levels pass through the Fermi energy one by one. Every time a level
-crosses $E_F$ the density of states at $E_F$ spikes, and essentially every physical property —
-magnetization (**de Haas–van Alphen**), resistivity (**Shubnikov–de Haas**), magnetostriction,
-sound velocity — oscillates. These quantum oscillations are the cleanest, most quantitative
-map of the **Fermi surface** available.
+**Strengths and limitations.** Optical methods offer sub-meV resolution, symmetry selectivity, and fast measurements on small samples. They are restricted to $\mathbf{q}\approx 0$. Optical penetration depth is often only tens of nanometers in metals, and the measured response includes light-matter matrix elements.
 
-### Onsager relation: oscillation frequency = Fermi-surface area
+## Local magnetic probes: NMR, $\mu$SR, and NV centers
 
-The oscillations are **periodic in $1/B$**, and the Onsager relation ties their frequency $F$
-directly to an extremal cross-sectional area $A_{ext}$ of the Fermi surface perpendicular to
-the field:
+Local probes sense the magnetic field at a specific site. They measure local susceptibility and spin dynamics without long-range coherence, which makes them sensitive to small, disordered, or short-range-ordered moments that diffraction can miss.
 
-$$F = \frac{\hbar}{2\pi e}\, A_{ext}(E_F).$$
+### Nuclear magnetic resonance
 
-Rotating the sample maps how $F(\theta)$ varies, tracing out the **full 3D shape of the Fermi
-surface**. Each distinct extremal orbit contributes its own frequency, so a Fourier transform
-of the signal in $1/B$ reveals the Fermi-surface "fingerprint" of the metal.
+NMR measures the resonance frequency and relaxation of nuclear spins coupled to electrons through the hyperfine interaction.
 
-### Lifshitz–Kosevich: mass and scattering
+- The **Knight shift** $K$ of the resonance line is proportional to the local spin susceptibility at that site. In a spin-singlet superconductor $K$ falls below $T_c$, which distinguishes singlet from triplet pairing.
+- The **spin-lattice relaxation rate** $1/T_1$ measures low-energy spin fluctuations: $1/T_1T \propto \sum_{\mathbf{q}} |A_{\mathbf{q}}|^2\, \chi''(\mathbf{q},\omega_0)/\omega_0$. A simple metal obeys the **Korringa relation**:
 
-The amplitude of each oscillation is described by the **Lifshitz–Kosevich** formula,
+$$T_1 T K_s^2 = \frac{\hbar}{4\pi k_B}\left(\frac{\gamma_e}{\gamma_n}\right)^2 .$$
 
-$$M \propto \left(\frac{B}{T}\right)^{1/2} R_T\, R_D\, R_S \,\sin\!\left(\frac{2\pi F}{B} + \phi\right),$$
+Deviations from the Korringa relation reveal antiferromagnetic or ferromagnetic correlations. In superconductors, the Hebel-Slichter coherence peak in $1/T_1$ just below $T_c$ is a hallmark of conventional s-wave pairing. Its absence and a power-law $1/T_1 \propto T^3$ indicate nodal gaps.
 
-with three damping factors that turn the amplitude into a measurement of microscopic
-quantities:
+### Muon spin rotation
 
-- **Thermal factor** $R_T = X/\sinh X$ with $X = 2\pi^2 k_B T\, m^*/\hbar e B$. Fitting the
-  temperature dependence of the amplitude yields the **cyclotron effective mass** $m^*$ — a
-  direct measure of mass renormalization, hence correlation strength.
-- **Dingle factor** $R_D = e^{-2\pi^2 k_B T_D\, m^*/\hbar e B}$. The field dependence gives the
-  **Dingle temperature** $T_D$ and thus the quantum scattering rate / mean free path.
-- **Spin factor** $R_S = \cos(\pi g m^*/2 m_e)$, encoding Zeeman splitting and the $g$-factor.
+In **$\mu$SR**, spin-polarized positive muons stop at interstitial sites. Each muon precesses in the local field at $\gamma_\mu/2\pi = 135.5$ MHz/T and decays after about 2.2 $\mu$s, emitting a positron preferentially along its spin. The positron asymmetry against time records the local field distribution. $\mu$SR detects ordered moments as small as about $10^{-3}\,\mu_B$, measures magnetic volume fractions (distinguishing bulk order from impurity phases), and gives the superfluid density $n_s/m^* \propto 1/\lambda^2$ from the field broadening of the vortex lattice. Zero-field $\mu$SR is a standard test for spontaneous time-reversal-symmetry breaking in unconventional superconductors.
 
-The **phase** $\phi$ carries a Berry-phase offset: a $\pi$ Berry phase (shifting $\phi$ by
-$1/2$) is a hallmark of **Dirac/Weyl** fermions, so quantum oscillations also test topological
-band structure.
+### NV-center magnetometry
 
-<div class="info-box" markdown="1">
-**What quantum oscillations uniquely deliver:** bulk, quantitative Fermi-surface geometry plus
-effective masses, scattering rates, and Berry phase — the benchmark against which band-structure
-calculations and ARPES Fermi surfaces are checked.
-**Limitations:** demand high-purity samples ($\omega_c\tau \gg 1$), high fields, and low
-temperatures; large or open Fermi-surface orbits can be hard to observe.
-</div>
+The **nitrogen-vacancy (NV) center** in diamond is a spin-1 defect with a 2.87 GHz zero-field splitting. Its spin state can be read out optically (optically detected magnetic resonance). The resonance shifts by about 28 GHz/T of field along the NV axis, so a single NV acts as a nanoscale vector magnetometer with nanotesla-level sensitivity. Placed in a scanning tip or as a shallow ensemble under a device, NV sensors image stray fields with spatial resolution of tens of nanometers. Applications include hydrodynamic electron flow in graphene, magnetization of atomically thin magnets, superconducting vortices and Meissner screening in pressure cells, and current distributions in working devices. NV relaxometry also senses magnetic noise, which gives access to the spin and charge fluctuations of the sample.
 
-## Transport measurements
+## Quantum oscillations: the Fermi surface
 
-Transport is the most accessible and historically the first window onto a solid's electronic
-state — it asks how charge and heat flow in response to electric fields, magnetic fields, and
-temperature gradients.
+In a strong magnetic field, electron orbits are quantized into **Landau levels**. As the field sweeps, the levels pass through $E_F$ one at a time, and the density of states at $E_F$ oscillates. Nearly every property oscillates in response: magnetization (**de Haas-van Alphen** effect), resistivity (**Shubnikov-de Haas** effect), magnetostriction, and sound velocity. These oscillations give the most precise measurement of the bulk **Fermi surface**.
 
-### Resistivity and the four-probe method
+### Onsager relation
 
-DC resistivity is measured with a **four-probe** geometry: current is driven through the outer
-two contacts and voltage read across the inner two, so that contact and lead resistances drop
-out of the measurement. The temperature dependence is diagnostic of the ground state and its
-excitations:
+The oscillations are periodic in $1/B$. By the Onsager relation, their frequency is proportional to an **extremal cross-sectional area** of the Fermi surface perpendicular to $\mathbf{B}$:
 
-- **Metal:** $\rho(T) = \rho_0 + AT^2$ (Fermi-liquid electron–electron scattering) or
-  $\rho \propto T^5$ (phonon-limited, Bloch–Grüneisen) at low $T$; the residual $\rho_0$ measures
-  disorder.
-- **Semiconductor / insulator:** activated, $\rho \propto e^{E_g/2k_B T}$, giving the **gap**;
-  variable-range hopping $\rho \propto e^{(T_0/T)^{1/4}}$ signals localization.
-- **Superconductor:** $\rho \to 0$ below $T_c$.
-- **Strange metal:** linear $\rho \propto T$ over a wide range — a defining anomaly of cuprates
-  and other quantum-critical systems.
+$$F = \frac{\hbar}{2\pi e}\, A_{ext} .$$
 
-### Hall effect: carrier type and density
+Each extremal orbit contributes one frequency, so the Fourier transform of the signal against $1/B$ is a fingerprint of the Fermi surface. Rotating the sample and tracking $F(\theta)$ reconstructs the full 3D shape, which is compared directly with DFT calculations. By Luttinger's theorem, the enclosed area also fixes the carrier density.
 
-A magnetic field perpendicular to the current deflects carriers, building a transverse Hall
-voltage. In the simplest single-band picture the Hall coefficient gives the **sign and density**
-of carriers directly:
+### Lifshitz-Kosevich analysis
 
-$$R_H = \frac{E_y}{j_x B_z} = \frac{1}{n q}.$$
+The oscillation amplitude follows the **Lifshitz-Kosevich** form, shown here for magnetization in 3D:
 
-A positive $R_H$ signals hole-like, negative electron-like conduction. Combined with the
-conductivity it yields the **mobility** $\mu = |R_H|\,\sigma$. The Hall response is also the
-gateway to topological transport — the **quantized** Hall plateaus $\sigma_{xy} = \nu e^2/h$,
-and the **anomalous** Hall effect proportional to Berry curvature in magnetic conductors.
+$$\tilde{M} \propto B^{1/2}\, R_T\, R_D\, R_S \,\sin\!\left(\frac{2\pi F}{B} + \phi\right).$$
 
-### Magnetotransport
+Three damping factors carry microscopic information:
 
-Beyond the Hall effect, the field dependence of the longitudinal resistance (magnetoresistance)
-reveals multiband effects, Fermi-surface topology (via Shubnikov–de Haas oscillations, above),
-weak localization/antilocalization (a quantum-coherence and spin–orbit diagnostic), and chiral
-anomalies in Weyl semimetals (negative longitudinal magnetoresistance).
+| Factor | Form | Extracted quantity |
+|---|---|---|
+| Thermal | $R_T = X/\sinh X$, $X = 2\pi^2 k_B T\, m^*/\hbar e B$ | Cyclotron effective mass $m^*$ from the $T$ dependence |
+| Dingle | $R_D = e^{-2\pi^2 k_B T_D\, m^*/\hbar e B}$ | Dingle temperature $T_D$, i.e. the quantum scattering rate |
+| Spin | $R_S = \cos(\pi g m^*/2 m_e)$ | Zeeman splitting and $g$-factor |
 
-<div class="info-box" markdown="1">
-**What transport uniquely delivers:** the macroscopic ground-state response — metal vs insulator
-vs superconductor, carrier sign/density/mobility, gaps, and (via Hall) topological quantization.
-Fast, on tiny samples, over huge ranges of $T$ and $B$.
-**Limitations:** integrates over the whole Fermi surface (no momentum resolution); multiband and
-inhomogeneity complicate interpretation.
-</div>
+The phase $\phi$ contains the Berry phase of the orbit. A Berry phase of $\pi$, which shifts the Landau-level index intercept by 1/2, is a signature of Dirac and Weyl fermions. Extracting it reliably requires care with the other phase contributions.
+
+**Strengths and limitations.** Quantum oscillations measure bulk Fermi-surface geometry with high precision, together with effective masses, scattering rates, and Berry phases. They are the benchmark for band-structure calculations and ARPES. They require clean samples ($\omega_c\tau \gtrsim 1$), low temperatures, and high fields. Pulsed magnets reach about 100 T and DC hybrid magnets about 45 T. The observation of oscillations in underdoped cuprates (2007) revealed small Fermi pockets reconstructed by charge order.
+
+## Transport
+
+Transport measures how charge and heat flow in response to electric fields, magnetic fields, and temperature gradients. It is the fastest and most accessible characterization of a new material, and usually the first.
+
+### Resistivity
+
+DC resistivity is measured in a **four-probe** geometry: current passes through the outer contacts and voltage is read across the inner pair, so contact resistance drops out. Thin films and irregular samples use the **van der Pauw** method. The temperature dependence indicates the ground state:
+
+| Behavior | Form | Interpretation |
+|---|---|---|
+| Fermi-liquid metal | $\rho = \rho_0 + AT^2$ | Electron-electron scattering; $A$ scales with $\gamma^2$ (Kadowaki-Woods) |
+| Phonon-limited metal | $\rho \propto T^5$ at low $T$, $\propto T$ above about $\Theta_D/5$ | Bloch-Grüneisen |
+| Strange metal | $\rho \propto T$ down to low $T$ | Cuprates, heavy fermions, and moiré graphene near quantum criticality; scattering rate near the "Planckian" bound $\hbar/\tau \sim k_BT$ |
+| Band insulator / semiconductor | $\rho \propto e^{E_g/2k_BT}$ | Thermally activated carriers |
+| Localized (Mott variable-range hopping) | $\rho \propto e^{(T_0/T)^{1/(d+1)}}$ | Disorder-localized states ([Disorder & Localization](disorder-and-localization.html)) |
+| Superconductor | $\rho = 0$ below $T_c$ | Must be confirmed by diamagnetism (Meissner effect) |
+
+The residual resistivity $\rho_0$ and the residual resistivity ratio $\rho(300\,\text{K})/\rho_0$ are standard measures of sample quality.
+
+### Hall effect
+
+A perpendicular magnetic field deflects carriers and produces a transverse Hall voltage. In a single-band picture the Hall coefficient gives the **sign and density** of carriers:
+
+$$R_H = \frac{E_y}{j_x B_z} = \frac{1}{nq}, \qquad \mu = |R_H|\,\sigma .$$
+
+A positive $R_H$ indicates holes and a negative one electrons. With several bands, $R_H$ becomes field-dependent and must be fitted with a multiband model. The Hall response also connects to topology. In two dimensions, $\sigma_{xy}$ is quantized at $\nu e^2/h$ in quantum Hall states, including zero-field quantum anomalous Hall states in magnetic topological insulators and moiré systems. In magnetic conductors, the anomalous Hall effect is determined by the Berry curvature of the occupied bands.
+
+### Magnetotransport and thermal transport
+
+The longitudinal magnetoresistance reveals multiband compensation (large, non-saturating $B^2$ magnetoresistance in semimetals), weak localization and antilocalization (phase coherence and spin-orbit coupling), and the chiral anomaly in Weyl semimetals (negative longitudinal magnetoresistance, which must be distinguished from current-jetting artifacts).
+
+**Thermal transport** tests whether heat carriers are also charge carriers. The **Wiedemann-Franz law** $\kappa/\sigma T = L_0 = \tfrac{\pi^2}{3}(k_B/e)^2 \approx 2.44\times10^{-8}\ \text{W}\,\Omega\,\text{K}^{-2}$ holds for quasiparticles that scatter elastically. Violations point to hydrodynamic or non-quasiparticle transport. **Thermal Hall** measurements detect heat-carrying neutral excitations (magnons, phonons, possibly spinons) in insulators. Thermoelectric coefficients (Seebeck and Nernst) are sensitive to the energy dependence of scattering and to superconducting fluctuations.
+
+**Strengths and limitations.** Transport identifies the macroscopic ground state (metal, insulator, or superconductor) along with carrier sign, density, and mobility, activation gaps, and topological quantization. It works on very small samples, including gated 2D devices, over wide ranges of $T$ and $B$. It averages over the whole Fermi surface and the whole sample. Multiband conduction, inhomogeneity, and contact geometry complicate interpretation, and a resistance drop alone does not establish superconductivity.
 
 ## Thermodynamic measurements
 
-Thermodynamic probes count **degrees of freedom and entropy**. They do not resolve momentum or
-position, but they are unmatched at identifying phase transitions and at counting the states
-available at the Fermi level.
+Thermodynamic probes count **states and entropy**. They have no momentum or spatial resolution, but they are the most reliable way to establish that a bulk phase transition occurs and to determine its order.
 
 ### Specific heat
 
-At low temperature the specific heat of a metal separates cleanly into electronic and lattice
-parts:
+At low temperature the specific heat of a metal separates into electronic and phonon parts:
 
-$$C(T) = \gamma T + \beta T^3.$$
+$$C(T) = \gamma T + \beta T^3 .$$
 
-Plotting $C/T$ versus $T^2$ gives a straight line whose **intercept $\gamma$** is the Sommerfeld
-coefficient — proportional to the **density of states at the Fermi level**,
-$\gamma = \tfrac{\pi^2}{3} k_B^2\, g(E_F)$. A giant $\gamma$ is the defining signature of
-**heavy-fermion** materials (effective masses of hundreds of $m_e$). The **slope $\beta$** gives
-the Debye temperature and thus the phonon spectrum. A phase transition shows up as a sharp
-**anomaly**: a mean-field jump $\Delta C$ at a superconducting $T_c$ (whose size,
-$\Delta C/\gamma T_c \approx 1.43$ in BCS, tests the pairing), a $\lambda$-shaped peak at a
-continuous magnetic transition, or a latent-heat spike at a first-order one. The entropy
-$S(T)=\int_0^T (C/T')\,dT'$ released across a transition counts the participating degrees of
-freedom (e.g. $R\ln 2$ per spin-$\tfrac12$ moment).
+A plot of $C/T$ against $T^2$ is a straight line. Its intercept is the **Sommerfeld coefficient** $\gamma = \tfrac{\pi^2}{3} k_B^2\, g(E_F)$, which measures the density of states at the Fermi level. **Heavy-fermion** compounds have $\gamma$ values hundreds of times those of simple metals, corresponding to quasiparticle masses of hundreds of $m_e$. The slope $\beta$ gives the Debye temperature. Phase transitions appear as anomalies:
+
+- A superconducting transition gives a mean-field jump. The BCS weak-coupling value $\Delta C/\gamma T_c = 1.43$ tests the pairing strength, and the low-$T$ form (exponential versus power law) tests for gap nodes.
+- A continuous magnetic transition gives a $\lambda$-shaped peak.
+- A first-order transition gives a latent-heat spike.
+
+The entropy released across a transition, $S(T) = \int_0^T (C/T')\,dT'$, counts the participating degrees of freedom, for example $R\ln 2$ per mole of spin-1/2 moments. A shortfall indicates that entropy was already lost to short-range correlations.
 
 ### Magnetization and susceptibility
 
-The magnetization $M(H,T)$ and susceptibility $\chi = \partial M/\partial H$ classify magnetic
-ground states. A Curie–Weiss law,
+The magnetization $M(H,T)$ and susceptibility $\chi = \partial M/\partial H$, usually measured with SQUID or vibrating-sample magnetometers, classify magnetic ground states. At high temperature local moments follow the Curie-Weiss law:
 
-$$\chi(T) = \frac{C}{T - \theta_{CW}},$$
+$$\chi(T) = \frac{C}{T - \theta_{CW}} ,$$
 
-extracts the local-moment size from the Curie constant $C$ and the dominant exchange (sign and
-scale) from the Weiss temperature $\theta_{CW}$. A temperature-independent **Pauli** susceptibility
-signals itinerant moments; sharp features locate ferromagnetic ($\theta_{CW}>0$) and
-antiferromagnetic ($\theta_{CW}<0$, Néel kink) transitions; hysteresis loops quantify coercivity
-and ordered moment. The frustration ratio $|\theta_{CW}|/T_N \gg 1$ flags candidate spin liquids.
+The Curie constant $C$ gives the effective moment, and the Weiss temperature $\theta_{CW}$ gives the sign and scale of the dominant exchange: $\theta_{CW} > 0$ for ferromagnetic and $\theta_{CW} < 0$ for antiferromagnetic exchange. A temperature-independent **Pauli** susceptibility indicates itinerant electrons. Hysteresis loops give the coercivity and ordered moment. A frustration index $f = |\theta_{CW}|/T_N \gtrsim 10$ flags candidate spin liquids. Zero-field-cooled and field-cooled magnetization confirm bulk diamagnetic shielding and the Meissner fraction in superconductors.
 
-### Thermal expansion and magnetocalorics
+### Thermal expansion, magnetostriction, and magnetocalorics
 
-Thermal expansion $\alpha = \tfrac1L\,\partial L/\partial T$ couples the entropy to volume
-(Grüneisen analysis) and is acutely sensitive to **pressure-tuned quantum critical points**, while
-the magnetocaloric effect ($\partial T/\partial H$ at fixed entropy) sharpens the detection of
-field-induced transitions where specific heat alone is ambiguous.
+The thermal expansion coefficient $\alpha = \tfrac1L\,\partial L/\partial T$ couples entropy to volume. The **Grüneisen ratio** $\Gamma \propto \alpha/C$ diverges at a pressure-tuned quantum critical point, which makes it a sensitive detector of quantum criticality. The magnetocaloric effect ($\partial T/\partial H$ at constant entropy) locates field-induced transitions where specific heat is ambiguous. **Elastocaloric** and elastoresistance measurements under uniaxial strain probe nematic and other symmetry-breaking susceptibilities.
 
-<div class="info-box" markdown="1">
-**What thermodynamics uniquely delivers:** bulk, model-independent counting of entropy and states
-— $g(E_F)$ via $\gamma$, moment size and exchange via Curie–Weiss, and an unambiguous, quantitative
-locator of phase transitions and their order.
-**Limitations:** no momentum or spatial resolution; signals average over the whole sample, so they
-constrain rather than uniquely determine microscopic mechanisms.
-</div>
+**Strengths and limitations.** Thermodynamic measurements count entropy and states in the bulk without relying on a microscopic model. They give $g(E_F)$ through $\gamma$, moment size and exchange scale through Curie-Weiss analysis, and the location and order of phase transitions. They average over the whole sample and resolve neither momentum nor position, so they constrain microscopic mechanisms without determining them.
 
-## Choosing and combining probes
+## Combining probes
 
-No single technique tells the whole story; the art of condensed-matter experiment is
-**triangulation**. A Fermi surface inferred from ARPES is confirmed in absolute terms by quantum
-oscillations and tested for momentum-averaged consistency against the Hall coefficient and
-$\gamma$ from specific heat. A superconducting gap seen as a coherence peak in ARPES EDCs is
-mapped in real space by STS, its symmetry pinned down by Raman and its $\Delta C/T_c$ jump by
-calorimetry. Magnetic order proposed from a Curie–Weiss susceptibility is **proven** — direction
-and all — only by neutron diffraction, with its dynamics filled in by inelastic neutron and
-two-magnon Raman scattering. Reading the same physics through complementary correlation functions
-is what turns a measurement into an understanding.
+No single technique settles a question, so conclusions come from **triangulation** across probes that measure different correlation functions:
 
-## See Also
+| Claim | Primary evidence | Cross-checks |
+|---|---|---|
+| Fermi surface of a metal | ARPES Fermi-surface map | Quantum-oscillation areas; Hall coefficient and Luttinger count; $\gamma$ against band mass |
+| Superconducting gap and its symmetry | ARPES EDCs, STS spectra | QPI sign analysis; Raman $B_{1g}$/$B_{2g}$ response; low-$T$ specific heat, NMR $1/T_1$, penetration depth ($\mu$SR) |
+| Bulk superconductivity | Zero resistance | Meissner diamagnetism (volume fraction); specific-heat jump at $T_c$ |
+| Magnetic order | Curie-Weiss anomaly, specific-heat peak | Neutron diffraction (structure and spin direction); $\mu$SR/NMR (volume fraction, small moments) |
+| Magnetic excitations | Inelastic neutron scattering | RIXS (small samples, high energies); two-magnon Raman; thermal transport |
 
-- [Graduate-Level Formalism & Experiment](advanced-formalism.html) — the Green's-function and self-energy machinery these probes measure.
-- [Superconductivity, Quantum Hall & Topological Phases](emergent-phases.html) — the phases these techniques were built to characterize.
-- [Condensed Matter Physics (Hub)](./) — crystal structure, band theory, and magnetism.
-- [Quantum Field Theory](../quantum-field-theory.html) — linear response and correlation functions in field-theoretic language.
+Claims that rely on a single probe often fail. The 2023 "LK-99" room-temperature superconductivity claim rested on a resistance drop and partial levitation. It collapsed once independent groups traced the resistance drop to a structural transition of a Cu$_2$S impurity phase and the levitation to ordinary magnetism of the samples. Pure crystals were insulating, with no Meissner effect.
+
+## See also
+
+- [Graduate-Level Formalism](advanced-formalism.html): Green's functions, self-energies, and response functions that these probes measure.
+- [Superconductivity, Quantum Hall & Topological Phases](emergent-phases.html): the phases these techniques characterize.
+- [Metals & Magnetism](metals-and-magnetism.html): Fermi surfaces, Fermi liquids, and magnetic order.
+- [Lattice Dynamics & Phonons](lattice-dynamics.html): phonon dispersions measured by neutron, X-ray, and Raman scattering.
+- [Condensed Matter Physics (hub)](./): crystal structure, diffraction, and band theory.
+- [Quantum Field Theory](../quantum-field-theory.html): linear response and correlation functions in field-theoretic language.

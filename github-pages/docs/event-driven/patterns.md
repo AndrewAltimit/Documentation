@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Event-Driven: Patterns"
+description: "Event sourcing, CQRS, projections, sagas, the transactional outbox and inbox, idempotent consumers, schema evolution, and eventual consistency, with the trade-offs that decide when each is worth it."
 permalink: /docs/event-driven/patterns.html
 toc: true
 toc_sticky: true
@@ -9,12 +10,7 @@ hide_title: true
 
 [Event-Driven](./) &raquo; Patterns
 
-Once services communicate by publishing facts rather than calling each other, a recurring set of problems appears: how do you persist state as events, serve fast queries over them, coordinate a multi-service transaction without a distributed lock, reliably publish an event in the same breath as a database write, evolve an event's schema for a decade without breaking old consumers, and survive the duplicate deliveries any real broker hands you? This page catalogs the standard answers — event sourcing, CQRS, sagas, the transactional outbox and consumer-side inbox, event versioning with a schema registry, idempotent consumers, eventual consistency, and projections/read models — with the trade-offs that decide when each earns its keep. Four ideas anchor them:
-
-- **Events can be the source of truth.** Event sourcing persists *what happened*, not just current state — giving you audit, time-travel, and rebuildable read models for free.
-- **Separate the write and read shapes.** CQRS lets a normalized, invariant-enforcing write model coexist with denormalized read models tuned per query.
-- **The outbox kills the dual-write bug.** Insert the event in the same transaction as the state change; a relay publishes it, so the DB and the log never diverge.
-- **Consumers must be idempotent.** At-least-once delivery is the norm; processing an event twice must equal processing it once, or correctness is a coin flip.
+When services communicate by publishing facts instead of calling each other, the same problems keep coming up. You need a way to store state as events, answer queries quickly, coordinate a business transaction across services without a distributed lock, publish an event reliably together with a database write, change an event's schema without breaking old consumers, and cope with the duplicate deliveries that every real broker produces. This page describes the standard patterns for each problem and the trade-offs that decide when a pattern is worth its cost. The broker side (Kafka, RabbitMQ, cloud queues, delivery semantics) is covered in [Message Brokers](message-brokers.html).
 
 ## Table of contents
 {: .no_toc .text-delta }
@@ -24,11 +20,40 @@ Once services communicate by publishing facts rather than calling each other, a 
 
 ---
 
+## The Patterns at a Glance
+
+| Pattern | Problem it solves | Main cost |
+|---------|-------------------|-----------|
+| [Event sourcing](#event-sourcing) | Keeping the full history of changes as the source of truth | Queries need projections; events can never change; replay time |
+| [CQRS](#cqrs-command-query-responsibility-segregation) | Read and write workloads that need different models | Two models to maintain; reads lag behind writes |
+| [Projections](#projections--read-models) | Building query-shaped views from the event stream | Checkpointing, rebuilds, and idempotency |
+| [Saga](#the-saga-pattern) | A business transaction that spans services with separate databases | No isolation; every step needs a compensating action |
+| [Outbox / inbox](#the-outbox--inbox-patterns) | Updating the database and publishing an event atomically | An extra table and a relay process; delivery is at-least-once |
+| [Idempotent consumer](#idempotent-consumers) | Duplicate deliveries | A deduplication store, or effects designed to be idempotent |
+| [Schema registry and versioning](#event-versioning--schema-registry) | Evolving events that must stay readable forever | Governance, and a registry to operate |
+| [Designing for eventual consistency](#eventual-consistency) | Reads that lag behind writes | UX and API design work |
+
+Most of these patterns address a failure mode introduced by one of the others, as the [final section](#putting-it-together) shows. Adopt each one only when you actually have the problem it solves.
+
+## What Goes in an Event
+
+Before choosing patterns, decide what your events carry. Martin Fowler's often-cited taxonomy separates several distinct uses of "event":
+
+| Style | Payload | Consumer behavior | Trade-off |
+|-------|---------|-------------------|-----------|
+| **Event notification** | Minimal: `OrderPlaced{orderId}` | Calls back to the producer for details if it needs them | Small events and loose schema coupling, but callbacks add runtime coupling and load |
+| **Event-carried state transfer** | The full relevant state: `OrderPlaced{orderId, items, total, customer}` | Keeps its own local copy and never calls back | Consumers keep working when the producer is down, but events are larger and data is duplicated |
+| **Event sourcing** | A fine-grained domain change that is stored as the record of truth | Replays events to rebuild state | Complete history, at the cost of the complexity described below |
+
+A related distinction is between **domain events** and **integration events**. Domain events are internal to a service or bounded context and fine-grained, and they can change freely along with the code. Integration events are the published contract with other teams: coarser, versioned, and changed carefully. Exposing an event-sourced service's internal events directly to other teams ties every consumer to that service's internal model. Translate them into integration events at the boundary.
+
+Every event should also carry a standard **envelope**: a unique ID (used for deduplication), type, source, time, schema version, and a correlation or causation ID for tracing. The CNCF **CloudEvents** specification standardizes these attributes (`id`, `source`, `type`, `specversion`, `time`, `datacontenttype`, `dataschema`, `subject`) and defines bindings for HTTP, Kafka, AMQP, and MQTT. It is a good default instead of a home-grown envelope.
+
 ## Event Sourcing
 
-In a conventional system you store *current state* and overwrite it on every change; the history of how you got there is lost. **Event sourcing** instead persists the full, append-only sequence of **events** that changed an entity. Current state is not stored at all — it is *derived* by replaying the events from the beginning (a `fold` over the event stream).
+A conventional system stores *current state* and overwrites it on every change, so the history of how it got there is lost. **Event sourcing** instead persists the full, append-only sequence of **events** that changed an entity. Current state is not stored at all. It is *derived* by replaying the events from the beginning.
 
-For a bank account, you do not store `balance = 80`; you store:
+For a bank account, you do not store `balance = 80`. You store:
 
 ```
 AccountOpened(balance=0)
@@ -36,400 +61,462 @@ Deposited(amount=100)
 Withdrawn(amount=20)
 ```
 
-and compute `balance = 80` by folding these events. Formally, current state is a left fold of a pure `apply` function over the ordered event history:
+and compute `balance = 80` from them. Formally, current state is a left fold of a pure `apply` function over the ordered history:
 
 $$ s_n = \mathrm{apply}(s_{n-1}, e_n), \qquad s_0 = \mathrm{init} $$
 
-so that the state after $n$ events is $s_n = \mathrm{apply}(\dots \mathrm{apply}(\mathrm{apply}(s_0, e_1), e_2) \dots, e_n)$. Because `apply` is a pure function and the event log is immutable, replaying the same events always reproduces the same state — the property that makes rebuilds, audits, and time-travel sound.
+Because `apply` is pure and the log is immutable, replaying the same events always gives the same state. That property is what makes rebuilds, audits, and time travel reliable.
 
-### Why Event Sourcing
+### Benefits and costs
 
-The benefits are substantial:
+| Benefits | Costs |
+|----------|-------|
+| **Complete audit trail.** Every change is an immutable record of what happened, which is often a regulatory requirement in finance or healthcare | **Querying is awkward.** A question like "which accounts are overdrawn?" needs a [read model](#projections--read-models) |
+| **Temporal queries.** You can reconstruct any entity as it was at any past moment | **Events can never change.** Schemas need a [versioning discipline](#event-versioning--schema-registry) |
+| **Replay.** You can build new read models from old history, fix a projection bug and rerun it, or reproduce an incident | **Long histories are slow to load** without [snapshots](#snapshots) |
+| **Natural event publication.** The events already exist for other services to consume | **Deleting personal data is harder,** because the log is append-only (see [below](#event-stores-and-personal-data)) |
 
-- **Complete audit log** — every change is a first-class, immutable record of *why* state is what it is. This is often a regulatory requirement (finance, healthcare) you get for free.
-- **Temporal queries** — reconstruct the state of any entity *as of any past moment* by replaying up to that point.
-- **Replay and rebuild** — derive entirely new read models from history, fix a bug in a projection and re-run it over all events, or debug by replaying a problematic sequence.
+### The aggregate
 
-The costs are real too: querying ("which accounts are overdrawn?") is awkward when state is a stream of events — which is exactly what [CQRS](#cqrs-command-query-responsibility-segregation) read models solve; the event schema must be [versioned and evolved](#event-versioning--schema-registry) carefully (old events are immutable and must remain replayable forever); and replaying long histories is slow.
-
-### The Aggregate
-
-Writes go through an **aggregate**: a consistency boundary that loads its event history, enforces invariants, and emits new events. A command never mutates state directly — it validates against the *current* folded state and, if valid, produces one or more events that are appended to the log.
+Writes go through an **aggregate**, a consistency boundary that loads its event stream, enforces invariants, and emits new events. A command never changes state directly. It checks the request against the current folded state and, if the request is valid, returns events to append.
 
 ```python
-# A minimal event-sourced aggregate
-class Account:
-    def __init__(self):
-        self.balance = 0
-        self.version = 0
+from dataclasses import dataclass, field
 
-    def apply(self, event):
-        """Fold one event into current state. Pure — no validation, no I/O."""
-        if event["type"] == "AccountOpened":
-            self.balance = event["balance"]
-        elif event["type"] == "Deposited":
-            self.balance += event["amount"]
-        elif event["type"] == "Withdrawn":
-            self.balance -= event["amount"]
+@dataclass
+class Account:
+    balance: int = 0
+    version: int = 0          # number of events applied; used for concurrency checks
+
+    def apply(self, event: dict) -> None:
+        """Fold one event into state. Pure: no validation, no I/O."""
+        match event["type"]:
+            case "AccountOpened": self.balance = event["balance"]
+            case "Deposited":     self.balance += event["amount"]
+            case "Withdrawn":     self.balance -= event["amount"]
         self.version += 1
 
     @classmethod
-    def rehydrate(cls, events):
-        """Rebuild current state by replaying the event stream."""
+    def rehydrate(cls, events) -> "Account":
         account = cls()
-        for event in events:
-            account.apply(event)
+        for e in events:
+            account.apply(e)
         return account
 
-# A command produces new events (after validating against current state)
-def withdraw(account, amount):
+# Command handler: validate against current state, then return new events.
+def withdraw(account: Account, amount: int) -> list[dict]:
     if amount > account.balance:
-        raise ValueError("Insufficient funds")  # invariant enforced on write
-    return {"type": "Withdrawn", "amount": amount}
+        raise ValueError("insufficient funds")      # invariant enforced on write
+    return [{"type": "Withdrawn", "amount": amount}]
 ```
 
 ### Snapshots
 
-Replaying a long history is slow — an account with 50,000 events should not fold all of them on every load. A **snapshot** periodically persists the folded state (plus the version it reflects) so a rehydrate can start from the latest snapshot and replay only the events after it:
+Folding 50,000 events on every load is too slow. A **snapshot** periodically saves the folded state together with the version it reflects. Loading then starts from the latest snapshot and replays only the newer events:
 
 ```python
-def load(account_id, store):
-    snapshot = store.latest_snapshot(account_id)        # may be None
-    account = Account.from_snapshot(snapshot) if snapshot else Account()
-    events = store.events_after(account_id, account.version)
-    for event in events:
-        account.apply(event)
+def load(account_id, store) -> Account:
+    snap = store.latest_snapshot(account_id)          # may be None
+    account = Account(**snap.state) if snap else Account()
+    for e in store.events_after(account_id, account.version):
+        account.apply(e)
     return account
 ```
 
-Snapshots are a pure optimization: they are *derived* from events and can always be discarded and regenerated. They never become the source of truth.
+Snapshots are only an optimization. They are derived from events, can be deleted and regenerated at any time, and never become the source of truth. Well-designed aggregates often have short streams, for example by modelling an account statement *period* rather than the account's whole lifetime, and then don't need snapshots at all.
 
-### Optimistic Concurrency
+### Optimistic concurrency
 
-Two commands loading the same aggregate at version `N` and both appending would corrupt the stream. Event stores enforce **optimistic concurrency**: an append is conditional on the expected version. The first writer commits at version `N+1`; the second's append fails because the store is no longer at `N`, and the command retries against the fresh state.
+If two commands load the same aggregate at version $N$ and both append, the stream is corrupted. Event stores therefore make an append **conditional on the expected version**. The first writer commits version $N+1$. The second writer's append fails, and it retries against the new state.
 
 ```python
-def append_events(store, account_id, expected_version, new_events):
-    # Atomic, conditional append: fails if another writer advanced the version.
-    if not store.compare_and_append(account_id, expected_version, new_events):
-        raise ConcurrencyConflict(account_id, expected_version)
+def handle(store, account_id, amount):
+    for attempt in range(3):
+        account = load(account_id, store)
+        new_events = withdraw(account, amount)
+        if store.append(account_id, new_events, expected_version=account.version):
+            return
+        # someone else appended first: reload and re-validate
+    raise ConcurrencyConflict(account_id)
 ```
 
-This is the event-sourced equivalent of a database's `WHERE version = ?` update — the single point where the "one writer per aggregate" invariant is enforced.
+This is the event-sourced counterpart of `UPDATE ... WHERE version = ?`, and it is the one place where "one writer per aggregate at a time" is enforced.
+
+### Event stores and personal data
+
+An event store needs to support ordered append-only streams, conditional appends, reading one stream, and subscribing to all events in global order. Common choices:
+
+- **Purpose-built stores**, such as KurrentDB (formerly EventStoreDB) and Axon Server.
+- **Relational databases**, such as a PostgreSQL `events` table with a unique `(stream_id, version)` constraint, either hand-built or through libraries such as Marten (.NET) or Eventuous. This setup is common and works well to fairly large scale.
+- **Kafka as a store.** Kafka is a good event *bus* but a weak event *store* for aggregates. It has no conditional append per key, and reading a single entity's history means scanning a partition. Many systems keep the source of truth in a database and publish to Kafka through an [outbox](#the-outbox--inbox-patterns).
+
+An immutable log conflicts with privacy rights such as GDPR's right to erasure. The standard answer is **crypto-shredding**: encrypt personal fields with a per-subject key stored outside the log, and delete the key to make those fields permanently unreadable. The alternative is to keep personal data out of events and reference it by ID.
+
+A more recent variation is the **Dynamic Consistency Boundary (DCB)**, proposed by Sara Pellegrini in "Killing the Aggregate" and now specified at dcb.events. It drops fixed per-aggregate streams. Events carry tags, a decision reads the events that match a query, and the append is conditional on no new matching events having arrived since that read. This allows a single consistency check to span what would otherwise be several aggregates, such as "course capacity" and "student enrollment limit", without a saga.
 
 ## CQRS (Command Query Responsibility Segregation)
 
-**CQRS** separates the model used to *change* state (the **write model**, handling commands) from the model used to *read* state (one or more **read models**, serving queries). The two no longer share a schema: writes go through a normalized, invariant-enforcing aggregate; reads are served by denormalized projections shaped exactly for each query.
+**CQRS** separates the model that *changes* state (the **write model**, which handles commands) from the models that *read* it (one or more **read models**, which serve queries). The two no longer share a schema. Writes go through a normalized aggregate that enforces invariants, and reads are served from denormalized views shaped for each query.
 
-CQRS and event sourcing are independent but combine naturally: the write model emits events (event sourcing), and each read model is a **projection** built by subscribing to those events and updating a query-optimized store (a relational view, a search index, a cache). Because read models are derived, you can add a new one at any time by replaying the event stream, and scale reads independently of writes.
+CQRS and event sourcing are independent patterns but fit together well. The write model emits events, and each read model is a **projection** that subscribes to those events and updates a query-optimized store such as a relational view, a search index, or a cache. Read models are derived, so you can add one at any time by replaying the event stream, and you can scale reads separately from writes.
 
 ```mermaid
 flowchart LR
-    Cmd["Command<br/>WithdrawMoney"] --> WM["Write Model<br/>(aggregate, enforces invariants)"]
-    WM -->|appends| ES[("Event Store<br/>ordered event log")]
-    ES -->|project| RM1["Read Model A<br/>account-balances table"]
-    ES -->|project| RM2["Read Model B<br/>transaction-history search index"]
+    Cmd["Command<br/>WithdrawMoney"] --> WM["Write model<br/>aggregate, enforces invariants"]
+    WM -->|appends| ES[("Event store<br/>ordered log")]
+    ES -->|project| RM1["Read model A<br/>balances table"]
+    ES -->|project| RM2["Read model B<br/>transaction search index"]
     Query["Query<br/>GetBalance"] --> RM1
+    Query2["Query<br/>SearchTransactions"] --> RM2
 ```
 
-The trade-off is that read models are **eventually consistent** with the write model — there is a small lag between a command committing and the projection updating (see [Eventual Consistency](#eventual-consistency) below).
+Read models are **eventually consistent** with the write model: after a command commits, there is a short lag before the projection reflects it (see [Eventual Consistency](#eventual-consistency)).
 
-CQRS adds significant complexity (two models, projection plumbing, eventual consistency) and is **not** a default. It earns its keep when read and write workloads have very different shapes or scaling needs, when the domain demands a rich audit trail, or when many divergent read views must be served from the same writes. For ordinary CRUD, a single model is simpler and correct.
+CQRS adds real complexity and should not be the default. It is worth it when reads and writes have very different shapes or scaling needs, when many different views are needed from the same writes, or when the domain needs a rich audit trail. For ordinary CRUD, one model is simpler and correct.
 
-> **Lightweight CQRS without event sourcing.** You can apply CQRS to a plain CRUD database — separate command handlers that write a normalized schema from query handlers that read materialized views — without sourcing state from events. The two patterns are orthogonal; reach for the simpler one your problem actually needs.
+CQRS also works without event sourcing. Command handlers can write a normalized schema while query handlers read materialized views, replicas, or a search index fed by [CDC](#the-transactional-outbox). Use whichever of the two patterns your problem actually needs.
 
 ## Projections & Read Models
 
-A **projection** is the process that consumes the event stream and maintains a **read model** — a derived, query-shaped store. It is just the same `fold` as event sourcing, but the accumulator is a *query database* instead of an in-memory aggregate, and it processes the *global* stream rather than one entity's history.
+A **projection** consumes the event stream and maintains a **read model**, a derived store shaped for queries. It is the same fold as in event sourcing, but it folds into a database instead of an in-memory object, and it usually processes the *global* stream rather than one entity's history.
 
 ```python
-# A projection that maintains an "account balances" read model.
 class BalanceProjection:
+    """Maintains account_id -> balance in a SQL read store."""
+
     def __init__(self, db):
-        self.db = db  # the read store (e.g. a SQL table account_id -> balance)
+        self.db = db
 
     def handle(self, event):
-        if event["type"] == "AccountOpened":
-            self.db.upsert(event["account_id"], balance=event["balance"])
-        elif event["type"] == "Deposited":
-            self.db.increment(event["account_id"], event["amount"])
-        elif event["type"] == "Withdrawn":
-            self.db.increment(event["account_id"], -event["amount"])
-        # persist the offset/position we have processed up to (see checkpointing)
-        self.db.save_checkpoint(event["position"])
+        with self.db.transaction() as tx:
+            if event["position"] <= tx.checkpoint("balances"):
+                return                                   # already applied (replay/duplicate)
+            match event["type"]:
+                case "AccountOpened":
+                    tx.upsert(event["account_id"], balance=event["balance"])
+                case "Deposited":
+                    tx.increment(event["account_id"], event["amount"])
+                case "Withdrawn":
+                    tx.increment(event["account_id"], -event["amount"])
+            tx.save_checkpoint("balances", event["position"])   # same transaction as the update
 ```
 
-Key properties of well-built projections:
+Well-built projections share four properties:
 
-- **Derived and disposable.** A read model holds no authoritative state. To fix a projection bug, correct the code, *reset* the read store, and replay the event log from the beginning. This rebuildability is the headline benefit of deriving reads from an immutable log.
-- **Checkpointed.** A projection records the position (offset) it has processed so it resumes from where it left off after a restart rather than reprocessing everything — and so it can run at its own pace, independent of the writers.
-- **Idempotent.** Replays and at-least-once delivery mean a projection may see an event more than once; the update must be safe to repeat (use upserts, or skip events at or below the saved checkpoint). This is the projection-specific case of the [idempotent consumer](#idempotent-consumers) below.
-- **Independently scalable.** Each query shape gets its own read model — a SQL table for `GetBalance`, a search index for full-text transaction search, a cache for a hot dashboard — all fed from the same events.
+- **Derived and disposable.** A read model holds no authoritative state. To fix a projection bug, fix the code, reset the read store, and replay from the beginning.
+- **Checkpointed atomically.** The projection records the stream position it has processed, *in the same transaction* as the read-model update, so that it resumes exactly where it stopped after a crash.
+- **Idempotent.** Replays and at-least-once delivery mean the projection will see some events twice. The checkpoint guard above, or upsert-style writes, make that safe. This is a special case of the [idempotent consumer](#idempotent-consumers).
+- **One per query shape.** A SQL table for `GetBalance`, a search index for full-text search, and a cache for a hot dashboard can all be fed from the same events.
 
-A projection can be **online** (subscribed live to the stream, kept continuously up to date) or **catch-up** (replaying history to build a brand-new read model, then switching to live). Adding a new read model is exactly a catch-up projection over the full log.
+A projection is either **live** (subscribed to the stream and continuously updated) or **catch-up** (replaying history to build a new read model, then switching to live). To change a read model's schema without downtime, use a **blue/green rebuild**: build the new version alongside the old one, let it catch up, switch queries to it, then drop the old one.
 
 ## The Saga Pattern
 
-Because each service owns its own database, you cannot wrap "create order, charge payment, reserve inventory" in a single ACID transaction. A **saga** replaces the distributed transaction with a sequence of *local* transactions, each publishing an event that triggers the next — and a matching **compensating** action that semantically undoes a step if a later one fails. Sagas give up atomicity and isolation in exchange for availability; the system passes through intermediate states and converges to either "all committed" or "all compensated."
+When each service owns its own database, you cannot wrap "create order, charge payment, reserve inventory" in a single ACID transaction. Two-phase commit across services and brokers is fragile and rarely available. A **saga** replaces the distributed transaction with a sequence of *local* transactions. Each step publishes an event or reply that triggers the next step, and each step has a **compensating** action that undoes it in business terms if a later step fails. Sagas give up isolation (and atomicity in the strict sense) in exchange for availability. The system passes through visible intermediate states and ends up either fully committed or fully compensated.
 
-A saga is **not** a rollback. There is no global undo log; instead, each forward step `T_i` is paired with a compensation `C_i` that *semantically* reverses its effect. If the saga fails after step `T_k`, the compensations run in reverse: `C_k, C_{k-1}, …, C_1`. A compensation is a new business action ("refund the charge"), not a database rollback ("pretend the charge never happened") — the original charge really did occur and is part of the permanent record.
+A saga does not roll back. Each forward step $T_i$ is paired with a compensation $C_i$ that reverses its effect in business terms. If step $T_{k+1}$ fails, the compensations for the completed steps run in reverse order, $C_k, C_{k-1}, \dots, C_1$. A compensation is a new business action, such as "refund the charge". It is not a database rollback that pretends the charge never happened. The charge did happen and stays in the record.
 
-```
-forward:      T1 → T2 → T3 → T4   (commit)
-on failure:   T1 → T2 → T3 ✗
-compensate:   C3 ← C2 ← C1        (semantic undo, reverse order)
-```
+### Choreography vs. orchestration
 
-### Choreography vs. Orchestration
-
-There are two ways to coordinate the steps of a saga.
-
-**Choreography** — each service reacts to events and emits its own, with no central coordinator. The workflow emerges from the chain of reactions.
+**Choreography** has no coordinator. Each service reacts to events and emits its own, and the workflow emerges from the chain of reactions.
 
 ```mermaid
 flowchart LR
-    O["Order Svc"] -->|OrderPlaced| P["Payment Svc"]
-    P -->|PaymentCharged| I["Inventory Svc"]
-    I -->|StockReserved| S["Shipping Svc"]
-    S -->|Shipped| N["Notification Svc"]
+    O["Order svc"] -->|OrderPlaced| P["Payment svc"]
+    P -->|PaymentCharged| I["Inventory svc"]
+    I -->|StockReserved| S["Shipping svc"]
+    I -->|OutOfStock| P2["Payment svc<br/>refunds"]
+    P2 -->|PaymentRefunded| O2["Order svc<br/>cancels"]
 ```
 
-Choreography is maximally decoupled and adds no new component, but the end-to-end flow is *implicit* — no single place tells you "what happens when an order is placed," compensation chains are scattered across services, and cyclic event dependencies are easy to create by accident. It shines for simple, stable, two-or-three-step flows.
-
-**Orchestration** — a central coordinator (an orchestrator or workflow engine) explicitly invokes each step and decides what comes next, including which compensations to run on failure. The flow is *explicit and centralized*, easier to reason about, test, and modify, at the cost of a coordinator that becomes a focal point of coupling and must itself be made durable (typically persisted as its own event-sourced state machine so it survives crashes mid-saga).
+**Orchestration** puts a central coordinator in charge. It sends commands to each service, waits for the replies, and decides the next step, including which compensations to run.
 
 ```mermaid
-flowchart TD
-    Orch["Saga Orchestrator<br/>(durable state machine)"]
-    Orch -->|1. ChargePayment| P["Payment Svc"]
-    P -->|PaymentCharged| Orch
-    Orch -->|2. ReserveStock| I["Inventory Svc"]
-    I -->|OutOfStock ✗| Orch
-    Orch -.->|compensate: RefundPayment| P
+sequenceDiagram
+    participant O as Saga orchestrator
+    participant Pay as Payment svc
+    participant Inv as Inventory svc
+    participant Ord as Order svc
+    O->>Ord: CreateOrder (status PENDING)
+    Ord-->>O: OrderCreated
+    O->>Pay: ChargePayment
+    Pay-->>O: PaymentCharged
+    O->>Inv: ReserveStock
+    Inv-->>O: OutOfStock
+    Note over O: step 3 failed, compensate 2 then 1
+    O->>Pay: RefundPayment
+    Pay-->>O: PaymentRefunded
+    O->>Ord: CancelOrder
+    Ord-->>O: OrderCancelled
 ```
 
-The rule of thumb: prefer **choreography** for simple, stable flows; prefer **orchestration** once a process has many steps, branches, or compensation logic. Production systems often use a workflow engine (Temporal, Camunda, AWS Step Functions, or a homegrown orchestrator) for orchestrated sagas so the coordinator's durability and retries are handled for you.
+| | Choreography | Orchestration |
+|--|--------------|---------------|
+| Flow definition | Implicit, spread across subscribers | Explicit, in one place |
+| Coupling | Lowest; no service knows the whole flow | Coordinator depends on every participant |
+| Compensation logic | Spread across services | Central and testable |
+| Observability | Needs distributed tracing to reconstruct | The coordinator's state is the progress record |
+| Risk | Cyclic event dependencies, and a process nobody fully understands | The coordinator becomes a bottleneck or accumulates too much logic |
+| Good fit | Two or three stable steps, and loosely related reactions | Many steps, branches, timeouts, human approvals |
 
-### An Orchestrated Saga
+A reasonable rule is to choreograph simple flows and orchestrate complex ones. The orchestrator must be **durable**, because it can crash partway through a saga and must resume from where it stopped. Production systems therefore usually run orchestrated sagas on a **durable-execution / workflow engine** such as Temporal, Restate, Camunda, AWS Step Functions, or Azure Durable Functions. These engines persist every step's result, retry with backoff, and replay the workflow code deterministically after a failure, so you don't have to write the state machine and retry logic yourself.
 
-The orchestrator below runs the forward steps in order and, on any failure, replays the compensations in reverse — refunding a payment, restoring inventory — to unwind the partial transaction:
+### An orchestrated saga
+
+The minimal in-process orchestrator below shows the control flow. Each step returns the context that its compensation needs, and compensations run in reverse order on failure. A production version would also persist progress after every step so that it survives a crash.
 
 ```python
-class SagaOrchestrator:
-    def __init__(self):
-        self.steps = []
-        self.compensations = []
+import asyncio
+from dataclasses import dataclass
+from typing import Awaitable, Callable
 
-    def add_step(self, action, compensation):
-        self.steps.append(action)
-        self.compensations.append(compensation)
+Step = Callable[[dict], Awaitable[dict]]         # takes context, returns updates to it
 
-    async def execute(self):
-        completed_steps = []
+@dataclass
+class SagaStep:
+    name: str
+    action: Step
+    compensate: Step
 
+async def run_saga(steps: list[SagaStep], ctx: dict) -> dict:
+    done: list[SagaStep] = []
+    try:
+        for step in steps:
+            ctx |= await step.action(ctx)        # e.g. adds payment_id to ctx
+            done.append(step)
+        return ctx
+    except Exception:
+        for step in reversed(done):              # semantic undo, reverse order
+            await retry_forever(step.compensate, ctx)   # compensations must eventually succeed
+        raise
+
+async def retry_forever(fn: Step, ctx: dict, delay: float = 1.0):
+    while True:
         try:
-            # Execute all steps in order
-            for i, step in enumerate(self.steps):
-                await step()
-                completed_steps.append(i)
+            return await fn(ctx)
+        except Exception as err:
+            alert(f"compensation {fn.__name__} failed: {err}")
+            await asyncio.sleep(delay := min(delay * 2, 60))
 
-        except Exception as e:
-            # Compensate in reverse order
-            for i in reversed(completed_steps):
-                try:
-                    await self.compensations[i]()
-                except Exception as comp_error:
-                    # Compensation failure: must be retried and alerted on
-                    print(f"Compensation {i} failed: {comp_error}")
-            raise e
+order_saga = [
+    SagaStep("create order",  create_order,   cancel_order),       # ctx["order_id"]
+    SagaStep("charge card",   charge_payment, refund_payment),     # ctx["payment_id"]
+    SagaStep("reserve stock", reserve_stock,  release_stock),      # ctx["reservation_id"]
+]
 
-# Usage example
-saga = SagaOrchestrator()
-
-saga.add_step(
-    lambda: create_order(order_data),
-    lambda: cancel_order(order_id)
-)
-
-saga.add_step(
-    lambda: charge_payment(payment_data),
-    lambda: refund_payment(payment_id)
-)
-
-saga.add_step(
-    lambda: update_inventory(items),
-    lambda: restore_inventory(items)
-)
-
-await saga.execute()
+# inside an async handler:
+#   result = await run_saga(order_saga, {"customer_id": 7, "items": items})
 ```
 
-Two practical caveats. Compensations must themselves be reliable and idempotent — a compensation that fails leaves the system in a bad state, so compensation failures are typically retried and alerted on. And because there is no isolation, other transactions can observe intermediate states; guard against this with **semantic locks** (e.g. an order status of `PENDING`) so downstream readers know the data is not yet final. Some steps are not compensatable at all (an email cannot be unsent); order the saga so that *pivot* and irreversible steps come after everything that might fail, leaving only retriable forward steps afterward.
+### Practical rules
+
+- **Compensations must be idempotent and must eventually succeed.** A compensation that fails leaves the system inconsistent, so retry it (as above) and alert on repeated failures.
+- **Guard against the lack of isolation.** Other transactions can see intermediate states. Use **semantic locks**, such as an order status of `PENDING`, so that readers know the data isn't final. Use **commutative updates** or **re-reading values** where two sagas can interleave.
+- **Order steps around the pivot.** Some actions can't be compensated: an email can't be unsent and a shipped parcel can't be un-shipped. Put *compensatable* steps first, then the **pivot** step (the point of no return), then only *retriable* steps that are guaranteed to succeed eventually.
+- **Give every step a timeout.** A participant that never replies must eventually be treated as failed, which triggers compensation.
 
 ## The Outbox & Inbox Patterns
 
-### The Dual-Write Problem
+### The dual-write problem
 
-A subtle trap lurks in every event-driven service: a handler that must both **write to its database** and **publish an event** is performing a *dual write* across two systems with no shared transaction. If it commits the DB row but crashes before publishing — or publishes but the DB commit then fails — the database and the event stream diverge, silently and permanently. You cannot fix this by reordering the two writes; whichever happens first can succeed while the second is lost to a crash.
+A handler that must both **write to its database** and **publish an event** is writing to two systems that share no transaction. If it commits the database row and then crashes before publishing, or publishes and then the commit fails, the database and the event stream disagree, silently and permanently. Reordering the two writes doesn't help, because whichever one runs first can succeed while the second is lost.
 
 ```mermaid
 flowchart LR
     H["Handler"] -->|"1. commit row"| DB[("Database")]
     H -->|"2. publish event"| B[("Broker")]
-    H -.crash between 1 and 2.-> X["DB updated, event lost<br/>(permanent divergence)"]
+    H -.->|"crash between 1 and 2"| X["DB updated, event lost:<br/>permanent divergence"]
 ```
 
-### The Transactional Outbox
+### The transactional outbox
 
-The fix is the **transactional outbox**: within the *same* local DB transaction that changes business state, insert the event into an `outbox` table. Because the business write and the outbox insert commit atomically, either both happen or neither does — there is no window in which state changed but the event was lost.
+The fix is the **transactional outbox**. In the *same* local transaction that changes business state, insert the event into an `outbox` table. The business write and the outbox insert commit together or not at all, so there is no window in which state has changed but the event is lost.
 
 ```sql
 BEGIN;
   UPDATE accounts SET balance = balance - 20 WHERE id = 42;
-  INSERT INTO outbox (id, aggregate_id, type, payload, created_at)
-       VALUES (gen_random_uuid(), 42, 'Withdrawn',
+  INSERT INTO outbox (id, aggregate_type, aggregate_id, type, payload, created_at)
+       VALUES (gen_random_uuid(), 'account', '42', 'Withdrawn',
                '{"account_id":42,"amount":20}', now());
 COMMIT;
 ```
 
-A separate **relay** (message relay / publisher) then reads unpublished outbox rows and pushes them to the broker, marking them sent. The relay can work two ways:
+A separate **relay** moves outbox rows to the broker. It works in one of two ways:
 
-- **Polling publisher** — a background loop selects unsent rows, publishes them, and marks them sent. Simple, but adds polling load and latency.
-- **Change Data Capture (CDC)** — a tool like Debezium tails the database's write-ahead log and streams new outbox rows to the broker with near-zero lag and no polling. This is the dominant production approach.
+- **Polling publisher.** A loop claims unsent rows, publishes them, and marks them sent. In PostgreSQL, `SELECT ... ORDER BY id LIMIT 100 FOR UPDATE SKIP LOCKED` lets several relay workers share the table without blocking each other. This approach is simple and portable, but adds query load and latency equal to the polling interval.
+- **Change data capture (CDC).** A tool such as **Debezium** tails the database's replication log (the PostgreSQL WAL through logical decoding, or the MySQL binlog) and streams new outbox rows to Kafka with low latency and no polling. Debezium's *Outbox Event Router* transform routes each row to a topic based on `aggregate_type` and uses `aggregate_id` as the message key, which preserves per-entity order. PostgreSQL users can also skip the table and write the event straight into the WAL with `pg_logical_emit_message`, which CDC then picks up.
 
 ```mermaid
-flowchart LR
-    Tx["Business Tx<br/>(state + outbox insert,<br/>one commit)"] --> DB[("DB: outbox table")]
-    DB -->|CDC / poll| Relay["Message Relay"]
-    Relay -->|publish| B[("Broker / Kafka")]
-    Relay -->|mark sent| DB
+sequenceDiagram
+    participant Svc as Service
+    participant DB as Database (state + outbox)
+    participant CDC as CDC relay (Debezium)
+    participant K as Kafka
+    participant C as Consumer (inbox)
+    Svc->>DB: BEGIN, UPDATE state, INSERT outbox, COMMIT
+    DB-->>CDC: WAL / binlog change
+    CDC->>K: publish (key = aggregate_id)
+    Note over CDC,K: crash before recording offset, so republish (duplicate)
+    K->>C: deliver (possibly twice)
+    C->>C: INSERT inbox(message_id), dedupe, apply effect
 ```
 
-The crucial property: the relay guarantees **at-least-once** delivery (it republishes anything it is unsure it sent), so the same event may reach the broker more than once. The outbox solves *don't lose events*; it does **not** solve *don't duplicate events*. That is the inbox's and the idempotent consumer's job.
+The relay guarantees **at-least-once** delivery. It republishes anything it isn't sure it sent, so the same event can reach the broker more than once. The outbox ensures events are not *lost*. It does **not** prevent *duplicates*; the inbox and idempotent consumers handle that. Two operational details: publish in `id` order per aggregate so that consumers see events in order, and delete or partition old outbox rows so the table doesn't grow without limit.
 
-### The Inbox Pattern
+### The inbox
 
-The mirror image on the consumer side is the **inbox** (also called the *idempotent receiver*): a table of already-processed message IDs. When an event arrives, the consumer — within the *same* transaction that applies the event's effects — inserts its message ID into the `inbox` table under a unique constraint. A duplicate delivery violates the constraint, the transaction is skipped, and the side effects are applied exactly once.
+The consumer-side counterpart is the **inbox** (also called the *idempotent receiver*): a table of message IDs that have already been processed. In the *same* transaction that applies an event's effects, the consumer inserts the event's ID into `inbox` under a unique constraint. A duplicate delivery conflicts with the constraint and is skipped, so the effects are applied once.
 
 ```python
 def handle(event, db):
     with db.transaction() as tx:
-        try:
-            tx.execute(
-                "INSERT INTO inbox (message_id, processed_at) VALUES (%s, now())",
-                (event["id"],),
-            )
-        except UniqueViolation:
-            tx.rollback()
-            return  # already processed; safe to ack and drop
-
-        apply_business_effect(tx, event)  # commits atomically with the inbox row
+        inserted = tx.execute(
+            "INSERT INTO inbox (message_id, processed_at) VALUES (%s, now()) "
+            "ON CONFLICT (message_id) DO NOTHING",
+            (event["id"],),
+        ).rowcount
+        if inserted == 0:
+            return                       # duplicate: already processed, just ack
+        apply_business_effect(tx, event) # commits atomically with the inbox row
 ```
 
-Outbox and inbox compose into reliable end-to-end messaging without distributed transactions: the **outbox** guarantees the producer never *loses* an event, and the **inbox** guarantees the consumer never *applies* one twice. Together they turn a broker's at-least-once delivery into effective exactly-once *processing*.
+Together, the **outbox** ensures the producer never *loses* an event, and the **inbox** ensures the consumer never *applies* one twice. Combined, they turn a broker's at-least-once delivery into effectively-once *processing*, without distributed transactions.
 
 ## Idempotent Consumers
 
-Almost every real broker delivers **at-least-once**: a consumer that crashes after processing a message but before committing its offset/ack will see that message again on restart. (Exactly-once delivery is essentially impossible over an unreliable network — the famous Two Generals result — so systems engineer for at-least-once delivery plus idempotent processing instead.) A consumer is **idempotent** when processing the same event twice produces the same result as processing it once:
+Nearly every broker delivers **at-least-once**. A consumer that crashes after processing a message but before acknowledging it or committing its offset will receive the message again. Exactly-once *delivery* across an unreliable network to an arbitrary side effect is not achievable in general, so systems combine at-least-once delivery with idempotent *processing*. A handler $f$ is **idempotent** when applying the same event again leaves the state unchanged:
 
-$$ f(f(s, e)) = f(s, e) $$
+$$ f(f(s, e), e) = f(s, e) $$
 
-There are several standard techniques, in rough order of preference:
+The standard techniques, roughly in order of generality:
 
-- **Deduplicate on event ID** — the inbox pattern above; the most general solution, works for any side effect.
-- **Natural idempotency via upserts** — `SET balance = 80` is idempotent; `balance = balance - 20` is not. Where you can phrase the effect as setting an absolute value keyed by entity, duplicates are harmless for free.
-- **Conditional updates / versioning** — `UPDATE … WHERE version = expected` (optimistic concurrency); a replayed event finds the version already advanced and no-ops.
-- **Idempotency keys for external calls** — when the side effect is a call to a third party (charge a card), pass a stable idempotency key so the *provider* dedupes; most payment APIs support exactly this.
+| Technique | How it works | Suits |
+|-----------|--------------|-------|
+| **Deduplicate on event ID** | The [inbox](#the-inbox) above | Any side effect inside your own database |
+| **Naturally idempotent writes** | Set absolute values keyed by entity: `SET status = 'SHIPPED'` or an upsert, instead of `balance = balance - 20` | State replication, projections |
+| **Version or sequence guards** | Apply only if `event.seq > last_seq` for the entity; stale or duplicate events do nothing | Ordered per-entity streams |
+| **Idempotency keys on external calls** | Pass a stable key (for example the event ID) so the *provider* deduplicates | Payment APIs, email and SMS gateways |
+| **Broker transactions** | Kafka's transactional producer commits output records *and* consumer offsets atomically, and downstream readers use `isolation.level=read_committed` | Read-process-write pipelines that stay entirely within Kafka (Kafka Streams `exactly_once_v2`) |
 
 ```python
-# Dedupe-on-ID with a sequence guard, combining an inbox check with ordering.
+# Sequence guard: drops duplicates and stale replays for per-entity ordered streams.
 def process(event, store):
-    last = store.last_sequence(event["aggregate_id"])
-    if event["sequence"] <= last:
-        return            # already applied (duplicate or out-of-order replay)
-    apply(event)          # the actual side effect
-    store.set_last_sequence(event["aggregate_id"], event["sequence"])
+    with store.transaction() as tx:
+        last = tx.last_sequence(event["aggregate_id"])
+        if event["sequence"] <= last:
+            return                                   # duplicate or already superseded
+        apply_effect(tx, event)
+        tx.set_last_sequence(event["aggregate_id"], event["sequence"])
 ```
 
-> **Ordering caveat.** Idempotency handles *duplicates*; it does not by itself handle *reordering*. If your effects are not commutative, you also need ordering — partition by entity key so all events for one entity are delivered in order (the per-partition ordering guarantee of a log), or carry a sequence number and reject out-of-order arrivals as the snippet above does.
+Kafka's exactly-once semantics apply only *inside Kafka*. Once a consumer writes to a database or calls an external API, you need one of the other techniques again.
 
-A message that *repeatedly* fails — a **poison message** — must not block the partition forever. After N attempts, route it to a **dead-letter queue (DLQ)** for out-of-band inspection and let the consumer advance, so one bad message cannot halt the whole stream.
+**Ordering.** Idempotency handles *duplicates*, not *reordering*. If effects don't commute, you also need ordering. Partition by entity key so that all events for one entity arrive in order (the per-partition ordering guarantee of a log), or carry a sequence number and reject or buffer out-of-order arrivals.
+
+**Poison messages.** A message that fails every time must not block its partition forever. After a bounded number of retries with backoff, send it to a **dead-letter queue (DLQ)** with the error attached, alert on it, and let the consumer move on. Provide a way to replay messages from the DLQ after a fix. For strictly ordered streams, a message parked in the DLQ breaks the ordering of its key, so some systems pause that key rather than skipping ahead.
 
 ## Event Versioning & Schema Registry
 
-Events are immutable and long-lived: an event written today may be replayed years from now to rebuild a read model, and old events can **never** be rewritten. The schema of an event must therefore evolve in a way that keeps every historical event readable forever, and keeps producers and consumers that deploy independently from breaking each other.
+Events are immutable and long-lived. An event written today may be replayed years from now to rebuild a read model, and old events can never be rewritten. Event schemas must therefore change in ways that keep every historical event readable, and that let producers and consumers deploy independently without breaking each other.
 
-### Compatibility Modes
+### Compatibility modes
 
-A **schema registry** (Confluent Schema Registry for Avro/Protobuf/JSON Schema, AWS Glue Schema Registry, Apicurio) stores versioned schemas per topic and *enforces a compatibility rule* on every new schema before producers may use it. The standard modes:
+A **schema registry** (Confluent Schema Registry, Apicurio Registry, AWS Glue Schema Registry, Azure Schema Registry) stores versioned schemas per subject and checks each new schema against a **compatibility rule** before producers can use it:
 
-| Mode | New schema can be used to read… | Safe to evolve first |
-|------|----------------------------------|------------------------|
-| **Backward** | data written with the *old* schema | upgrade **consumers** first |
-| **Forward** | data written with the *new* schema by *old* readers | upgrade **producers** first |
-| **Full** | both directions | either order |
-| **None** | (no check) | — avoid in production — |
+| Mode | Guarantee | Deploy order |
+|------|-----------|--------------|
+| **Backward** | Consumers on the *new* schema can read data written with the *previous* schema | Upgrade **consumers** first |
+| **Forward** | Consumers on the *previous* schema can read data written with the *new* schema | Upgrade **producers** first |
+| **Full** | Both directions | Either order |
+| **\*\_TRANSITIVE** | The same rule, checked against *all* earlier versions, not just the latest | Required when old data must stay readable indefinitely |
+| **None** | No check | Avoid in production |
 
-**Backward compatibility** is the most common default for event streams: new consumers can still read the entire historical log. The rules that preserve it are mechanical — *add only optional fields with defaults; never remove a required field; never change a field's type or rename it; never repurpose a tag/field number*. Removing a field or making it required breaks backward compatibility because old events lack the new constraint.
+For event-sourced or long-retention topics, use **backward transitive** (or full transitive) compatibility, because a replay can reach events written under any earlier version. The rules that keep backward compatibility are mechanical:
 
-### Schema-Evolution Tactics
+- Add only fields that have defaults.
+- Don't remove a field unless it had a default.
+- Don't change a field's type or rename it; use an alias where the format supports one.
+- Never reuse a field number or tag, especially in Protobuf.
 
-- **Tolerant reader** — consumers ignore unknown fields and supply defaults for missing ones, so a producer can add fields without coordinating a deploy. (Avro and Protobuf give this to you when you follow the rules above.)
-- **Upcasting** — on read, transform an old event version into the current shape *in memory* before the domain logic sees it. The stored event is never mutated; the upcaster is a pure function `v1 → v2 → … → vN` applied during rehydration, keeping the rest of the code aware of only the latest version.
-- **Versioned event types** — when a change is genuinely breaking, introduce a new event type (`OrderShipped_v2`) and keep handling the old one. Existing history stays valid; new events use the new type.
-- **Explicit version field** — every event carries `type` and `version`, so the deserializer can pick the right schema and upcaster chain.
+### Evolution tactics
+
+- **Tolerant reader.** Consumers ignore unknown fields and use defaults for missing ones, so producers can add fields without a coordinated deploy. Avro and Protobuf behave this way when the rules above are followed.
+- **Upcasting.** When reading, transform an old event version into the current shape in memory before domain code sees it. The stored event never changes. The upcaster is a chain of pure functions, v1 to v2 to v3, applied during rehydration.
+- **New event types for breaking changes.** When a change really is breaking, introduce a new type (for example `OrderShipped.v2`), keep handling the old one, and publish both during a migration window if external consumers need time.
+- **Explicit version in the envelope.** Every event carries its type and version (for example the CloudEvents `dataschema` attribute), so the deserializer can pick the right schema and upcaster chain.
+- **Copy-and-transform migrations.** As a last resort, write a transformed copy of the whole stream into a new store and switch over. Never edit events in place.
 
 ```python
-# Upcasting an old event into the current shape on read.
-def upcast(event):
-    v = event.get("version", 1)
-    if v == 1:
+# Upcasting chain: domain code only ever sees the latest version (v3).
+def upcast(event: dict) -> dict:
+    if event.get("version", 1) == 1:
         # v1 had a single 'name'; v2 splits it into first/last.
         first, _, last = event.get("name", "").partition(" ")
         event = {**event, "first_name": first, "last_name": last, "version": 2}
     if event["version"] == 2:
-        # v3 added 'currency', defaulting to USD for historical events.
+        # v3 added 'currency'; historical events were all USD.
         event = {**event, "currency": event.get("currency", "USD"), "version": 3}
-    return event  # domain code only ever sees v3
+    return event
 ```
 
-Binary formats with a registry (Avro, Protobuf) are preferred for high-volume streams: they are compact, the registry guarantees compatibility *at publish time* (a bad schema is rejected before it can corrupt the log), and the schema ID travels with each message so consumers fetch the exact writer schema. JSON Schema in a registry offers the same compatibility checks with human-readable payloads at a size cost.
+Binary formats with a registry (Avro, Protobuf) are the usual choice for high-volume streams. They are compact, the registry rejects an incompatible schema *at publish time* before it can reach the log, and each message carries a schema ID so that consumers fetch the exact writer schema. JSON Schema in a registry gives the same checks with human-readable payloads, at a size cost. For documenting asynchronous APIs across teams, **AsyncAPI** describes channels, messages, and schemas in the way OpenAPI describes HTTP endpoints.
 
 ## Eventual Consistency
 
-Asynchronous, event-driven systems are **eventually consistent**: after a write, there is a window during which different parts of the system disagree, after which — *if no new writes arrive* — all replicas and read models converge to the same value. A CQRS read model lags its write model by the projection delay; a downstream service's view lags the producer by broker and processing latency. This is not a bug to be eliminated but a property to be designed for, and it is the price of the availability and decoupling that asynchrony buys ([CAP](../distributed-systems/) makes the trade unavoidable when partitions are possible).
+Asynchronous, event-driven systems are **eventually consistent**. After a write there is a period when different parts of the system disagree. If no new writes arrive, all replicas and read models then converge on the same value. A CQRS read model lags its write model by the projection delay, and a downstream service lags the producer by broker and processing latency. This is a property to design for, not a bug to remove. It is the price of the availability and decoupling that asynchrony provides, and when network partitions are possible the trade-off is unavoidable (see [CAP](../distributed-systems/)).
 
-The hazards and their standard mitigations:
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant W as Write API
+    participant L as Event log
+    participant P as Projection
+    participant R as Read API
+    U->>W: POST /withdraw
+    W->>L: append Withdrawn (position 1042)
+    W-->>U: 202 Accepted, position = 1042
+    U->>R: GET /balance?min_position=1042
+    L->>P: deliver Withdrawn
+    P->>P: apply, checkpoint 1042
+    R-->>U: balance (projection at or past 1042)
+```
 
-- **Read-your-writes** — a user who issues a command and immediately re-queries may not see their own change because the projection has not caught up. Mitigate with optimistic UI updates, by returning the new state directly from the command, or by pinning that user's reads to a session/version token until the projection has advanced past their write.
-- **Monotonic reads** — a client must not see state go *backwards* (read version 5, then version 3 from a lagging replica). Route a session's reads consistently or carry a minimum-version watermark.
-- **Stale-read tolerance** — most reads tolerate small lag (a transaction list 50 ms stale is fine). Decide per query how much staleness is acceptable and surface it (e.g. "as of HH:MM:SS") rather than pretending the data is live.
-- **Convergence requires effort** — "eventual" only holds if every event is eventually delivered and applied. The [outbox](#the-outbox--inbox-patterns) (no lost events), [idempotent consumers](#idempotent-consumers) (no double-applied events), and projection checkpointing are what *make* the system converge; without them, "eventual consistency" degrades into "permanent inconsistency."
+The main hazards and their standard mitigations:
+
+- **Read-your-writes.** A user who issues a command and then immediately queries may not see their own change. Options: update the UI optimistically; return the new state from the command itself; or return a **position token** (as in the diagram) and have the read side wait or redirect until the projection has passed it.
+- **Monotonic reads.** A client must never see state go backwards, for example version 5 and then version 3 from a lagging replica. Route a session's reads to one replica consistently, or send a minimum-version watermark with each read.
+- **Stale-read tolerance.** Most reads tolerate some lag; a transaction list that is 50 ms stale is fine. Decide for each query how much staleness is acceptable, monitor **projection lag** (consumer lag in time, not only in messages), and show "as of" timestamps where it matters.
+- **Convergence takes work.** Consistency is only "eventual" if every event is eventually delivered and applied. The [outbox](#the-outbox--inbox-patterns) (no lost events), [idempotent consumers](#idempotent-consumers) (no events applied twice), and atomic projection checkpoints are what make the system converge. Without them, eventual consistency becomes permanent inconsistency.
 
 ## Putting It Together
 
-A mature event-driven system layers these patterns so that each covers a specific failure mode of the others:
+In a mature event-driven system these patterns are layered so that each one covers a failure mode of the others:
 
 ```mermaid
 flowchart TD
     Client --> Cmd["Command<br/>WithdrawMoney"]
-    Cmd --> Agg["Aggregate (write model)<br/>load → enforce invariants → emit events<br/>(event sourcing + optimistic concurrency)"]
-    Agg -->|"same tx: events + outbox row"| DB[("Event Store + Outbox")]
-    DB -->|CDC relay (at-least-once)| Kafka[("Kafka<br/>per-entity partitioning")]
-    Kafka --> Saga["Saga Orchestrator<br/>(durable, compensations)"]
-    Kafka --> Proj["Projection → Read Model<br/>(idempotent, checkpointed)"]
-    Kafka --> Inbox["Downstream Svc<br/>(inbox dedupe)"]
-    Query["Query<br/>GetBalance"] --> Proj
-    Reg["Schema Registry<br/>(backward compat enforced)"] -. validates .-> Kafka
+    Cmd --> Agg["Aggregate / write model<br/>load, check invariants, emit events<br/>(optimistic concurrency)"]
+    Agg -->|"one transaction: events + outbox row"| DB[("Event store + outbox")]
+    DB -->|"CDC relay, at-least-once"| Kafka[("Kafka<br/>keyed by entity")]
+    Reg["Schema registry<br/>backward-transitive"] -.->|"validates"| Kafka
+    Kafka --> Saga["Saga orchestrator<br/>durable, compensating"]
+    Kafka --> Proj["Projection<br/>idempotent, checkpointed"]
+    Kafka --> Down["Downstream service<br/>inbox dedupe"]
+    Proj --> RM[("Read model")]
+    Query["Query<br/>GetBalance"] --> RM
+    Kafka -.->|"poison messages"| DLQ["Dead-letter queue"]
 ```
 
-Event sourcing makes the log the source of truth; the **outbox** bridges state change and publication without a dual-write bug; the **CDC relay** gives at-least-once delivery, which **idempotent consumers** and the **inbox** make safe; **projections** turn the log into the query-shaped **read models** CQRS serves; the **schema registry** keeps that immutable log readable as schemas evolve; **sagas** coordinate multi-service transactions with compensations; and **eventual consistency** is the explicit, designed-for contract that ties it all together. Adopt each pattern as the specific pain it solves actually appears — none of them is free, and a well-structured monolith or plain CRUD is the right starting point until the scale, audit, or decoupling pressure justifies the move.
+Event sourcing makes the log the source of truth. The **outbox** links a state change to its publication without the dual-write problem. The **CDC relay** delivers at-least-once, which **idempotent consumers** and the **inbox** make safe. **Projections** turn the log into the **read models** that CQRS queries. The **schema registry** keeps the immutable log readable as schemas change. **Sagas** coordinate multi-service transactions through compensation. **Eventual consistency** is the explicit contract that the other patterns uphold.
+
+None of these patterns is free. A well-structured monolith or plain CRUD service is the right place to start. Add each pattern when the problem it solves actually appears: scale, audit requirements, or the need to decouple teams.
 
 ## See Also
 
-- **[Event-Driven Hub](./)** — section overview tying these patterns to brokers, streaming, and delivery semantics
-- **[Microservices & Event-Driven Architecture](../distributed-systems/microservices-and-event-driven.html)** — service decomposition, API gateways, sync vs async, Kafka's topic/partition/offset model, and where these patterns sit in a microservice system
-- **[Distributed Systems Hub](../distributed-systems/)** — CAP/FLP, consistency models, and the resilience patterns (circuit breakers, leader election) behind reliable event delivery
-- **[Distributed Systems Theory](../advanced/distributed-systems-theory/)** — formal foundations: consensus, the happens-before relation, and consistency-model definitions
-- **[Database Design](../technology/database-design/)** — the event stores, outbox tables, and read-model databases these patterns persist to
-- **[API Design](../api-design/)** — the synchronous contracts at the edge of an event-driven system
+- **[Event-Driven Hub](./)**: overview of events versus commands, choreography versus orchestration, and temporal decoupling
+- **[Message Brokers](message-brokers.html)**: Kafka, RabbitMQ, and cloud brokers, plus delivery semantics, ordering, backpressure, and DLQs
+- **[Microservices & Event-Driven Architecture](../distributed-systems/microservices-and-event-driven.html)**: service decomposition, sync versus async, and where these patterns sit in a microservice system
+- **[Distributed Systems Hub](../distributed-systems/)**: CAP/FLP, consistency models, and resilience patterns
+- **[Distributed Systems Theory](../advanced/distributed-systems-theory/)**: consensus, happens-before, and formal consistency-model definitions
+- **[Database Design](../technology/database-design/)**: the event stores, outbox tables, and read-model databases these patterns write to
+- **[API Design](../api-design/)**: the synchronous contracts at the edge of an event-driven system

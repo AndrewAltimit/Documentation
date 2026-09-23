@@ -1,123 +1,98 @@
 ---
 layout: docs
 title: Getting Started
-hide_title: true
+description: How Andrew's Notebook is organized, the kinds of pages it contains, how to find a page, and where to start for common roles.
+hide_title: false
 toc: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
-  <h1 style="color: white; margin: 0; font-size: 2.5rem;">Getting Started</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.92;">How this notebook is organized and the fastest way to find what you need.</p>
-</div>
+Andrew's Notebook is a reference wiki covering software infrastructure, distributed systems, machine learning, physics, and theoretical computer science. This page explains how the site is organized, the kinds of pages you will meet, the tools for finding a page, and where to start for common roles.
 
-Welcome to Andrew's technical documentation. This guide explains how the knowledge base is structured and gives you role-based entry points so you can dive straight into what matters to you.
+## How the site is organized
 
-## Documentation Structure
+Content is arranged in three levels. Each **section** covers a broad field and has a **hub** page that orients you and recommends reading orders. Each section contains **topics**, and each topic has an **overview page** that introduces the core ideas and links to its **sub-pages**, which each treat one aspect in depth.
 
-The documentation is organized into several main sections, each serving different purposes:
+```mermaid
+flowchart TD
+    H["Home"] --> T["Technology"]
+    H --> A["Architecture & Operations"]
+    H --> M["AI & Machine Learning"]
+    H --> G["Game Development & Graphics"]
+    H --> P["Physics"]
+    H --> R["Theory & Research"]
+    T --> K["Kubernetes<br/>(topic overview)"]
+    K --> K1["Fundamentals"]
+    K --> K2["Workloads & Storage"]
+    K --> K3["Operations"]
+    K --> K4["Advanced Topics"]
+    P --> Q["Quantum Mechanics<br/>(topic overview)"]
+    Q --> Q1["States, Operators & Dynamics"]
+    Q --> Q2["Systems & Phenomena"]
+    Q --> Q3["Bell's Theorem"]
+    Q --> Q4["Research Frontiers"]
+```
 
-### [Technology Documentation](docs/index.html#technology)
-Comprehensive guides for modern software development:
-- **Infrastructure & DevOps**: [Terraform](docs/technology/terraform/), [Docker](docs/technology/docker/), [Kubernetes](docs/technology/kubernetes/), [AWS](docs/technology/aws/), [CI/CD pipelines](docs/technology/ci-cd/)
-- **Development & Tools**: [Git workflows](docs/technology/git/), [database design](docs/technology/database-design/), [build systems](docs/technology/please-build.html)
-- **Networking & Security**: [TCP/IP](docs/technology/networking/), protocols, [cybersecurity](docs/technology/cybersecurity/) best practices
-- **Advanced Topics**: [Quantum computing](docs/technology/quantumcomputing.html), [AI/ML](docs/technology/ai/), [distributed systems](docs/distributed-systems/index.html)
+The six sections and their entry points:
 
-### [Physics Documentation](docs/index.html#physics)
-From fundamentals to cutting-edge research:
-- **Classical Physics**: [Mechanics](docs/physics/classical-mechanics/), [thermodynamics](docs/physics/thermodynamics.html), [statistical mechanics](docs/physics/statistical-mechanics/)
-- **Modern Physics**: [Relativity](docs/physics/relativity/), [quantum mechanics](docs/physics/quantum-mechanics/)
-- **Advanced Topics**: [Quantum field theory](docs/physics/quantum-field-theory.html), [string theory](docs/physics/string-theory/), [condensed matter](docs/physics/condensed-matter/)
-- **Computational Physics**: Numerical methods and simulations
+| Section | Covers | Start at |
+|---------|--------|----------|
+| Technology | Docker, Kubernetes, Terraform, AWS, CI/CD, Git, databases, networking, cybersecurity | [Technology Hub](docs/technology/) |
+| Architecture & Operations | Distributed systems, API design, event-driven systems, observability, testing, performance | [Distributed Systems Hub](docs/distributed-systems/) |
+| AI & Machine Learning | ML concepts and theory; hands-on diffusion image models (Stable Diffusion, FLUX, ComfyUI, LoRA) | [AI Hub](docs/artificial-intelligence/) · [Generative AI Hub](docs/ai-ml/) |
+| Game Development & Graphics | Game architecture, rendering, shaders, multiplayer, XR, Unreal Engine | [Game Development](docs/gamedev/) |
+| Physics | Classical mechanics, thermodynamics, relativity, quantum mechanics, QFT, condensed matter, string theory, computational physics | [Physics Hub](docs/physics/) |
+| Theory & Research | Complexity, automata, cryptography, information theory, category theory, learning theory | [Advanced Topics Hub](docs/advanced/) |
 
-### [AI/ML Documentation Hub](docs/ai-ml/index.html)
-Specialized content for artificial intelligence:
-- **Generative AI**: [Stable Diffusion](docs/ai-ml/stable-diffusion-fundamentals.html), [FLUX](docs/ai-ml/flux-guide.html), [ComfyUI workflows](docs/ai-ml/comfyui-guide.html)
-- **Model Training**: [LoRA fine-tuning](docs/ai-ml/lora-training.html), dataset preparation
-- **Practical Guides**: From beginner tutorials to [advanced techniques](docs/ai-ml/advanced-techniques.html)
-- **Theory**: [Mathematical foundations](docs/advanced/ai-mathematics/) and research papers
+The [documentation index](docs/index.html) lists every page, grouped the same way.
 
-### [Reference Materials](docs/reference/index.html)
-Quick-access resources:
-- **Command References**: [Git](docs/technology/git-reference.html), [Docker](docs/technology/docker-essentials.html), Kubernetes, AWS CLI
-- **Cheat Sheets**: Algorithms, formulas, API patterns
-- **Troubleshooting**: Common issues and solutions
-- **Best Practices**: Industry standards and recommendations
+## Page types
 
-## Navigation Tips
+Pages follow a small number of patterns. Recognizing the type tells you how to read the page.
 
-### Finding Content
-- **Search First**: Use our [powerful search function](search.html) to quickly find specific topics
-- **Browse by Category**: Navigate through the sidebar menu for systematic exploration
-- **Topic Map**: View the [visual topic map](docs/topic-map.html) for an overview of all content
-- **Index Pages**: Each section has an index page with organized subtopics
+| Type | Purpose | How to recognize it | Examples |
+|------|---------|---------------------|----------|
+| Hub | Orients a whole section and suggests reading paths | Section landing page; mostly short summaries and links | [Physics Hub](docs/physics/), [Distributed Systems Hub](docs/distributed-systems/) |
+| Topic overview | Introduces one topic: the core idea, the vocabulary, and a map of its sub-pages | Title is the bare topic name | [Docker](docs/technology/docker/), [Relativity](docs/physics/relativity/) |
+| Sub-page | Treats one aspect of a topic in depth | Title is prefixed with the topic, e.g. "Kubernetes: Operations" | [Kubernetes: Operations](docs/technology/kubernetes/operations.html), [Relativity: Black Holes](docs/physics/relativity/black-holes.html) |
+| Crash course | A linear first pass for newcomers, meant to be read top to bottom | "Crash Course" in the title, or billed as a no-math introduction | [Git Crash Course](docs/technology/git-crash-course.html), [Database Crash Course](docs/technology/database-crash-course.html), [AI Fundamentals](docs/technology/ai-fundamentals-simple.html) |
+| Cheat sheet | Lookup material organized by task, meant to be scanned | Dense tables and short command blocks | [Git Command Reference](docs/technology/git-reference.html), [Docker Essentials](docs/technology/docker-essentials.html), [Quick Reference](docs/reference/) |
+| Research page | Graduate-level, proof-oriented treatment | Lives under Advanced Topics; opens with a level note and its prerequisites | [Computational Complexity Theory](docs/advanced/complexity-theory/), [Advanced AI Mathematics](docs/advanced/ai-mathematics/) |
 
-### Content Organization
-- **Depth Levels**: Content ranges from beginner-friendly to research-level
-- **Cross-References**: Related topics are linked throughout for easy navigation
-- **Code Examples**: Practical implementations with copy-paste-ready snippets (hover any code block for a Copy button)
-- **See Also Blocks**: Each substantial page ends with a "See Also" block linking related topics
+## Finding a page
 
-### Learning Paths
-Depending on your goals:
-1. **New to Tech?** Start with simplified guides (e.g., [AI Fundamentals - Simplified](docs/technology/ai-fundamentals-simple.html))
-2. **Practical Implementation?** Jump to tool-specific guides (e.g., [ComfyUI](docs/ai-ml/comfyui-guide.html))
-3. **Research Focus?** Explore [advanced topics](docs/advanced/index.html) with mathematical rigor
-4. **Quick Reference?** Bookmark the [reference index](docs/reference/index.html)
-5. **Visual Learner?** Check out the [interactive topic map](docs/topic-map.html)
+| Tool | Best for | Notes |
+|------|----------|-------|
+| Sidebar | Browsing within a section | Expands to show each topic's sub-pages |
+| [Documentation index](docs/index.html) | Finding any specific page | Complete listing, one row per topic |
+| [Topic map](docs/topic-map.html) | Seeing prerequisites and choosing a reading order | Interactive map plus role-based reading paths |
+| [Search](search.html) | Keyword lookup | Indexes the text of the main hub and overview pages; sub-pages are reached from those or from the index |
+| "See also" and inline links | Moving sideways to related material | Most substantial pages end with links to related topics |
 
-## Quick Start by Role
+## Reading conventions
 
-Pick the path that matches what you do. Each card lists the highest-value pages to start with.
+- **Mathematics** is written in LaTeX and rendered with MathJax, inline as $E = mc^2$ and in display blocks for longer derivations.
+- **Diagrams** are drawn with Mermaid or inline SVG and adapt to light and dark themes.
+- **Code blocks** have a Copy button that appears on hover. Where behavior depends on a tool version, the page names the version.
+- **Theme**: the site follows your operating system's light or dark preference until you choose one with the theme toggle; the choice is remembered in your browser.
+- **Depth** increases within each topic: the overview page assumes little background, sub-pages build on it, and research pages state their prerequisites at the top.
 
-<div class="command-grid">
-  <div class="nav-card">
-    <h4><i class="fas fa-laptop-code"></i> Software Developers</h4>
-    <ul>
-      <li><a href="docs/technology/git-reference.html">Git Command Reference</a></li>
-      <li><a href="docs/technology/docker-essentials.html">Docker Essentials</a></li>
-      <li><a href="docs/technology/kubernetes/">Kubernetes Guide</a></li>
-      <li><a href="docs/technology/ci-cd/">CI/CD Pipelines</a></li>
-    </ul>
-  </div>
-  <div class="nav-card">
-    <h4><i class="fas fa-cloud"></i> DevOps Engineers</h4>
-    <ul>
-      <li><a href="docs/technology/terraform/">Terraform (multi-cloud IaC)</a></li>
-      <li><a href="docs/technology/aws/">AWS Services</a></li>
-      <li><a href="docs/technology/networking/">Networking</a></li>
-      <li><a href="docs/distributed-systems/index.html">Distributed Systems</a></li>
-    </ul>
-  </div>
-  <div class="nav-card">
-    <h4><i class="fas fa-palette"></i> AI / ML Practitioners</h4>
-    <ul>
-      <li><a href="docs/ai-ml/stable-diffusion-fundamentals.html">Stable Diffusion Fundamentals</a></li>
-      <li><a href="docs/ai-ml/comfyui-guide.html">ComfyUI Guide</a></li>
-      <li><a href="docs/ai-ml/lora-training.html">LoRA Training</a></li>
-      <li><a href="docs/ai-ml/base-models-comparison.html">Model Comparison</a></li>
-      <li><a href="docs/ai-ml/advanced-techniques.html">Advanced Techniques</a></li>
-    </ul>
-  </div>
-  <div class="nav-card">
-    <h4><i class="fas fa-microscope"></i> Physics & Research</h4>
-    <ul>
-      <li><a href="docs/physics/quantum-mechanics/">Quantum Mechanics</a></li>
-      <li><a href="docs/technology/quantumcomputing.html">Quantum Computing</a></li>
-      <li><a href="docs/advanced/ai-mathematics/">Advanced Mathematics</a></li>
-      <li><a href="docs/advanced/index.html">Research Hub</a></li>
-    </ul>
-  </div>
-</div>
+## Where to start
 
-## Getting the most from the docs
+Pick the row closest to what you do. The [Topic Map](docs/topic-map.html#reading-paths-by-role) extends each of these into a full ordered reading path.
 
-- **Start at an overview.** Each section's index page sets context before the detail pages.
-- **Mind the prerequisites.** Advanced topics state the background they assume up front.
-- **Code is copy-ready.** Hover any code block for a Copy button; version-specific behavior is called out where it matters.
-- **Follow the cross-links.** Substantial pages end with a "See Also" block to related topics.
-- **The deepest material is flagged** in the [documentation index](docs/index.html#where-this-site-goes-deep); the AI/ML, Kubernetes, and quantum sections are revised as those fields move.
+| If you are... | Start with | Then read |
+|---------------|------------|-----------|
+| New to software tooling | [Git Crash Course](docs/technology/git-crash-course.html) | [Database Crash Course](docs/technology/database-crash-course.html), [Docker: Fundamentals](docs/technology/docker/fundamentals.html) |
+| An application developer | [Docker](docs/technology/docker/) | [Database Design](docs/technology/database-design/), [API Design](docs/api-design/), [Unit & Integration Testing](docs/testing/unit-and-integration.html) |
+| A DevOps or platform engineer | [Kubernetes](docs/technology/kubernetes/) | [Terraform](docs/technology/terraform/), [CI/CD](docs/technology/ci-cd/), [Observability](docs/observability/) |
+| A cloud architect | [AWS Cloud Services](docs/technology/aws/) | [AWS Architecture Patterns](docs/technology/aws/architecture.html), [Cloud Networking](docs/technology/networking/cloud-networking.html), [Resilience Patterns](docs/distributed-systems/resilience-patterns.html) |
+| A security engineer | [Cybersecurity](docs/technology/cybersecurity/) | [Cryptography](docs/technology/cybersecurity/cryptography.html), [Cloud & Container Security](docs/technology/cybersecurity/cloud-and-container-security.html) |
+| Learning machine learning | [AI Fundamentals](docs/technology/ai-fundamentals-simple.html) | [ML Foundations](docs/technology/ai/ml-foundations.html), [Deep Learning Architectures](docs/technology/ai/deep-learning-architectures.html) |
+| Generating images with diffusion models | [Stable Diffusion Fundamentals](docs/ai-ml/stable-diffusion-fundamentals.html) | [Base Models Comparison](docs/ai-ml/base-models-comparison.html), [ComfyUI Guide](docs/ai-ml/comfyui-guide.html), [LoRA Training](docs/ai-ml/lora-training.html) |
+| A game developer | [Game Development](docs/gamedev/) | [3D Graphics & Rendering](docs/graphics/3d-rendering.html), [Multiplayer Networking](docs/gamedev/multiplayer-networking.html) |
+| Studying physics | [Classical Mechanics](docs/physics/classical-mechanics/) | [Quantum Mechanics](docs/physics/quantum-mechanics/), [Relativity](docs/physics/relativity/), [Statistical Mechanics](docs/physics/statistical-mechanics/) |
+| Studying theoretical computer science | [Automata Theory & Formal Languages](docs/advanced/automata-and-formal-languages/) | [Computational Complexity Theory](docs/advanced/complexity-theory/), [Information & Coding Theory](docs/advanced/information-coding-theory/) |
 
-## Contributing
+## Corrections and contributions
 
-This is a living document. Found an error or have a suggestion? Open an issue or pull request on the [GitHub repository](https://github.com/AndrewAltimit/Documentation).
+The site is maintained in the [AndrewAltimit/Documentation](https://github.com/AndrewAltimit/Documentation) repository on GitHub. Report errors or suggest additions by opening an issue; corrections are also welcome as pull requests.

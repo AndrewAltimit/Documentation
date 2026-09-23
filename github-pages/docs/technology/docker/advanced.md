@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Docker: Production Patterns"
+description: "Running Docker in production: Compose for deployment, resource limits, health-gated rollouts, secrets, network segmentation, Docker Swarm, and reference architectures for microservices and ML serving."
 permalink: /docs/technology/docker/advanced.html
 toc: true
 toc_sticky: true
@@ -9,254 +10,334 @@ hide_title: true
 
 [Docker](./) &raquo; Production Patterns
 
-This page assumes you are comfortable with images, containers, and Dockerfiles. It looks at how Docker is run **in production at scale**: the recurring shapes of real-world architectures, how to grow a Docker Compose file from a laptop convenience into a deployable production stack, how Docker Swarm turns a fleet of hosts into one cluster, and what migrating to containers looks like through worked case studies. Treat it as a tour of "what good looks like" once the basics are second nature.
+This page covers what changes when containers move from a laptop to production: replication, resource governance, health-gated rolling updates, secrets, network segmentation, and logging, expressed first with **Docker Compose** and then across a cluster with **Docker Swarm**. It closes with two reference architectures (a microservices storefront and an ML model-serving platform) and guidance on when to move to Kubernetes. It assumes familiarity with images, Dockerfiles, and Compose. Multi-container patterns (sidecar, ambassador, init) and image hardening are on [Design Patterns](docker-design-patterns.html); alternative runtimes (gVisor, Kata, Firecracker, WebAssembly) are on [Container Runtimes](../container-runtimes.html).
 
-<div class="notice--info">
-  <p><strong>Two topics moved out of this page.</strong> The multi-container <em>design patterns</em> (Sidecar, Ambassador, Adapter, Init) and image/runtime <em>security patterns</em> (distroless, non-root, Falco) now live on <a href="docker-design-patterns.html">Docker: Design Patterns</a>. The <em>runtime alternatives</em> below Docker — gVisor, Kata, Firecracker microVMs, and WebAssembly/WASI — now live on <a href="../container-runtimes.html">Container Runtimes &amp; Alternatives</a>. This page links to both rather than duplicating them.</p>
-</div>
+## What Production Adds
 
-## What "Production" Adds
+The image that runs in production is the same artifact that ran in CI. What differs is everything around it:
 
-A container that runs on your laptop and a container that runs in production are the same artifact, but the surrounding machinery is entirely different. Production deployment is mostly about the *non-functional* requirements the happy-path demo never exercises:
+| Concern | Failure it prevents | Compose / Swarm mechanism |
+|---------|---------------------|---------------------------|
+| Replication | One crash takes the service down | `deploy.replicas`, Swarm scheduling |
+| Resource governance | One service starves its neighbors, or the host OOM-kills the wrong process | `deploy.resources.limits` and `reservations` |
+| Health checking | Traffic sent to a process that is up but not working | `healthcheck`, `depends_on: service_healthy` |
+| Zero-downtime updates | Deploys cause outages; bad versions stay live | `update_config`, `rollback_config` (Swarm) |
+| Secret management | Credentials leaked through images, `docker inspect`, or logs | `secrets:` mounted under `/run/secrets` |
+| Network segmentation | A compromised front end reaches the database | Multiple networks, `internal: true` |
+| Log management | Unbounded log files fill the disk | Logging driver with rotation |
 
-- **Replication and load distribution** — one instance is a single point of failure; production runs N replicas behind a load balancer.
-- **Zero-downtime updates** — new versions roll out a few replicas at a time, with health gates and automatic rollback if the new version is unhealthy.
-- **Resource governance** — CPU and memory limits so one noisy service cannot starve its neighbors, and reservations so the scheduler places work where it fits.
-- **Secret management** — credentials injected at runtime, never baked into the image or committed to a compose file.
-- **Network segmentation** — public-facing services on one network, databases on an internal-only network the outside world cannot reach.
-- **Observability** — health checks, metrics, and logs wired in so failures are detected before users notice.
+## Reference Architectures
 
-The rest of this page shows how Compose and Swarm express each of these, anchored in real architectures.
+Most containerized systems follow one of a few shapes, and the shape determines which concerns dominate.
 
-## Real-World Architectures
-
-Most production Docker deployments fall into a handful of recurring shapes. Recognizing which one you are building tells you which concerns to prioritize.
+| Architecture | Shape | Dominant concerns |
+|--------------|-------|-------------------|
+| **Microservices** | Many services behind a gateway, each owning its data | Independent scaling and rollouts, service discovery, network segmentation |
+| **Worker pool** | A queue feeding horizontally scaled stateless workers | Scaling to queue depth, idempotent processing, graceful shutdown |
+| **Stateless web tier** | Identical app servers behind a load balancer or CDN, shared cache | Fast startup, small images, health-gated rollouts |
+| **Batch / scheduled jobs** | Containers that run to completion | Retries, exit codes, resource requests (often GPUs) |
 
 ```mermaid
 flowchart TB
-    Internet((Internet)) --> LB["Load balancer /<br/>API gateway"]
-    LB --> S1["Service A<br/>(N replicas)"]
-    LB --> S2["Service B<br/>(N replicas)"]
-    S1 --> Cache[("Cache<br/>Redis")]
-    S1 --> DB1[("Database A")]
-    S2 --> MQ[("Message queue<br/>Kafka")]
-    S2 --> DB2[("Database B")]
-    subgraph frontend["frontend network (encrypted overlay)"]
-        LB
+    Internet((Internet)) --> GW["API gateway<br/>(replicated)"]
+    subgraph frontend["frontend network"]
+        GW
     end
-    subgraph backend["backend network (internal only)"]
-        S1
-        S2
-        Cache
-        DB1
-        DB2
-        MQ
+    subgraph backend["backend network (internal: no external route)"]
+        P["product service<br/>(N replicas)"]
+        O["order service<br/>(N replicas)"]
+        C[("Redis cache")]
+        PDB[("product DB")]
+        ODB[("order DB")]
+        K[("Kafka")]
+        W["workers<br/>(consume events)"]
     end
+    GW --> P
+    GW --> O
+    P --> C
+    P --> PDB
+    O --> ODB
+    O -->|order events| K
+    K --> W
 ```
 
-| Architecture | Shape | Where Docker fits |
-|--------------|-------|-------------------|
-| **Microservices** | Many small services behind a gateway, each owning its data | One image per service; replicas scaled independently |
-| **Worker pool** | A queue feeding a horizontally scaled set of stateless workers | Scale the worker service to match queue depth |
-| **Edge / CDN origin** | Stateless app servers fronted by a CDN, sharing a cache tier | Tiny, fast-starting images for rapid scale-out |
-| **Batch / ETL** | Short-lived jobs that run to completion on a schedule | Run-once containers; orchestrator handles retries |
+The gateway is the only service attached to the public network. Everything else, including every data store, sits on an internal network with no route to or from the outside.
 
-The microservices shape is the one most teams reach for, and it is the architecture the case study below walks through end to end.
+## Compose in Production
 
-## Docker Compose at Scale
+Compose files are the usual deployment descriptor for single-host production and, through `docker stack deploy`, for Swarm. The same format covers both, but the two consumers honor different parts of it.
 
-Docker Compose starts life as a developer convenience — `docker compose up` to bring a stack online locally. The same file format, with the `deploy:` block and a few discipline changes, becomes a legitimate production descriptor (deployed directly by Docker Swarm via `docker stack deploy`, or used as the source of truth a CI pipeline translates). Growing a compose file to production scale means layering on the concerns from the previous section.
+### What each tool honors
 
-### Replicas, Resources, and Update Policy
+| Compose key | `docker compose up` (single host) | `docker stack deploy` (Swarm) |
+|-------------|-----------------------------------|-------------------------------|
+| `deploy.replicas` | Yes (runs N containers) | Yes |
+| `deploy.resources` (limits, reservations, GPU devices) | Yes | Yes |
+| `deploy.update_config`, `rollback_config` | Ignored | Yes |
+| `deploy.placement` | Ignored | Yes |
+| `depends_on` | Yes (with conditions) | Ignored: services must tolerate dependencies starting in any order |
+| `build:` | Yes | Ignored: images must come from a registry |
+| `secrets:` | File-backed secrets only | Swarm secrets (`external: true`) or files |
+| `healthcheck` | Yes | Yes (also gates rolling updates) |
 
-The `deploy:` block is the heart of a production compose service. It is *ignored* by plain `docker compose up` but honored by `docker stack deploy` (Swarm). It declares how many replicas to run, how to bound their resource use, and how to roll new versions out.
+The top-level `version:` key is obsolete: current Compose ignores it and warns. Omit it.
+
+### Structuring files per environment
+
+Keep one base file and layer environment-specific differences on top:
+
+```bash
+# compose.yaml holds the service graph; compose.prod.yaml adds limits, replicas, logging
+docker compose -f compose.yaml -f compose.prod.yaml up -d --wait
+```
+
+Later files override or extend earlier ones key by key. `--wait` blocks until services are running and healthy, which makes the command usable as a deployment step. Other structuring features: `include:` pulls in another project's Compose file (with its own relative paths), and `profiles:` marks optional services (debug tools, one-off admin jobs) that start only when their profile is enabled.
+
+### Replicas, resources, and update policy
 
 ```yaml
 services:
   product-service:
-    image: company/product-service:${VERSION}
+    image: registry.example.com/product-service:${VERSION:?set VERSION}
     deploy:
       replicas: 5
       resources:
         limits:
-          cpus: '2'
+          cpus: "2"
           memory: 2G
         reservations:
-          cpus: '1'
+          cpus: "0.5"
           memory: 1G
       update_config:
-        parallelism: 2          # update 2 replicas at a time
-        delay: 10s              # wait 10s between batches
-        failure_action: rollback # auto-revert if the new version is unhealthy
-        order: start-first      # start the new task before stopping the old
+        parallelism: 2            # replace 2 replicas per batch
+        delay: 10s                # pause between batches
+        monitor: 30s              # watch each batch this long for failures
+        failure_action: rollback
+        order: start-first        # start new task before stopping the old one
       restart_policy:
         condition: on-failure
         max_attempts: 3
 ```
 
-Two distinctions matter here. **Limits vs. reservations:** `limits` is the ceiling the kernel enforces (the container is throttled or OOM-killed past it); `reservations` is the floor the scheduler guarantees when *placing* the task, so it only lands on a node with that much free capacity. **`order: start-first` vs. `stop-first`:** start-first briefly runs old and new replicas together for true zero-downtime (at the cost of extra capacity during the rollout); stop-first is cheaper but drops a replica's worth of capacity mid-update.
+- **Limits vs. reservations.** A *limit* is enforced by the kernel through cgroups: CPU above it is throttled, and memory above it gets the container OOM-killed. A *reservation* is used by the Swarm scheduler to place the task only on a node with that much unreserved capacity. Set memory limits on every service; a service without one can exhaust the host.
+- **`start-first` vs. `stop-first`.** `start-first` briefly runs old and new tasks side by side, so capacity never drops, at the cost of headroom during the rollout. `stop-first` (the default) needs no spare capacity but removes a batch before its replacements are ready. Services that bind a fixed host port in `mode: host` must use `stop-first`.
+- **`${VERSION:?...}`** makes the deploy fail if the variable is unset, rather than silently pulling an empty or `latest` tag. Deploying by digest (`image: repo/app@sha256:...`) is stricter still.
 
-### Health Checks Gate the Rollout
+The same limits apply to single containers: `docker run --memory 1g --memory-reservation 750m --cpus 2 --pids-limit 256 my-app`.
 
-An update is only "zero-downtime" if Docker knows when a new replica is actually ready. A health check turns `failure_action: rollback` from a hope into a guarantee — an unhealthy new replica never receives traffic and trips the rollback.
+### Health checks gate the rollout
+
+A rolling update is only as safe as the signal that a new replica works. A health check provides that signal:
 
 ```yaml
 services:
   product-service:
-    image: company/product-service:${VERSION}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "/app/healthcheck"]    # or ["CMD", "curl", "-fsS", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 3s
       retries: 3
-      start_period: 40s     # grace window before failures count, for slow boots
+      start_period: 40s        # failures during startup do not count
+      start_interval: 2s       # probe quickly during start_period
 ```
 
-During a rolling update, Swarm starts a new task, waits for it to report `healthy`, and only then proceeds to the next batch. If a task fails its health check within the `update_config` window, the deploy is reverted to the previous image.
+The check runs *inside* the container, so the command must exist in the image. Minimal and distroless images usually lack `curl`; ship a small health-check binary or a subcommand of the application itself. Kubernetes ignores the image's `HEALTHCHECK` and uses its own liveness, readiness, and startup probes.
 
-### Secrets and Network Segmentation
+### Secrets and network segmentation
 
-Two production disciplines that a local compose file usually skips. **Secrets** are mounted as files under `/run/secrets/<name>` rather than passed as environment variables (which leak into `docker inspect`, logs, and child-process environments). Many images support the `*_FILE` convention — point them at the secret path:
+Secrets are mounted as files under `/run/secrets/<name>` (in-memory under Swarm) rather than passed as environment variables, which appear in `docker inspect`, crash dumps, and child processes. Many official images accept a `*_FILE` variant of their configuration variables:
 
 ```yaml
 services:
   product-db:
-    image: postgres:15-alpine
+    image: postgres:18
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
-    secrets:
-      - db_password
+    secrets: [db_password]
 
 secrets:
   db_password:
-    external: true    # created out-of-band: docker secret create db_password ./pw.txt
+    external: true    # Swarm: created with `docker secret create db_password -`
+    # single host alternative:  file: ./secrets/db_password.txt
 ```
 
-**Network segmentation** puts public-facing services on one network and data stores on an internal-only network. Marking the backend network `internal: true` removes its default gateway, so containers there have *no route to the outside world* — a database cannot be reached from the internet even if a port is misconfigured, and a compromised service cannot exfiltrate over it.
+Segmentation puts public-facing services on one network and data stores on another marked `internal: true`, which has no gateway to the outside: a database there cannot be reached from the internet even if a port is misconfigured, and a compromised service on it cannot open outbound connections.
 
 ```yaml
 networks:
   frontend:
     driver: overlay
     driver_opts:
-      encrypted: "true"     # encrypt cross-node traffic on this overlay
+      encrypted: "true"   # IPsec between Swarm nodes
   backend:
     driver: overlay
     driver_opts:
       encrypted: "true"
-    internal: true          # no egress: not reachable from outside the cluster
+    internal: true
 ```
 
-### Compose vs. an Orchestrator
+On a single host, drop the `driver: overlay` lines and the same file creates bridge networks. [Networking](docker-networking.html#network-security) covers the underlying mechanics and firewall integration.
 
-A production compose stack carries you a long way, but it has a ceiling. Compose (even via Swarm's `stack deploy`) does not give you horizontal *cluster autoscaling*, sophisticated scheduling (affinity/anti-affinity, taints), or the vast ecosystem of operators and CRDs that Kubernetes does. The decision is one of operational scale:
+### Logging
 
-| Need | Compose / Swarm stack | Kubernetes |
-|------|-----------------------|------------|
-| Single host, handful of services | Ideal — minimal overhead | Overkill |
-| Small multi-node cluster, simple scaling | Good fit (Swarm) | Workable but heavy |
-| Large fleet, advanced scheduling, autoscaling | Hits limits | Designed for this |
-| Rich ecosystem (operators, service mesh, GitOps) | Limited | Extensive |
+The default `json-file` logging driver does not rotate logs, so a chatty container can fill the host's disk. Configure rotation daemon-wide in `/etc/docker/daemon.json` (applies to containers created afterwards):
 
-When a compose stack stops fitting, the next step up is usually Docker Swarm (covered next) for a gentle move, or [Kubernetes](../kubernetes/) for full-scale orchestration.
+```json
+{
+  "log-driver": "local",
+  "log-opts": { "max-size": "10m", "max-file": "5" }
+}
+```
+
+The `local` driver stores compressed, rotated logs and still supports `docker logs`. For centralized logging, either ship from the host (an agent reading container logs) or use a driver such as `fluentd`, `gelf`, `syslog`, or `awslogs` per service with `logging:` in Compose. Applications should log to stdout/stderr, not to files inside the container.
+
+### GPUs
+
+Compose reserves GPUs through the device-reservation syntax (requires the NVIDIA Container Toolkit on the host):
+
+```yaml
+services:
+  inference:
+    image: registry.example.com/model-server:2.1.0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1            # or: device_ids: ["0"]
+              capabilities: [gpu]
+```
 
 ## Docker Swarm
 
-Docker Swarm is Docker's built-in orchestrator: it turns a set of Docker hosts into a single logical cluster and runs the production compose stacks above across that cluster, no extra tooling required. The CLI essentials — `docker swarm init`, `docker swarm join`, `docker service create`, and `docker stack deploy` — are introduced in [Dockerfiles &amp; CI/CD](dockerfiles.html#docker-swarm-native-orchestration). This section focuses on what running Swarm *in production* requires.
+Swarm mode is Docker Engine's built-in orchestrator. `docker swarm init` turns an Engine into a cluster manager; other hosts join as managers or workers; and services, stacks, secrets, configs, and overlay networks become cluster-wide objects. Swarm remains part of Docker Engine and continues to receive fixes (the Engine 29 releases improved overlay-network convergence and node-failure recovery), but the container ecosystem's new orchestration features are built for Kubernetes.
 
-### Cluster Topology: Managers and Workers
+```bash
+docker swarm init --advertise-addr 10.0.0.11                 # first manager
+docker swarm join-token worker                               # prints the join command
+docker swarm join --token <token> 10.0.0.11:2377             # on each worker
+docker node ls
+docker service create --name web --replicas 3 -p 80:80 nginx:1.29
+docker service scale web=5
+```
 
-A Swarm has two node roles. **Managers** maintain cluster state in a Raft-replicated store and make scheduling decisions; **workers** run the containers managers assign them. Managers can also run workloads, but in production they are usually dedicated to keep the control plane stable.
+### Cluster topology: managers and workers
+
+**Managers** hold the cluster state in a Raft-replicated store and make scheduling decisions; **workers** run tasks. Managers can also run workloads, but in production they are usually drained (`docker node update --availability drain <manager>`) so application load cannot destabilize the control plane.
 
 ```mermaid
 flowchart TB
-    subgraph managers["Manager nodes (Raft quorum)"]
-        M1["Manager 1<br/>(leader)"]
-        M2["Manager 2"]
-        M3["Manager 3"]
-        M1 <--> M2
-        M2 <--> M3
+    subgraph managers["Managers (Raft quorum), one per availability zone"]
+        M1["Manager 1<br/>(leader)"] <--> M2["Manager 2"]
+        M2 <--> M3["Manager 3"]
         M1 <--> M3
     end
-    subgraph workers["Worker nodes"]
+    subgraph workers["Workers"]
         W1["Worker 1"]
         W2["Worker 2"]
         W3["Worker 3"]
         W4["Worker 4"]
     end
-    M1 -->|schedules tasks| W1
-    M1 --> W2
-    M1 --> W3
-    M1 --> W4
+    M1 -->|assigns tasks| W1 & W2 & W3 & W4
 ```
 
-The control plane uses Raft consensus, which demands a **quorum** — a strict majority of managers must be reachable to make decisions. This is why manager counts must be **odd**: with `2m+1` managers the cluster tolerates `m` failures.
+Raft needs a **quorum**, a strict majority of managers, to change cluster state. With $2m+1$ managers the cluster tolerates $m$ manager failures:
 
-| Managers | Quorum (majority) | Failures tolerated |
-|----------|-------------------|--------------------|
-| 1 | 1 | 0 (no HA) |
+| Managers | Quorum | Manager failures tolerated |
+|----------|--------|----------------------------|
+| 1 | 1 | 0 |
 | 3 | 2 | 1 |
 | 5 | 3 | 2 |
 | 7 | 4 | 3 |
 
-An *even* count is actively worse than the odd number below it: 4 managers still only tolerate 1 failure (quorum is 3) while exposing more nodes that can fail. Spread managers across availability zones so a single zone outage never costs you quorum, and keep the count at 3 or 5 — more managers means more Raft coordination overhead, not more resilience.
+An even count adds failure points without adding tolerance: 4 managers need 3 for quorum, so they tolerate only 1 failure, the same as 3. Use 3 or 5 managers spread across failure domains; beyond that, Raft replication overhead grows with no practical gain. If quorum is lost, running tasks keep running, but no changes (deploys, rescheduling after failures) are possible until quorum is restored or the cluster is recovered with `docker swarm init --force-new-cluster` on a surviving manager.
 
-### Overlay Networking and the Routing Mesh
+### Overlay networking and the routing mesh
 
-Swarm's overlay networks span every node, so a container on host A reaches a container on host B by service name as if they were local — Docker tunnels the traffic (VXLAN) and, with `encrypted: "true"`, encrypts it across the wire.
+Overlay networks span all nodes: a task on one node reaches a task on another by service name, with traffic tunneled in VXLAN and optionally encrypted with IPsec. Each service name resolves to a virtual IP that load-balances across its healthy tasks. The underlay details (ports 2377, 7946, 4789, MTU) are on [Networking](docker-networking.html#multi-host-networking-with-overlay).
 
-The **routing mesh** is the feature that makes published ports work cluster-wide: when you publish a service port, *every* node in the swarm listens on it, and an internal IPVS load balancer forwards each incoming connection to a healthy replica wherever it runs. A client can hit any node's IP and reach the service even if no replica runs on that node.
+A published port uses the **ingress routing mesh** by default: every node listens on the port and forwards each connection to a healthy task on any node through IPVS. An external load balancer can therefore target all nodes without knowing where the tasks run.
 
 ```mermaid
 flowchart LR
-    Client((Client)) --> AnyNode["Any node:80<br/>(routing mesh)"]
-    AnyNode -->|IPVS load balance| R1["replica on<br/>node 2"]
-    AnyNode --> R2["replica on<br/>node 4"]
-    AnyNode --> R3["replica on<br/>node 5"]
+    LB["External load balancer"] --> N1["node 1 :80"]
+    LB --> N2["node 2 :80"]
+    LB --> N3["node 3 :80"]
+    N1 -->|IPVS via ingress overlay| T1["task on node 2"]
+    N1 --> T2["task on node 3"]
+    N2 --> T1
+    N3 --> T2
 ```
 
-This means an external load balancer in front of the swarm can target *all* nodes without knowing which ones currently host a given service — the mesh handles the last hop.
-
-### Production Stack: Constraints, Rollouts, and Rollback
-
-A production Swarm stack combines placement control, rolling updates, and automatic rollback. Placement constraints and preferences steer tasks onto the right nodes (databases onto labeled storage nodes; replicas spread across zones for resilience):
+The mesh adds a hop and replaces the client's source address with an internal one. When a service needs the real client IP, or the extra hop matters, publish in **host mode** instead: only nodes running a task listen, and each task binds the host port directly (so run at most one task per node, typically as a `mode: global` service).
 
 ```yaml
-# stack.production.yml  →  docker stack deploy -c stack.production.yml shop
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+```
+
+### Rolling updates and rollback
+
+`docker service update` (or re-running `docker stack deploy` with a new image) replaces tasks in batches according to `update_config`:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Updating: new image or config
+    Updating --> Batch: take next parallelism tasks
+    Batch --> Monitoring: new tasks started, healthy
+    Monitoring --> Updating: no failures within monitor window, wait delay
+    Monitoring --> RollingBack: failure ratio exceeded (failure_action rollback)
+    Updating --> Completed: all tasks replaced
+    RollingBack --> RolledBack: previous spec restored (rollback_config)
+    Completed --> [*]
+    RolledBack --> [*]
+```
+
+A task counts as failed if it exits or never becomes healthy. `max_failure_ratio` (default 0) sets how many failures are tolerated before `failure_action` triggers.
+
+### A production stack
+
+Placement constraints pin tasks to suitable nodes; placement preferences spread them across failure domains:
+
+```yaml
+# stack.yml  ->  docker stack deploy -c stack.yml shop
 services:
   web:
-    image: company/web:${VERSION}
+    image: registry.example.com/web:${VERSION:?}
     deploy:
       replicas: 6
       placement:
-        constraints:
-          - node.role == worker
+        constraints: [node.role == worker]
         preferences:
-          - spread: node.labels.zone   # balance replicas across zones
+          - spread: node.labels.zone      # balance across zones
       update_config:
         parallelism: 2
         delay: 15s
+        monitor: 30s
         order: start-first
         failure_action: rollback
       rollback_config:
-        parallelism: 0                 # roll all replicas back at once on failure
+        parallelism: 0                    # 0 = roll back all tasks at once
         order: stop-first
-    networks:
-      - frontend
+      resources:
+        limits: { cpus: "1", memory: 512M }
+    networks: [frontend, backend]
 
   db:
-    image: postgres:15-alpine
+    image: postgres:18
     deploy:
       replicas: 1
       placement:
-        constraints:
-          - node.labels.storage == ssd  # pin the DB to a storage-class node
+        constraints: [node.labels.storage == ssd]
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
-    secrets:
-      - db_password
-    networks:
-      - backend
+    secrets: [db_password]
+    volumes:
+      - db-data:/var/lib/postgresql       # PostgreSQL 18+ image layout
+    networks: [backend]
 
 networks:
   frontend:
@@ -267,341 +348,297 @@ networks:
     driver_opts: { encrypted: "true" }
     internal: true
 
+volumes:
+  db-data:
+
 secrets:
   db_password:
     external: true
 ```
 
-Operating it day to day:
+The database is pinned to one labeled node because a `local` volume exists only on the node that created it. Swarm has no built-in replicated storage; stateful services need either node pinning, a volume plugin backed by shared storage, or (commonly) a managed database outside the cluster.
+
+Day-to-day operations:
 
 ```bash
-# Deploy or update the whole stack from one file
-docker stack deploy -c stack.production.yml shop
-
-# Watch a rolling update progress, replica by replica
-docker service ps shop_web
-
-# Ship a new version (image tag change) and let update_config roll it out
-docker service update --image company/web:v2.4.0 shop_web
-
-# Manually roll back the last update if needed
-docker service rollback shop_web
+docker node update --label-add zone=a --label-add storage=ssd node-3
+docker stack deploy -c stack.yml shop               # create or update the stack
+docker service ps shop_web                          # task-level rollout progress
+docker service update --image registry.example.com/web:2.4.0 shop_web
+docker service rollback shop_web                    # revert to the previous spec
+docker node update --availability drain node-5      # move tasks off for maintenance
 ```
 
-The rollout is gated by each task's health check (defined as in the Compose section): a new replica must report healthy before the next batch starts, and a failure within the update window triggers the `rollback_config` policy automatically. Swarm secrets are encrypted in the Raft log at rest and delivered only to the nodes running a service that requests them, then mounted as in-memory files — never written to disk on the worker.
+Swarm secrets are stored encrypted in the Raft log, sent only to nodes running a service that uses them, and mounted into containers on an in-memory filesystem.
 
-### Swarm vs. Kubernetes, Briefly
+### Swarm vs. Kubernetes
 
-Swarm trades breadth for simplicity. It gives you clustering, overlay networking, secrets, rolling updates, and rollback with almost no learning curve and a single binary. It does *not* offer cluster autoscaling, a large operator ecosystem, or fine-grained scheduling. For small-to-medium fleets run by a small team, Swarm is often the right amount of orchestration; past that, teams graduate to [Kubernetes](../kubernetes/). The full comparison table lives on the [Dockerfiles &amp; CI/CD](dockerfiles.html#docker-swarm-native-orchestration) page.
+| Factor | Docker Swarm | Kubernetes |
+|--------|--------------|------------|
+| Setup | Built into Docker Engine; a cluster in minutes | Separate distribution (managed EKS/GKE/AKS, k3s, kubeadm) |
+| Configuration | Compose files | Kubernetes manifests, Helm, Kustomize |
+| Learning curve | Small | Large |
+| Scheduling | Constraints, preferences, replicated or global | Affinity/anti-affinity, taints, topology spread, priorities, custom schedulers |
+| Autoscaling | None built in | Horizontal/vertical Pod autoscaling, cluster autoscaling (Cluster Autoscaler, Karpenter) |
+| Storage | Volume plugins | CSI drivers, dynamic provisioning, StatefulSets |
+| Extensibility | Limited | CRDs and operators, service meshes, GitOps tooling |
+| Ecosystem and managed offerings | Small | Very large; every major cloud |
+| Good fit | Small teams, a handful of nodes, Compose-centric workflows | Large fleets, multi-team platforms, complex scheduling |
 
-## Case Studies
+## Reference Architecture: Microservices Storefront
 
-### E-Commerce Platform Migration to Microservices
-
-A major e-commerce company migrated from a monolithic application to Docker-based microservices, reporting a 70% reduction in deployment time and roughly 50% infrastructure cost savings. The production stack below is the shape they landed on — an API gateway fronting independently scaled product and order services, each with its own database, plus shared cache and message-queue tiers, all wired across an encrypted public network and an internal-only backend network.
+The stack below expresses the microservices diagram above as one Swarm stack: a gateway on the public network, independently scaled services each with its own database (database-per-service), a cache, and Kafka for asynchronous order events. It is illustrative; production data stores are frequently managed services rather than containers in the cluster.
 
 ```yaml
-# docker-compose.production.yml  (deployed via `docker stack deploy`)
-version: '3.8'
-
+# stack.production.yml  ->  docker stack deploy -c stack.production.yml shop
 services:
-  # API Gateway — the only public-facing service
   gateway:
-    image: company/api-gateway:${VERSION}
+    image: registry.example.com/api-gateway:${VERSION:?}
+    ports:
+      - "443:8443"
     deploy:
       replicas: 3
       resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-        reservations:
-          cpus: '1'
-          memory: 1G
-    ports:
-      - "443:443"
+        limits: { cpus: "2", memory: 1G }
+      update_config: { parallelism: 1, order: start-first, failure_action: rollback }
+    secrets: [jwt_key]
     environment:
-      - RATE_LIMIT=1000
-      - JWT_SECRET_FILE=/run/secrets/jwt_key
-    secrets:
-      - jwt_key
-    networks:
-      - frontend
-      - backend
+      JWT_KEY_FILE: /run/secrets/jwt_key
+    networks: [frontend, backend]
 
-  # Product Service — scaled to demand, rolling updates with auto-rollback
   product-service:
-    image: company/product-service:${VERSION}
+    image: registry.example.com/product-service:${VERSION:?}
     deploy:
       replicas: 5
-      update_config:
-        parallelism: 2
-        delay: 10s
-        failure_action: rollback
+      resources:
+        limits: { cpus: "1", memory: 512M }
+      update_config: { parallelism: 2, delay: 10s, failure_action: rollback }
     environment:
-      - DB_HOST=product-db
-      - CACHE_HOST=redis-product
-    depends_on:
-      - product-db
-      - redis-product
-    networks:
-      - backend
+      DB_HOST: product-db
+      CACHE_HOST: redis
+    networks: [backend]
 
-  # Order Service — talks to its own DB and the message bus
   order-service:
-    image: company/order-service:${VERSION}
+    image: registry.example.com/order-service:${VERSION:?}
     deploy:
       replicas: 3
+      resources:
+        limits: { cpus: "1", memory: 512M }
     environment:
-      - DB_HOST=order-db
-      - KAFKA_BROKERS=kafka:9092
-    depends_on:
-      - order-db
-      - kafka
-    networks:
-      - backend
+      DB_HOST: order-db
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    networks: [backend]
 
-  # Databases — one per service (database-per-service pattern)
   product-db:
-    image: postgres:15-alpine
-    volumes:
-      - product-data:/var/lib/postgresql/data
+    image: postgres:18
+    deploy:
+      placement: { constraints: [node.labels.db == product] }
     environment:
-      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
-    secrets:
-      - db_password
-    networks:
-      - backend
+      POSTGRES_PASSWORD_FILE: /run/secrets/product_db_password
+    secrets: [product_db_password]
+    volumes: [product-data:/var/lib/postgresql]
+    networks: [backend]
 
   order-db:
-    image: postgres:15-alpine
-    volumes:
-      - order-data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
-    secrets:
-      - db_password
-    networks:
-      - backend
-
-  # Caching tier
-  redis-product:
-    image: redis:7-alpine
-    command: redis-server --maxmemory 2gb --maxmemory-policy allkeys-lru
+    image: postgres:18
     deploy:
-      replicas: 2
-    networks:
-      - backend
+      placement: { constraints: [node.labels.db == order] }
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/order_db_password
+    secrets: [order_db_password]
+    volumes: [order-data:/var/lib/postgresql]
+    networks: [backend]
 
-  # Message bus for asynchronous order events
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--maxmemory", "1gb", "--maxmemory-policy", "allkeys-lru"]
+    networks: [backend]
+
+  # Single-node Kafka in KRaft mode (Kafka 4.x has no ZooKeeper)
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: apache/kafka:4.1.0
+    deploy:
+      placement: { constraints: [node.labels.kafka == true] }
     environment:
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-    depends_on:
-      - zookeeper
-    networks:
-      - backend
-
-  zookeeper:
-    image: confluentinc/cp-zookeeper:latest
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-    networks:
-      - backend
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes: [kafka-data:/var/lib/kafka/data]
+    networks: [backend]
 
 networks:
   frontend:
     driver: overlay
-    driver_opts:
-      encrypted: "true"
+    driver_opts: { encrypted: "true" }
   backend:
     driver: overlay
-    driver_opts:
-      encrypted: "true"
-    internal: true          # databases & queue unreachable from the internet
+    driver_opts: { encrypted: "true" }
+    internal: true
 
 volumes:
   product-data:
-    driver: local
   order-data:
-    driver: local
+  kafka-data:
 
 secrets:
-  db_password:
-    external: true
   jwt_key:
     external: true
+  product_db_password:
+    external: true
+  order_db_password:
+    external: true
 ```
 
-**What makes this production-grade.** Every concern from earlier in the page appears: replicas with resource limits, rolling updates with auto-rollback, file-based secrets, a public/internal network split, and a database-per-service so the order and product domains scale and fail independently. The reported wins followed directly from these choices.
+Design points:
 
-**Implementation highlights reported by the team:**
+- **Only the gateway publishes a port** and joins `frontend`; every data store is on the internal `backend` network.
+- **Separate credentials per database**, so a compromise of one service does not expose the other's data.
+- **No `depends_on`.** Swarm ignores it, so each service must retry its connections at startup; this is also what makes it survive a dependency restarting later.
+- **Stateful services are pinned** to labeled nodes because their volumes are node-local.
+- **Kafka 4.x runs in KRaft mode.** ZooKeeper support was removed in Kafka 4.0; older examples with a `zookeeper` service do not work with current images. A production cluster runs three or more brokers with replication factor 3.
 
-- **Service mesh** — Istio for advanced traffic management and observability (the Envoy data plane is the Ambassador pattern from [Design Patterns](docker-design-patterns.html)).
-- **Auto-scaling** — Kubernetes HPA with custom metrics for demand-based scaling once they outgrew Swarm.
-- **Zero-downtime** — rolling updates gated by health checks, exactly as the `update_config` above expresses.
-- **Security** — mutual TLS between services and automated secret rotation.
-- **Monitoring** — full observability with Prometheus, Grafana, and distributed tracing.
+As a system like this grows, the usual pressure points are autoscaling on custom metrics, per-request traffic policy (canaries, retries, mTLS between services), and operators for stateful components, which is typically when teams move it to Kubernetes.
 
-### Containerized ML Model Serving
+## Reference Architecture: ML Model Serving
 
-A different production shape: a machine-learning team needed to serve trained models behind an HTTP API with reproducible, hardened images. The serving image is a multi-stage build that compiles dependencies in a fat builder stage, then copies only the virtual environment into a slim, non-root runtime — a small, CVE-light image that boots fast for scale-out.
+Model serving is a long-running, replicated, health-checked **service**; training is a **batch job** that requests accelerators, runs to completion, and exits. The two halves use containers differently.
+
+### Serving image
+
+A multi-stage build compiles dependencies in a builder stage and copies only the virtual environment into a slim, non-root runtime image:
 
 ```dockerfile
-# Dockerfile for ML model serving
-FROM python:3.12-slim AS builder
-
-# Install build dependencies (only present in the builder stage)
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create an isolated virtual environment
+# syntax=docker/dockerfile:1
+FROM python:3.13-slim AS builder
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends build-essential \
+ && rm -rf /var/lib/apt/lists/*
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-
-# Install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
 
-# Production stage — slim, no build toolchain
-FROM python:3.12-slim
-
-# Copy the prepared virtual environment from the builder
+FROM python:3.13-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libgomp1 \
+ && rm -rf /var/lib/apt/lists/* \
+ && useradd --system --uid 10001 --create-home ml
 COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Only the runtime shared libs the model needs
-RUN apt-get update && apt-get install -y \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Run as a non-root user
-RUN useradd -m -u 1000 mluser
-USER mluser
-
-# Copy model and application code, owned by the runtime user
+ENV PATH="/opt/venv/bin:$PATH" PYTHONUNBUFFERED=1
 WORKDIR /app
-COPY --chown=mluser:mluser model/ ./model/
-COPY --chown=mluser:mluser src/ ./src/
+COPY --chown=ml:ml src/ ./src/
+USER ml
 
-# Health check so the orchestrator can gate traffic on readiness
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD python -c "import requests; requests.get('http://localhost:8080/health').raise_for_status()"
+# Uses only the standard library, so no curl is needed in the image
+HEALTHCHECK --interval=15s --timeout=3s --start-period=60s --retries=3 \
+  CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=2)"]
 
-# Serve the model with a production WSGI server
 EXPOSE 8080
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "4", "--timeout", "120", "src.app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--timeout", "120", "src.app:app"]
 ```
 
-Training, by contrast, is a *batch* workload — a job that requests GPUs, runs to completion, and exits. It is expressed as a run-once container the orchestrator retries on failure (shown here as a Kubernetes `Job`, since GPU scheduling and per-job resource requests exceed what a Swarm service expresses cleanly):
+Model weights are deliberately not copied into the image. Multi-gigabyte weights make every image push and pull slow and couple model releases to code releases; they are usually mounted from a volume or object storage at startup, or distributed as separate OCI artifacts. Large-language-model serving typically uses a purpose-built server image (vLLM, TensorRT-LLM, llama.cpp) instead of a custom web app, with the same service concerns: GPU reservation, readiness gated on the model being loaded, and long start periods.
+
+### Training job
+
+Training is expressed as a run-to-completion job. GPU scheduling, per-job resource requests, and retry limits are the reason this is usually a Kubernetes `Job` rather than a Swarm service:
 
 ```yaml
-# kubernetes-job.yaml
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: model-training-job
+  name: train-model
 spec:
+  backoffLimit: 2                      # retries before the Job is marked failed
+  ttlSecondsAfterFinished: 86400       # clean up a day after completion
   template:
     spec:
-      containers:
-      - name: training
-        image: company/ml-training:latest
-        resources:
-          limits:
-            nvidia.com/gpu: 2
-            memory: 32Gi
-            cpu: 8
-          requests:
-            nvidia.com/gpu: 2
-            memory: 16Gi
-            cpu: 4
-        volumeMounts:
-        - name: dataset
-          mountPath: /data
-        - name: model-output
-          mountPath: /output
-        env:
-        - name: EPOCHS
-          value: "100"
-        - name: BATCH_SIZE
-          value: "64"
-        - name: LEARNING_RATE
-          value: "0.001"
-      volumes:
-      - name: dataset
-        persistentVolumeClaim:
-          claimName: training-dataset
-      - name: model-output
-        persistentVolumeClaim:
-          claimName: model-storage
-      restartPolicy: OnFailure
+      restartPolicy: Never
       nodeSelector:
-        gpu-type: nvidia-v100
+        nvidia.com/gpu.product: NVIDIA-H100-80GB-HBM3   # label set by GPU feature discovery
+      containers:
+        - name: train
+          image: registry.example.com/ml-training:3.2.0
+          args: ["--epochs=100", "--batch-size=64", "--lr=0.001"]
+          resources:
+            requests: { cpu: "8", memory: 64Gi }
+            limits: { nvidia.com/gpu: 2, memory: 64Gi }
+          volumeMounts:
+            - { name: dataset, mountPath: /data, readOnly: true }
+            - { name: output,  mountPath: /output }
+      volumes:
+        - name: dataset
+          persistentVolumeClaim: { claimName: training-dataset }
+        - name: output
+          persistentVolumeClaim: { claimName: model-output }
 ```
 
-The two halves of the ML platform illustrate the **service vs. batch** split from the architectures table: the serving image is a long-running, replicated, health-checked *service*; training is a short-lived, GPU-hungry *batch job* the orchestrator schedules, retries, and reaps.
+GPUs are an extended resource: they are requested through `limits` only, and cannot be shared or overcommitted without additional configuration (time-slicing or MIG).
 
-## Putting It Into Practice
+## Choosing an Orchestration Level
 
-The patterns on this page — replicated compose stacks, segmented networks, Swarm rollouts with rollback, and the service-vs-batch split — all serve the same goals: high availability, safe delivery, and predictable behavior at scale. Which ones matter most depends on your role.
+```mermaid
+flowchart TD
+    Q1{"More than one host?"} -->|No| C["Compose on a single host<br/>(restart policies, --wait, healthchecks)"]
+    Q1 -->|Yes| Q2{"Need autoscaling, operators,<br/>advanced scheduling, or a<br/>multi-team platform?"}
+    Q2 -->|No| Q3{"Prefer to run the<br/>control plane yourself?"}
+    Q2 -->|Yes| K["Kubernetes<br/>(usually a managed service)"]
+    Q3 -->|Yes| S["Docker Swarm"]
+    Q3 -->|No| M["Managed container service<br/>(ECS, Cloud Run, Azure Container Apps)"]
+```
 
-**Newcomers**
+Managed container services are a frequently overlooked middle ground: they run images from a registry with scaling and rolling deploys, and no cluster to operate.
 
-- Solidify the basics in [Fundamentals](fundamentals.html) before adopting these patterns
-- Reach for a single Docker Compose file before any orchestrator
-- Add the `deploy:` block and health checks before you scale past one host
-- Follow security best practices from day one, not as a retrofit
+## Production Checklist
 
-**For developers**
+| Area | Check |
+|------|-------|
+| Images | Built by CI, pinned by digest or immutable tag, scanned, non-root, minimal base |
+| Configuration | No secrets in images or environment variables; `*_FILE` secrets; per-environment override files |
+| Resources | Memory limit on every service; CPU limits or reservations where contention matters |
+| Health | Health check on every long-running service; `start_period` sized for real startup time |
+| Rollouts | `update_config` with `failure_action: rollback`; `start-first` where capacity allows |
+| Networking | Only edge services publish ports; data stores on internal networks; overlays encrypted |
+| State | Volumes pinned or on shared storage; backups tested; managed databases considered |
+| Logging | Rotation configured; logs to stdout/stderr; shipped off-host |
+| Cluster | 3 or 5 managers across failure domains; managers drained of workloads; underlay ports documented |
 
-- Keep a single compose file as the source of truth from dev to prod
-- Use multi-stage builds to keep production images small and fast to scale
-- Implement health checks so rolling updates can gate on readiness
-- Inject secrets as files, never as environment variables
+## Current Tooling
 
-**For DevOps/SRE**
-
-- Run an odd number of Swarm managers across availability zones
-- Segment networks: public frontend, internal-only backend
-- Tune `update_config` and `rollback_config` for zero-downtime deploys
-- Front the routing mesh with an external load balancer targeting all nodes
-
-**For architects**
-
-- Pick the architecture (microservices, worker pool, batch) before the tooling
-- Choose the lightest orchestrator that meets the scale: Compose, Swarm, then Kubernetes
-- Adopt database-per-service so domains scale and fail independently
-- Plan the migration path from Swarm to Kubernetes before you hit Swarm's ceiling
-
-### The Modern Toolchain
-
-The ecosystem around production Docker has matured well beyond the original CLI and daemon. The tools below change how you build, ship, and operate images day to day.
-
-| Area | Tool | What it gives you |
-|------|------|-------------------|
-| Supply chain | Docker Scout | Vulnerability scanning and SBOM generation |
-| Supply chain | Build attestations | SLSA provenance baked into the image |
-| Build | BuildKit | The default builder: parallel stages, cache mounts, secrets |
-| Build | Docker Build Cloud | Remote, shared builders for faster CI |
-| Orchestration | Docker Swarm | Built-in clustering, overlay networking, rolling updates |
-| Orchestration | Kubernetes | Full-scale scheduling, autoscaling, operator ecosystem |
-| Runtime | containerd | The OCI runtime Docker and Kubernetes share |
-| Dev loop | Compose Watch | Auto-sync source into running containers |
-
-The durable principles do not change with the tooling: build for **consistency, isolation, and portability**, replicate for availability, gate every rollout on health, and choose the lightest orchestrator that meets your scale.
+| Area | Tool | Role |
+|------|------|------|
+| Build | BuildKit / Buildx | Default builder: parallel stages, cache and secret mounts, multi-platform, attestations |
+| Build | Docker Build Cloud | Remote shared builders and cache for CI |
+| Supply chain | Docker Scout, Trivy, Grype | Vulnerability scanning and SBOM analysis |
+| Supply chain | Docker Hardened Images, Chainguard Images, distroless | Minimal, low-CVE base images |
+| Engine | containerd image store | Default for new installations since Engine 29; stores multi-platform images and attestations |
+| Dev loop | Compose Watch (`docker compose watch`) | Syncs source changes into running containers or rebuilds on change |
+| Testing | Testcontainers | Disposable real dependencies (databases, brokers) in integration tests |
+| Orchestration | Swarm, Kubernetes, managed container services | See [Choosing an Orchestration Level](#choosing-an-orchestration-level) |
 
 ## See Also
 
-- [Docker: Design Patterns](docker-design-patterns.html) - Sidecar, ambassador, adapter, init, and image/runtime security patterns
-- [Container Runtimes &amp; Alternatives](../container-runtimes.html) - gVisor, Kata, Firecracker microVMs, and WebAssembly/WASI
-- [Docker: Dockerfiles &amp; CI/CD](dockerfiles.html) - Multi-stage builds, Swarm basics, and pipelines
-- [Docker Essentials](../docker-essentials.html) - Quick reference and command cheat sheet
-- [Kubernetes](../kubernetes/) - Container orchestration at scale
-- [CI/CD](../ci-cd/) - Docker in continuous integration workflows
-- [AWS](../aws/) - ECS, EKS, and cloud container services
-- [Terraform](../terraform/) - Infrastructure as Code for container deployments
-- [Networking](../networking/) - Network concepts and container networking
-- [Distributed Systems](../../distributed-systems/) - Distributed computing principles
+- [Design Patterns](docker-design-patterns.html) - Sidecar, ambassador, adapter, init, and image hardening
+- [Dockerfiles &amp; CI/CD](dockerfiles.html) - Multi-stage builds, BuildKit, and CI pipelines
+- [Networking](docker-networking.html) - Overlay networks, port publishing, and firewall integration
+- [Storage &amp; Security](storage-security.html) - Volumes, secrets, and container hardening
+- [Registries &amp; Supply Chain](registry.html) - Tagging, digests, and provenance
+- [Container Runtimes](../container-runtimes.html) - gVisor, Kata, Firecracker, and WebAssembly
+- [Docker Essentials](../docker-essentials.html) - Command reference
+- [Kubernetes](../kubernetes/) - Orchestration at scale
+- [AWS](../aws/) - ECS, EKS, and Fargate
+- [Distributed Systems](../../distributed-systems/) - Consensus, replication, and failure models
+
+## References
+
+- [Compose file reference](https://docs.docker.com/reference/compose-file/)
+- [Compose deploy specification](https://docs.docker.com/reference/compose-file/deploy/)
+- [Swarm mode overview](https://docs.docker.com/engine/swarm/)
+- [Raft consensus in Swarm mode](https://docs.docker.com/engine/swarm/raft/)
+- [Configure logging drivers](https://docs.docker.com/engine/logging/configure/)

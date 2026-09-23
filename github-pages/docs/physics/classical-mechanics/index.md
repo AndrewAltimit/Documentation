@@ -6,134 +6,91 @@ toc: false
 hide_title: true
 ---
 
-<!-- Custom styles are now loaded via main.scss -->
-
 <div class="hero-section" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 3rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2.5rem;">Classical Mechanics</h1>
-  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The foundation of physics describing motion and forces, from Newton's laws to the elegant formulations of Lagrange and Hamilton.</p>
+  <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">The physics of motion and forces, from Newton's laws through the Lagrangian, Hamiltonian, and geometric formulations to chaos and computation.</p>
 </div>
 
-Classical mechanics is the physics of everyday motion — how forces, energy, and momentum dictate the paths of everything from thrown balls to orbiting planets. It is built in three layers: Newton's force-based picture, the deeper energy-based formulations of Lagrange and Hamilton, and the modern geometric view that connects mechanics to chaos, quantum theory, and computation. Four ideas run through all of it:
+**Classical mechanics** describes the motion of bodies under forces when speeds are small compared with light and actions are large compared with Planck's constant. It predicts everything from projectile trajectories and planetary orbits to spacecraft navigation, molecular dynamics, and structural vibration. It also provides the mathematical framework (action principles, phase space, symmetries, and conservation laws) on which quantum mechanics, statistical mechanics, and field theory are built. This section is organized in layers: the force-based Newtonian picture, the equivalent energy-based formulations of Lagrange and Hamilton, their geometric foundation, and the modern topics of chaos and computation.
 
-- **Force changes motion.** Newton's $F = ma$ — objects keep their velocity unless a net force acts.
-- **Symmetry conserves quantities.** Energy, momentum, and angular momentum are conserved because of underlying symmetries (Noether's theorem).
-- **Action is extremized.** A system follows the path that extremizes $S = \int L\,dt$.
-- **Determinism has limits.** Nonlinear systems can be chaotic — perfectly deterministic yet practically unpredictable.
+## Pages in this section
 
-## Explore Classical Mechanics
+| Layer | Page | Covers |
+|---|---|---|
+| Core | [Newtonian Mechanics &amp; Conservation Laws](newtonian.html) | Newton's laws, kinematics, work and energy, momentum and angular momentum, central forces and gravitation |
+| Core | [Oscillations &amp; Waves](waves.html) | Simple, damped, and driven oscillators; normal modes; the wave equation; dispersion; first nonlinear effects |
+| Formalism | [Lagrangian &amp; Hamiltonian Mechanics](lagrangian-hamiltonian.html) | Least action, Euler–Lagrange equations, Noether's theorem, Hamilton's equations, Poisson brackets, canonical transformations, Hamilton–Jacobi theory |
+| Formalism | [Geometric Formalism](geometric-mechanics.html) | Symplectic and Poisson manifolds, Liouville's theorem, Lagrangian submanifolds, integrable systems, momentum maps and reduction, geometric phases |
+| Modern | [Chaos &amp; Nonlinear Dynamics](chaos-and-computational.html) | Lyapunov exponents, Poincaré sections, KAM theory and the standard map, strange attractors, bifurcations, diagnostics, data-driven forecasting |
+| Modern | [Computational Methods](computational-classical-mechanics.html) | Symplectic and variational integrators, backward error analysis, molecular dynamics, N-body methods, structure-preserving machine learning |
+| Applications | [Rigid Body Dynamics](rigid-body-dynamics.html) | Inertia tensor, Euler's equations and angles, tops and gyroscopes, the tennis-racket theorem |
 
-The pages below build from the core force-based picture, through the energy-based and geometric formalisms, into the modern computational and nonlinear frontier, and finally to the applied subjects that classical mechanics feeds. Read them in order for a guided arc, or jump straight to the layer you need.
+Related subjects that build directly on classical mechanics:
 
-### Core
+| Subject | Connection |
+|---|---|
+| [Fluid Mechanics](../fluid-mechanics.html) | Newton's laws for continuous, deformable media: Euler and Navier–Stokes equations, turbulence |
+| [Thermodynamics](../thermodynamics.html) | Energy, work, and heat at the macroscopic level |
+| [Statistical Mechanics](../statistical-mechanics/) | Hamiltonian dynamics of very many particles, Liouville's theorem, and the ensembles of thermodynamics |
+| [Relativity](../relativity/) | What replaces Newtonian mechanics at speeds near $c$ or in strong gravity |
+| [Quantum Mechanics](../quantum-mechanics/) | The theory that classical mechanics approximates as $\hbar \to 0$ |
 
-<div class="command-grid">
-  <a href="newtonian.html" class="nav-card">
-    <h4><i class="fas fa-rocket"></i> Newtonian Mechanics &amp; Conservation Laws</h4>
-    <p>Newton's three laws, kinematics and dynamics, work and energy, conservation laws and Noether's theorem, rotational motion, and gravitation.</p>
-  </a>
-  <a href="waves.html" class="nav-card">
-    <h4><i class="fas fa-wave-square"></i> Oscillations &amp; Waves</h4>
-    <p>The simple and damped harmonic oscillator, coupled oscillators and normal modes, the wave equation, dispersion, and the first hints of nonlinearity.</p>
-  </a>
-</div>
+## How the formulations fit together
 
-### Formalism
-
-<div class="command-grid">
-  <a href="lagrangian-hamiltonian.html" class="nav-card">
-    <h4><i class="fas fa-route"></i> Lagrangian &amp; Hamiltonian Mechanics</h4>
-    <p>The principle of least action, Euler-Lagrange equations, generalized coordinates, Hamilton's equations, phase space, Poisson brackets, canonical transformations, and Hamilton-Jacobi theory.</p>
-  </a>
-  <a href="geometric-mechanics.html" class="nav-card">
-    <h4><i class="fas fa-draw-polygon"></i> Geometric Formalism</h4>
-    <p>Symplectic geometry, phase-space flow, fiber bundles, geometric (Berry) phases, and the differential-forms language that unifies the formalisms.</p>
-  </a>
-</div>
-
-### Modern &amp; Computational
-
-<div class="command-grid">
-  <a href="chaos-and-computational.html" class="nav-card">
-    <h4><i class="fas fa-random"></i> Chaos &amp; Nonlinear Dynamics</h4>
-    <p>Nonlinear dynamics, sensitive dependence and Lyapunov exponents, KAM theory, the transition to chaos, and the frontiers of deterministic unpredictability.</p>
-  </a>
-  <a href="computational-classical-mechanics.html" class="nav-card">
-    <h4><i class="fas fa-microchip"></i> Computational Methods</h4>
-    <p>Symplectic and variational integrators, molecular dynamics, N-body methods, and the numerical analysis that keeps long simulations physically faithful.</p>
-  </a>
-</div>
-
-### Applications
-
-<div class="command-grid">
-  <a href="rigid-body-dynamics.html" class="nav-card">
-    <h4><i class="fas fa-cube"></i> Rigid Body Dynamics</h4>
-    <p>The inertia tensor and principal axes, Euler's equations and Euler angles, the symmetric and asymmetric top, gyroscopic precession and nutation, and the tennis-racket theorem.</p>
-  </a>
-  <a href="../thermodynamics.html" class="nav-card">
-    <h4><i class="fas fa-temperature-high"></i> Thermodynamics</h4>
-    <p>Where mechanical energy, work, and heat meet — the macroscopic laws that classical many-body motion ultimately obeys.</p>
-  </a>
-  <a href="../fluid-mechanics.html" class="nav-card">
-    <h4><i class="fas fa-water"></i> Fluid Mechanics</h4>
-    <p>Continuum mechanics: Newton's laws applied to deformable matter, from the Euler and Navier-Stokes equations to turbulence.</p>
-  </a>
-  <a href="../statistical-mechanics/" class="nav-card">
-    <h4><i class="fas fa-dice"></i> Statistical Mechanics</h4>
-    <p>Bridging Hamiltonian dynamics for enormous numbers of particles to the emergent laws of thermodynamics.</p>
-  </a>
-</div>
-
-## The Landscape of Classical Mechanics
-
-Classical mechanics is not a single recipe but a family of equivalent viewpoints that grew more abstract and more powerful over three centuries. The map below shows how the three great formulations relate, what mathematical home each lives in, and where each one ultimately points — toward chaos, statistical mechanics, and quantum theory. Keep it in mind as a guide while reading: every section is a stop on this route.
+Newtonian, Lagrangian, and Hamiltonian mechanics predict identical motion for systems where all three apply. They differ in their variables, in which problems they make easy, and in which generalizations they lead to. The diagram maps the formulations onto the pages of this section and shows where each leads.
 
 ```mermaid
-graph TD
-    N["Newtonian Mechanics<br/>F = ma<br/>(vectors, forces)"] --> L["Lagrangian Mechanics<br/>L = T - V<br/>(configuration space)"]
-    L --> H["Hamiltonian Mechanics<br/>H = T + V<br/>(phase space)"]
-    N -.->|same physics| L
-    L -.->|same physics| H
-    L --> NO["Noether's Theorem<br/>symmetry to conservation"]
-    H --> HJ["Hamilton-Jacobi<br/>action as a field"]
-    H --> CH["Chaos and<br/>nonlinear dynamics"]
-    H --> SM["Statistical<br/>Mechanics"]
-    HJ --> QM["Quantum Mechanics<br/>path integral"]
-    classDef core fill:#e3f2fd,stroke:#1976d2,stroke-width:2px;
-    classDef bridge fill:#fff3e0,stroke:#e65100,stroke-width:2px;
-    class N,L,H core;
-    class NO,HJ,CH,SM,QM bridge;
+flowchart TD
+    N["Newtonian<br/>F = ma, vectors and forces"]
+    L["Lagrangian<br/>L = T - V on configuration space"]
+    H["Hamiltonian<br/>H(q, p) on phase space"]
+    G["Geometric<br/>symplectic manifolds, symmetry groups"]
+    N -->|"d'Alembert's principle,<br/>generalized coordinates"| L
+    L -->|"Legendre transform"| H
+    H -->|"coordinate-free form"| G
+    L --> NO["Noether's theorem:<br/>symmetry gives conservation"]
+    H --> HJ["Hamilton-Jacobi theory"]
+    HJ --> QM["Quantum mechanics<br/>(WKB, path integral)"]
+    H --> SM["Statistical mechanics<br/>(Liouville's theorem)"]
+    G --> CH["Chaos and KAM theory"]
+    G --> NUM["Symplectic integrators"]
+    L --> FT["Classical field theory"]
 ```
 
-## The Three Formulations at a Glance
-
-All three describe the *same physics* — they predict identical motion — but each takes a different starting point and excels at different problems.
-
 | Aspect | Newtonian | Lagrangian | Hamiltonian |
-|--------|-----------|------------|-------------|
-| Central quantity | Force $\vec{F}$ | Lagrangian $L = T - V$ | Hamiltonian $H = T + V$ |
-| Variables | Positions, accelerations | Generalized coordinates $q_i, \dot{q}_i$ | Coordinates and momenta $q_i, p_i$ |
-| Core equation | $\vec{F} = m\vec{a}$ | $\frac{d}{dt}\frac{\partial L}{\partial \dot{q}_i} - \frac{\partial L}{\partial q_i} = 0$ | $\dot{q}_i = \frac{\partial H}{\partial p_i},\ \dot{p}_i = -\frac{\partial H}{\partial q_i}$ |
-| Handles constraints | Awkwardly (constraint forces) | Naturally (pick smart coordinates) | Naturally |
-| Best for | Direct force problems, intuition | Complex/constrained systems, symmetries | Phase-space geometry, chaos, the bridge to QM |
-| Mathematical home | Vectors in space | Configuration space (tangent bundle) | Phase space (cotangent bundle) |
+|---|---|---|---|
+| Central quantity | Force $\vec{F}$ | Lagrangian $L = T - V$ | Hamiltonian $H$ (equal to $T + V$ for natural systems) |
+| Variables | Cartesian positions and velocities | Generalized coordinates $q_i, \dot{q}_i$ | Coordinates and momenta $q_i, p_i$ |
+| Equations of motion | $\vec{F} = m\vec{a}$ ($3N$ second-order) | $\frac{d}{dt}\frac{\partial L}{\partial \dot{q}_i} - \frac{\partial L}{\partial q_i} = 0$ ($n$ second-order) | $\dot{q}_i = \frac{\partial H}{\partial p_i}$, $\dot{p}_i = -\frac{\partial H}{\partial q_i}$ ($2n$ first-order) |
+| Constraints | Explicit constraint forces | Eliminated by the choice of coordinates, or Lagrange multipliers | As Lagrangian, or Dirac's constraint theory |
+| Space | Physical space $\mathbb{R}^3$ | Configuration space and its tangent bundle | Phase space (cotangent bundle) |
+| Best for | Direct force problems, friction, intuition | Constrained systems, symmetries, field theory | Conserved quantities, phase-space geometry, perturbation theory, statistical and quantum mechanics |
 
-**Which one should you reach for?** Use **Newton** when forces are simple and you want physical intuition. Switch to **Lagrange** the moment constraints appear (a bead on a wire, a double pendulum) — choosing the right generalized coordinates makes constraint forces vanish. Move to **Hamilton** when you care about the *structure* of all possible motions, conserved quantities, statistical mechanics, or the route to quantum theory.
+**Choosing a formulation.** Newton is the most direct choice when the forces are known and include friction or other non-conservative effects. Lagrange is preferable once constraints appear (a bead on a wire, a double pendulum, a rolling disc), since suitable generalized coordinates remove constraint forces from the problem. Hamilton is the natural setting for questions about the structure of all possible motions: conserved quantities, adiabatic invariants, stability, chaos, statistical ensembles, and the transition to quantum mechanics. For long numerical simulations, the Hamiltonian structure also determines which integrators remain accurate.
 
-## Key Takeaways
+## Unifying principles
 
-- **Three formulations, one physics.** Newtonian, Lagrangian, and Hamiltonian mechanics are equivalent, but each makes different problems easy and reveals different structure.
-- **Conservation laws come from symmetry.** Noether's theorem ties time-translation to energy, space-translation to momentum, and rotation to angular momentum.
-- **Phase space is the natural arena.** Hamiltonian dynamics lives in $(q,p)$ phase space, where the symplectic structure is preserved by the flow.
-- **Action is fundamental.** The principle of least action underlies all of physics and is the bridge to quantum mechanics via the path integral.
-- **Determinism is not predictability.** Chaotic systems obey exact laws yet diverge exponentially, limiting long-term prediction (the butterfly effect).
-- **It is a limiting case.** Classical mechanics emerges from quantum mechanics ($\hbar \to 0$) and relativity ($v \ll c$); know where it breaks down.
+- **Symmetry and conservation.** Noether's theorem ties each continuous symmetry to a conserved quantity: time translation to energy, space translation to momentum, rotation to angular momentum.
+- **Stationary action.** Physical paths make the action $S = \int L\, dt$ stationary (not always minimal). The same principle, with a different Lagrangian, underlies electromagnetism, general relativity, and quantum field theory, and the path integral explains why it works.
+- **Phase-space geometry.** Hamiltonian flow preserves the symplectic structure and hence phase-space volume (Liouville's theorem). This is the basis of statistical mechanics and of symplectic integrators.
+- **Determinism is not predictability.** Nonlinear systems with as few as three phase-space dimensions can be chaotic: exactly deterministic, yet with prediction errors that grow exponentially.
 
-## See Also
+## Domain of validity
 
-- [Quantum Mechanics](../quantum-mechanics/) — where classical mechanics meets the microscopic world and emerges as the $\hbar \to 0$ limit.
-- [Relativity](../relativity/) — what replaces Newtonian mechanics when speeds approach $c$ or gravity gets strong.
-- [Statistical Mechanics](../statistical-mechanics/) — bridging Newton's laws for many particles to thermodynamics.
-- [Thermodynamics](../thermodynamics.html) — energy, work, and heat in mechanical systems.
-- [Computational Physics](../computational-physics/) — symplectic integrators and numerical methods for complex mechanical systems.
-- [Physics Hub](../) — browse all physics topics.
+Classical mechanics is a limit of more complete theories. The table gives the conditions under which it applies and the theory that takes over when they fail.
+
+| Condition for classical mechanics | Fails when | Replaced by |
+|---|---|---|
+| $v \ll c$ | Particle accelerators, cosmic rays, GPS clock corrections | [Special relativity](../relativity/special-relativity.html) |
+| $GM/(rc^2) \ll 1$ | Near neutron stars and black holes; precision orbital work (Mercury's perihelion) | [General relativity](../relativity/general-relativity.html) |
+| Action $\gg \hbar$; de Broglie wavelength much smaller than the system | Atoms, molecules, electrons in solids, low-temperature matter | [Quantum mechanics](../quantum-mechanics/) |
+| Few enough degrees of freedom to track individually | Gases, liquids, and solids with around $10^{23}$ particles | [Statistical mechanics](../statistical-mechanics/) (built on classical or quantum dynamics) |
+
+Inside its domain, classical mechanics remains the working theory for aerospace and orbital engineering, robotics, structural and mechanical engineering, biomolecular and materials simulation, and celestial mechanics.
+
+## See also
+
+- [Physics Hub](../): all physics topics.
+- [Computational Physics](../computational-physics/): numerical methods across physics, including ODE and PDE solvers, Monte Carlo, and molecular dynamics.
+- [Quantum Mechanics](../quantum-mechanics/): the $\hbar \to 0$ limit and semiclassical methods.
+- [Relativity](../relativity/): mechanics at high speed and in strong gravity.

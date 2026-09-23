@@ -1,666 +1,397 @@
 ---
 layout: docs
 title: "Relativity: Special Relativity"
+description: "Einstein's two postulates and their consequences: relativity of simultaneity, the Lorentz transformation, time dilation, length contraction, velocity addition, the Doppler effect, four-vectors, relativistic dynamics, E = mc^2, and the experimental evidence."
 permalink: /docs/physics/relativity/special-relativity.html
 toc: true
 toc_sticky: true
 ---
 
-[Relativity](./)
+[Relativity](./) &raquo; Special Relativity
 
 ## Special Relativity
 
-Special relativity, published by Einstein in 1905, governs objects moving at constant velocity and forces a radical revision of space and time.
+Special relativity (Einstein, 1905) is the theory of space and time in the absence of gravity. It replaces Newton's absolute time and absolute space with a single four-dimensional **spacetime** whose geometry is the same for every inertial observer. Two postulates suffice to derive everything on this page: time dilation, length contraction, the relativity of simultaneity, the velocity-addition law, $E = mc^2$, and the four-vector formalism that underlies both [general relativity](general-relativity.html) and [quantum field theory](../quantum-field-theory.html).
 
-By the late 1800s, Maxwell's equations predicted a definite speed of light, $c$ — but a speed relative to *what*? Every other wave (sound, water ripples) travels relative to a medium, and velocities simply add: throw a ball forward on a moving train and the ground sees it go faster. Yet the Michelson–Morley experiment found light *always* travels at $c$, no matter how fast you chase it. Einstein took this literally: if everyone measures the same light speed, then the rate clocks tick and the length of rulers — assumed absolute — must instead bend so that $c$ stays fixed. Time dilation, length contraction, and $E=mc^2$ are all the logical price of that one stubborn fact.
+**Conventions.** Coordinates are $x^\mu = (ct, x, y, z)$ with $\mu = 0,1,2,3$. The metric signature is **(−,+,+,+)** ("mostly plus"), matching the [tensor formalism](tensor-formalism.html) and general-relativity pages. Particle-physics texts often use (+,−,−,−); the two differ only by an overall sign of every inner product. We write $\beta = v/c$ and $\gamma = 1/\sqrt{1-\beta^2}$. "Mass" $m$ always means the invariant (rest) mass.
 
-### Postulates of Special Relativity
+## Historical Background
 
-1. **Principle of relativity** — the laws of physics are the same in all inertial reference frames.
-2. **Constancy of light speed** — the speed of light in vacuum is the same for all observers, regardless of their motion.
+Maxwell's equations (1865) predict electromagnetic waves travelling at a fixed speed $c = 1/\sqrt{\mu_0\varepsilon_0}$, but do not say relative to what. The natural assumption was a medium, the **luminiferous aether**, in which case Earth's motion should produce a measurable "aether wind." The Michelson–Morley experiment (1887) found none. Lorentz and FitzGerald proposed that bodies physically contract when moving through the aether, and Lorentz and Poincaré found the transformation that leaves Maxwell's equations invariant. Einstein's contribution was to drop the aether altogether and take the invariance of $c$ as a fact about space and time rather than about electromagnetism. Minkowski (1908) then recast the theory geometrically as the study of a four-dimensional spacetime.
 
-<div class="postulates-section">
-  <div class="postulate-cards">
-    <div class="postulate-card">
-      <div class="visual-demo">
-        <svg viewBox="0 0 450 200" style="max-width: 500px; width: 100%;">
-          <!-- Define arrow marker -->
-          <defs>
-            <marker id="arrow-rel" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-              <path d="M0,0 L0,6 L9,3 z" fill="#2c3e50" />
-            </marker>
-          </defs>
+Since 1983 the SI metre has been defined by fixing $c = 299\,792\,458$ m/s exactly, so the constancy of $c$ is now built into the unit system.
 
-          <!-- Frame A - Stationary observer -->
-          <rect x="30" y="40" width="160" height="100" fill="#e3f2fd" stroke="#1976d2" stroke-width="3" rx="5" />
-          <text x="110" y="160" text-anchor="middle" font-size="16" font-weight="bold" fill="#1976d2">Frame A (Stationary)</text>
-          <!-- Observer in Frame A -->
-          <circle cx="110" cy="85" r="12" fill="#1976d2" />
-          <text x="110" y="90" text-anchor="middle" font-size="11" fill="white">A</text>
-          <!-- Physics symbol in Frame A -->
-          <text x="70" y="115" font-size="14" fill="#333">F = ma</text>
+## The Postulates
 
-          <!-- Frame B - Moving observer -->
-          <rect x="260" y="40" width="160" height="100" fill="#ffebee" stroke="#c62828" stroke-width="3" rx="5" />
-          <text x="340" y="160" text-anchor="middle" font-size="16" font-weight="bold" fill="#c62828">Frame B (Moving)</text>
-          <!-- Observer in Frame B -->
-          <circle cx="340" cy="85" r="12" fill="#c62828" />
-          <text x="340" y="90" text-anchor="middle" font-size="11" fill="white">B</text>
-          <!-- Physics symbol in Frame B -->
-          <text x="300" y="115" font-size="14" fill="#333">F = ma</text>
+1. **Principle of relativity.** The laws of physics take the same form in every inertial frame. No experiment done inside a closed laboratory can detect its uniform motion.
+2. **Invariance of the speed of light.** Light in vacuum travels at the same speed $c$ in every inertial frame, independent of the motion of the source or the observer.
 
-          <!-- Velocity arrow between frames -->
-          <line x1="195" y1="90" x2="250" y2="90" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrow-rel)" />
-          <text x="222" y="78" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">v</text>
+The second postulate conflicts with Galilean velocity addition ($u = v + w$). Resolving the conflict forces a new relation between the time and space coordinates of different frames: the Lorentz transformation.
 
-          <!-- Caption -->
-          <text x="225" y="185" text-anchor="middle" font-size="14" fill="#555" font-style="italic">Same laws of physics in both frames</text>
-        </svg>
-      </div>
-    </div>
-    
-    <div class="postulate-card">
-      <div class="visual-demo">
-        <svg viewBox="0 0 480 220" style="max-width: 500px; width: 100%;">
-          <!-- Define arrow markers -->
-          <defs>
-            <marker id="arrow-light" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-              <path d="M0,0 L0,6 L9,3 z" fill="#e74c3c" />
-            </marker>
-            <!-- Light glow effect -->
-            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="2" result="blur" />
-              <feFlood flood-color="#f39c12" flood-opacity="0.5" />
-              <feComposite in2="blur" operator="in" />
-              <feMerge>
-                <feMergeNode />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
+## Relativity of Simultaneity
 
-          <!-- Title -->
-          <text x="240" y="25" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">Speed of Light is Constant for All Observers</text>
+The key conceptual change is that **simultaneity is frame-dependent**: two spatially separated events that happen at the same time in one inertial frame generally happen at different times in another. Time dilation and length contraction are consequences of this.
 
-          <!-- Light source -->
-          <circle cx="50" cy="100" r="15" fill="#f39c12" filter="url(#glow)" />
-          <text x="50" y="105" text-anchor="middle" font-size="12" fill="#333">Light</text>
+**Train thought experiment.** A railway car moves at speed $v$ along a platform. A lamp at the car's midpoint flashes once.
 
-          <!-- Light ray -->
-          <line x1="70" y1="100" x2="430" y2="100" stroke="#f39c12" stroke-width="4" stroke-dasharray="10,5" />
+- *Car frame.* The car is at rest and the walls are equidistant from the lamp. Light travels at $c$ in both directions, so it reaches the front and rear walls at the same moment.
+- *Platform frame.* Light also travels at $c$ here, but during the flight the rear wall moves toward the emission point and the front wall moves away from it. The rear wall is struck first.
 
-          <!-- Speed label -->
-          <rect x="160" y="55" width="180" height="30" fill="#fff3e0" stroke="#f39c12" stroke-width="2" rx="5" />
-          <text x="250" y="76" text-anchor="middle" font-size="15" font-weight="bold" fill="#e65100">c = 299,792,458 m/s</text>
+Both analyses are correct. The two wall strikes are **spacelike separated** (no signal could travel between them), and for such pairs the time order depends on the frame. Events that are **timelike** or **lightlike** separated, and so could be causally connected, have the same time order in every frame, so causality is preserved.
 
-          <!-- Observer 1 - Stationary -->
-          <circle cx="140" cy="160" r="15" fill="#1976d2" />
-          <text x="140" y="165" text-anchor="middle" font-size="12" fill="white">1</text>
-          <text x="140" y="195" text-anchor="middle" font-size="14" font-weight="bold" fill="#1976d2">Observer 1</text>
-          <text x="140" y="210" text-anchor="middle" font-size="12" fill="#555">(stationary)</text>
-          <!-- Speech bubble -->
-          <rect x="90" y="115" width="100" height="25" fill="#e3f2fd" stroke="#1976d2" stroke-width="1" rx="3" />
-          <text x="140" y="132" text-anchor="middle" font-size="12" fill="#1976d2">Measures: c</text>
+### Leading clocks lag
 
-          <!-- Observer 2 - Moving toward light -->
-          <circle cx="340" cy="160" r="15" fill="#c62828" />
-          <text x="340" y="165" text-anchor="middle" font-size="12" fill="white">2</text>
-          <text x="340" y="195" text-anchor="middle" font-size="14" font-weight="bold" fill="#c62828">Observer 2</text>
-          <text x="340" y="210" text-anchor="middle" font-size="12" fill="#555">(moving at 0.5c)</text>
-          <!-- Motion arrow -->
-          <line x1="375" y1="160" x2="415" y2="160" stroke="#c62828" stroke-width="3" marker-end="url(#arrow-light)" />
-          <text x="395" y="150" text-anchor="middle" font-size="14" font-weight="bold" fill="#c62828">v</text>
-          <!-- Speech bubble -->
-          <rect x="290" y="115" width="100" height="25" fill="#ffebee" stroke="#c62828" stroke-width="1" rx="3" />
-          <text x="340" y="132" text-anchor="middle" font-size="12" fill="#c62828">Measures: c</text>
+Suppose clocks are synchronized along the car in its rest frame. From the time component of the Lorentz transformation (derived below), $t' = \gamma(t - vx/c^2)$, the readings of two car clocks at a single platform instant ($\Delta t = 0$) differ by
 
-          <!-- Connecting lines to light ray -->
-          <line x1="140" y1="145" x2="140" y2="105" stroke="#1976d2" stroke-width="1" stroke-dasharray="3,3" />
-          <line x1="340" y1="145" x2="340" y2="105" stroke="#c62828" stroke-width="1" stroke-dasharray="3,3" />
-        </svg>
-      </div>
-    </div>
-  </div>
+$$\Delta t' = -\frac{\gamma v\, \Delta x}{c^2} = -\frac{v L_0}{c^2}$$
+
+where $\Delta x = L_0/\gamma$ is their separation measured on the platform and $L_0$ is their proper (car-frame) separation. The clock further forward in the direction of motion reads *behind* by $vL_0/c^2$. This rule resolves most textbook "paradoxes": each frame regards the other's clocks as unsynchronized, which is why both can consistently see the other's clocks running slow.
+
+**Example.** A car of proper length $L_0 = 100$ m passes at $v = 0.6c$. At any platform instant the front clock reads behind the rear clock by
+
+$$\frac{v L_0}{c^2} = \frac{0.6 \times 100\ \text{m}}{3.00 \times 10^{8}\ \text{m/s}} = 2.0 \times 10^{-7}\ \text{s}$$
+
+Over astronomical distances the same offset becomes large: two observers in relative motion at walking speed disagree about "now" in the Andromeda galaxy by days.
+
+## Spacetime and the Invariant Interval
+
+An **event** is a point in spacetime, labelled by $(ct, x, y, z)$ in some inertial frame. For two events the **interval**
+
+$$\Delta s^2 = -c^2 \Delta t^2 + \Delta x^2 + \Delta y^2 + \Delta z^2 = \eta_{\mu\nu}\, \Delta x^\mu \Delta x^\nu$$
+
+has the same value in every inertial frame, where the Minkowski metric is
+
+$$\eta_{\mu\nu} = \begin{pmatrix} -1 & 0 & 0 & 0 \\ 0 & 1 & 0 & 0 \\ 0 & 0 & 1 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix}$$
+
+The interval plays the role that distance plays in Euclidean geometry, but it is not positive-definite, and its sign classifies every pair of events:
+
+| Separation | Sign of $\Delta s^2$ (−,+,+,+) | Meaning | Frame-invariant quantity |
+|---|---|---|---|
+| Timelike | $\Delta s^2 < 0$ | A massive body can be present at both; time order is absolute | Proper time $\Delta\tau = \sqrt{-\Delta s^2}/c$ |
+| Lightlike (null) | $\Delta s^2 = 0$ | Connected by a light signal | Both events lie on each other's light cone |
+| Spacelike | $\Delta s^2 > 0$ | No causal connection; time order is frame-dependent | Proper distance $\sqrt{\Delta s^2}$ |
+
+For a particle's worldline the **proper time**, the time shown by a clock carried along, is
+
+$$d\tau^2 = -\frac{ds^2}{c^2} = dt^2\left(1 - \frac{v^2}{c^2}\right) \quad\Longrightarrow\quad d\tau = \frac{dt}{\gamma}$$
+
+### Spacetime diagrams
+
+A **Minkowski diagram** plots $ct$ vertically against $x$. Light rays are lines at 45°, forming the **light cone** of an event. The worldline of an inertial observer moving at velocity $v$ is a straight line of slope $c/v$ (steeper than 45°), and it serves as that observer's time axis $ct'$. That observer's space axis $x'$ (the set of events simultaneous with the origin in the moving frame) is tilted by the same angle toward the light cone. Lines parallel to $x'$ are lines of constant $t'$.
+
+<figure style="margin: 1.5em auto; max-width: 480px;">
+<svg viewBox="0 0 460 400" role="img" aria-label="Minkowski diagram showing the light cone, the axes of a frame moving at half the speed of light, and two events simultaneous in the moving frame but not in the rest frame" style="width: 100%; height: auto; color: inherit; font-family: inherit;">
+  <defs>
+    <marker id="sr-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L8,4 L0,8 z" fill="currentColor"/>
+    </marker>
+    <marker id="sr-arrow-b" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L8,4 L0,8 z" fill="#1c7ed6"/>
+    </marker>
+  </defs>
+  <!-- light cone -->
+  <line x1="50" y1="380" x2="410" y2="20" stroke="#e8590c" stroke-width="2" stroke-dasharray="7,5"/>
+  <line x1="50" y1="20" x2="410" y2="380" stroke="#e8590c" stroke-width="2" stroke-dasharray="7,5"/>
+  <text x="404" y="40" font-size="13" fill="#e8590c" text-anchor="end">light, x = ct</text>
+  <!-- rest-frame axes -->
+  <line x1="230" y1="385" x2="230" y2="18" stroke="currentColor" stroke-width="1.8" marker-end="url(#sr-arrow)"/>
+  <line x1="45" y1="200" x2="442" y2="200" stroke="currentColor" stroke-width="1.8" marker-end="url(#sr-arrow)"/>
+  <text x="238" y="24" font-size="15" fill="currentColor">ct</text>
+  <text x="436" y="192" font-size="15" fill="currentColor">x</text>
+  <!-- boosted axes, beta = 0.5 -->
+  <line x1="145" y1="370" x2="315" y2="30" stroke="#1c7ed6" stroke-width="2" marker-end="url(#sr-arrow-b)"/>
+  <line x1="60" y1="285" x2="400" y2="115" stroke="#1c7ed6" stroke-width="2" marker-end="url(#sr-arrow-b)"/>
+  <text x="320" y="36" font-size="15" fill="#1c7ed6">ct'</text>
+  <text x="404" y="112" font-size="15" fill="#1c7ed6">x'</text>
+  <!-- line of constant t' -->
+  <line x1="122.5" y1="190" x2="412.5" y2="45" stroke="#1c7ed6" stroke-width="1.5" stroke-dasharray="4,4"/>
+  <text x="416" y="60" font-size="12" fill="#1c7ed6">t' = const</text>
+  <!-- events A and B -->
+  <circle cx="172.5" cy="165" r="5" fill="currentColor"/>
+  <circle cx="372.5" cy="65" r="5" fill="currentColor"/>
+  <text x="164" y="156" font-size="14" fill="currentColor" text-anchor="end">A</text>
+  <text x="372" y="84" font-size="14" fill="currentColor" text-anchor="middle">B</text>
+  <!-- projections to ct axis -->
+  <line x1="172.5" y1="165" x2="230" y2="165" stroke="currentColor" stroke-width="1" stroke-dasharray="2,3" opacity="0.7"/>
+  <line x1="230" y1="65" x2="372.5" y2="65" stroke="currentColor" stroke-width="1" stroke-dasharray="2,3" opacity="0.7"/>
+  <text x="224" y="161" font-size="12" fill="currentColor" text-anchor="end">t_A</text>
+  <text x="224" y="61" font-size="12" fill="currentColor" text-anchor="end">t_B</text>
+  <!-- region labels -->
+  <text x="175" y="88" font-size="13" fill="currentColor" text-anchor="middle" opacity="0.85">timelike future</text>
+  <text x="230" y="345" font-size="13" fill="currentColor" text-anchor="middle" opacity="0.85">timelike past</text>
+  <text x="72" y="222" font-size="13" fill="currentColor" text-anchor="middle" opacity="0.85">spacelike</text>
+  <text x="395" y="250" font-size="13" fill="currentColor" text-anchor="middle" opacity="0.85">spacelike</text>
+</svg>
+<figcaption style="font-size: 0.9em; text-align: center;">Minkowski diagram for a frame S' moving at $\beta = 0.5$. The $ct'$ axis is the worldline of the S' origin; the $x'$ axis and the dashed line parallel to it are lines of constant $t'$. Events A and B are simultaneous in S' but not in S, where B occurs later ($t_B > t_A$). Events inside the light cone of the origin are timelike separated from it; events outside are spacelike.</figcaption>
+</figure>
+
+## The Lorentz Transformation
+
+Consider a frame S' moving at velocity $v$ along the $x$ axis of frame S, with origins coinciding at $t = t' = 0$ ("standard configuration").
+
+### Derivation
+
+Homogeneity of space and time requires the transformation to be linear. Transverse coordinates are unchanged ($y' = y$, $z' = z$), since a length perpendicular to the motion can be compared directly by both frames and any change would single out a direction. The S' origin $x' = 0$ moves along $x = vt$, so
+
+$$x' = \gamma\,(x - vt)$$
+
+for some factor $\gamma(v)$. By the principle of relativity, S moves at $-v$ as seen from S', and the inverse must have the same form with the same factor:
+
+$$x = \gamma\,(x' + vt')$$
+
+Now apply the second postulate. A light pulse leaving the origin obeys $x = ct$ in S and $x' = ct'$ in S'. Substituting into both equations gives
+
+$$ct' = \gamma\,(c - v)\,t, \qquad ct = \gamma\,(c + v)\,t'$$
+
+Multiplying the two, $c^2 t t' = \gamma^2 (c^2 - v^2)\, t t'$, so
+
+$$\gamma = \frac{1}{\sqrt{1 - v^2/c^2}}$$
+
+Eliminating $x'$ between the two equations for $x'$ and $x$ gives the time transformation. The result is the **Lorentz boost**:
+
+$$ct' = \gamma\left(ct - \beta x\right), \qquad x' = \gamma\left(x - \beta\, ct\right), \qquad y' = y, \qquad z' = z$$
+
+The inverse is obtained by $v \to -v$. In matrix form, $x'^\mu = \Lambda^\mu{}_\nu x^\nu$ with
+
+$$\Lambda^\mu{}_\nu = \begin{pmatrix} \gamma & -\beta\gamma & 0 & 0 \\ -\beta\gamma & \gamma & 0 & 0 \\ 0 & 0 & 1 & 0 \\ 0 & 0 & 0 & 1 \end{pmatrix}$$
+
+Any matrix satisfying $\Lambda^T \eta\, \Lambda = \eta$ preserves the interval. These form the **Lorentz group** $O(1,3)$; combined with spacetime translations they form the **Poincaré group**, the symmetry group of special relativity. For $v \ll c$, $\gamma \to 1$ and the boost reduces to the Galilean transformation $x' = x - vt$, $t' = t$.
+
+### Rapidity
+
+Writing $\beta = \tanh\phi$ gives $\gamma = \cosh\phi$ and $\beta\gamma = \sinh\phi$, so a boost is a hyperbolic rotation:
+
+$$\begin{pmatrix} ct' \\ x' \end{pmatrix} = \begin{pmatrix} \cosh\phi & -\sinh\phi \\ -\sinh\phi & \cosh\phi \end{pmatrix} \begin{pmatrix} ct \\ x \end{pmatrix}$$
+
+The **rapidity** $\phi$ is additive for collinear boosts, $\phi_{\text{total}} = \phi_1 + \phi_2$, which is the cleanest way to derive the velocity-addition law. Collider physics uses the closely related longitudinal rapidity $y = \tfrac{1}{2}\ln\bigl[(E + p_z c)/(E - p_z c)\bigr]$ because rapidity differences are invariant under boosts along the beam.
+
+## Time Dilation
+
+A clock at rest in S' ticks at fixed $x'$. Its proper time interval $\Delta\tau$ corresponds to a coordinate interval in S of
+
+$$\Delta t = \gamma\, \Delta\tau$$
+
+A moving clock is measured to run slow, by the factor $\gamma$, by observers who see it move. The effect is symmetric: each of two inertial observers measures the other's clock as slow, and the relativity of simultaneity keeps this consistent.
+
+<figure style="margin: 1.5em auto; max-width: 480px;">
+<svg viewBox="0 0 460 280" role="img" aria-label="Plot of the Lorentz factor gamma against speed as a fraction of c, rising slowly and then diverging as beta approaches 1" style="width: 100%; height: auto; font-family: inherit;">
+  <g stroke="currentColor" stroke-width="1" opacity="0.2">
+    <line x1="50" y1="203.3" x2="430" y2="203.3"/>
+    <line x1="50" y1="166.7" x2="430" y2="166.7"/>
+    <line x1="50" y1="130" x2="430" y2="130"/>
+    <line x1="50" y1="93.3" x2="430" y2="93.3"/>
+    <line x1="50" y1="56.7" x2="430" y2="56.7"/>
+    <line x1="50" y1="20" x2="430" y2="20"/>
+  </g>
+  <line x1="50" y1="240" x2="430" y2="240" stroke="currentColor" stroke-width="1.5"/>
+  <line x1="50" y1="240" x2="50" y2="15" stroke="currentColor" stroke-width="1.5"/>
+  <line x1="430" y1="240" x2="430" y2="15" stroke="#e8590c" stroke-width="1.5" stroke-dasharray="5,4"/>
+  <g font-size="12" fill="currentColor" text-anchor="end">
+    <text x="44" y="244">1</text><text x="44" y="207">2</text><text x="44" y="171">3</text>
+    <text x="44" y="134">4</text><text x="44" y="97">5</text><text x="44" y="61">6</text><text x="44" y="24">7</text>
+  </g>
+  <g font-size="12" fill="currentColor" text-anchor="middle">
+    <text x="50" y="258">0</text><text x="145" y="258">0.25</text><text x="240" y="258">0.5</text>
+    <text x="335" y="258">0.75</text><text x="430" y="258">1</text>
+  </g>
+  <text x="240" y="276" font-size="13" fill="currentColor" text-anchor="middle">speed v/c</text>
+  <text x="16" y="130" font-size="13" fill="currentColor" text-anchor="middle" transform="rotate(-90 16 130)">Lorentz factor γ</text>
+  <polyline fill="none" stroke="#1c7ed6" stroke-width="2.5" points="50.0,240.0 69.0,240.0 88.0,239.8 107.0,239.6 126.0,239.2 145.0,238.8 164.0,238.2 183.0,237.5 202.0,236.7 221.0,235.6 240.0,234.3 259.0,232.8 278.0,230.8 297.0,228.4 316.0,225.3 335.0,221.2 354.0,215.6 373.0,207.1 392.0,192.5 393.9,190.5 395.8,188.2 397.7,185.8 399.6,183.1 401.5,180.2 403.4,176.9 405.3,173.3 407.2,169.2 409.1,164.6 411.0,159.2 412.9,153.0 414.8,145.7 416.7,136.9 418.6,125.8 420.5,111.7 422.4,92.4 424.3,64.2 426.2,16.7"/>
+  <g fill="#1c7ed6">
+    <circle cx="278" cy="230.8" r="3.5"/><circle cx="354" cy="215.6" r="3.5"/><circle cx="392" cy="192.5" r="3.5"/>
+  </g>
+  <g font-size="11" fill="currentColor">
+    <text x="272" y="222" text-anchor="end">0.6c: γ = 1.25</text>
+    <text x="348" y="207" text-anchor="end">0.8c: γ = 1.67</text>
+    <text x="386" y="184" text-anchor="end">0.9c: γ = 2.29</text>
+    <text x="420" y="16" text-anchor="end">0.99c: γ = 7.09</text>
+  </g>
+</svg>
+<figcaption style="font-size: 0.9em; text-align: center;">The Lorentz factor $\gamma = 1/\sqrt{1-\beta^2}$. It stays within 1% of unity below about $0.14c$ and diverges as $v \to c$.</figcaption>
+</figure>
+
+<div class="interactive-demo" style="margin: 1em 0;">
+  <label for="velocity-slider"><strong>Lorentz factor calculator.</strong> Speed $v/c$ = <span id="velocity-value">0.50</span></label><br/>
+  <input type="range" id="velocity-slider" min="0" max="0.999" step="0.001" value="0.5" style="width: 100%; max-width: 420px;" />
+  <p style="margin: 0.4em 0 0;">γ = <span id="gamma-value">1.155</span>. One hour of proper time on the moving clock spans <span id="dilated-time">1.155</span> hours in the observer's frame; a 1 m rod is measured as <span id="contracted-length">0.866</span> m long.</p>
 </div>
-
-### Relativity of Simultaneity
-
-Before deriving the Lorentz transformation, isolate the single idea that drives every other relativistic effect: **two events simultaneous in one inertial frame are generally not simultaneous in another**. Time dilation and length contraction are downstream consequences. The breakdown of absolute simultaneity is what lets the symmetry of relativity — each observer seeing the other's clocks run slow — be free of contradiction.
-
-**The train-and-platform thought experiment.** A railway car of proper length moves right past a platform at speed $v$. A lamp sits at the car's exact *midpoint*. At the instant the lamp passes a platform observer (Alice), it flashes once, sending light toward the front and rear walls.
-
-<div class="principle-card">
-  <p><strong>In the train's frame</strong> (observer Bob, riding at the midpoint): the front and rear walls are equidistant from the lamp and the car is at rest, so the two flashes travel equal distances at the same speed $c$. They strike the front and rear walls <em>simultaneously</em>. For Bob, "front hit" and "rear hit" are the same instant.</p>
-  <p><strong>In the platform frame</strong> (Alice): light still travels at $c$ in <em>her</em> frame too (second postulate), but during the flight the rear wall rushes <em>toward</em> the emission point while the front wall flees <em>away</em> from it. The rearward light therefore meets its wall first; the forward light has to chase a receding target and arrives later. For Alice, the rear event happens <em>before</em> the front event — the very same pair of events is no longer simultaneous.</p>
-  <div class="visual-demo">
-    <svg viewBox="0 0 520 300" style="max-width: 520px; width: 100%;">
-      <defs>
-        <marker id="arrow-sim" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-          <path d="M0,0 L0,6 L9,3 z" fill="#2c3e50" />
-        </marker>
-      </defs>
-
-      <text x="260" y="24" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">Same flash, two verdicts on "simultaneous"</text>
-
-      <!-- Train frame (Bob) -->
-      <text x="260" y="56" text-anchor="middle" font-size="14" font-weight="bold" fill="#1565c0">Train frame (Bob): flashes arrive together</text>
-      <rect x="120" y="66" width="280" height="44" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" rx="5" />
-      <!-- rear wall -->
-      <rect x="120" y="66" width="8" height="44" fill="#1976d2" />
-      <text x="124" y="126" text-anchor="middle" font-size="11" fill="#1565c0">rear</text>
-      <!-- front wall -->
-      <rect x="392" y="66" width="8" height="44" fill="#1976d2" />
-      <text x="396" y="126" text-anchor="middle" font-size="11" fill="#1565c0">front</text>
-      <!-- lamp at midpoint -->
-      <circle cx="260" cy="88" r="7" fill="#f39c12" />
-      <text x="260" y="60" text-anchor="middle" font-size="11" fill="#e65100">lamp (midpoint)</text>
-      <!-- equal light arrows -->
-      <line x1="252" y1="88" x2="138" y2="88" stroke="#e65100" stroke-width="3" stroke-dasharray="6,3" marker-end="url(#arrow-sim)" />
-      <line x1="268" y1="88" x2="382" y2="88" stroke="#e65100" stroke-width="3" stroke-dasharray="6,3" marker-end="url(#arrow-sim)" />
-      <text x="195" y="84" text-anchor="middle" font-size="11" fill="#e65100">equal distance</text>
-      <text x="325" y="84" text-anchor="middle" font-size="11" fill="#e65100">equal distance</text>
-
-      <!-- Platform frame (Alice) -->
-      <text x="260" y="170" text-anchor="middle" font-size="14" font-weight="bold" fill="#b71c1c">Platform frame (Alice): rear hit first, then front</text>
-      <!-- emission point fixed in space -->
-      <line x1="260" y1="178" x2="260" y2="270" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="3,3" />
-      <text x="260" y="288" text-anchor="middle" font-size="10" fill="#777">emission point (fixed in space)</text>
-      <!-- car shifted right (it moved during flight) -->
-      <rect x="170" y="190" width="280" height="44" fill="#ffebee" stroke="#c62828" stroke-width="2" rx="5" />
-      <rect x="170" y="190" width="8" height="44" fill="#c62828" />
-      <rect x="442" y="190" width="8" height="44" fill="#c62828" />
-      <!-- rear wall approaches emission point -->
-      <line x1="252" y1="212" x2="182" y2="212" stroke="#e65100" stroke-width="3" stroke-dasharray="6,3" marker-end="url(#arrow-sim)" />
-      <text x="214" y="208" text-anchor="middle" font-size="11" fill="#388e3c">shorter path</text>
-      <!-- front wall recedes -->
-      <line x1="268" y1="212" x2="436" y2="212" stroke="#e65100" stroke-width="3" stroke-dasharray="6,3" marker-end="url(#arrow-sim)" />
-      <text x="350" y="208" text-anchor="middle" font-size="11" fill="#c62828">longer path</text>
-      <!-- car motion -->
-      <line x1="455" y1="245" x2="495" y2="245" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrow-sim)" />
-      <text x="475" y="262" text-anchor="middle" font-size="12" font-weight="bold" fill="#2c3e50">v</text>
-    </svg>
-  </div>
-  <p>Neither observer is mistaken. Both correctly apply the same two postulates and reach different — but internally consistent — conclusions about ordering. Simultaneity is a property of a chosen frame, not of the events themselves. (Note that causally connected events, those inside each other's light cones, <em>do</em> keep their order in every frame; only the timing of <em>spacelike-separated</em> events like these two wall-strikes is frame-dependent.)</p>
-</div>
-
-<div class="spacetime-section">
-  <h4><i class="fas fa-stopwatch"></i> Leading clocks lag</h4>
-  <p>To make the effect quantitative, replace the single lamp with a row of clocks that Bob has synchronized along the length of his car. Apply the time component of the Lorentz transformation (derived in the next section), $t' = \gamma\left(t - vx/c^2\right)$, to a single instant $t = \text{const}$ in Alice's platform frame. The clock readings Bob's frame assigns differ from place to place purely because of the $-\gamma v x/c^2$ term:</p>
-
-  <div class="equation-showcase">
-    <div class="equation-box primary" markdown="1">
-$$\Delta t' = -\frac{v\, \Delta x}{c^2}$$
-</div>
-  </div>
-
-  <p>Here $\Delta x$ is the spatial separation of two clocks <em>as measured in the platform frame</em> and $\Delta t'$ is the offset between their readings in the train frame at one platform instant. The minus sign carries the physics: of two clocks separated along the direction of motion, the one in the <strong>lead</strong> (the front clock, at larger $x$) shows an <strong>earlier</strong> time. This is the "leading clocks lag" rule:</p>
-
-  <div class="principle-card">
-    <p style="margin: 0;"><strong>Leading clocks lag.</strong> In a frame that sees a row of synchronized clocks moving, the clock that is <em>ahead</em> in the direction of motion reads <em>behind</em> in time, by an amount $vL_0/c^2$, where $L_0$ is the proper separation of the clocks. The trailing clock is the one that appears set forward.</p>
-  </div>
-
-  <p>This single asymmetry is the hidden engine behind the apparent paradoxes of special relativity. When Alice insists Bob's clocks are unsynchronized — front behind, rear ahead — and Bob says exactly the same of Alice's clocks, both are right, and the twin- and ladder-paradox "contradictions" dissolve. Length contraction can even be <em>derived</em> from it: because the two ends of a moving ruler are timed using clocks that disagree about "now," a frame measuring the ruler's length records a contracted value $L = L_0/\gamma$.</p>
-
-  <div class="example-card">
-    <h4>Worked Example: by how much do the clocks disagree?</h4>
-    <p>A train car of proper length $L_0 = 100\ \text{m}$ moves past a platform at $v = 0.6c$. Bob has synchronized a clock at the front and one at the rear in the train frame. According to Alice on the platform, by how much are they out of step at any single platform instant?</p>
-    $$\Delta t' = \frac{v L_0}{c^2} = \frac{(0.6c)(100\ \text{m})}{c^2} = \frac{(0.6)(100\ \text{m})}{c} = \frac{60\ \text{m}}{3.0\times10^{8}\ \text{m/s}} = 2.0\times10^{-7}\ \text{s}.$$
-    <p>Alice finds the leading (front) clock reads about <strong>0.20 µs behind</strong> the trailing (rear) clock. The offset is independent of where along the track she looks — it is fixed by the proper length and the speed, not by position — and it grows linearly with both. Stretch the "car" to the diameter of a galaxy and modest speeds produce offsets of years, which is how relativity reconciles wildly different accounts of "now" at cosmic distances.</p>
-  </div>
-</div>
-
-### Spacetime and the Lorentz Transformation
-
-<div class="spacetime-section">
-  <h4><i class="fas fa-cube"></i> Spacetime Interval</h4>
-  <p>The spacetime interval between two events is invariant:</p>
-
-  <p><em>Convention note:</em> two metric-signature conventions are in common use. This section writes the interval with the <strong>(+,−,−,−)</strong> ("mostly-minus") convention in its primary algebraic form, then gives the differential form in the <strong>(−,+,+,+)</strong> ("mostly-plus") convention to match the Minkowski metric $\eta_{\mu\nu}$ below. The two differ only by an overall sign and describe identical physics.</p>
-
-  <div class="equation-showcase">
-    <div class="equation-box primary" markdown="1">
-$$(\Delta s)^2 = c^2(\Delta t)^2 - (\Delta x)^2 - (\Delta y)^2 - (\Delta z)^2$$
-</div>
-    
-    <p>In differential form (using the (−,+,+,+) convention):</p>
-    <div class="equation-box" markdown="1">
-$$ds^2 = -c^2 dt^2 + dx^2 + dy^2 + dz^2 = \eta_{\mu\nu}\, dx^\mu dx^\nu$$
-</div>
-    
-    <div class="metric-display">
-      <p>Where $\eta_{\mu\nu}$ is the Minkowski metric:</p>
-      <div class="matrix-visual" markdown="1">
-$$\eta_{\mu\nu} = \begin{pmatrix}
--1 & 0 & 0 & 0 \\
-0 & 1 & 0 & 0 \\
-0 & 0 & 1 & 0 \\
-0 & 0 & 0 & 1
-\end{pmatrix}$$
-</div>
-    </div>
-  </div>
-  
-  <div class="spacetime-diagram">
-    <svg viewBox="0 0 500 380" style="max-width: 500px; width: 100%;">
-      <!-- Define arrow markers -->
-      <defs>
-        <marker id="arrow-st" markerWidth="12" markerHeight="12" refX="10" refY="4" orient="auto" markerUnits="strokeWidth">
-          <path d="M0,0 L0,8 L12,4 z" fill="#2c3e50" />
-        </marker>
-        <marker id="arrow-st-orange" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-          <path d="M0,0 L0,6 L9,3 z" fill="#e65100" />
-        </marker>
-      </defs>
-
-      <!-- Title -->
-      <text x="250" y="25" text-anchor="middle" font-size="18" font-weight="bold" fill="#2c3e50">Spacetime Diagram</text>
-
-      <!-- Background grid -->
-      <g stroke="#e0e0e0" stroke-width="1">
-        <line x1="100" y1="60" x2="100" y2="340" />
-        <line x1="150" y1="60" x2="150" y2="340" />
-        <line x1="200" y1="60" x2="200" y2="340" />
-        <line x1="300" y1="60" x2="300" y2="340" />
-        <line x1="350" y1="60" x2="350" y2="340" />
-        <line x1="400" y1="60" x2="400" y2="340" />
-        <line x1="50" y1="100" x2="450" y2="100" />
-        <line x1="50" y1="150" x2="450" y2="150" />
-        <line x1="50" y1="250" x2="450" y2="250" />
-        <line x1="50" y1="300" x2="450" y2="300" />
-      </g>
-
-      <!-- Spacetime axes -->
-      <line x1="250" y1="340" x2="250" y2="50" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrow-st)" />
-      <line x1="50" y1="200" x2="450" y2="200" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrow-st)" />
-      <text x="265" y="55" text-anchor="start" font-size="18" font-weight="bold" fill="#2c3e50">ct (time)</text>
-      <text x="455" y="205" text-anchor="start" font-size="18" font-weight="bold" fill="#2c3e50">x (space)</text>
-
-      <!-- Light cone lines -->
-      <line x1="250" y1="200" x2="100" y2="50" stroke="#e65100" stroke-width="3" stroke-dasharray="8,4" />
-      <line x1="250" y1="200" x2="400" y2="50" stroke="#e65100" stroke-width="3" stroke-dasharray="8,4" />
-      <line x1="250" y1="200" x2="100" y2="350" stroke="#e65100" stroke-width="2" stroke-dasharray="8,4" opacity="0.5" />
-      <line x1="250" y1="200" x2="400" y2="350" stroke="#e65100" stroke-width="2" stroke-dasharray="8,4" opacity="0.5" />
-
-      <!-- Light cone labels -->
-      <text x="115" y="90" font-size="14" font-weight="bold" fill="#e65100">Light (45 degrees)</text>
-      <text x="355" y="90" font-size="14" font-weight="bold" fill="#e65100">v = c</text>
-
-      <!-- Sample worldline (massive particle) -->
-      <path d="M 180 340 Q 210 270, 230 200 Q 245 140, 260 70" stroke="#1976d2" stroke-width="4" fill="none" />
-      <circle cx="180" cy="340" r="6" fill="#1976d2" />
-      <circle cx="230" cy="200" r="6" fill="#1976d2" />
-      <circle cx="260" cy="70" r="6" fill="#1976d2" />
-      <text x="145" y="355" font-size="14" font-weight="bold" fill="#1976d2">Worldline</text>
-      <text x="145" y="370" font-size="12" fill="#1976d2">(massive particle)</text>
-
-      <!-- Event at origin -->
-      <circle cx="250" cy="200" r="8" fill="#c62828" />
-      <text x="265" y="215" font-size="15" font-weight="bold" fill="#c62828">Event P</text>
-      <text x="265" y="232" font-size="12" fill="#555">(here, now)</text>
-
-      <!-- Future region label -->
-      <text x="250" y="120" text-anchor="middle" font-size="14" fill="#388e3c" font-weight="bold">FUTURE</text>
-
-      <!-- Past region label -->
-      <text x="250" y="290" text-anchor="middle" font-size="14" fill="#7b1fa2" font-weight="bold">PAST</text>
-
-      <!-- Spacelike region labels -->
-      <text x="100" y="205" text-anchor="middle" font-size="12" fill="#555">Elsewhere</text>
-      <text x="400" y="205" text-anchor="middle" font-size="12" fill="#555">Elsewhere</text>
-
-      <!-- Axis tick marks and labels -->
-      <line x1="300" y1="195" x2="300" y2="205" stroke="#2c3e50" stroke-width="2" />
-      <text x="300" y="220" text-anchor="middle" font-size="12" fill="#333">x</text>
-      <line x1="350" y1="195" x2="350" y2="205" stroke="#2c3e50" stroke-width="2" />
-      <text x="350" y="220" text-anchor="middle" font-size="12" fill="#333">2x</text>
-      <line x1="245" y1="150" x2="255" y2="150" stroke="#2c3e50" stroke-width="2" />
-      <text x="235" y="155" text-anchor="end" font-size="12" fill="#333">ct</text>
-      <line x1="245" y1="100" x2="255" y2="100" stroke="#2c3e50" stroke-width="2" />
-      <text x="235" y="105" text-anchor="end" font-size="12" fill="#333">2ct</text>
-    </svg>
-  </div>
-  
-  <div class="light-cone-diagram">
-    <h4><i class="fas fa-hourglass-half"></i> Light Cone Structure</h4>
-    <svg viewBox="0 0 550 480" style="max-width: 500px; width: 100%;">
-      <!-- Title -->
-      <text x="275" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="#2c3e50">Light Cone and Causal Structure</text>
-
-      <!-- Define gradient for cones -->
-      <defs>
-        <linearGradient id="futureCone" x1="0%" y1="100%" x2="0%" y2="0%">
-          <stop offset="0%" stop-color="#e65100" stop-opacity="0.4" />
-          <stop offset="100%" stop-color="#ff9800" stop-opacity="0.1" />
-        </linearGradient>
-        <linearGradient id="pastCone" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#e65100" stop-opacity="0.3" />
-          <stop offset="100%" stop-color="#ff9800" stop-opacity="0.05" />
-        </linearGradient>
-        <marker id="arrow-lc" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-          <path d="M0,0 L0,6 L9,3 z" fill="#2c3e50" />
-        </marker>
-      </defs>
-
-      <!-- 3D coordinate axes -->
-      <line x1="275" y1="240" x2="450" y2="400" stroke="#9e9e9e" stroke-width="2" stroke-dasharray="4,4" />
-      <text x="460" y="410" font-size="14" fill="#666" font-weight="bold">x</text>
-
-      <line x1="275" y1="240" x2="100" y2="400" stroke="#9e9e9e" stroke-width="2" stroke-dasharray="4,4" />
-      <text x="85" y="410" font-size="14" fill="#666" font-weight="bold">y</text>
-
-      <!-- Time axis -->
-      <line x1="275" y1="450" x2="275" y2="50" stroke="#2c3e50" stroke-width="3" marker-end="url(#arrow-lc)" />
-      <text x="295" y="55" font-size="18" font-weight="bold" fill="#2c3e50">ct (time)</text>
-
-      <!-- Future light cone -->
-      <path d="M 275 240 L 140 100 Q 275 50, 410 100 Z" fill="url(#futureCone)" stroke="#e65100" stroke-width="3" />
-      <text x="275" y="85" text-anchor="middle" font-size="16" font-weight="bold" fill="#e65100">Future Light Cone</text>
-
-      <!-- Past light cone -->
-      <path d="M 275 240 L 140 380 Q 275 430, 410 380 Z" fill="url(#pastCone)" stroke="#e65100" stroke-width="2" stroke-dasharray="5,3" />
-      <text x="275" y="410" text-anchor="middle" font-size="16" font-weight="bold" fill="#bf360c">Past Light Cone</text>
-
-      <!-- Event at origin -->
-      <circle cx="275" cy="240" r="10" fill="#c62828" stroke="#b71c1c" stroke-width="2" />
-      <text x="295" y="235" font-size="16" font-weight="bold" fill="#c62828">Event P</text>
-      <text x="295" y="255" font-size="13" fill="#555">(Here and Now)</text>
-
-      <!-- Timelike future region -->
-      <path d="M 240 180 L 310 180 L 295 120 L 255 120 Z" fill="#1976d2" opacity="0.25" />
-      <text x="370" y="135" font-size="15" font-weight="bold" fill="#1976d2">Timelike Future</text>
-      <text x="370" y="155" font-size="13" fill="#1565c0">(Causally connected)</text>
-      <text x="370" y="173" font-size="13" fill="#1565c0">(v &lt; c reachable)</text>
-
-      <!-- Timelike past region -->
-      <path d="M 240 300 L 310 300 L 295 360 L 255 360 Z" fill="#7b1fa2" opacity="0.2" />
-      <text x="370" y="340" font-size="15" font-weight="bold" fill="#7b1fa2">Timelike Past</text>
-      <text x="370" y="360" font-size="13" fill="#6a1b9a">(Could have caused P)</text>
-
-      <!-- Spacelike region -->
-      <ellipse cx="275" cy="240" rx="110" ry="30" fill="#388e3c" opacity="0.2" />
-      <text x="60" y="235" font-size="15" font-weight="bold" fill="#388e3c">Spacelike</text>
-      <text x="60" y="255" font-size="13" fill="#2e7d32">(No causal</text>
-      <text x="60" y="273" font-size="13" fill="#2e7d32">connection)</text>
-
-      <!-- Sample worldlines -->
-      <!-- Massive particle worldline -->
-      <path d="M 275 240 Q 290 180, 300 120" stroke="#7b1fa2" stroke-width="4" fill="none" />
-      <circle cx="300" cy="120" r="5" fill="#7b1fa2" />
-      <text x="315" y="105" font-size="14" font-weight="bold" fill="#7b1fa2">Massive particle</text>
-      <text x="315" y="120" font-size="12" fill="#7b1fa2">(v &lt; c)</text>
-
-      <!-- Light ray -->
-      <line x1="275" y1="240" x2="355" y2="160" stroke="#e65100" stroke-width="4" stroke-dasharray="6,3" />
-      <circle cx="355" cy="160" r="4" fill="#e65100" />
-      <text x="365" y="175" font-size="14" font-weight="bold" fill="#e65100">Light ray</text>
-      <text x="365" y="190" font-size="12" fill="#e65100">(v = c)</text>
-
-      <!-- Legend box -->
-      <rect x="20" y="430" width="510" height="40" fill="#fafafa" stroke="#e0e0e0" stroke-width="1" rx="5" />
-      <text x="275" y="458" text-anchor="middle" font-size="14" fill="#333">
-        <tspan font-weight="bold" fill="#1976d2">ds^2 &gt; 0</tspan> (timelike)
-        <tspan dx="20" font-weight="bold" fill="#e65100">ds^2 = 0</tspan> (null/lightlike)
-        <tspan dx="20" font-weight="bold" fill="#388e3c">ds^2 &lt; 0</tspan> (spacelike)
-      </text>
-    </svg>
-  </div>
-</div>
-
-#### Derivation of Lorentz Transformations
-Starting from the invariance of the spacetime interval and the principle of relativity:
-
-For two reference frames S and S', where S' moves with velocity v along the x-axis:
-
-$$c^2t'^2 - x'^2 = c^2t^2 - x^2$$
-
-Assuming linear transformation:
-
-$$x' = Ax + Bt$$
-$$t' = Cx + Dt$$
-
-From the origin of S' (x' = 0) moving at x = vt:
-
-$$0 = Avt + Bt \rightarrow B = -Av$$
-
-From the invariance of light speed (x = ct implies x' = ct'):
-
-$$ct' = Act + Bt = Act - Avt = A(c - v)t$$
-$$x' = Act + Bt = Act - Avt = A(c - v)t$$
-
-Therefore: A = γ = 1/√(1 - v²/c²)
-
-Complete Lorentz transformations:
-
-$$x' = \gamma(x - vt)$$
-$$y' = y$$
-$$z' = z$$
-$$t' = \gamma(t - vx/c^2)$$
-
-Inverse transformations:
-
-$$x = \gamma(x' + vt')$$
-$$y = y'$$
-$$z = z'$$
-$$t = \gamma(t' + vx'/c^2)$$
-
-Matrix form:
-
-$$\begin{pmatrix}
-ct' \\
-x' \\
-y' \\
-z'
-\end{pmatrix} = \begin{pmatrix}
-\gamma & -\beta\gamma & 0 & 0 \\
--\beta\gamma & \gamma & 0 & 0 \\
-0 & 0 & 1 & 0 \\
-0 & 0 & 0 & 1
-\end{pmatrix} \begin{pmatrix}
-ct \\
-x \\
-y \\
-z
-\end{pmatrix}$$
-
-Where β = v/c.
-
-### Time Dilation
-
-Moving clocks run slower relative to stationary observers:
-
-$$\Delta t = \gamma \Delta t_0$$
-
-where $\gamma = 1/\sqrt{1 - v^2/c^2}$ is the Lorentz factor, $\Delta t_0$ is the proper time (in the rest frame), and $\Delta t$ is the dilated time (in the moving frame).
-
-<div class="time-dilation-section">
-  <div class="interactive-demo">
-    <h5>Time Dilation Calculator</h5>
-    <div class="demo-controls">
-      <label>Velocity (as fraction of c): <span id="velocity-value">0.5</span></label>
-      <input type="range" id="velocity-slider" min="0" max="0.99" step="0.01" value="0.5" />
-      <div class="results">
-        <p>Lorentz factor γ = <span id="gamma-value">1.155</span></p>
-        <p>1 hour proper time = <span id="dilated-time">1.155</span> hours observed</p>
-      </div>
-    </div>
-  </div>
-</div>
-
-**GPS example.** GPS satellites must account for *both* special- and general-relativistic effects, which act in opposite directions. Their orbital velocity (~14,000 km/h, $v \approx 3{,}900$ m/s, $\gamma - 1 \approx 8.4\times10^{-11}$) causes a special-relativistic slowing of about **−7 µs/day**. But the satellites also sit higher in Earth's gravitational well, where clocks run faster — a general-relativistic gain of about **+45 µs/day**. The gravitational term dominates, so the net effect makes GPS clocks run **fast by roughly +38 µs/day**. Left uncorrected, this would introduce navigation errors of about 10 km per day.
 
 <script>
-  // Time dilation interactive
-  const slider = document.getElementById('velocity-slider');
-  const velocityValue = document.getElementById('velocity-value');
-  const gammaValue = document.getElementById('gamma-value');
-  const dilatedTime = document.getElementById('dilated-time');
-  
-  slider?.addEventListener('input', (e) => {
-    const v = parseFloat(e.target.value);
-    const gamma = 1 / Math.sqrt(1 - v*v);
-    velocityValue.textContent = v.toFixed(2);
-    gammaValue.textContent = gamma.toFixed(3);
-    dilatedTime.textContent = gamma.toFixed(3);
-  });
+  (function () {
+    var slider = document.getElementById('velocity-slider');
+    if (!slider) return;
+    slider.addEventListener('input', function (e) {
+      var v = parseFloat(e.target.value);
+      var gamma = 1 / Math.sqrt(1 - v * v);
+      document.getElementById('velocity-value').textContent = v.toFixed(3);
+      document.getElementById('gamma-value').textContent = gamma.toFixed(3);
+      document.getElementById('dilated-time').textContent = gamma.toFixed(3);
+      document.getElementById('contracted-length').textContent = (1 / gamma).toFixed(3);
+    });
+  })();
 </script>
 
-### Length Contraction
+### The twin paradox
 
-Objects are shorter along the direction of motion:
+One twin stays on Earth; the other travels at $0.8c$ ($\gamma = 5/3$) to a star 4 light-years away and returns. Earth time elapsed: $2 \times 4/0.8 = 10$ years. Traveller's proper time: $10/\gamma = 6$ years. The situation is not symmetric: the traveller changes inertial frame at turnaround, and in general the elapsed proper time along a worldline,
+
+$$\tau = \int \sqrt{1 - \frac{v(t)^2}{c^2}}\; dt$$
+
+is **maximized** by the inertial (straight) worldline between two events. The staying twin's worldline is the straight one. Acceleration is not the cause of the age difference (it can be made arbitrarily brief); the geometry of the two paths is. The same principle, "free fall maximizes proper time," becomes the geodesic principle of [general relativity](tensor-formalism.html#geodesics-as-extremal-proper-time).
+
+### GPS: special and general relativity together
+
+GPS satellites orbit at about 3.9 km/s at an altitude of 20,200 km. Special-relativistic time dilation slows their clocks by about **7 µs per day** ($\gamma - 1 \approx 8.3 \times 10^{-11}$). Their higher gravitational potential speeds them up by about **45 µs per day** (a general-relativistic effect). The net drift is about **+38 µs per day**. The satellite clocks are therefore set to tick slightly slow before launch (10.22999999543 MHz instead of 10.23 MHz); without the correction ranging errors would grow by roughly 10 km per day.
+
+## Length Contraction
+
+An object has its greatest length, the **proper length** $L_0$, in its rest frame. Measured in a frame where it moves along its length at speed $v$, with both ends located at the same time in that frame,
 
 $$L = \frac{L_0}{\gamma}$$
 
-where $L_0$ is the proper length (in the rest frame) and $L$ is the contracted length (in the moving frame).
+Dimensions perpendicular to the motion are unchanged. Contraction is a consequence of the relativity of simultaneity: the two frames disagree about which pair of end-events are simultaneous, so they measure different spatial separations.
 
-<div class="length-contraction-section">
-  <div class="visual-demonstration">
-    <svg viewBox="0 0 520 280" style="max-width: 500px; width: 100%;">
-      <!-- Title -->
-      <text x="260" y="25" text-anchor="middle" font-size="18" font-weight="bold" fill="#2c3e50">Length Contraction Demonstration</text>
+Two points often misunderstood:
 
-      <!-- Define arrow marker -->
-      <defs>
-        <marker id="arrow-lc2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-          <path d="M0,0 L0,6 L9,3 z" fill="#2c3e50" />
-        </marker>
-        <pattern id="ruler-pattern" x="0" y="0" width="20" height="10" patternUnits="userSpaceOnUse">
-          <line x1="0" y1="0" x2="0" y2="10" stroke="#555" stroke-width="1" />
-        </pattern>
-      </defs>
+- **Visual appearance.** A photograph of a fast-moving object does not simply show it contracted. Light from different parts leaves at different times, and a sphere still appears circular, rotated rather than flattened (Terrell–Penrose effect, 1959).
+- **Ladder (pole-in-barn) paradox.** A ladder that "fits" in a barn in the barn frame does not fit in the ladder frame. Both are right, because "the ladder is entirely inside at one instant" refers to simultaneous events and is frame-dependent.
 
-      <!-- Rest Frame Section -->
-      <rect x="30" y="45" width="460" height="95" fill="#e3f2fd" stroke="#1976d2" stroke-width="2" rx="5" />
-      <text x="260" y="65" text-anchor="middle" font-size="16" font-weight="bold" fill="#1565c0">Rest Frame (Object at rest)</text>
+## Velocity Addition
 
-      <!-- Object at rest (full length) -->
-      <rect x="80" y="85" width="300" height="40" fill="#1976d2" stroke="#0d47a1" stroke-width="3" rx="5" />
-      <text x="230" y="112" text-anchor="middle" font-size="18" font-weight="bold" fill="white">L&#x2080; = Proper Length</text>
-
-      <!-- Ruler for rest frame -->
-      <line x1="80" y1="135" x2="380" y2="135" stroke="#333" stroke-width="2" />
-      <line x1="80" y1="130" x2="80" y2="140" stroke="#333" stroke-width="2" />
-      <line x1="380" y1="130" x2="380" y2="140" stroke="#333" stroke-width="2" />
-      <text x="80" y="150" text-anchor="middle" font-size="12" fill="#333">0</text>
-      <text x="380" y="150" text-anchor="middle" font-size="12" fill="#333">L&#x2080;</text>
-
-      <!-- Moving Frame Section -->
-      <rect x="30" y="160" width="460" height="110" fill="#ffebee" stroke="#c62828" stroke-width="2" rx="5" />
-      <text x="260" y="180" text-anchor="middle" font-size="16" font-weight="bold" fill="#b71c1c">Moving Frame (v = 0.8c, gamma = 1.67)</text>
-
-      <!-- Object moving (contracted) -->
-      <rect x="140" y="200" width="180" height="40" fill="#c62828" stroke="#b71c1c" stroke-width="3" rx="5" />
-      <text x="230" y="227" text-anchor="middle" font-size="16" font-weight="bold" fill="white">L = L&#x2080;/gamma</text>
-
-      <!-- Ruler for moving frame -->
-      <line x1="140" y1="250" x2="320" y2="250" stroke="#333" stroke-width="2" />
-      <line x1="140" y1="245" x2="140" y2="255" stroke="#333" stroke-width="2" />
-      <line x1="320" y1="245" x2="320" y2="255" stroke="#333" stroke-width="2" />
-      <text x="140" y="265" text-anchor="middle" font-size="12" fill="#333">0</text>
-      <text x="320" y="265" text-anchor="middle" font-size="12" fill="#333">0.6L&#x2080;</text>
-
-      <!-- Motion arrow -->
-      <line x1="340" y1="220" x2="410" y2="220" stroke="#2c3e50" stroke-width="4" marker-end="url(#arrow-lc2)" />
-      <text x="375" y="210" text-anchor="middle" font-size="16" font-weight="bold" fill="#2c3e50">v = 0.8c</text>
-
-      <!-- Contraction percentage -->
-      <rect x="420" y="195" width="60" height="50" fill="#fff3e0" stroke="#e65100" stroke-width="2" rx="5" />
-      <text x="450" y="218" text-anchor="middle" font-size="14" font-weight="bold" fill="#e65100">60%</text>
-      <text x="450" y="235" text-anchor="middle" font-size="11" fill="#e65100">original</text>
-
-      <!-- Comparison arrows showing contraction -->
-      <line x1="80" y1="127" x2="80" y2="195" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="4,2" />
-      <line x1="380" y1="127" x2="380" y2="195" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="4,2" />
-      <line x1="140" y1="195" x2="140" y2="127" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="4,2" />
-      <line x1="320" y1="195" x2="320" y2="127" stroke="#9e9e9e" stroke-width="1" stroke-dasharray="4,2" />
-    </svg>
-  </div>
-</div>
-
-### Relativistic Velocity Addition
-
-Velocities don't simply add in special relativity:
+If an object moves at velocity $w$ along $x'$ in S', and S' moves at $v$ relative to S, its velocity in S is
 
 $$u = \frac{v + w}{1 + vw/c^2}$$
 
-This ensures that no velocity exceeds the speed of light.
+Equivalently, rapidities add: $\tanh^{-1}(u/c) = \tanh^{-1}(v/c) + \tanh^{-1}(w/c)$. For $w = c$, $u = c$ for every $v$, recovering the second postulate. For $v, w < c$, $u < c$.
 
-<div class="example-card">
-  <h4>Worked Example: chasing a light beam</h4>
-  <p>Suppose a spaceship moves at $v = 0.9c$ relative to Earth and fires a probe forward at $w = 0.9c$ relative to the ship. Classically you would expect $1.8c$ — faster than light. Relativity gives instead:</p>
-  $$u = \frac{0.9c + 0.9c}{1 + (0.9)(0.9)} = \frac{1.8c}{1.81} \approx 0.994c$$
-  <p>The probe still travels below $c$. And if the ship instead fired a <em>light</em> beam ($w = c$), the formula returns exactly $c$ no matter the ship's speed — the second postulate, falling out of the algebra. Speeds combine so that $c$ is an unreachable ceiling, not a wall you can edge past by stacking velocities.</p>
-</div>
+**Example.** A spacecraft at $0.9c$ launches a probe forward at $0.9c$ relative to itself. The probe's speed relative to Earth is
 
-**What these effects actually mean.** Time dilation and length contraction are not optical illusions or measurement errors — they are *real and symmetric*. Each observer genuinely sees the *other's* clock running slow and ruler shrunk, with no contradiction because "now" is frame-dependent (relativity of simultaneity): two observers disagree on which distant events are simultaneous, so they slice spacetime differently. The one quantity everyone agrees on is the invariant interval $ds^2$ — distances and durations are its shadows cast at different angles.
+$$u = \frac{0.9c + 0.9c}{1 + 0.81} = \frac{1.8c}{1.81} \approx 0.994c$$
 
-### Mass-Energy Equivalence
+For velocities with components perpendicular to the boost, $u_\perp = w_\perp / \bigl[\gamma\,(1 + v w_x/c^2)\bigr]$. Two non-collinear boosts do not compose to a pure boost; the extra rotation is the **Thomas–Wigner rotation**, responsible for the Thomas precession factor of 1/2 in atomic spin–orbit coupling.
 
-Einstein's most famous equation:
+## The Relativistic Doppler Effect
 
-$$E = mc^2$$
+A source emitting frequency $f_s$ in its rest frame, moving directly toward an observer at speed $v$, is received at
 
-Total energy of a particle:
+$$f_{\text{obs}} = f_s \sqrt{\frac{1 + \beta}{1 - \beta}}$$
+
+and at $f_s\sqrt{(1-\beta)/(1+\beta)}$ when receding. For motion at angle $\theta$ to the line of sight (measured in the observer's frame), $f_{\text{obs}} = f_s / \bigl[\gamma\,(1 - \beta\cos\theta)\bigr]$. At $\theta = 90°$ there is a pure **transverse Doppler shift** $f_{\text{obs}} = f_s/\gamma$, with no classical counterpart; it is time dilation seen directly. Ives and Stilwell first observed the second-order effect in 1938.
+
+## Four-Vectors
+
+A **four-vector** is a set of four components that transforms like $x^\mu$ under Lorentz transformations, $A'^\mu = \Lambda^\mu{}_\nu A^\nu$. The inner product $A \cdot B = \eta_{\mu\nu} A^\mu B^\nu = -A^0 B^0 + \mathbf{A}\cdot\mathbf{B}$ is invariant. Indices are raised and lowered with $\eta$: $A_\mu = \eta_{\mu\nu} A^\nu = (-A^0, \mathbf{A})$. Repeated upper and lower indices are summed.
+
+| Four-vector | Components | Invariant square |
+|---|---|---|
+| Position | $x^\mu = (ct, \mathbf{x})$ | $x \cdot x = -c^2t^2 + \lvert\mathbf{x}\rvert^2$ |
+| Four-velocity | $u^\mu = dx^\mu/d\tau = \gamma\,(c, \mathbf{v})$ | $u \cdot u = -c^2$ |
+| Four-momentum | $p^\mu = m u^\mu = (E/c, \mathbf{p})$ | $p \cdot p = -m^2c^2$ |
+| Four-acceleration | $a^\mu = du^\mu/d\tau$ | $a \cdot a = \alpha^2$ (proper acceleration squared); $a \cdot u = 0$ |
+| Wave four-vector | $k^\mu = (\omega/c, \mathbf{k})$ | $k \cdot k = 0$ for light |
+| Four-current | $J^\mu = (c\rho, \mathbf{J})$ | $\partial_\mu J^\mu = 0$ expresses charge conservation |
+
+Because inner products are invariant, many problems are fastest in whichever frame makes them simplest. For example, the Doppler formula follows from evaluating the invariant $k \cdot u$ in the source frame and the observer frame.
+
+## Relativistic Dynamics
+
+### Momentum and energy
+
+The spatial and time components of $p^\mu = m u^\mu$ are
+
+$$\mathbf{p} = \gamma m \mathbf{v}, \qquad E = \gamma m c^2$$
+
+The invariant $p \cdot p = -m^2c^2$ gives the **energy–momentum relation**
 
 $$E^2 = (pc)^2 + (mc^2)^2$$
 
-Where p is the relativistic momentum:
+Special cases:
 
-$$p = \gamma mv$$
+- **At rest** ($\mathbf{p} = 0$): $E = mc^2$, the rest energy.
+- **Slow motion**: $E = \gamma mc^2 = mc^2 + \tfrac{1}{2}mv^2 + \tfrac{3}{8}mv^4/c^2 + \cdots$, so Newtonian kinetic energy is the first correction to rest energy.
+- **Kinetic energy**: $K = (\gamma - 1)\,mc^2$.
+- **Massless particles** ($m = 0$): $E = pc$ and $v = c$. Photons carry momentum $p = E/c = h/\lambda$.
+- **Ultra-relativistic** ($E \gg mc^2$): $E \approx pc$; the velocity is $v/c = pc/E$.
 
-### Relativistic Dynamics
+Observers disagree on $E$ and $\mathbf{p}$ separately but agree on $m$, the invariant length of $p^\mu$. Modern usage reserves "mass" for this invariant; the older "relativistic mass" $\gamma m$ is just $E/c^2$ and is avoided because it does not correspond to the inertial response to force in all directions.
 
-#### Relativistic Momentum
+### Force
 
-$$p = \gamma mv$$
+Newton's second law generalizes as $\mathbf{F} = d\mathbf{p}/dt$, or covariantly $f^\mu = dp^\mu/d\tau$ (the **four-force**). Because $\gamma$ depends on speed, force and acceleration are not parallel in general:
 
-#### Relativistic Force
+$$\mathbf{F}_\parallel = \gamma^3 m\, \mathbf{a}_\parallel, \qquad \mathbf{F}_\perp = \gamma\, m\, \mathbf{a}_\perp$$
 
-$$F = \frac{dp}{dt} = \frac{d(\gamma mv)}{dt}$$
+It takes ever more force to increase speed near $c$, which is why particle accelerators add energy while the speed barely changes. A body with constant proper acceleration $\alpha$ follows **hyperbolic motion**, $x^2 - c^2t^2 = c^4/\alpha^2$, asymptotically approaching a light ray; its proper time grows only logarithmically with coordinate time.
 
-#### Relativistic Kinetic Energy
+### Mass–energy equivalence
 
-$$KE = (\gamma - 1)mc^2$$
+The rest energy $mc^2$ is real energy. The mass of a composite system is the invariant mass of its total four-momentum and includes internal kinetic and binding energy:
 
-**Reading the energy-momentum relation.** $E^2 = (pc)^2 + (mc^2)^2$ reads like a Pythagorean theorem for energy. For a slow particle ($p \to 0$) it reduces to $E = mc^2$ plus, on Taylor expansion, the Newtonian $\tfrac{1}{2}mv^2$ — classical kinetic energy is just the first correction to the rest energy. For a *massless* particle like the photon ($m = 0$) it collapses to $E = pc$, which is why light carries momentum despite having no mass. The rest mass $m$ is the invariant "length" of the energy-momentum four-vector: observers disagree on $E$ and $p$ separately but all agree on $m$.
+$$M c^2 = \sqrt{E_{\text{tot}}^2 - (p_{\text{tot}}c)^2}$$
 
-<div class="example-card">
-  <h4>Worked Example: how much energy is locked in one gram?</h4>
-  <p>Mass-energy equivalence says even a stationary object stores energy $E = mc^2$. For $m = 1\ \text{gram} = 10^{-3}\ \text{kg}$:</p>
-  $$E = (10^{-3}\ \text{kg})(3.0\times10^{8}\ \text{m/s})^2 = 9\times10^{13}\ \text{J}.$$
-  <p>That is roughly the energy released by 20 kilotons of TNT — comparable to the Hiroshima bomb — from a single gram of matter. The reason chemistry never reveals this is that chemical bonds release a billionth of the rest energy; only nuclear and particle processes tap a meaningful fraction. The mass of a charged battery, a compressed spring, or a hot object is genuinely (if immeasurably) larger than its de-energized state.</p>
-</div>
+A hydrogen atom is lighter than a free proton plus electron by 13.6 eV/$c^2$; a helium-4 nucleus is lighter than two protons and two neutrons by about 28.3 MeV/$c^2$ (0.75% of its mass), which is the energy released in fusion. Most of the mass of ordinary matter is the energy of quarks and gluons confined in nucleons, not the rest mass of the quarks themselves.
 
-### Four-Vectors and Tensor Notation
+**Example.** One gram of mass corresponds to
 
-In special relativity, we use four-vectors to unify space and time:
+$$E = (10^{-3}\ \text{kg})\,(3.00 \times 10^{8}\ \text{m/s})^2 = 9.0 \times 10^{13}\ \text{J}$$
 
-**Position four-vector:**
+about 21 kilotons of TNT. Chemical reactions convert roughly $10^{-10}$ of the rest energy of the reactants, fission about $10^{-3}$, and hydrogen fusion about $7 \times 10^{-3}$.
 
-$$x^\mu = (ct, x, y, z)$$
+### Collisions and thresholds
 
-**Four-momentum:**
+Four-momentum is conserved in every collision. The invariant $s = -(p_1 + p_2)^2 c^2$ (the squared centre-of-mass energy) determines what can be produced. A beam of energy $E$ striking a stationary target of mass $m$ has $\sqrt{s} \approx \sqrt{2 E\, mc^2}$ for $E \gg mc^2$, growing only as the square root of beam energy, whereas two colliding beams of energy $E$ give $\sqrt{s} = 2E$. This is why high-energy physics moved to colliders.
 
-$$p^\mu = (E/c, p_x, p_y, p_z)$$
+## Electromagnetism
 
-**Four-velocity:**
+Maxwell's equations are already Lorentz-covariant; special relativity reveals their structure. The electric and magnetic fields are components of a single antisymmetric **field-strength tensor** $F^{\mu\nu} = \partial^\mu A^\nu - \partial^\nu A^\mu$ built from the four-potential $A^\mu = (\phi/c, \mathbf{A})$, and Maxwell's equations become
 
-$$u^\mu = \gamma(c, v_x, v_y, v_z)$$
+$$\partial_\mu F^{\mu\nu} = -\mu_0 J^\nu, \qquad \partial_{[\lambda} F_{\mu\nu]} = 0$$
 
-**Invariants:**
-- Spacetime interval: $s^2 = -c^2t^2 + x^2 + y^2 + z^2$
-- Rest mass: $m^2c^2 = -p^\mu p_\mu / c^2$
+(the sign of the first depends on the index convention for $F^{0i}$). Under a boost with velocity $\mathbf{v}$ the field components parallel to $\mathbf{v}$ are unchanged, and the perpendicular components mix:
 
-**Tensor notation conventions.** Contravariant indices are written upper ($x^\mu$), covariant indices lower ($x_\mu$), and repeated indices are summed (Einstein summation). The full tensor machinery — covariant derivatives, the Lorentz algebra, spinors — is collected in the [Graduate Formalism & Frontiers](advanced.html) page.
+$$\mathbf{E}'_\perp = \gamma\,(\mathbf{E} + \mathbf{v} \times \mathbf{B})_\perp, \qquad \mathbf{B}'_\perp = \gamma\left(\mathbf{B} - \frac{\mathbf{v} \times \mathbf{E}}{c^2}\right)_\perp$$
 
----
+A purely electric field in one frame has a magnetic part in another; magnetism is, in this sense, the relativistic companion of electrostatics. The combinations $\lvert\mathbf{E}\rvert^2 - c^2\lvert\mathbf{B}\rvert^2$ and $\mathbf{E}\cdot\mathbf{B}$ are Lorentz invariants.
 
-## Continue
+## Experimental Tests
 
-**Up:** [Relativity](./) — overview and navigation hub. **Next:** [General Relativity](general-relativity.html) — gravity as the curvature of spacetime.
+Special relativity is among the most precisely tested theories in physics, and it is built into the design of particle accelerators, synchrotron light sources, and satellite navigation.
+
+| Test | What it checks | Result |
+|---|---|---|
+| Michelson–Morley (1887) and modern cavity versions | Isotropy of $c$ | Modern optical-resonator experiments find no anisotropy at the $\sim 10^{-18}$ level |
+| Kennedy–Thorndike (1932) and successors | Independence of $c$ from the lab's velocity | Null; improved by many orders of magnitude in modern cryogenic-resonator versions |
+| Ives–Stilwell (1938); storage-ring spectroscopy (GSI, 2014) | Time-dilation factor via Doppler shifts | Agrees with $\gamma$ to about $2 \times 10^{-8}$ for ions at $0.34c$ |
+| Cosmic-ray muons (Rossi–Hall, 1941) | Time dilation | Muons from ~15 km altitude reach the ground despite a 2.2 µs lifetime |
+| CERN muon storage ring (1977) | Time dilation at $\gamma \approx 29.3$ | Lifetime dilated from 2.2 µs to about 64 µs, as predicted, to ~0.1% |
+| Hafele–Keating (1971) | Combined kinematic and gravitational clock shifts | Agreement with predictions for flights east and west |
+| Optical atomic clocks (NIST, 2010) | Time dilation at everyday speeds | Detected at relative speeds below 10 m/s |
+| Particle accelerators | $E^2 = (pc)^2 + (mc^2)^2$, speed limit $c$ | Electrons at LEP reached $\gamma \sim 2 \times 10^5$ without exceeding $c$ |
+| Gamma-ray bursts, GW170817 | Energy-independence of $c$; speed of gravity | No dispersion found at Planck-scale sensitivity; gravitational waves travel at $c$ to $\sim 10^{-15}$ |
+
+Searches for small violations of Lorentz invariance, parametrized in the Standard-Model Extension, continue across atomic, nuclear, particle, and astrophysical systems; all results to date are null. Why such violations are expected in some quantum-gravity models is discussed in [Toward Quantum Gravity](quantum-gravity.html#experimental-situation).
+
+## Summary of Key Formulas
+
+| Quantity | Formula |
+|---|---|
+| Lorentz factor | $\gamma = 1/\sqrt{1 - v^2/c^2}$ |
+| Interval | $\Delta s^2 = -c^2\Delta t^2 + \Delta x^2 + \Delta y^2 + \Delta z^2$ |
+| Boost | $ct' = \gamma(ct - \beta x)$, $x' = \gamma(x - \beta ct)$ |
+| Time dilation | $\Delta t = \gamma\,\Delta\tau$ |
+| Length contraction | $L = L_0/\gamma$ |
+| Simultaneity offset | $\Delta t' = vL_0/c^2$ |
+| Velocity addition | $u = (v + w)/(1 + vw/c^2)$ |
+| Longitudinal Doppler | $f_{\text{obs}} = f_s\sqrt{(1+\beta)/(1-\beta)}$ (approaching) |
+| Energy, momentum | $E = \gamma mc^2$, $\mathbf{p} = \gamma m\mathbf{v}$, $E^2 = (pc)^2 + (mc^2)^2$ |
+| Kinetic energy | $K = (\gamma - 1)mc^2$ |
 
 ## See Also
 
-- [General Relativity](general-relativity.html) — the equivalence principle and the Einstein field equations.
-- [Graduate Formalism & Frontiers](advanced.html) — the Lorentz group, spinors, and the full tensor formalism.
+**Up:** [Relativity](./) — overview and navigation hub. **Next:** [General Relativity](general-relativity.html) — gravity as the curvature of spacetime.
+
+- [Tensor Formalism & the Field Equations](tensor-formalism.html) — the index notation and geometry used above, extended to curved spacetime.
+- [General Relativity](general-relativity.html) — the equivalence principle and Einstein's field equations.
+- [Graduate Formalism & Frontiers](advanced.html) — overview of the advanced relativity pages.
 - [Classical Mechanics](../classical-mechanics/) — the low-speed limit special relativity reduces to.
 - [Quantum Field Theory](../quantum-field-theory.html) — special relativity combined with quantum mechanics.

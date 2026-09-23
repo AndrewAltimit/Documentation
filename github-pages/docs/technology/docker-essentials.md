@@ -2,396 +2,389 @@
 layout: docs
 title: Docker Essentials
 permalink: /docs/technology/docker-essentials.html
-description: Quick reference guide for essential Docker commands and operations
+description: Task-organized reference for everyday Docker CLI and Compose commands — containers, images, Compose, networks, volumes, debugging and cleanup.
 toc: true
 toc_sticky: true
 hide_title: true
 ---
 
-<div class="hero-section" style="background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%); color: white; padding: 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
-  <h1 style="color: white; margin: 0; font-size: 2.25rem;">Docker Essentials</h1>
-  <p style="font-size: 1.1rem; margin-top: 0.5rem; opacity: 0.9;">Quick reference for container commands and operations</p>
-</div>
+# Docker Essentials
 
-A **command cheat sheet** — the Docker commands you reach for during daily development, grouped by task. It assumes you already know what containers are. For the concepts behind these commands, see [Docker Fundamentals](docker/fundamentals.html) (how images, layers, and the runtime work) and [Dockerfiles](docker/dockerfiles.html) / [Advanced Docker](docker/advanced.html) (building and optimizing your own images).
+This page is a task-organized reference for the Docker commands used in day-to-day development: running and managing containers, building and publishing images, multi-service applications with Compose, networking, storage, debugging and disk cleanup. It assumes you know what a container is. For the concepts behind the commands, see [Docker Fundamentals](docker/fundamentals.html); for writing and optimizing images, see [Dockerfiles](docker/dockerfiles.html) and [Advanced Docker](docker/advanced.html).
 
-### Jump to a task
+Commands reflect **Docker Engine 29** (current release line as of September 2026) with the Compose v2 plugin and the BuildKit builder, both of which are the defaults on current installations.
 
-<div class="command-grid">
-  <div class="command-card"><a href="#container-lifecycle"><b>Container Lifecycle</b></a><p>run, stop, exec, logs</p></div>
-  <div class="command-card"><a href="#image-management"><b>Images</b></a><p>build, pull, tag, push</p></div>
-  <div class="command-card"><a href="#docker-compose"><b>Compose</b></a><p>up, down, multi-service</p></div>
-  <div class="command-card"><a href="#networking"><b>Networking</b></a><p>networks &amp; volumes</p></div>
-  <div class="command-card"><a href="#debugging--troubleshooting"><b>Debugging</b></a><p>stats, inspect, top</p></div>
-  <div class="command-card"><a href="#system-maintenance"><b>Cleanup</b></a><p>prune &amp; disk usage</p></div>
-</div>
-
-### The mental model
+## Core concepts
 
 ```mermaid
 flowchart LR
-    DF["Dockerfile"] -->|docker build| IMG["Image<br/>(read-only template)"]
-    IMG -->|docker run| CON["Container<br/>(running instance)"]
-    REG[("Registry<br/>Docker Hub")] -->|docker pull| IMG
+    DF["Dockerfile<br/>+ build context"] -->|docker build| IMG["Image<br/>(read-only layers)"]
+    REG[("Registry<br/>Docker Hub, GHCR, ECR")] -->|docker pull| IMG
     IMG -->|docker push| REG
-    CON -->|docker commit| IMG
+    IMG -->|docker run| CON["Container<br/>(image + writable layer)"]
+    VOL[("Volume")] <-->|mounted into| CON
 ```
 
-A **Dockerfile** is a recipe; `docker build` turns it into an **image** (an immutable template); `docker run` starts a **container** (a live instance) from that image. Registries store and share images.
+| Object | What it is | Lifetime |
+|--------|------------|----------|
+| **Image** | An immutable stack of filesystem layers plus metadata (entrypoint, env, ports), identified by a content digest and referenced by `name:tag` | Until deleted; shared between containers |
+| **Container** | A running (or stopped) instance of an image: isolated processes with a thin writable layer on top | Writable layer is lost when the container is removed |
+| **Volume** | Storage managed by Docker, mounted into containers | Independent of any container |
+| **Network** | A virtual network that containers attach to | Independent of any container |
+| **Registry** | A server that stores and distributes images | External |
 
-## Container Lifecycle
+Anything a container writes outside a mounted volume disappears with `docker rm`. Treat containers as disposable and put state in volumes or external services.
 
-### Running Containers
+### Command forms
+
+Docker groups commands by object (`docker container ...`, `docker image ...`). The older top-level shortcuts remain supported and are what most people type; both forms appear below.
+
+| Shortcut | Full form |
+|----------|-----------|
+| `docker ps` | `docker container ls` |
+| `docker run` / `exec` / `logs` / `rm` | `docker container run` / `exec` / `logs` / `rm` |
+| `docker images` | `docker image ls` |
+| `docker rmi` | `docker image rm` |
+| `docker build` | `docker buildx build` (BuildKit) |
+
+## Containers
+
+### Running a container
 
 ```bash
-# Run a container from an image
-docker run <image>
-
-# Run in detached mode (background)
-docker run -d <image>
-
-# Run with interactive terminal
-docker run -it <image> /bin/bash
-
-# Run with port mapping (host:container)
-docker run -p 8080:80 <image>
-
-# Run with volume mount
-docker run -v /host/path:/container/path <image>
-
-# Run with environment variables
-docker run -e "ENV_VAR=value" <image>
-
-# Run with automatic removal when stopped
-docker run --rm <image>
-
-# Run with custom name
-docker run --name my-container <image>
+docker run <image>                          # run in the foreground
+docker run -d --name web -p 8080:80 nginx   # detached, named, port published
+docker run --rm -it ubuntu:24.04 bash       # interactive shell, deleted on exit
+docker run --rm -e LOG_LEVEL=debug --env-file .env <image>
+docker run -d --restart unless-stopped <image>
 ```
 
-These flags combine freely. The ones you will reach for constantly:
+| Flag | Effect | Typical use |
+|------|--------|-------------|
+| `-d` | Run detached in the background | Long-running services |
+| `-it` | Keep STDIN open and allocate a TTY | Shells and REPLs |
+| `--rm` | Remove the container when it exits | One-off and test containers |
+| `--name <name>` | Assign a stable name | Referring to it without the ID |
+| `-p host:container` | Publish a container port on the host | Exposing a web server; `-p 127.0.0.1:8080:80` binds to localhost only |
+| `-v src:dst` / `--mount` | Mount a volume or host directory | Persistent data, live-reloading source |
+| `-e KEY=value`, `--env-file` | Set environment variables | Configuration |
+| `--network <net>` | Attach to a network | Letting containers reach each other by name |
+| `--restart <policy>` | `no`, `on-failure[:N]`, `always`, `unless-stopped` | Services that should survive crashes and reboots |
+| `-u uid:gid` | Run as a specific user | Avoiding root; matching host file ownership |
+| `--memory 512m`, `--cpus 1.5` | Resource limits (cgroups) | Preventing one container from starving the host |
+| `--init` | Run a minimal init as PID 1 | Correct signal handling and zombie reaping |
+| `--read-only` | Make the root filesystem read-only | Hardening |
+| `--platform linux/amd64` | Choose an image architecture | Running amd64 images on arm64 hosts (emulated) |
 
-| Flag | Does | Typical use |
-|------|------|-------------|
-| `-d` | Detached (background) | Long-running services |
-| `-it` | Interactive + TTY | Shells and REPLs |
-| `-p host:container` | Publish a port | Expose a web server |
-| `-v host:container` | Mount a volume / bind dir | Persist data, live-reload code |
-| `-e KEY=value` | Set an environment variable | Config and secrets |
-| `--rm` | Auto-remove on exit | Throwaway/test containers |
-| `--name` | Assign a stable name | Reference without the ID |
+Arguments after the image name replace the image's default `CMD`; use `--entrypoint` to replace the `ENTRYPOINT`.
 
-A common all-in-one invocation: `docker run -d --rm --name web -p 8080:80 -e ENV=prod nginx`.
+### Lifecycle
 
-### Managing Containers
+A container moves through a small set of states, and most management commands are transitions between them:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Created: docker create
+    Created --> Running: docker start
+    [*] --> Running: docker run
+    Running --> Paused: docker pause
+    Paused --> Running: docker unpause
+    Running --> Exited: docker stop / process exits
+    Exited --> Running: docker start / restart policy
+    Exited --> [*]: docker rm
+    Running --> [*]: docker rm -f
+```
 
 ```bash
-# List running containers
-docker ps
-
-# List all containers (including stopped)
-docker ps -a
-
-# Stop a running container
-docker stop <container>
-
-# Start a stopped container
+docker ps                     # running containers
+docker ps -a                  # all containers, including exited
+docker stop <container>       # SIGTERM, then SIGKILL after 10 s (-t to change)
 docker start <container>
-
-# Restart a container
 docker restart <container>
-
-# Remove a container
-docker rm <container>
-
-# Remove all stopped containers
-docker container prune
-
-# Force remove running container
-docker rm -f <container>
+docker kill <container>       # SIGKILL immediately (or -s <signal>)
+docker rm <container>         # remove an exited container
+docker rm -f <container>      # stop and remove
+docker container prune        # remove all exited containers
 ```
 
-### Interacting with Containers
+`docker stop` sends `SIGTERM` to PID 1 in the container. If the application runs under a shell wrapper (`CMD npm start` in shell form) the signal may never reach it, and every stop waits the full timeout; use the exec form of `CMD` or `--init`.
+
+### Working inside a container
 
 ```bash
-# Execute command in running container
-docker exec <container> <command>
+docker exec -it <container> sh              # shell in a running container (bash if installed)
+docker exec <container> env                 # run a single command
+docker exec -u root -it <container> sh      # as a different user
 
-# Open interactive shell in container
-docker exec -it <container> /bin/bash
+docker logs <container>                     # stdout/stderr so far
+docker logs -f --tail 100 <container>       # follow, starting from the last 100 lines
+docker logs --since 10m -t <container>      # last 10 minutes, with timestamps
 
-# View container logs
-docker logs <container>
-
-# Follow logs in real-time
-docker logs -f <container>
-
-# Show last N lines of logs
-docker logs --tail 100 <container>
-
-# Copy files to/from container
-docker cp <container>:/path/to/file /local/path
-docker cp /local/file <container>:/path/to/file
+docker cp <container>:/etc/nginx/nginx.conf ./nginx.conf   # container to host
+docker cp ./site <container>:/usr/share/nginx/html        # host to container
 ```
 
-## Image Management
+## Images
 
-### Working with Images
+### Building
 
 ```bash
-# List local images
-docker images
+docker build -t myapp:1.4 .                         # build from ./Dockerfile
+docker build -t myapp:dev -f docker/Dockerfile.dev .
+docker build --target test -t myapp:test .          # stop at a named multi-stage stage
+docker build --build-arg VERSION=1.4 -t myapp:1.4 .
+docker build --secret id=npmrc,src=$HOME/.npmrc .   # secret available only during the build
+docker build --no-cache -t myapp:1.4 .              # ignore the layer cache
+docker build --pull -t myapp:1.4 .                  # re-pull base images first
 
-# Pull image from registry
-docker pull <image>:<tag>
-
-# Build image from Dockerfile
-docker build -t <name>:<tag> .
-
-# Build with no cache
-docker build --no-cache -t <name>:<tag> .
-
-# Tag an image
-docker tag <image> <new-name>:<tag>
-
-# Push image to registry
-docker push <image>:<tag>
-
-# Remove an image
-docker rmi <image>
-
-# Remove unused images
-docker image prune
-
-# Remove all unused images
-docker image prune -a
+# Multi-platform image, pushed directly to a registry
+docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/me/myapp:1.4 --push .
 ```
 
-### Inspecting Images
+The final `.` is the **build context**: the directory sent to the builder. Keep it small with a `.dockerignore` (exclude `.git`, `node_modules`, build output and secrets); it speeds builds and prevents files from leaking into images. Build secrets passed with `--secret` are mounted with `RUN --mount=type=secret,id=npmrc` and never stored in a layer, unlike `ARG` or `ENV`.
+
+Docker Desktop's `docker init` generates a starter `Dockerfile`, `.dockerignore` and `compose.yaml` for common languages.
+
+### Pulling, tagging and publishing
 
 ```bash
-# Show image details
-docker inspect <image>
-
-# Show image history/layers
-docker history <image>
-
-# Search Docker Hub
-docker search <term>
+docker pull postgres:18                      # tag
+docker pull nginx@sha256:<digest>            # exact, immutable content
+docker images                                # list local images
+docker tag myapp:1.4 ghcr.io/me/myapp:1.4    # add a registry-qualified name
+docker login ghcr.io
+docker push ghcr.io/me/myapp:1.4
+docker rmi myapp:1.4                         # remove a tag (and the image if unreferenced)
 ```
 
-## Docker Compose
+A tag such as `postgres:18` is a mutable pointer that the publisher can move; a digest (`@sha256:...`) always refers to the same bytes. Pin digests, or at least specific version tags, in production and CI; avoid `latest`.
 
-<div class="notice--info">
-  <p><strong><code>docker compose</code> vs <code>docker-compose</code>.</strong> Modern Docker ships Compose v2 as a plugin invoked with a space — <code>docker compose up</code>. The hyphenated <code>docker-compose</code> is the legacy v1 binary, now end-of-life. The commands below are interchangeable in syntax; prefer the spaced form on current installs.</p>
-</div>
-
-### Basic Operations
+### Inspecting
 
 ```bash
-# Start services defined in compose.yaml
-docker compose up
-
-# Start in detached mode
-docker compose up -d
-
-# Stop services
-docker compose down
-
-# Stop and remove volumes
-docker compose down -v
-
-# View service logs
-docker compose logs
-
-# Follow logs
-docker compose logs -f
-
-# List running services
-docker compose ps
+docker image inspect <image>                 # full metadata as JSON
+docker history <image>                       # layers and the instruction that created each
+docker image ls --digests                    # show content digests
+docker scout cves <image>                    # vulnerability scan (Docker Scout)
 ```
 
-### Service Management
+## Compose
+
+**Compose** runs multi-container applications described in a YAML file (`compose.yaml` by convention; `docker-compose.yml` is still recognised). Compose v2 is a CLI plugin invoked as `docker compose`; the standalone Python `docker-compose` v1 reached end of life in 2023. The top-level `version:` key is obsolete and only produces a warning; omit it.
+
+```yaml
+# compose.yaml
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8000"
+    environment:
+      DATABASE_URL: postgres://postgres:dev@db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy     # wait for the healthcheck, not just container start
+    develop:
+      watch:                           # used by `docker compose watch`
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: rebuild
+          path: requirements.txt
+
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_PASSWORD: dev
+    volumes:
+      - pgdata:/var/lib/postgresql     # PostgreSQL 18+ volume path
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgdata:
+```
+
+Compose creates a network for the project, and each service is reachable from the others by its service name (`db` above).
 
 ```bash
-# Build or rebuild services
-docker compose build
-
-# Force rebuild without cache
-docker compose build --no-cache
-
-# Scale a service
-docker compose up -d --scale web=3
-
-# Execute command in service
-docker compose exec <service> <command>
-
-# Run one-off command
-docker compose run <service> <command>
+docker compose up -d                 # create and start everything in the background
+docker compose up -d --build --wait  # rebuild images, wait until services are healthy
+docker compose watch                 # sync or rebuild on file changes (develop.watch)
+docker compose ps                    # service status
+docker compose logs -f web           # follow one service's logs
+docker compose exec db psql -U postgres
+docker compose run --rm web pytest   # one-off command in a new container
+docker compose up -d --scale web=3   # run several replicas (drop fixed host ports first)
+docker compose config                # print the fully resolved configuration
+docker compose down                  # stop and remove containers and networks
+docker compose down -v               # also remove named volumes (destroys data)
 ```
+
+Use `compose.override.yaml` (merged automatically) or `-f` with several files to layer development settings over a base file, and `profiles:` to keep optional services (debug tools, seed jobs) out of the default `up`.
 
 ## Networking
 
 ```bash
-# List networks
 docker network ls
-
-# Create a network
-docker network create <name>
-
-# Connect container to network
-docker network connect <network> <container>
-
-# Disconnect from network
-docker network disconnect <network> <container>
-
-# Inspect network
-docker network inspect <network>
-
-# Remove network
-docker network rm <network>
+docker network create appnet
+docker run -d --name api --network appnet myapi
+docker run --rm --network appnet curlimages/curl http://api:8000/health
+docker network connect appnet <container>
+docker network disconnect appnet <container>
+docker network inspect appnet
+docker network rm appnet
 ```
 
-## Volumes
+| Driver | Behaviour | Use for |
+|--------|-----------|---------|
+| `bridge` (default) | Private network on one host, NAT to the outside | Most single-host setups |
+| `host` | Shares the host's network stack; no isolation, no port mapping | Maximum network performance on Linux |
+| `none` | Loopback only | Fully isolated jobs |
+| `overlay` | Spans multiple Docker hosts (Swarm) | Multi-host services |
+| `macvlan` / `ipvlan` | Container gets an address on the physical LAN | Appliances that must look like LAN devices |
+
+Containers on a **user-defined** bridge network can resolve each other by container name through Docker's embedded DNS; containers on the default `bridge` network cannot. Create a network (or let Compose create one) whenever containers need to talk. See [Docker Networking](docker/docker-networking.html#default-bridge-vs-user-defined-bridge).
+
+## Storage
 
 ```bash
-# List volumes
+docker volume create pgdata
 docker volume ls
+docker volume inspect pgdata
+docker volume rm pgdata
+docker volume prune              # unused anonymous volumes
+docker volume prune -a           # unused named volumes too
 
-# Create a volume
-docker volume create <name>
-
-# Inspect volume
-docker volume inspect <name>
-
-# Remove volume
-docker volume rm <name>
-
-# Remove unused volumes
-docker volume prune
+# Named volume (Docker-managed) vs bind mount (host path)
+docker run -v pgdata:/var/lib/postgresql postgres:18
+docker run -v "$PWD":/app -w /app node:24 npm test
+docker run --mount type=bind,src="$PWD",dst=/app,readonly node:24 ls /app
+docker run --mount type=tmpfs,dst=/tmp <image>
 ```
 
-## System Maintenance
+| Type | Data lives | Best for |
+|------|------------|----------|
+| **Named volume** | Docker's storage area (`/var/lib/docker/volumes` on Linux) | Databases and any persistent service data |
+| **Bind mount** | An existing host path | Source code during development, config files |
+| **tmpfs** | Host memory only | Scratch space and secrets that must not touch disk |
+
+`-v` creates a missing host directory silently; `--mount` fails instead, which catches typos. Back up a volume by mounting it into a throwaway container: `docker run --rm -v pgdata:/data -v "$PWD":/backup alpine tar czf /backup/pgdata.tgz -C /data .` (stop the database first, or use its own dump tool). See [Docker Storage & Security](docker/storage-security.html).
+
+## Debugging
 
 ```bash
-# Show disk usage
-docker system df
-
-# Show detailed disk usage
-docker system df -v
-
-# Remove all unused resources
-docker system prune
-
-# Remove everything including volumes
-docker system prune -a --volumes
-
-# Show system-wide information
-docker info
-
-# Show Docker version
-docker version
+docker stats                            # live CPU, memory, network, I/O per container
+docker top <container>                  # processes inside the container
+docker inspect <container>              # full configuration and state as JSON
+docker port <container>                 # published port mappings
+docker diff <container>                 # files changed in the writable layer
+docker events --since 30m               # daemon events: starts, dies, OOM kills
 ```
 
-## Debugging & Troubleshooting
+{% raw %}
+```bash
+# Extract single fields with Go templates
+docker inspect -f '{{.State.Status}} {{.State.ExitCode}} {{.State.OOMKilled}}' <container>
+docker inspect -f '{{json .NetworkSettings.Networks}}' <container>
+docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+```
+{% endraw %}
+
+| Symptom | First checks |
+|---------|--------------|
+| Container exits immediately | `docker logs <c>`; `docker ps -a` for the exit code. A detached container needs a foreground process. |
+| Exit code 137 | Killed by `SIGKILL`: check `OOMKilled` in `docker inspect`, then raise `--memory` or fix the leak |
+| Port not reachable | `docker port <c>`; confirm the app listens on `0.0.0.0`, not `127.0.0.1`, inside the container |
+| Containers cannot reach each other | Same user-defined network? Use the container or service name, not `localhost` |
+| Permission denied on a bind mount | UID mismatch between container user and host files; run with `-u "$(id -u):$(id -g)"` |
+| Image has no shell (distroless, scratch) | Attach a tools container to its namespaces: `docker run --rm -it --network container:<c> --pid container:<c> nicolaka/netshoot` |
+
+## Disk cleanup
+
+Images, stopped containers and build cache accumulate quickly. `docker system df` shows where the space went.
+
+| Command | Removes |
+|---------|---------|
+| `docker container prune` | Stopped containers |
+| `docker image prune` | Dangling images (untagged layers left behind by rebuilds) |
+| `docker image prune -a` | Every image not used by a container |
+| `docker volume prune` | Unused anonymous volumes (add `-a` for named volumes) |
+| `docker builder prune` | BuildKit build cache |
+| `docker system prune` | Stopped containers, unused networks, dangling images and build cache |
+| `docker system prune -a --volumes` | All of the above plus every unused image and unused anonymous volumes |
 
 ```bash
-# View container resource usage
-docker stats
-
-# View resource usage for specific containers
-docker stats <container1> <container2>
-
-# Inspect container details
-docker inspect <container>
-
-# View container processes
-docker top <container>
-
-# Show container port mappings
-docker port <container>
-
-# View container changes (filesystem diff)
-docker diff <container>
+docker system df -v                          # detailed usage
+docker container prune --filter "until=24h"  # only containers stopped over a day ago
+docker image prune -a --filter "until=168h"  # unused images older than a week
 ```
 
-## Common Patterns
+Volume pruning deletes data permanently. Check `docker volume ls` before adding `--volumes` or `-a`.
 
-### Development Environment
-
-```bash
-# Run with live code reload (mount source directory)
-docker run -v $(pwd):/app -w /app node:18 npm run dev
-
-# Run database for development
-docker run -d \
-  --name postgres-dev \
-  -e POSTGRES_PASSWORD=devpass \
-  -p 5432:5432 \
-  postgres:15
-```
-
-### Quick Testing
+## Common recipes
 
 ```bash
-# Run temporary container for testing
+# Throwaway shells and runtimes
 docker run --rm -it alpine sh
+docker run --rm -it -v "$PWD":/work -w /work python:3.14 python
+docker run --rm -v "$PWD":/app -w /app node:24 npm run build
 
-# Test network connectivity from container
-docker run --rm alpine ping -c 4 google.com
+# Local PostgreSQL for development
+docker run -d --name pg -e POSTGRES_PASSWORD=dev \
+  -p 127.0.0.1:5432:5432 -v pgdata:/var/lib/postgresql postgres:18
 
-# Quick Python environment
-docker run --rm -it -v $(pwd):/work -w /work python:3.11 python
+# Network checks from inside the Docker network
+docker run --rm --network appnet nicolaka/netshoot dig api
+docker run --rm curlimages/curl -sI https://example.com
+
+# Which image and command is a container running?
+docker inspect -f '{% raw %}{{.Config.Image}} {{.Config.Cmd}}{% endraw %}' <container>
 ```
 
-### Cleanup Commands
+## Recent changes to be aware of
 
-```bash
-# Remove all stopped containers, unused networks, and dangling images
-docker system prune
+| Change | Since | Effect |
+|--------|-------|--------|
+| BuildKit is the default builder; `docker build` runs via Buildx | Engine 23.0 | Parallel stages, cache mounts, build secrets |
+| `docker volume prune` skips named volumes unless `-a` is given | Engine 23.0 | Safer default cleanup |
+| Compose v1 (`docker-compose`) end of life | 2023 | Use `docker compose` |
+| containerd image store is the default for new installations | Engine 29.0 | Native multi-platform images and attestations in the local store |
+| Docker Content Trust (`DOCKER_CONTENT_TRUST`) removed from the CLI | Engine 29.0 | Use Sigstore/cosign or Notation for image signing |
+| cgroup v1 deprecated | Engine 29.0 | Hosts should run cgroup v2 (default on current Linux distributions) |
 
-# Full cleanup (includes unused images and volumes)
-docker system prune -a --volumes
-
-# Remove containers older than 24h
-docker container prune --filter "until=24h"
-```
-
----
-
-## Quick Reference Card
+## Quick reference
 
 | Task | Command |
 |------|---------|
-| Run container | `docker run <image>` |
-| Run interactive | `docker run -it <image> bash` |
+| Run a service in the background | `docker run -d --name web -p 8080:80 nginx` |
+| Interactive throwaway shell | `docker run --rm -it alpine sh` |
 | List containers | `docker ps -a` |
-| Stop container | `docker stop <container>` |
-| Remove container | `docker rm <container>` |
-| View logs | `docker logs <container>` |
-| Execute command | `docker exec -it <container> bash` |
-| List images | `docker images` |
-| Build image | `docker build -t <name> .` |
-| Pull image | `docker pull <image>` |
-| Compose up | `docker compose up -d` |
-| Compose down | `docker compose down` |
-| System cleanup | `docker system prune -a` |
+| Shell into a running container | `docker exec -it <c> sh` |
+| Follow logs | `docker logs -f <c>` |
+| Stop and remove | `docker rm -f <c>` |
+| Build and tag | `docker build -t <name>:<tag> .` |
+| Push | `docker push <registry>/<name>:<tag>` |
+| Start a Compose app | `docker compose up -d` |
+| Tear down a Compose app | `docker compose down` |
+| Disk usage | `docker system df` |
+| Reclaim space | `docker system prune` |
 
----
+## See also
 
-## Key Takeaways
+- [Docker Fundamentals](docker/fundamentals.html) — images, layers, namespaces and the container runtime
+- [Dockerfiles](docker/dockerfiles.html) — writing and optimizing images
+- [Advanced Docker](docker/advanced.html) — multi-stage builds, BuildKit and orchestration
+- [Docker Networking](docker/docker-networking.html) — bridge, overlay and DNS in depth
+- [Docker Storage & Security](docker/storage-security.html) — volumes and container hardening
+- [Kubernetes](kubernetes/) — orchestrating containers at scale
+- [CI/CD](ci-cd/) — building and shipping images in pipelines
 
-- **Build → run → ship:** `docker build` makes images, `docker run` starts containers, `push`/`pull` move images through a registry.
-- Use `-d` for background, `-it` for an interactive shell, `-p` to publish ports, `-v` to mount volumes.
-- `docker compose up -d` manages multi-container apps from a single YAML file.
-- Reclaim disk with `docker system prune` — add `-a --volumes` for an aggressive cleanup.
-- Debug live containers with `logs -f`, `exec -it ... bash`, `stats`, and `inspect`.
+## References
 
-## See Also
-
-- [Docker Fundamentals](docker/fundamentals.html) — core concepts and architecture explained
-- [Docker Storage & Security](docker/storage-security.html) — volumes, networking, and security best practices
-- [Dockerfiles Guide](docker/dockerfiles.html) — building custom images
-- [Advanced Docker](docker/advanced.html) — multi-stage builds, optimization, and orchestration
-- [Kubernetes](kubernetes/) — container orchestration at scale
-- [CI/CD](ci-cd/) — automating Docker workflows in pipelines
+- [Docker CLI reference](https://docs.docker.com/reference/cli/docker/)
+- [Compose file reference](https://docs.docker.com/reference/compose-file/)
+- [Docker Engine release notes](https://docs.docker.com/engine/release-notes/)
+- [Docker build documentation](https://docs.docker.com/build/)

@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: Git Branching Strategies
+description: "Comparison of GitHub Flow, GitLab Flow, Git Flow and trunk-based development, with commit graphs, a decision guide, and merge versus rebase."
 permalink: /docs/technology/branching.html
 toc: true
 toc_sticky: true
@@ -11,171 +12,167 @@ section: technology
 
 [Technology](./) &raquo; Git Branching Strategies
 
-A branching strategy answers a deceptively simple question: where does work-in-progress live before it ships, and how does it get to production safely? Pick the wrong one and you get merge hell, "it works on my branch" surprises, and release-day panic; pick well and integration becomes routine. This guide compares the four widely adopted approaches, shows each as a commit graph, and gives you a decision matrix for choosing one.
+A **branching strategy** is a team's convention for where unfinished work lives and how it reaches production. It determines how often code is integrated, how releases are cut, and how fixes reach versions already shipped. This page compares the four widely used strategies (GitHub Flow, GitLab Flow, Git Flow and trunk-based development), shows each as a commit graph, and covers the integration choices they share: merge, squash or rebase, and how to rewrite history safely.
 
-This page is about **team workflow** — how a group structures branches and releases. For the *mechanics* of branching commands, see the [Git Command Reference](git-reference.html); for a first walkthrough, the [Git Crash Course](git-crash-course.html); for how branches work internally, [Git Version Control](git/). For feature flags, branch protection, release branching, and other production patterns, see [Advanced Branching Techniques](advanced-branching-techniques.html).
+This page is about team workflow. For command syntax see the [Git Command Reference](git-reference.html); for a first walkthrough, the [Git Crash Course](git-crash-course.html); for how branches work internally, [Git Version Control](git/). Feature flags, branch protection, release branches and semantic versioning are covered in [Advanced Branching Techniques](advanced-branching-techniques.html).
 
-### At a glance
+## Overview
 
-| Strategy | Long-lived branches | Release model | Complexity | Best fit |
-|----------|--------------------|--------------|------------|----------|
-| GitHub Flow | `main` only | Continuous / frequent | Low | Web apps, SaaS, small–mid teams |
-| GitLab Flow | `main` + env branches | Per-environment | Medium | Teams needing staging/prod gates |
-| Git Flow | `main` + `develop` | Scheduled, versioned | High | Versioned/enterprise software |
-| Trunk-based | `main` only | Continuous | Low | High-velocity teams, strong CI |
+Every strategy is a trade-off between two costs. **Integration cost** grows with the time a branch lives apart from the mainline: the longer two lines of work diverge, the larger and riskier the eventual merge. **Release control** is the ability to stabilize, version and patch specific releases independently of ongoing development. Long-lived branches buy release control and pay for it in integration cost.
 
-A good branching strategy minimizes the complexity of managing multiple long-lived branches. It promotes collaboration and continuous integration by encouraging developers to merge changes into the mainline frequently — which means fewer merge conflicts and faster feedback on new features and bug fixes. The four strategies below trade simplicity for control in different ways; they are ordered by increasing ceremony, from the lightweight GitHub Flow to the highly structured Git Flow and the discipline-heavy trunk-based model.
+| | GitHub Flow | GitLab Flow | Git Flow | Trunk-based |
+|---|---|---|---|---|
+| Long-lived branches | `main` | `main` plus environment or release branches | `main` and `develop` | `main` (plus short-lived release branches, optionally) |
+| Typical branch lifetime | Hours to days | Hours to days | Days to weeks | Hours; at most a day or two |
+| Release model | Deploy on merge | Promote through environments, or maintain versioned branches | Scheduled, versioned releases | Continuous, from the trunk |
+| Supports multiple versions in production | No | Yes (release branches) | Yes | Via release branches cut from trunk |
+| Ceremony | Low | Medium | High | Low process, high engineering discipline |
+| Prerequisites | CI on pull requests | CI plus deployment pipeline per environment | Release management | Fast, reliable CI; feature flags; often a merge queue |
+| Typical fit | Web apps and SaaS | Staged deployments, regulated environments, on-premises products | Installable or embedded software with supported versions | High-velocity teams, monorepos |
 
-## Choosing the Right Strategy
+## Choosing a strategy
 
-Before working through the four workflows, here is the decision you are actually making. The matrix below maps team and project characteristics onto the strategies; the considerations after it explain which factors should weigh most.
+The deciding questions are how you release and how many versions you support, not team size alone.
 
-### Decision Matrix
+```mermaid
+flowchart TD
+    Q1{"Do you support several<br/>released versions at once?<br/>(installable software, firmware, LTS)"}
+    Q1 -- Yes --> Q2{"Is the release process<br/>scheduled and heavyweight?"}
+    Q2 -- Yes --> GF["Git Flow<br/>(or trunk + release branches)"]
+    Q2 -- No --> GLR["GitLab Flow with<br/>release branches"]
+    Q1 -- No --> Q3{"Must changes pass through<br/>gated environments<br/>(staging, pre-prod) on a schedule?"}
+    Q3 -- Yes --> GLE["GitLab Flow with<br/>environment branches"]
+    Q3 -- No --> Q4{"Is CI fast and trusted,<br/>and are feature flags available?"}
+    Q4 -- Yes --> TBD["Trunk-based development"]
+    Q4 -- No --> GHF["GitHub Flow"]
+```
 
-| Factor | GitHub Flow | GitLab Flow | Git Flow | Trunk-Based |
-|--------|-------------|-------------|----------|-------------|
-| Team Size | Any | Any | Large | Small |
-| Release Frequency | Frequent | Variable | Scheduled | Continuous |
-| Complexity | Low | Medium | High | Low |
-| Environment Count | 1-2 | Multiple | Multiple | 1-2 |
-| Rollback Ease | Moderate | Easy | Easy | Moderate |
+Further considerations:
 
-### Key Considerations
+- **Deployment frequency.** Continuous deployment favors GitHub Flow or trunk-based development. Discrete, scheduled releases favor Git Flow or GitLab Flow with release branches.
+- **Audit and compliance.** Environment or release branches give a direct record of what was deployed where. The same record can come from signed tags and deployment logs, so regulation does not by itself require Git Flow.
+- **Test confidence.** Trunk-based development depends on CI catching regressions before merge. Without that, merging many times a day to a shared branch spreads breakage quickly.
+- **Team size.** Large teams on one trunk need automation (merge queues, code owners, fast builds) more than they need extra branches. Google and Meta run some of the largest trunk-based monorepos.
 
-1. **Deployment frequency**: How often do you release? Continuous deployment pushes you toward GitHub Flow or trunk-based; discrete, scheduled releases favor Git Flow.
-2. **Team size**: Larger teams may need more structure (and the explicit `develop`/`release` lanes Git Flow provides) to coordinate.
-3. **Project complexity**: Complex projects with several environments benefit from the environment branches of GitLab Flow.
-4. **Regulatory requirements**: Some industries need strict, auditable version control and supported back-versions — a strong argument for Git Flow.
-5. **Customer expectations**: Enterprise software with installable, versioned releases differs sharply from a consumer web app that deploys many times a day.
-
-**The short version:** Default to **GitHub Flow** — one always-deployable `main` and short-lived feature branches covers most teams. Add **environment branches (GitLab Flow)** when you need explicit staging/prod gates, reach for **Git Flow** only when you genuinely ship discrete versioned releases, and adopt **trunk-based** when you have the CI and discipline to integrate many times a day.
+**Default recommendation:** start with GitHub Flow. Move toward trunk-based development as CI and feature flagging mature; add environment or release branches (GitLab Flow) when you need staged promotion or supported versions; use Git Flow only when you genuinely ship versioned releases on a schedule.
 
 ## GitHub Flow
 
-GitHub Flow is the lightweight default: one permanent branch — `main`, which is always deployable — and every change goes through a short-lived feature branch and a pull request. It is the default for most web apps, SaaS products, and small-to-medium teams that deploy frequently.
-
-The one rule that matters: **`main` is always deployable.** Anything merged should be safe to ship immediately.
+GitHub Flow has one long-lived branch, `main`, which is always deployable. Every change is made on a short-lived branch and merged through a pull request after review and CI.
 
 ```mermaid
 gitGraph
-    commit
-    branch feature/a
-    checkout feature/a
-    commit
+    commit id: "init"
+    branch feature/login
+    checkout feature/login
+    commit id: "add form"
+    commit id: "add tests"
     checkout main
-    merge feature/a
-    branch feature/b
-    checkout feature/b
-    commit
+    merge feature/login id: "PR #12"
+    branch fix/typo
+    checkout fix/typo
+    commit id: "fix copy"
     checkout main
-    merge feature/b
-    commit
+    merge fix/typo id: "PR #13"
+    commit id: "deploy"
 ```
 
-### Steps in GitHub Flow
+The steps, as GitHub documents them:
 
-1. **Create a branch from main**
-   ```bash
-   git checkout -b feature/add-user-authentication
-   ```
+1. **Create a branch** from `main` with a short, descriptive name.
+2. **Make changes**, committing and pushing to the branch.
+3. **Open a pull request** to request review; CI runs on every push.
+4. **Address review comments** with further commits.
+5. **Merge** the pull request once approved and green. Many teams deploy automatically on merge; some deploy the branch to a staging or preview environment first.
+6. **Delete the branch.**
 
-2. **Make changes and commit**
-   ```bash
-   git add .
-   git commit -m "Add user authentication"
-   ```
+```bash
+git switch main && git pull
+git switch -c feature/add-user-authentication
+# ...edit, then:
+git add -p
+git commit -m "Add user authentication"
+git push -u origin feature/add-user-authentication
+# open the pull request, e.g. with the GitHub CLI:
+gh pr create --fill
+```
 
-3. **Push to remote**
-   ```bash
-   git push origin feature/add-user-authentication
-   ```
+**Practices that make it work:**
 
-4. **Open a Pull Request** — triggers discussion, code review, and automated tests.
-
-5. **Deploy for testing** — many teams deploy the branch to a staging environment.
-
-6. **Merge to main** — after approval and successful tests, merge and (often) auto-deploy to production.
-
-### Best Practices for GitHub Flow
-
-- **Descriptive branch names**: Use prefixes like `feature/`, `fix/`, `chore/`.
-- **Small, focused PRs**: Easier to review and less likely to cause conflicts.
-- **Automated testing**: Essential for maintaining main branch stability.
-- **Deploy immediately**: After merging, deploy to production.
+- Keep pull requests small and focused; review quality drops sharply with size.
+- Protect `main` with required reviews and required status checks, so nothing merges without CI passing (see [branch protection](advanced-branching-techniques.html#branch-protection-and-rulesets)).
+- Use prefixes such as `feature/`, `fix/` and `chore/` so branch lists stay readable.
+- Deploy soon after merging, so the change that broke production is easy to identify.
 
 ## GitLab Flow
 
-GitLab Flow combines aspects of GitHub Flow and Git Flow with the concept of **environment branches**. This approach has gained popularity as organizations adopt GitOps practices, because each long-lived branch maps to a deployed environment and code is promoted, not re-built, as it passes each gate.
+GitLab Flow adds long-lived **downstream branches** to GitHub Flow for teams that cannot deploy every merge straight to production. It has two forms, and teams use whichever matches their release model.
 
-### Environment Branches
+### Environment branches
 
-Changes flow in one direction ("upstream first") — merged into `main`, then promoted into each environment branch as it passes its gate:
+Each long-lived branch represents a deployment environment. Changes are merged to `main` first, then promoted by merging `main` into `staging`, and `staging` into `production`, each merge triggering that environment's deployment.
 
 ```mermaid
-flowchart LR
-    F["feature branch"] -->|merge request| MAIN["main"]
-    MAIN -->|deploy + verify| STG["staging"]
-    STG -->|promote when green| PROD["production"]
+gitGraph
+    commit id: "A"
+    branch staging
+    branch production
+    checkout main
+    commit id: "B"
+    commit id: "C"
+    checkout staging
+    merge main id: "promote B,C"
+    checkout main
+    commit id: "D"
+    checkout production
+    merge staging id: "release B,C"
+    checkout staging
+    merge main id: "promote D"
 ```
 
-### GitLab Flow Principles
+```bash
+# Feature work goes through a merge request into main, as in GitHub Flow.
+# Promotion is a merge in one direction only:
+git switch staging    && git merge --no-ff main    && git push
+git switch production && git merge --no-ff staging && git push
+```
 
-1. **Upstream first**: Changes flow in one direction — fixes land in `main` before being promoted downstream.
-2. **Feature branches**: All changes start in feature branches.
-3. **Merge requests**: Code review before merging.
-4. **Environment branches**: Long-lived branches represent deployment environments.
+A caution on this form: merging into an environment branch usually triggers a *new build* from that branch, so the artifact tested in staging is not byte-for-byte the one deployed to production. Many teams practicing GitOps therefore keep a single `main` branch, build each commit once, and promote the resulting image tag or release through environments by updating deployment configuration (see [CI/CD](ci-cd/)). Environment branches remain useful where each environment genuinely has its own deployment trigger and audit trail.
 
-### Implementation Example
+### Release branches
+
+For software shipped to customers, long-lived branches represent released versions (`2-3-stable`, `2-4-stable`). A release branch is cut from `main` when a version is ready; after that it receives only bug fixes.
+
+### Upstream first
+
+In both forms, changes flow in one direction. A bug fix is merged to `main` first and then cherry-picked or merged into the downstream branches. Fixing only the release or production branch risks the bug reappearing in the next release.
 
 ```bash
-# Create feature branch
-git checkout -b feature/payment-integration
-
-# Work on feature
-git add .
-git commit -m "Add payment integration"
-
-# Push and create merge request
-git push origin feature/payment-integration
-
-# After approval, merge to main
-git checkout main
-git merge --no-ff feature/payment-integration
-
-# Promote to staging
-git checkout staging
-git merge --no-ff main
-
-# After testing, promote to production
-git checkout production
-git merge --no-ff staging
+# The fix was merged to main as commit abc1234; backport it to a release branch
+git switch 2-4-stable
+git cherry-pick -x abc1234   # -x records the original commit hash in the message
 ```
 
 ## Git Flow
 
-Git Flow, designed by Vincent Driessen in 2010, sits at the structured end of the spectrum. Instead of one mainline, it maintains two permanent branches and three kinds of temporary ones, each with strict rules for where it branches from and merges back to. That structure buys explicit control over versioned releases — at the cost of significant overhead.
-
-<div class="notice--info">
-  <p><strong>Read this before adopting Git Flow.</strong> Even its author now recommends a simpler model for teams shipping continuously: "if your team is doing continuous delivery of software, I suggest to adopt a much simpler workflow." Git Flow earns its complexity only when you genuinely ship discrete, versioned releases (think installable products, firmware, or multiple supported versions in the field) — not for a web app or SaaS that deploys many times a day.</p>
-</div>
-
-### Branch Types in Git Flow
+Git Flow, described by Vincent Driessen in 2010, uses two permanent branches (`main` for released code and `develop` for integration) and three kinds of supporting branches, each with fixed rules for where it starts and where it merges.
 
 ```mermaid
 gitGraph
-    commit
+    commit id: "v0.9" tag: "v0.9"
     branch develop
     checkout develop
-    commit
+    commit id: "dev work"
     branch feature/login
     checkout feature/login
-    commit
-    commit
+    commit id: "login 1"
+    commit id: "login 2"
     checkout develop
     merge feature/login
     branch release/1.0
     checkout release/1.0
-    commit tag: "rc"
+    commit id: "bump version"
+    commit id: "rc fix"
     checkout main
     merge release/1.0 tag: "v1.0"
     checkout develop
@@ -183,7 +180,7 @@ gitGraph
     checkout main
     branch hotfix/1.0.1
     checkout hotfix/1.0.1
-    commit
+    commit id: "urgent fix"
     checkout main
     merge hotfix/1.0.1 tag: "v1.0.1"
     checkout develop
@@ -192,143 +189,196 @@ gitGraph
 
 | Branch | Lifetime | Branches from | Merges into | Purpose |
 |--------|----------|---------------|-------------|---------|
-| `main` | Permanent | — | — | Tagged, production-ready releases only |
-| `develop` | Permanent | `main` | — | Integration line for completed features |
-| `feature/*` | Temporary | `develop` | `develop` | One new feature each |
-| `release/*` | Temporary | `develop` | `main` + `develop` | Stabilize and version a release |
-| `hotfix/*` | Temporary | `main` | `main` + `develop` | Emergency fix to production |
+| `main` | Permanent | (root) | (none) | Released code only; every commit is a tagged release |
+| `develop` | Permanent | `main` | (none) | Integration line for completed features |
+| `feature/*` | Temporary | `develop` | `develop` | One feature each |
+| `release/*` | Temporary | `develop` | `main` and `develop` | Stabilize a release: version bump, fixes, no new features |
+| `hotfix/*` | Temporary | `main` | `main` and `develop` (or the open release branch) | Urgent fix to the released version |
 
-### Git Flow Commands
+Driessen added a note to the original article in 2020 recommending a simpler workflow such as GitHub Flow for teams doing continuous delivery of web software, and reserving Git Flow for software that is explicitly versioned or must support multiple versions in the wild. Its costs are real: features wait in `develop` until the next release, `develop` and `main` can drift, and every hotfix must be merged twice.
 
-The [`git-flow`](https://github.com/nvie/gitflow) helper wraps the underlying branch/merge/tag steps into higher-level commands (install it separately; it is not part of core Git):
+### Tooling
+
+The `git flow` commands are provided by an extension, not by Git itself. The original `nvie/gitflow` scripts and the widely used `git-flow-avh` fork are no longer maintained. **git-flow-next**, a Go reimplementation maintained by the makers of the Tower Git client, keeps the same command set.
 
 ```bash
-# Initialize Git Flow
-git flow init
-
-# Start / finish a feature
-git flow feature start feature-name
-git flow feature finish feature-name
-
-# Start / finish a release
-git flow release start 1.0.0
-git flow release finish 1.0.0
-
-# Start / finish a hotfix
-git flow hotfix start fix-critical-bug
-git flow hotfix finish fix-critical-bug
+git flow init                          # choose branch names and prefixes
+git flow feature start login           # branch feature/login from develop
+git flow feature finish login          # merge into develop, delete branch
+git flow release start 1.0.0           # branch release/1.0.0 from develop
+git flow release finish 1.0.0          # merge into main and develop, tag v1.0.0
+git flow hotfix start 1.0.1            # branch hotfix/1.0.1 from main
+git flow hotfix finish 1.0.1           # merge into main and develop, tag
 ```
 
-### When to Use Git Flow
+The extension is a convenience. `release finish`, for example, is equivalent to:
 
-**Best for:** large teams with scheduled releases; projects requiring multiple versions in production; enterprise software with strict release cycles.
+```bash
+git switch main    && git merge --no-ff release/1.0.0
+git tag -a v1.0.0 -m "Release 1.0.0"
+git switch develop && git merge --no-ff release/1.0.0
+git branch -d release/1.0.0
+```
 
-**Not ideal for:** continuous deployment environments; small teams or projects; web applications that need rapid updates.
+## Trunk-based development
 
-## Trunk-Based Development
-
-In trunk-based development, everyone integrates into a single shared branch — the *trunk* (usually `main`) — at least once a day. Work still happens on branches, but they live for hours, not weeks: a developer cuts a tiny branch from the latest `main`, opens a pull request, and merges back the same day. The bet is that many small, frequent integrations are far cheaper than a few large, painful ones. It looks simple, but it demands the most discipline of the four.
+In trunk-based development, all developers integrate into one shared branch, the **trunk** (usually `main`), at least daily. Small teams may commit to the trunk directly; most teams use short-lived branches and pull requests that merge within hours. The premise is that many small integrations are cheaper than a few large ones: when nobody's work diverges far from the trunk, conflicts stay small.
 
 ```mermaid
 gitGraph
-    commit
+    commit id: "A"
     branch task/a
     checkout task/a
-    commit
+    commit id: "a1"
     checkout main
     merge task/a
     branch task/b
     checkout task/b
-    commit
+    commit id: "b1"
     checkout main
     merge task/b
-    commit
+    branch release/2.4
+    checkout release/2.4
+    commit id: "cherry-pick fix" tag: "v2.4.1"
+    checkout main
+    commit id: "C"
     branch task/c
     checkout task/c
-    commit
+    commit id: "c1"
     checkout main
     merge task/c
 ```
 
-**Why it works:** the single biggest source of merge pain is *divergence over time*. By keeping branches short-lived and merging into one trunk continuously, you keep every developer working against nearly the same code — so conflicts are small and frequent rather than large and rare. It is the default model at Google, Meta, and most high-velocity CI teams.
+Releases are either made continuously from the trunk, or cut as **release branches** that receive only cherry-picked fixes (fixed on the trunk first) and are never merged back. That is how trunk-based teams support a released version without a `develop` branch.
 
-### The Workflow
+### Workflow
 
-1. **Sync** — pull the latest `main` before starting (`git pull --rebase origin main`).
-2. **Branch small** — cut a short-lived branch for one task: `git switch -c task/cart-totals`.
-3. **Build and commit** — make focused commits with clear messages.
-4. **Re-sync often** — rebase onto `main` regularly so you never drift far.
-5. **Review** — open a pull request; let CI run the test suite automatically.
-6. **Merge and delete** — once green and approved, merge into `main` and delete the branch the same day.
+1. Update from the trunk: `git switch main && git pull --rebase`.
+2. Branch for one small task: `git switch -c task/cart-totals`.
+3. Commit in small steps, rebasing onto `main` if the branch lives more than a few hours.
+4. Open a pull request; CI runs the full test suite.
+5. Merge when green and approved, the same day if possible, and delete the branch.
 
-| What it buys you | What it demands |
-|------------------|-----------------|
-| Tiny, low-risk merges — conflicts stay small | A strong, fast automated test suite — the trunk must stay green |
-| A continuously releasable mainline | Discipline: commit often, branches measured in hours |
-| Fast feedback; less code drift and technical debt | Feature flags to hide work-in-progress behind a switch |
-| A simple model with no long-lived branches to track | Good communication so parallel work does not collide |
+### Requirements
+
+| Practice | Why it is needed |
+|----------|------------------|
+| Fast, reliable automated tests | The trunk must stay releasable; a flaky or slow suite either blocks everyone or gets ignored |
+| Feature flags | Unfinished features merge behind a disabled flag instead of waiting on a branch (see [feature flags](advanced-branching-techniques.html#feature-flags-with-branching)) |
+| Branch by abstraction | Large refactors proceed incrementally behind an interface, keeping the trunk working at each step |
+| Merge queue | On a busy trunk, two individually green pull requests can break the build together; a queue tests each change against the latest trunk plus the changes ahead of it before merging |
+| Small changes | Reviews stay fast enough to merge the same day |
+
+GitHub's merge queue and GitLab's merge trains are built-in implementations of the merge-queue pattern. On GitHub, workflows must also trigger on the `merge_group` event to run for queued changes.
 
 <div class="notice--warning">
-  <p><strong>The failure mode is the long-lived branch.</strong> The moment a branch lives for weeks, you forfeit every benefit above and re-create merge hell. If a feature is too big to land in a day, hide the unfinished parts behind a <a href="advanced-branching-techniques.html#feature-flags-with-branching">feature flag</a> and keep merging the pieces.</p>
+  <p><strong>The failure mode is the long-lived branch.</strong> A branch that lives for weeks reintroduces the large, risky merges that trunk-based development exists to avoid. If a feature cannot land in a day or two, split it and hide the incomplete parts behind a feature flag.</p>
 </div>
+
+### Stacked changes
+
+A common complement to trunk-based development is to split a large change into a **stack** of small, dependent pull requests, each branched from the one below it, so reviewers see small diffs while the author keeps working. Gerrit and Meta's Sapling are built around this model, and tools such as Graphite and ghstack add it on top of GitHub. Plain Git supports it with `git rebase --update-refs` (Git 2.38 and later), which moves every branch in the stack when the bottom one is rebased.
 
 ## Integrating: Merge vs. Rebase
 
-Whichever strategy you pick, you eventually have to fold one branch into another, and Git offers two very different ways to do it. The difference is concrete: **rebase rewrites commits, giving them new hashes; merge preserves them and adds a merge commit.** Picture a `feature` branch with two commits that started from `main` at commit `a1b1c1`, while `main` has since gained a commit `d4e5f6`:
+Whichever strategy you choose, branches are eventually combined, and there are three ways to do it. The key difference: **merge preserves existing commits and adds a merge commit; rebase and squash create new commits with new hashes.**
 
-```
-main:     a1b1c1 ── d4e5f6
-                \
-feature:         9f8e7d ── 1c2b3a
-```
+Start with a `feature` branch of two commits that began at `a1b1c1`, while `main` has since gained `d4e5f6`:
 
-**Merge** (`git checkout main && git merge feature`) keeps the original commits untouched and joins the histories with a new merge commit `M`:
-
-```
-main:  a1b1c1 ── d4e5f6 ─────────── M
-                \                  /
-feature:         9f8e7d ── 1c2b3a
-```
-
-The hashes `9f8e7d` and `1c2b3a` are exactly the same as before — history is additive, and the branch's true shape is preserved.
-
-**Rebase** (`git checkout feature && git rebase main`) instead replays your two commits on top of `d4e5f6`, producing brand-new commits with **different hashes**:
-
-```
-feature (before):  9f8e7d ── 1c2b3a   (parent a1b1c1)
-feature (after):   7a6b5c ── 0d9e8f   (parent d4e5f6)
+```mermaid
+gitGraph
+    commit id: "a1b1c1"
+    branch feature
+    checkout feature
+    commit id: "9f8e7d"
+    commit id: "1c2b3a"
+    checkout main
+    commit id: "d4e5f6"
 ```
 
-Same diffs, same messages, new identities — `9f8e7d` became `7a6b5c` and `1c2b3a` became `0d9e8f`. The result is a clean, linear history with no merge commit, which is why trunk-based and GitHub Flow teams often rebase feature branches before merging. The trade-off: because rebasing *rewrites* commits, you must never rebase commits that other people have already pulled.
+**Merge** (`git switch main && git merge feature`) leaves both commits untouched and joins the histories with a merge commit that has two parents:
+
+```mermaid
+gitGraph
+    commit id: "a1b1c1"
+    branch feature
+    checkout feature
+    commit id: "9f8e7d"
+    commit id: "1c2b3a"
+    checkout main
+    commit id: "d4e5f6"
+    merge feature id: "M"
+```
+
+**Rebase** (`git switch feature && git rebase main`) replays the branch's changes on top of `d4e5f6`. The diffs and messages are the same, but because each commit's parent changed, each gets a new hash:
+
+```mermaid
+gitGraph
+    commit id: "a1b1c1"
+    commit id: "d4e5f6"
+    branch feature
+    checkout feature
+    commit id: "7a6b5c (was 9f8e7d)"
+    commit id: "0d9e8f (was 1c2b3a)"
+```
+
+After a rebase, `main` can be fast-forwarded to the tip of `feature`, giving a linear history with no merge commit.
+
+**Squash merge** combines all the branch's changes into one new commit on `main`. The individual branch commits do not appear on `main` at all.
+
+| Method | History on `main` | Preserves original commits | Good for |
+|--------|-------------------|----------------------------|----------|
+| Merge commit | Non-linear; shows where branches joined | Yes | Long-running or shared branches; Git Flow release and hotfix merges |
+| Rebase, then fast-forward | Linear; every branch commit kept | No (new hashes) | Branches with a clean, meaningful commit series |
+| Squash | Linear; one commit per pull request | No | Pull requests whose intermediate commits are noise ("fix typo", "address review") |
+
+GitHub, GitLab and Bitbucket let repository owners enable or disable each method per repository. A consistent choice matters more than which one is chosen.
 
 <div class="notice--danger">
   <h4>The golden rule of rebasing</h4>
-  <p><strong>Never rebase (or force-push) a branch that other people have based work on.</strong> The reason: rebasing replaces commits with new ones that have different hashes, so anyone who already pulled the old commits now has history that no longer exists on the remote. Their next pull either conflicts violently or, worse, silently re-introduces the commits you just rewrote.</p>
+  <p><strong>Do not rebase or force-push commits that other people have already based work on.</strong> Rebasing replaces commits with new ones, so anyone who pulled the old commits now has history that no longer exists on the remote. Their next pull produces conflicts or reintroduces the commits you rewrote. Rewriting history is safe on branches only you use.</p>
 </div>
 
 ### A force-push that overwrites a teammate
 
-Force-pushing is how a rewritten history gets onto the remote, and it is where the golden rule is most often violated. Suppose Alice and Bob are both working on `feature/checkout`:
+Force-pushing is how rewritten history reaches the remote, and it is where the golden rule is usually broken. Suppose Alice and Bob both work on `feature/checkout`:
 
-1. Alice rebases her copy of `feature/checkout` to tidy up history, turning commits `1c2b3a` into a new commit `0d9e8f`, then runs `git push --force`. The remote branch now points at `0d9e8f`; the old `1c2b3a` is gone.
-2. Meanwhile Bob had pulled the old `1c2b3a` and added his own commit `e1f2a3` on top of it. His local branch still references `1c2b3a` as its parent.
-3. Bob finishes his work and runs `git push`. Git rejects it (his branch is "behind"), so — frustrated — Bob also runs `git push --force`. The remote now points at *his* line of history, and **Alice's `0d9e8f` is silently overwritten and lost.**
+1. Alice rebases her copy to tidy the history, turning commit `1c2b3a` into `0d9e8f`, and runs `git push --force`. The remote branch now points at `0d9e8f`.
+2. Bob had already pulled `1c2b3a` and committed `e1f2a3` on top of it.
+3. Bob's `git push` is rejected because his branch no longer contains the remote tip. He runs `git push --force`. The remote now points at his history, and Alice's `0d9e8f` is gone from the remote.
 
-Each force-push clobbered the other person's work. The fix is twofold: prefer `git push --force-with-lease` (which refuses to overwrite commits you have not seen, so step 3 would fail safely instead of destroying Alice's work), and **only rewrite history on branches that are exclusively yours.** Shared branches should be integrated with merge, not rebase.
+Two habits prevent this:
 
-## See Also
+- Use `git push --force-with-lease` instead of `--force`. It refuses to overwrite the remote branch unless it still points where your remote-tracking ref says it does, so Bob's push in step 3 fails instead of discarding Alice's work. Adding `--force-if-includes` (Git 2.30 and later) closes the remaining gap where a background `git fetch` updated the remote-tracking ref without you integrating the new commits.
+- Integrate shared branches with merge, not rebase. Reserve rebasing for branches that only you push to.
 
-- [Advanced Branching Techniques](advanced-branching-techniques.html) — feature flags, branch protection, release branching, semantic versioning, and automation
-- [Git Crash Course](git-crash-course.html) — branching basics if you are new to Git
-- [Git Version Control](git/) — internals, architecture, and distributed VCS fundamentals
-- [Git Command Reference](git-reference.html) — command syntax for branch operations
-- [CI/CD](ci-cd/) — wiring branching strategies into continuous integration pipelines
+```bash
+git config --global alias.pushf "push --force-with-lease --force-if-includes"
+```
+
+## A note on branch names
+
+Git's built-in default for the first branch of a new repository is still `master`, although GitHub, GitLab and Bitbucket create new repositories with `main`, and Git prints a hint suggesting a name be configured. Git's documented plan for its future 3.0 release changes the default to `main`; no release date has been set. To choose explicitly:
+
+```bash
+git config --global init.defaultBranch main
+```
+
+## See also
+
+- [Advanced Branching Techniques](advanced-branching-techniques.html): feature flags, branch protection, release branches, semantic versioning and automation
+- [Git Crash Course](git-crash-course.html): branching basics for newcomers
+- [Git Version Control](git/): internals, architecture and distributed version control
+- [Git Command Reference](git-reference.html): command syntax for branch operations
+- [CI/CD](ci-cd/): connecting branching strategies to pipelines and deployments
 
 ## References
 
-- [Git Documentation](https://git-scm.com/doc)
-- [Atlassian Git Tutorials — Comparing Workflows](https://www.atlassian.com/git/tutorials/comparing-workflows)
-- [GitHub Flow Guide](https://guides.github.com/introduction/flow/)
-- [GitLab Flow Documentation](https://about.gitlab.com/topics/version-control/what-is-gitlab-flow/)
-- [A Successful Git Branching Model](https://nvie.com/posts/a-successful-git-branching-model/) (Original Git Flow article)
-- [Trunk Based Development](https://trunkbaseddevelopment.com/)
+- [GitHub flow](https://docs.github.com/en/get-started/using-github/github-flow), GitHub Docs
+- [Managing a merge queue](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue), GitHub Docs
+- [What is GitLab Flow?](https://about.gitlab.com/topics/version-control/what-is-gitlab-flow/), GitLab
+- Vincent Driessen, [A successful Git branching model](https://nvie.com/posts/a-successful-git-branching-model/) (2010, with 2020 note of reflection)
+- [git-flow-next](https://github.com/gittower/git-flow-next)
+- Paul Hammant et al., [Trunk Based Development](https://trunkbaseddevelopment.com/)
+- Atlassian, [Comparing Git workflows](https://www.atlassian.com/git/tutorials/comparing-workflows)
+- [Git: Breaking changes planned for Git 3.0](https://git-scm.com/docs/BreakingChanges)

@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Distributed Systems: Failure Detection & Gossip"
+description: "Heartbeats, timeouts, phi-accrual detectors, gossip dissemination, Merkle-tree anti-entropy, SWIM and Lifeguard, and failure detection in production systems."
 permalink: /docs/distributed-systems/failure-detection.html
 toc: true
 toc_sticky: true
@@ -8,581 +9,514 @@ toc_sticky: true
 
 [Distributed Systems](./) &raquo; Failure Detection &amp; Gossip
 
-A distributed system cannot tell the difference between a node that has *crashed* and one that is merely *slow* or *unreachable*. Failure detection is the discipline of converting that fundamental uncertainty into an actionable signal — a suspicion that a process is dead — and propagating that signal across the cluster cheaply and robustly. This page covers the spectrum from simple heartbeats to the phi-accrual detector used by Cassandra and Akka, and then the gossip family (epidemic dissemination, anti-entropy, Merkle trees, and SWIM) that membership systems use to keep that view consistent at scale.
+A distributed system cannot tell a node that has *crashed* apart from one that is merely *slow* or *unreachable*. A **failure detector** turns that uncertainty into something the system can act on: a suspicion that a process has failed. A **membership protocol** spreads those suspicions so that the cluster keeps a roughly consistent view of who is alive. This page covers the detectors, from fixed-timeout heartbeats to the phi-accrual detector used by Cassandra and Akka. It then covers the gossip mechanisms that spread their verdicts (epidemic dissemination, Merkle-tree anti-entropy, and SWIM with HashiCorp's Lifeguard extensions), and closes with how production systems such as Kubernetes, Raft and Redis Cluster detect failures and act on them safely.
 
 ## Why Failure Detection Is Hard
 
-In an asynchronous network there is no upper bound on message delay. A node that has sent no heartbeat for 5 seconds might be:
+In an asynchronous network there is no upper bound on message delay. A node that has been silent for 5 seconds might be:
 
-- **Crashed** — it will never respond again.
-- **Slow** — garbage-collection pause, CPU starvation, or disk stall.
-- **Partitioned** — alive and well, but the network path to *you* is broken.
+| State | Typical causes | Will it come back? |
+|-------|----------------|--------------------|
+| **Crashed** | Process exit, kernel panic, power loss | No, or only after a restart with reset state |
+| **Slow** | Stop-the-world GC pause, CPU throttling, disk stall, swap | Yes, possibly still believing it holds a lease or leadership |
+| **Partitioned** | Broken network path between *you* and it | Yes, and it may have kept serving other clients all along |
 
-These cases are observationally indistinguishable from the outside. The [FLP impossibility result](../advanced/distributed-systems-theory/) makes this precise: with even one faulty process and no timing assumptions, no deterministic algorithm can *guarantee* it will ever decide that a process has failed without risking a false positive. Practical systems escape FLP by adding **timing assumptions** — they assume the network is "mostly synchronous" and use timeouts as an oracle. A failure detector is exactly that oracle, and its quality is judged on two axes.
+From outside, these cases look the same. A **perfect** failure detector, one that never suspects a live process, therefore cannot be built in an asynchronous system. If it could, it would solve consensus, which the [FLP result](consensus-and-coordination.html#the-flp-impossibility-result) rules out. Practical systems add **timing assumptions**: they assume the network is *usually* well behaved and use timeouts as an imperfect oracle.
+
+Two further failure modes make the problem harder in practice:
+
+- **Gray failure** (Huang et al., HotOS 2017). A component is broken from its clients' point of view but looks healthy to the failure detector. For example, a node answers heartbeats while its disk-bound request path is stuck. The underlying cause is *differential observability*: the detector observes something different from what the clients use.
+- **Fail-slow hardware** (Gunawi et al., FAST 2018). Disks, NICs, and SSDs that run at a fraction of their normal speed without ever failing outright. A single slow replica can drag down a whole quorum.
 
 ### Completeness and Accuracy
 
-Chandra and Toueg's classic framework characterizes a failure detector by two properties:
+Chandra and Toueg (1996) describe a failure detector by two properties:
 
-- **Completeness** — every process that actually crashes is *eventually* suspected by every correct process. (Don't miss real deaths.)
-- **Accuracy** — correct processes are *not* wrongly suspected. (Don't raise false alarms.)
+- **Completeness:** every process that crashes is eventually suspected by every correct process. The detector does not miss real failures.
+- **Accuracy:** correct processes are not wrongly suspected. The detector does not raise false alarms.
 
-These are in tension. Aggressive timeouts give strong completeness (you notice deaths fast) but weak accuracy (you wrongly evict slow-but-alive nodes). Conservative timeouts do the reverse. The famous classes of detector are:
+The two pull against each other. Short timeouts catch crashes quickly but evict slow nodes that are still alive. Long timeouts avoid false alarms but leave real crashes unnoticed for longer. All the standard detector classes have strong completeness and differ in how accurate they are:
 
-| Class | Completeness | Accuracy |
-|-------|--------------|----------|
-| **P** (Perfect) | Strong | Strong |
-| **♦P** (Eventually Perfect) | Strong | Eventually strong |
-| **S** (Strong) | Strong | Weak |
-| **♦S** (Eventually Strong) | Strong | Eventually weak |
+| Class | Accuracy guarantee |
+|-------|--------------------|
+| **P** (Perfect) | No correct process is ever suspected |
+| **$\Diamond$P** (Eventually Perfect) | After some unknown time, no correct process is suspected |
+| **S** (Strong) | Some correct process is never suspected |
+| **$\Diamond$S** (Eventually Strong) | After some unknown time, some correct process is never suspected |
 
-`♦S` is the weakest detector that still lets you solve consensus (with a majority of correct processes) — which is why Raft and Paxos implementations only need "eventually, timeouts mostly work," not a perfect oracle.
+$\Diamond$S, and the equivalent leader oracle $\Omega$, is the weakest detector that makes consensus solvable when a majority of processes are correct. This is why Raft and Paxos only need timeouts to work *eventually*, not a perfect oracle.
 
 ```mermaid
 flowchart LR
-    Reality["Is the process<br/>actually dead?"] --> Detector["Failure detector<br/>(timeout oracle)"]
-    Detector -->|"says dead, is dead"| TP["True positive ✔"]
-    Detector -->|"says alive, is alive"| TN["True negative ✔"]
-    Detector -->|"says dead, is alive"| FP["False positive<br/>(accuracy violation)"]
-    Detector -->|"says alive, is dead"| FN["False negative<br/>(completeness gap)"]
+    Detector["Failure detector verdict"] --> Dead["Says 'dead'"]
+    Detector --> Alive["Says 'alive'"]
+    Dead -->|"node really dead"| TP["Correct detection"]
+    Dead -->|"node alive"| FP["False positive:<br/>accuracy violation"]
+    Alive -->|"node alive"| TN["Correct"]
+    Alive -->|"node really dead"| FN["Not yet detected:<br/>detection latency"]
 ```
+
+### Measuring a Detector
+
+Chen, Toueg and Aguilera (2002) proposed quality-of-service metrics that make the trade-off measurable:
+
+| Metric | Meaning | Improves with |
+|--------|---------|---------------|
+| **Detection time** $T_D$ | Time from a crash until it is permanently suspected | Shorter timeouts, faster heartbeats |
+| **Mistake recurrence time** $T_{MR}$ | Average time between false suspicions | Longer timeouts |
+| **Mistake duration** $T_M$ | How long a false suspicion lasts before it is corrected | Faster heartbeats, refutation mechanisms |
+
+Heartbeat frequency is the only setting that improves *both* sides of the trade-off, and it costs bandwidth and CPU.
 
 ## Heartbeats and Timeouts
 
-The baseline mechanism: each process periodically sends an "I'm alive" heartbeat to its monitors. The monitor maintains a timer; if no heartbeat arrives within a timeout window, the process is suspected.
+The baseline mechanism is simple. Each process periodically signals that it is alive, and a monitor suspects it if the signal stops for longer than a timeout.
 
-### Push vs. Pull
+### Push and Pull
 
-- **Push (heartbeat):** the monitored process sends `HEARTBEAT` every interval `Δi`. The monitor suspects after `Δto` of silence.
-- **Pull (ping):** the monitor sends `ARE-YOU-ALIVE` and expects an `ACK` within a round-trip deadline. This is what most health checks (Kubernetes liveness probes, load-balancer health checks) actually do.
+| Style | Mechanism | Examples |
+|-------|-----------|----------|
+| **Push (heartbeat)** | The monitored process sends `HEARTBEAT` every $\Delta_i$; the monitor suspects it after $\Delta_{to}$ of silence | Raft leader heartbeats, Kubernetes node leases, Cassandra gossip |
+| **Pull (probe)** | The monitor sends `PING` and expects an `ACK` before a deadline | Load-balancer health checks, Kubernetes liveness probes, SWIM |
 
-Push scales better with many monitors (one broadcast vs. N pings) and survives a monitor that is itself slow; pull lets the monitor control the cadence and detect asymmetric reachability.
+Push costs the monitor less when many processes are watched, and one message can serve many monitors. Pull lets the monitor set its own pace, and it tests the full request path, including the process's ability to answer.
 
 ### Choosing the Timeout
 
-A fixed timeout `Δto` is the crux of the accuracy/completeness trade-off. Too short and a GC pause triggers a false eviction; too long and a real crash goes unnoticed, stalling progress. The detection time after a real crash is bounded by:
+If the timer is measured from the last heartbeat *received*, the worst-case detection time after a crash is
 
 $$
-T_{D} \le \Delta_{i} + \Delta_{to}
+T_D \le \Delta_{to} + d_{\max}
 $$
 
-where the heartbeat arrives just before the crash in the worst case. A safe-but-slow rule of thumb sets the timeout from the observed network behavior:
+where $d_{\max}$ is the maximum one-way network delay. The worst case is a crash just after sending a heartbeat that then took $d_{\max}$ to arrive. A shorter heartbeat interval $\Delta_i$ does not lower this bound directly. It does let $\Delta_{to}$ be set to a smaller multiple of $\Delta_i$ without causing false positives.
+
+Timeouts are usually derived from observed behaviour in the same way TCP computes its retransmission timeout (RFC 6298: $\mathrm{RTO} = \mathrm{SRTT} + 4 \cdot \mathrm{RTTVAR}$):
 
 $$
-\Delta_{to} = \mathrm{RTT}_{\max} + \alpha \cdot \sigma_{\mathrm{RTT}}
+\Delta_{to} = \mu + \alpha \, \sigma + \Delta_{\mathrm{pause}}
 $$
 
-with `α` a safety multiplier (typically 3–4) over the standard deviation of round-trip times. The trouble is that a single fixed threshold cannot adapt: a datacenter LAN and a cross-region WAN link need wildly different `Δto`, and conditions drift over the day.
+Here $\mu$ and $\sigma$ are the mean and standard deviation of heartbeat inter-arrival times, $\alpha$ is a safety multiplier (typically 3 to 4), and $\Delta_{\mathrm{pause}}$ is an allowance for known pauses such as garbage collection. A fixed threshold still cannot adapt on its own: a LAN and a cross-region link need very different values, and conditions change during the day.
 
 ```python
 import time
 
 class HeartbeatDetector:
-    """Fixed-timeout push heartbeat detector."""
+    """Fixed-timeout push heartbeat detector (monotonic clock)."""
     def __init__(self, timeout=10.0):
         self.timeout = timeout
-        self.last_seen = {}        # node_id -> timestamp of last heartbeat
+        self.last_seen = {}                 # node_id -> monotonic time of last heartbeat
 
-    def heartbeat(self, node_id, now=None):
-        self.last_seen[node_id] = now if now is not None else time.time()
+    def heartbeat(self, node_id):
+        self.last_seen[node_id] = time.monotonic()
 
-    def is_suspected(self, node_id, now=None):
-        now = now if now is not None else time.time()
+    def is_suspected(self, node_id):
         last = self.last_seen.get(node_id)
         if last is None:
-            return True             # never heard from it
-        return (now - last) > self.timeout
+            return True                     # never heard from it
+        return time.monotonic() - last > self.timeout
 ```
 
-The fixed-timeout detector is binary (alive/dead) and brittle. The phi-accrual detector replaces the binary verdict with a continuous *suspicion level*.
+Always measure timeouts with a **monotonic** clock. If the timer uses wall-clock time, an NTP step adjustment can suspect every node at once, or none.
 
 ## The Phi-Accrual Failure Detector
 
-Hayashibara et al. (2004) proposed decoupling *failure detection* from *action*. Instead of returning a boolean, the detector outputs a continuous value **φ** (phi) that grows the longer a heartbeat is overdue. Each application chooses its own threshold `Φ` on that value, so the same detector can serve a latency-sensitive lock service (low threshold, fast but jumpy) and a conservative replication manager (high threshold) simultaneously.
+Hayashibara, Défago, Yared and Katayama (2004) separated *detecting* a failure from *acting* on it. The detector does not return alive or dead. It returns a continuous suspicion level $\varphi$ that grows the longer a heartbeat is overdue. Each consumer applies its own threshold $\varphi_{\mathrm{th}}$, so one stream of heartbeats can serve a latency-sensitive component (low threshold, fast but jumpy) and a conservative one (high threshold) at the same time.
 
-### The Core Idea
+### Definition
 
-The detector keeps a sliding window of recent **inter-arrival times** between heartbeats and fits a distribution to them. When asked at time `t_now`, it computes how surprising it is that no heartbeat has arrived since the last one at `t_last`. Define the elapsed time:
-
-$$
-t_{\Delta} = t_{\mathrm{now}} - t_{\mathrm{last}}
-$$
-
-Let `P_later(t)` be the probability, under the fitted distribution, that a heartbeat arrives *more than* `t` after the previous one. Then:
+The detector keeps a sliding window of recent heartbeat **inter-arrival times** and fits a distribution to them. When queried, it computes how surprising the current silence is. Let $t_{\Delta} = t_{\mathrm{now}} - t_{\mathrm{last}}$ be the time since the last heartbeat, and let $P_{\mathrm{later}}(t)$ be the probability, under the fitted distribution, that the next heartbeat arrives more than $t$ after the previous one:
 
 $$
-\varphi(t_{\mathrm{now}}) = -\log_{10}\bigl(P_{\mathrm{later}}(t_{\Delta})\bigr)
+\varphi(t_{\mathrm{now}}) = -\log_{10} P_{\mathrm{later}}(t_{\Delta})
 $$
 
-The value of φ has a clean operational meaning: **φ = 1 means roughly a 10% chance of a false positive if you decide "dead" right now, φ = 2 means ~1%, φ = 3 means ~0.1%**, and so on — each unit is one order of magnitude of confidence. An application that suspects at `Φ = 8` accepts a false-positive rate around `10^-8` per decision.
+Each unit of $\varphi$ is one order of magnitude. At $\varphi = 1$, a live node would stay silent this long about 10% of the time. At $\varphi = 2$ that falls to about 1%, and at $\varphi = 3$ to about 0.1%. A threshold of $\varphi_{\mathrm{th}} = 8$ corresponds to a false-positive probability of about $10^{-8}$ *per decision, if the fitted model is correct*. Real inter-arrival times have heavier tails than a normal distribution, so treat $\varphi$ as a well-calibrated scale rather than a literal probability.
 
-### Fitting the Distribution
+### Choice of Distribution
 
-The original paper assumes inter-arrival times are **normally distributed** with mean `μ` and standard deviation `σ` estimated from the sliding window of the last `n` samples. Under that assumption, `P_later(t)` is the upper tail of the normal CDF:
-
-$$
-P_{\mathrm{later}}(t) = 1 - F(t) = 1 - \Phi\!\left(\frac{t - \mu}{\sigma}\right)
-$$
-
-where `Φ` here is the standard-normal CDF. Combining:
+The original paper models inter-arrival times as **normally distributed**, with mean $\mu$ and standard deviation $\sigma$ taken from the window. The tail probability is then
 
 $$
-\varphi(t_{\Delta}) = -\log_{10}\!\left(1 - \Phi\!\left(\frac{t_{\Delta} - \mu}{\sigma}\right)\right)
+P_{\mathrm{later}}(t) = 1 - \Phi\!\left(\frac{t - \mu}{\sigma}\right)
 $$
 
-As `t_Δ` grows beyond the mean inter-arrival time, the tail probability shrinks toward zero and φ climbs without bound — so a node that has gone truly silent accrues an ever-higher suspicion, while a node whose heartbeats are merely jittery (large σ) is forgiven for longer. Cassandra uses a related exponential-distribution variant; the structure is identical, only `P_later` changes.
+where $\Phi$ is the standard normal CDF. Cassandra uses an **exponential** model instead, $P_{\mathrm{later}}(t) = e^{-t/\mu}$, which gives a simple linear formula:
+
+$$
+\varphi(t_{\Delta}) = \frac{t_{\Delta}}{\mu \ln 10} \approx 0.434 \, \frac{t_{\Delta}}{\mu}
+$$
+
+The exponential model ignores jitter, but it is much more forgiving. With one-second gossip, Cassandra's default `phi_convict_threshold` of 8 convicts after about $8 \times 2.303 \approx 18$ seconds of silence. Akka and Apache Pekko use the normal model, approximate $\Phi$ with a logistic function, and add an `acceptable-heartbeat-pause` to $\mu$ to absorb GC pauses.
 
 ```mermaid
 flowchart LR
-    HB["Heartbeat<br/>arrivals"] --> Win["Sliding window<br/>of inter-arrival times"]
-    Win --> Fit["Estimate μ, σ"]
-    Fit --> Phi["φ(t) = -log₁₀ P_later(t_Δ)"]
-    Phi --> Th{"φ ≥ Φ ?"}
+    HB["Heartbeat<br/>arrivals"] --> Win["Sliding window of<br/>inter-arrival times"]
+    Win --> Fit["Estimate mean, std dev"]
+    Fit --> Phi["phi = -log10 P_later(t since last)"]
+    Phi --> Th{"phi >= threshold?"}
     Th -->|yes| Susp["Suspect node"]
     Th -->|no| OK["Treat as alive"]
 ```
 
 ### Worked Example
 
-Suppose the last 1000 heartbeats arrived every 1.0 s on average, with σ = 0.1 s. The last heartbeat was received `t_last = 0`. We poll at several `t_Δ`:
+Heartbeats have arrived every $\mu = 1.0$ s with $\sigma = 0.1$ s, and the last one arrived at $t = 0$. Under the normal model:
 
-- `t_Δ = 1.0 s`: `z = (1.0 − 1.0)/0.1 = 0`, tail = 0.5, **φ = −log₁₀(0.5) ≈ 0.30** — completely normal, no suspicion.
-- `t_Δ = 1.3 s`: `z = 3`, tail ≈ 0.00135, **φ ≈ 2.87** — ~0.1% false-positive risk; a jumpy detector might already act.
-- `t_Δ = 1.5 s`: `z = 5`, tail ≈ 2.9×10⁻⁷, **φ ≈ 6.5** — strong evidence of death.
+| $t_{\Delta}$ | $z = (t_{\Delta} - \mu)/\sigma$ | $P_{\mathrm{later}}$ | $\varphi$ | Interpretation |
+|:---:|:---:|:---:|:---:|---|
+| 1.0 s | 0 | 0.5 | 0.30 | Normal; no suspicion |
+| 1.3 s | 3 | $1.35 \times 10^{-3}$ | 2.87 | A threshold of 3 is about to fire |
+| 1.5 s | 5 | $2.9 \times 10^{-7}$ | 6.54 | Strong evidence |
+| 1.56 s | 5.6 | $1.1 \times 10^{-8}$ | 7.97 | A threshold of 8 fires here |
 
-A service using `Φ = 8` would wait a little longer; one using `Φ = 3` acts at ~1.3 s. The same stream of heartbeats serves both, which is the whole point.
+The same silence under Cassandra's exponential model gives $\varphi \approx 0.65$ at 1.5 s. The choice of distribution matters as much as the threshold. A very small $\sigma$ also makes the normal model too eager, which is why implementations set a minimum standard deviation.
 
 ```python
 import math
+from collections import deque
 
 class PhiAccrualDetector:
-    """
-    Phi-accrual failure detector (normal-distribution variant).
-    Maintains a sliding window of heartbeat inter-arrival times and
-    reports a continuous suspicion level phi for the monitored node.
-    """
-    def __init__(self, window_size=1000, min_std=0.1, initial_interval=1.0):
-        self.window_size = window_size
-        self.min_std = min_std            # floor on sigma; avoids div-by-zero
-        self.intervals = []               # recent inter-arrival times
+    """Phi-accrual failure detector, normal-distribution variant."""
+    def __init__(self, window_size=1000, min_std=0.1,
+                 acceptable_pause=0.0, first_interval=1.0):
+        # Seed with a plausible interval so a cold start doesn't over-suspect.
+        self.intervals = deque([first_interval, first_interval], maxlen=window_size)
+        self.min_std = min_std
+        self.acceptable_pause = acceptable_pause
         self.last_ts = None
-        # Seed the window so cold-start does not over-suspect.
-        self.intervals = [initial_interval] * 10
 
     def heartbeat(self, now):
         if self.last_ts is not None:
-            delta = now - self.last_ts
-            self.intervals.append(delta)
-            if len(self.intervals) > self.window_size:
-                self.intervals.pop(0)
+            self.intervals.append(now - self.last_ts)
         self.last_ts = now
-
-    def _mean_std(self):
-        n = len(self.intervals)
-        mean = sum(self.intervals) / n
-        var = sum((x - mean) ** 2 for x in self.intervals) / n
-        std = max(math.sqrt(var), self.min_std)
-        return mean, std
-
-    @staticmethod
-    def _normal_cdf(x, mean, std):
-        # CDF of N(mean, std^2) via the error function.
-        return 0.5 * (1.0 + math.erf((x - mean) / (std * math.sqrt(2.0))))
 
     def phi(self, now):
         if self.last_ts is None:
             return 0.0
-        t_delta = now - self.last_ts
-        mean, std = self._mean_std()
-        p_later = 1.0 - self._normal_cdf(t_delta, mean, std)
-        # Clamp the tail so log stays finite for very overdue heartbeats.
-        p_later = max(p_later, 1e-300)
-        return -math.log10(p_later)
+        n = len(self.intervals)
+        mean = sum(self.intervals) / n
+        std = max(math.sqrt(sum((x - mean) ** 2 for x in self.intervals) / n),
+                  self.min_std)
+        z = (now - self.last_ts - (mean + self.acceptable_pause)) / std
+        p_later = 0.5 * math.erfc(z / math.sqrt(2.0))   # upper normal tail, stable for large z
+        return -math.log10(max(p_later, 1e-300))
 
     def is_suspected(self, now, threshold=8.0):
         return self.phi(now) >= threshold
 ```
 
-### Where It Is Used
+Adaptivity is the main advantage over a fixed timeout. When a WAN link gets slower and more jittery, $\sigma$ grows and the implied timeout grows with it, which avoids the burst of false positives a fixed threshold would produce. The drawback is that adaptation works both ways: a node that is getting steadily slower teaches the detector to tolerate it, which is how gray failures slip through.
 
-- **Apache Cassandra** — the `FailureDetector` uses a phi-accrual variant; the `phi_convict_threshold` (default 8) is operator-tunable.
-- **Akka Cluster** — `akka.cluster.failure-detector` is phi-accrual with a configurable threshold and `acceptable-heartbeat-pause` to absorb GC.
-- **Riak, ScyllaDB** — similar adaptive detectors.
+## Gossip Protocols
 
-The benefit over fixed timeouts is adaptivity: a transient WAN slowdown widens σ, which *raises* the timeout the detector implicitly applies, suppressing the false-positive storm that a fixed threshold would produce.
+Failure detection answers "is node X alive?" **Membership** answers "who is in the cluster, and in what state?" With hundreds or thousands of nodes, all-to-all heartbeating costs $O(N^2)$ messages per interval. **Gossip** (epidemic) protocols spread information the way a rumour spreads: in each round, every node exchanges state with a few randomly chosen peers. No single node coordinates, yet the whole cluster converges.
 
-## Gossip / Epidemic Protocols
+### Epidemic Spreading
 
-Failure detection answers "is node X alive?"; **membership** answers "who is in the cluster, and what is their state?" At scale (hundreds to thousands of nodes), having every node heartbeat every other node is `O(N²)` traffic and a single point of overload. **Gossip protocols** (a.k.a. epidemic protocols) disseminate information the way a rumor — or a virus — spreads through a population: each round, every node picks a few random peers and exchanges state. No node has the full picture, yet the whole cluster converges.
-
-### Why "Epidemic"
-
-The math is literally that of disease spread. Model each node as *susceptible* (hasn't heard the update) or *infected* (has it and is spreading it). If each infected node contacts `b` random peers per round, the number of informed nodes grows roughly:
+The analysis borrows from epidemiology. A node is *susceptible* if it has not yet heard an update and *infected* if it has heard it and is spreading it. If each infected node contacts $b$ random peers per round, the expected number of informed nodes follows logistic growth:
 
 $$
-i_{r+1} = i_{r} + b \cdot i_{r} \cdot \frac{N - i_{r}}{N}
+i_{r+1} \approx i_{r} + b \, i_{r} \, \frac{N - i_{r}}{N}
 $$
 
-This is logistic growth: slow start, explosive middle, saturating tail. The headline result is that an update reaches all `N` nodes in:
-
-$$
-R = O(\log N)
-$$
-
-rounds with high probability. For a 10,000-node cluster, an update saturates in roughly `log₂(10000) ≈ 14` rounds — and each node sends only `b` messages per round regardless of cluster size, so per-node load is constant. That `O(log N)` latency with `O(1)` per-node bandwidth is why gossip is the backbone of large-scale membership.
+Growth is slow at first, very fast in the middle, and slows again as almost everyone has heard. With one push per node per round, the number of rounds needed to inform everyone is $\log_2 N + \ln N + O(1)$ with high probability (Pittel, 1987). For $N = 10{,}000$ that is about 23 rounds. **Push-pull** gossip finishes in $\log_3 N + O(\log \log N)$ rounds (Karp, Schindelhauer, Shenker and Vöcking, 2000). Either way, latency grows **logarithmically** while each node's load stays **constant**. This is why gossip is used for membership in large clusters.
 
 ```mermaid
-flowchart TD
-    R0["Round 0<br/>1 node knows"] --> R1["Round 1<br/>~b nodes"]
-    R1 --> R2["Round 2<br/>~b² nodes"]
-    R2 --> R3["Round 3<br/>logistic explosion"]
-    R3 --> Rk["Round O(log N)<br/>whole cluster converged"]
+xychart-beta
+    title "Informed nodes per round (N = 1000, push, fanout 1)"
+    x-axis "Round" [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+    y-axis "Informed nodes" 0 --> 1000
+    line [1, 2, 4, 8, 16, 32, 62, 120, 226, 401, 641, 871, 983, 1000, 1000]
 ```
+
+The curve is the deterministic approximation above with $b = 1$, which saturates after about 13 rounds. Real runs are randomized: reaching the last few stragglers takes the extra $\ln N$ term, so about 17 rounds for $N = 1000$.
 
 ### Gossip Styles
 
-Three interaction modes, with different convergence/bandwidth trade-offs:
-
 | Style | Mechanism | Trade-off |
 |-------|-----------|-----------|
-| **Push** | Infected node pushes update to a random peer | Fast early, wasteful late (most targets already know) |
-| **Pull** | Node asks a random peer "anything new?" | Fast late (mops up stragglers), wasteful early |
-| **Push-Pull** | Both directions in one exchange | Best overall; convergence in `~log N` with low residue |
+| **Push** | An informed node sends the update to a random peer | Fast early; wasteful late, because most targets already know |
+| **Pull** | A node asks a random peer for anything new | Slow early; fast late, because it reaches stragglers |
+| **Push-pull** | Both directions in one exchange | Best overall, and the usual choice in production |
 
-Production systems use **push-pull** because pull's late-stage efficiency complements push's early-stage speed.
+### Rumour Mongering and Anti-Entropy
 
-### Dissemination vs. State
+Demers et al. (1987) described two complementary modes:
 
-Gossip carries two kinds of payload:
-
-- **Rumor mongering (event dissemination):** spread a *delta* — "node 7 just joined," "node 3 is suspected." Each node forwards a hot rumor for a few rounds, then stops once it's "old news." Low bandwidth, but a rumor stopped too early can leave a few nodes uninformed.
-- **Anti-entropy (state reconciliation):** periodically compare *full state* with a random peer and reconcile differences. Slower and heavier, but guarantees eventual convergence even if individual rumors are lost — it's the safety net underneath rumor mongering.
+- **Rumour mongering** spreads a *delta*, such as "node 7 joined" or "node 3 is suspected." Each node forwards a new rumour for a limited number of rounds and then drops it. Bandwidth is low, but a rumour dropped too early can miss a few nodes.
+- **Anti-entropy** periodically compares *full state* (or a digest of it) with a random peer and repairs the differences. It is slower and heavier, but it guarantees eventual convergence even when rumours are lost. It is the safety net under rumour mongering.
 
 ```python
 import random
 
 class GossipNode:
-    """Minimal push-pull anti-entropy gossip over a versioned key-value state."""
-    def __init__(self, node_id, peers):
+    """Push-pull anti-entropy over a versioned key-value map (LWW by version)."""
+    def __init__(self, node_id):
         self.node_id = node_id
-        self.peers = peers                  # list of other GossipNode refs
-        self.state = {}                     # key -> (value, version)
+        self.peers = []                           # other GossipNode objects
+        self.state = {}                           # key -> (value, version)
 
     def update(self, key, value):
         _, ver = self.state.get(key, (None, 0))
         self.state[key] = (value, ver + 1)
 
-    def _digest(self):
-        # Compact summary: key -> version. Cheap to send.
-        return {k: ver for k, (_, ver) in self.state.items()}
+    def digest(self):
+        return {k: ver for k, (_, ver) in self.state.items()}   # cheap summary
 
-    def _merge(self, incoming):
-        # Last-writer-wins by version number.
-        for k, (val, ver) in incoming.items():
-            _, mine = self.state.get(k, (None, -1))
-            if ver > mine:
-                self.state[k] = (val, ver)
+    def newer_than(self, digest):
+        return {k: (v, ver) for k, (v, ver) in self.state.items()
+                if ver > digest.get(k, 0)}
+
+    def merge(self, entries):
+        for k, (v, ver) in entries.items():
+            if ver > self.state.get(k, (None, 0))[1]:
+                self.state[k] = (v, ver)
 
     def gossip_round(self):
         if not self.peers:
             return
         peer = random.choice(self.peers)
-        # PUSH-PULL: send my digest, peer replies with what I'm missing,
-        # and asks for what it is missing in return.
-        their_digest = peer._digest()
-        deltas_to_send = {
-            k: (val, ver) for k, (val, ver) in self.state.items()
-            if ver > their_digest.get(k, -1)
-        }
-        peer._merge(deltas_to_send)
-        their_newer = peer._collect_newer(self._digest())
-        self._merge(their_newer)
-
-    def _collect_newer(self, asker_digest):
-        return {
-            k: (val, ver) for k, (val, ver) in self.state.items()
-            if ver > asker_digest.get(k, -1)
-        }
+        # 1. send my digest; peer returns what I'm missing (pull)
+        self.merge(peer.newer_than(self.digest()))
+        # 2. send what the peer is missing (push)
+        peer.merge(self.newer_than(peer.digest()))
 ```
 
 ## Anti-Entropy and Merkle Trees
 
-Anti-entropy that ships *full state* every round is fine for small membership tables but ruinous for a replica holding millions of keys (Dynamo, Cassandra, Riak). The problem: two replicas are *almost* identical and you must find the *few* keys that differ without transferring everything. **Merkle trees** solve this with a hierarchical hash that lets two nodes localize differences in `O(log N)` exchanges.
+Exchanging full state works for a small membership table, but not for replicas holding millions of keys, as in Dynamo-style stores such as Cassandra and Riak. Two replicas are usually *almost* identical, and the task is to find the few keys that differ without transferring everything. **Merkle trees** (hash trees) find the differences in a number of comparisons proportional to the number of differences multiplied by the tree depth.
 
 ### Structure
 
-A Merkle (hash) tree is a binary tree where:
-
-- **Leaves** hash a partition of the key space (e.g., a range of keys or a bucket).
+- **Leaves** hash one fixed partition of the key space, such as a token range or hash bucket.
 - **Internal nodes** hash the concatenation of their children's hashes.
-- The **root** is a single fingerprint of the entire dataset.
+- The **root** is a single fingerprint for the whole dataset.
 
 $$
 h_{\mathrm{parent}} = H\bigl(h_{\mathrm{left}} \,\|\, h_{\mathrm{right}}\bigr)
 $$
 
-where `H` is a collision-resistant hash (SHA-256) and `‖` is concatenation.
+Here $H$ is a collision-resistant hash function and $\|$ denotes concatenation. Leaves must cover **fixed key ranges** agreed by both replicas. If leaves were simply "the i-th key in sorted order," one inserted key would shift every later leaf and make the whole tree look different.
 
 ```mermaid
 flowchart TD
-    Root["Root = H(H1 ‖ H2)"] --> H1["H1 = H(L1 ‖ L2)"]
-    Root --> H2["H2 = H(L3 ‖ L4)"]
-    H1 --> L1["L1 = H(keys 0..24)"]
-    H1 --> L2["L2 = H(keys 25..49)"]
-    H2 --> L3["L3 = H(keys 50..74)"]
-    H2 --> L4["L4 = H(keys 75..99)"]
+    Root["root = H(A || B)"] --> A["A = H(L1 || L2)"]
+    Root --> B["B = H(L3 || L4)"]
+    A --> L1["L1: range 0"]
+    A --> L2["L2: range 1"]
+    B --> L3["L3: range 2 (differs)"]
+    B --> L4["L4: range 3"]
+    classDef diff stroke-width:3px,stroke-dasharray:4 3
+    class Root,B,L3 diff
 ```
+
+The dashed nodes are the only ones that differ between the two replicas. The comparison descends only along that path, and only range 2 is streamed.
 
 ### Reconciliation Walk
 
-To compare two replicas:
+1. Exchange **root** hashes. If they match, the replicas are identical and nothing needs to be transferred.
+2. If they differ, compare the children and descend only into subtrees whose hashes differ.
+3. At the differing **leaves**, transfer the keys in those ranges.
 
-1. Exchange **root** hashes. If equal, the datasets are identical — **done, zero key transfer**.
-2. If they differ, exchange the two **child** hashes and recurse only into subtrees whose hashes disagree.
-3. Continue until you reach the differing **leaves**, then transfer only the keys in those buckets.
-
-Because each mismatch prunes half the tree, locating `d` differing leaves costs `O(d · log N)` hash comparisons — vastly less than streaming all `N` keys. This is exactly how Cassandra's `nodetool repair` and DynamoDB-style anti-entropy work: replicas trade Merkle trees, and only the divergent ranges are streamed.
+Locating $d$ differing leaves in a tree of depth $\log L$ costs $O(d \log L)$ hash comparisons, far less than streaming every key. Cassandra's `nodetool repair` works this way: each replica builds a Merkle tree over a token range in a validation compaction, the trees are compared, and only mismatched ranges are streamed. Leaf granularity is a trade-off. Coarse leaves mean small trees but *overstreaming*, because a single differing key forces its whole range to be resent.
 
 ```python
 import hashlib
 
-def _h(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+def H(b: bytes) -> bytes:
+    return hashlib.sha256(b).digest()
 
 class MerkleTree:
-    """Merkle tree over an ordered list of (key, value) leaves."""
-    def __init__(self, kv_pairs):
-        # Leaf hashes in key order.
-        self.leaves = [_h(f"{k}={v}".encode()) for k, v in sorted(kv_pairs)]
-        self.levels = self._build(self.leaves)
-
-    def _build(self, leaves):
-        if not leaves:
-            return [[_h(b"")]]
-        levels = [leaves]
-        cur = leaves
-        while len(cur) > 1:
-            nxt = []
-            for i in range(0, len(cur), 2):
-                left = cur[i]
-                right = cur[i + 1] if i + 1 < len(cur) else cur[i]
-                nxt.append(_h((left + right).encode()))
-            levels.append(nxt)
-            cur = nxt
-        return levels
+    """Merkle tree over 2**depth fixed hash buckets of the key space."""
+    def __init__(self, kv: dict, depth: int = 10):
+        self.depth = depth
+        n = 1 << depth
+        buckets = [[] for _ in range(n)]
+        for k, v in kv.items():
+            buckets[int.from_bytes(H(k.encode())[:8], "big") % n].append((k, v))
+        leaves = [H(b"".join(H(f"{k}={v}".encode()) for k, v in sorted(b)))
+                  for b in buckets]
+        self.levels = [leaves]
+        while len(self.levels[-1]) > 1:
+            prev = self.levels[-1]
+            self.levels.append([H(prev[i] + prev[i + 1]) for i in range(0, len(prev), 2)])
 
     @property
-    def root(self):
+    def root(self) -> bytes:
         return self.levels[-1][0]
 
-def diff_leaf_ranges(a: MerkleTree, b: MerkleTree):
-    """Return leaf indices that differ. O(d log N) by pruning equal subtrees."""
-    if a.root == b.root:
-        return []                     # identical: nothing to repair
-    differing = []
-    # Walk top-down comparing nodes at each level.
-    def recurse(level, idx):
-        a_level, b_level = a.levels[level], b.levels[level]
-        if idx >= len(a_level) or idx >= len(b_level):
-            return
-        if a_level[idx] == b_level[idx]:
-            return                    # prune: whole subtree matches
+def differing_buckets(a: MerkleTree, b: MerkleTree) -> list[int]:
+    """Bucket indices whose contents differ; prunes every matching subtree."""
+    assert a.depth == b.depth
+    out = []
+    def walk(level, idx):
+        if a.levels[level][idx] == b.levels[level][idx]:
+            return                                  # whole subtree identical
         if level == 0:
-            differing.append(idx)     # a differing leaf
+            out.append(idx)
             return
-        recurse(level - 1, idx * 2)
-        recurse(level - 1, idx * 2 + 1)
-    recurse(len(a.levels) - 1, 0)
-    return sorted(differing)
+        walk(level - 1, 2 * idx)
+        walk(level - 1, 2 * idx + 1)
+    walk(a.depth, 0)
+    return out
 ```
 
 ## SWIM
 
-**SWIM** — Scalable Weakly-consistent Infection-style process Group Membership (Das, Gupta, Motivala, 2002) — is the protocol that ties failure detection and gossip together, and it underpins HashiCorp's Serf/Consul (`memberlist`), Uber's Ringpop, and many service meshes. Naïve all-to-all heartbeating is `O(N²)`; SWIM achieves `O(N)`-per-node failure detection with a **constant** per-node message load and a detection time independent of cluster size.
+**SWIM** (Scalable Weakly-consistent Infection-style process group Membership; Das, Gupta and Motivala, 2002) combines failure detection and gossip in one protocol. HashiCorp's `memberlist` library implements it, and that library underlies Serf, Consul, Nomad, and the memberlist key-value store used by Grafana Loki, Mimir and Tempo. All-to-all heartbeating costs $O(N^2)$ messages in total. SWIM keeps the **per-node** load **constant** (so the total is $O(N)$), and its expected detection time does not depend on cluster size.
 
-### The Two Components
+SWIM separates two components:
 
-SWIM cleanly separates the *failure detector* from the *dissemination* mechanism:
-
-1. **Failure detection** via randomized direct + indirect probing.
-2. **Dissemination** of membership changes piggybacked on those probe messages (no separate gossip traffic).
+1. **Failure detection** by randomized direct and indirect probing.
+2. **Dissemination** of membership changes, *piggybacked* on the probe messages, so it adds no extra traffic.
 
 ### The Probe Protocol
 
-Each protocol period (a fixed interval `T`), a node `M_i` runs one detection round:
+In every protocol period $T$, each member $M_i$ runs one round:
 
-1. `M_i` picks a **random** member `M_j` and sends it a `PING`.
-2. If `M_j` replies with `ACK` before a timeout, it's alive — done.
-3. If not, `M_i` does **not** immediately declare `M_j` dead. Instead it picks `k` other random members and asks each to **indirectly probe** `M_j` via `PING-REQ`. Those `k` nodes ping `M_j` and relay any `ACK` back.
-4. If neither the direct nor any indirect probe yields an `ACK` within the period, `M_i` marks `M_j` as **suspect**.
+1. $M_i$ picks a member $M_j$ and sends it `PING`.
+2. If $M_j$ answers with `ACK` before the timeout, it is alive and the round ends.
+3. Otherwise $M_i$ asks $k$ other members to probe $M_j$ on its behalf with `PING-REQ`. Each of them pings $M_j$ and relays any `ACK` back.
+4. If no `ACK` arrives by the end of the period, $M_i$ marks $M_j$ **suspect**.
 
-Indirect probing is the crucial trick: it distinguishes "`M_j` is dead" from "the *direct path* `M_i → M_j` is congested or lossy." If even one of the `k` helpers reaches `M_j`, the false positive is avoided. This is what makes SWIM's accuracy hold up on real, lossy networks.
+Indirect probing separates "$M_j$ is dead" from "the path between $M_i$ and $M_j$ is congested." If any of the $k$ helpers reaches $M_j$, the false positive is avoided.
 
 ```mermaid
 sequenceDiagram
     participant Mi as M_i (prober)
     participant Mj as M_j (target)
-    participant Mk as k random helpers
+    participant Mk as k helpers
     Mi->>Mj: PING
-    Note over Mi,Mj: timeout, no ACK
+    Note over Mi,Mj: no ACK within timeout
     Mi->>Mk: PING-REQ(M_j)
     Mk->>Mj: PING
     Mj-->>Mk: ACK (if alive)
     Mk-->>Mi: ACK relayed
-    Note over Mi: if no ACK at all → mark M_j SUSPECT
+    Note over Mi: no ACK by end of period: mark M_j SUSPECT
 ```
 
-### Suspicion Mechanism
+### Suspicion and Incarnation Numbers
 
-The original SWIM declares a node dead the moment a probe round fails, which still produces false positives under bad luck. The **SWIM+Inf.+Susp.** extension (almost always used in practice) adds a *suspicion subprotocol*:
+Declaring a node dead after one failed round causes false positives whenever a node has a brief hiccup. The full protocol (called SWIM+Inf.+Susp. in the paper, and the form always used in practice) adds a **suspicion** stage:
 
-- A failed probe marks the target **suspect**, not dead, and this suspicion is **gossiped**.
-- The suspected node, on hearing it is suspected, broadcasts an **alive/refute** message with a higher *incarnation number*, clearing the suspicion cluster-wide.
-- If no refutation arrives within a suspicion timeout, the node is promoted **suspect → dead** and that confirmation is gossiped.
+- A failed probe marks the target **suspect**, and the suspicion is gossiped.
+- A live node that hears it is suspected increments its **incarnation number** and gossips `alive` with the new number. This refutes the suspicion across the cluster.
+- If no refutation arrives before the suspicion timeout, the node is declared **dead**, and that is gossiped too.
 
-Incarnation numbers (a per-node logical counter the node alone may increment) resolve conflicting rumors: a higher-incarnation "alive" always beats a lower-incarnation "suspect," so a briefly-slow node can authoritatively clear its own name.
+Only a node can increment its own incarnation number. Conflicting rumours are resolved by fixed precedence rules:
+
+| Incoming message about node X | Overrides the local view if |
+|-------------------------------|-----------------------------|
+| `alive(X, i)` | local is `alive(X, j)` or `suspect(X, j)` with $i > j$ |
+| `suspect(X, i)` | local is `suspect(X, j)` with $i > j$, or `alive(X, j)` with $i \ge j$ |
+| `dead(X, i)` | always, since dead is final; X must rejoin with a new identity or incarnation |
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Alive
-    Alive --> Suspect: failed direct + indirect probe
-    Suspect --> Alive: refutation (higher incarnation)
-    Suspect --> Dead: suspicion timeout, no refutation
+    [*] --> Alive: join
+    Alive --> Suspect: probe + indirect probes fail
+    Suspect --> Alive: refutation with higher incarnation
+    Suspect --> Dead: suspicion timeout
     Dead --> [*]
 ```
 
-### Dissemination and Round-Robin Probing
-
-SWIM piggybacks membership updates (`joined`, `suspect`, `alive`, `dead`) onto the `PING`/`ACK`/`PING-REQ` messages it is already sending, so dissemination costs no extra packets. Newer updates are gossiped preferentially and each is forwarded for `O(log N)` rounds — the epidemic bound from earlier.
-
-Two refinements give SWIM its stable, size-independent quality:
-
-- **Round-robin target selection:** rather than picking the probe target uniformly at random each period, nodes shuffle the member list and probe each member once per traversal. This bounds the worst-case detection time to roughly one traversal (deterministic coverage) instead of relying on randomness to eventually hit every node.
-- **Constant per-node load:** each period a node sends one `PING` plus at most `k` `PING-REQ`s — independent of `N` — so total cluster traffic is `O(N)`, not `O(N²)`.
-
 ```python
-import random
+RANK = {"alive": 0, "suspect": 1, "dead": 2}
 
-class SwimNode:
-    """
-    SWIM membership with indirect probing and suspicion.
-    Simplified to a single synchronous protocol period for clarity.
-    """
-    K_INDIRECT = 3
-    SUSPECT_TIMEOUT = 3       # protocol periods before suspect -> dead
-
-    def __init__(self, node_id, network):
-        self.node_id = node_id
-        self.network = network            # maps id -> SwimNode (test harness)
-        self.members = {}                 # id -> {"state", "incarnation"}
-        self.suspect_since = {}           # id -> period when first suspected
-        self.incarnation = 0
-        self._round_robin = []
-        self._rr_idx = 0
-
-    def _next_target(self, period):
-        # Round-robin over a shuffled member list for deterministic coverage.
-        alive = [m for m, info in self.members.items()
-                 if info["state"] != "dead" and m != self.node_id]
-        if self._rr_idx >= len(self._round_robin):
-            self._round_robin = alive
-            random.shuffle(self._round_robin)
-            self._rr_idx = 0
-        if not self._round_robin:
-            return None
-        target = self._round_robin[self._rr_idx]
-        self._rr_idx += 1
-        return target
-
-    def _direct_ping(self, target):
-        node = self.network.get(target)
-        return node is not None and node.alive_for_probe()
-
-    def _indirect_ping(self, target):
-        helpers = [m for m in self.members
-                   if m not in (self.node_id, target)
-                   and self.members[m]["state"] != "dead"]
-        random.shuffle(helpers)
-        for helper in helpers[:self.K_INDIRECT]:
-            hnode = self.network.get(helper)
-            if hnode and hnode._direct_ping(target):
-                return True
-        return False
-
-    def alive_for_probe(self):
-        # Real node would reply to a PING; here always True if instantiated.
+def should_apply(local, incoming):
+    """SWIM precedence: local/incoming are (state, incarnation) or None."""
+    if local is None:
         return True
-
-    def mark_suspect(self, target, period):
-        info = self.members.get(target)
-        if info and info["state"] == "alive":
-            info["state"] = "suspect"
-            self.suspect_since[target] = period
-            # (gossip this suspicion to peers via piggybacking)
-
-    def protocol_period(self, period):
-        # 1. Probe one target this period.
-        target = self._next_target(period)
-        if target is not None:
-            if not self._direct_ping(target):
-                if not self._indirect_ping(target):
-                    self.mark_suspect(target, period)
-        # 2. Promote stale suspects to dead.
-        for m, since in list(self.suspect_since.items()):
-            if period - since >= self.SUSPECT_TIMEOUT:
-                self.members[m]["state"] = "dead"
-                del self.suspect_since[m]
-
-    def refute(self, target):
-        # Node clears its own suspicion with a higher incarnation number.
-        if target == self.node_id:
-            self.incarnation += 1
-            self.members[self.node_id] = {
-                "state": "alive", "incarnation": self.incarnation
-            }
+    (ls, li), (s, i) = local, incoming
+    if ls == "dead":
+        return False                      # dead is final
+    if s == "dead":
+        return True
+    if s == "alive":
+        return i > li                     # only a newer incarnation clears suspicion
+    # s == "suspect"
+    return i > li or (i == li and ls == "alive")
 ```
 
-### SWIM in the Wild
+### Dissemination and Target Selection
 
-| System | Library | Notes |
-|--------|---------|-------|
-| **Consul / Serf** | HashiCorp `memberlist` | SWIM + Lifeguard refinements to cut false positives under load |
-| **Ringpop** | Uber | SWIM for sharding/membership of stateful services |
-| **Cassandra (newer)** | — | Gossip-based membership inspired by these ideas |
+- **Piggybacking.** Membership updates (`join`, `suspect`, `alive`, `dead`) travel inside `PING`, `ACK` and `PING-REQ` messages. Each update is retransmitted about $\lambda \log N$ times, the epidemic bound from above, with the newest updates sent first.
+- **Round-robin targets.** Picking a uniformly random target each period gives an expected first detection after $e/(e-1) \approx 1.58$ periods, but no worst-case bound. SWIM instead walks a randomly shuffled member list, which guarantees that every failed member is probed within $2N - 1$ periods.
+- **Constant load.** Each period a node sends one `PING` and at most $k$ `PING-REQ`s, regardless of $N$.
 
-HashiCorp's **Lifeguard** extensions are worth knowing: they make the suspicion timeout *self-aware* (a node that suspects it is itself overloaded — because its own probes are timing out — becomes more lenient before accusing others), which dramatically reduces false positives during cluster-wide load spikes or partial network degradation.
+### Lifeguard
+
+SWIM assumes that the node doing the probing is healthy. In practice a prober that is itself overloaded, for example CPU-starved or with a backed-up network queue, misses `ACK`s and falsely accuses healthy peers. **Lifeguard** (Dadgar, Phillips and Currey, HashiCorp, 2018) adds *local health awareness* and is enabled in `memberlist` by default:
+
+| Extension | Mechanism |
+|-----------|-----------|
+| **Local Health Multiplier (LHM)** | A saturating counter that rises when the node's own probes fail, when it gets no NACK from helpers, or when it has to refute suspicion of itself. It scales the node's probe interval and timeout, so an unhealthy node slows down instead of accusing others. |
+| **Local Health Aware Suspicion** | The suspicion timeout starts long and shrinks logarithmically as *independent* members confirm the suspicion. A single possibly-sick accuser cannot convict quickly. |
+| **Buddy System** | A prober tells a suspected target directly in its `PING` that it is suspected, so the target can refute immediately rather than waiting for gossip to reach it. |
+
+The paper reports false positives reduced by more than 50x in controlled tests, with little change in detection time for real failures.
+
+## Failure Detection in Production
+
+| System | Mechanism | Defaults and notes |
+|--------|-----------|--------------------|
+| **Raft (etcd, Consul, KRaft)** | Leader heartbeats; a follower whose randomized election timeout expires starts an election | etcd: 100 ms heartbeat, 1000 ms election timeout. PreVote and CheckQuorum limit disruption from nodes on the wrong side of a partition. See [Raft](consensus-and-coordination.html#raft). |
+| **Kubernetes nodes** | The kubelet renews a `Lease` object in `kube-node-lease` (every 10 s); the node lifecycle controller marks the node `NotReady` after `node-monitor-grace-period` | The grace period default rose from 40 s to 50 s in v1.32. Pods are then evicted through taint-based eviction (`not-ready`/`unreachable` taints, 300 s default toleration). |
+| **Kubernetes pods** | Pull probes: liveness (restart), readiness (remove from endpoints), startup (delay the other two) | A liveness probe that checks dependencies can cause cascading restarts. Keep it local. See [Health Checks](resilience-patterns.html#health-checks). |
+| **Cassandra** | Gossip every second with heartbeat versions, plus exponential phi-accrual | `phi_convict_threshold` defaults to 8. In Cassandra 6.0 (pre-GA in 2026), topology and schema move from gossip to Transactional Cluster Metadata, a linearized log, while gossip remains for liveness. |
+| **Akka / Apache Pekko Cluster** | Normal-model phi-accrual with heartbeats sent to a subset of neighbours; gossip for membership | Threshold 8, plus `acceptable-heartbeat-pause` for GC. |
+| **Consul, Nomad, Serf** | SWIM + Lifeguard via `memberlist` | Separate LAN and WAN gossip pools with different timing profiles. |
+| **Redis Cluster** | Each node pings peers over the cluster bus; a peer silent past `cluster-node-timeout` is flagged `PFAIL` locally | `PFAIL` becomes `FAIL` once a majority of primaries report it. A replica of the failed primary is then promoted. |
+
+### Acting on a Suspicion Safely
+
+A suspicion can always be wrong. Whatever the system does next, such as promoting a replica, reassigning a lock, or rescheduling a pod, has to be safe even if the "dead" node is still running:
+
+- **Leases** mean a node's authority expires on its own. A node that cannot renew its lease stops acting before anyone else takes over, provided clock drift is bounded.
+- **Fencing tokens** are monotonically increasing epochs, such as a Raft term or a lock version, checked by the *resource*. The resource rejects writes from a deposed holder even if that holder has just woken from a long GC pause. See [Distributed Locks](resilience-patterns.html#distributed-locks).
+- **STONITH** ("shoot the other node in the head") powers off or isolates a suspected node through an out-of-band channel before failing over, as in Pacemaker clusters.
+- **Quorum-based decisions** mean no single observer's opinion is enough. Redis's `PFAIL`-to-`FAIL` promotion, Lifeguard's independent confirmations, and Raft's majority votes all apply this principle.
 
 ## Putting It Together
 
-A production membership/failure-detection stack composes all of these layers:
-
 ```mermaid
 flowchart TD
-    Probe["SWIM probing<br/>(direct + indirect)"] --> Phi["Phi-accrual / suspicion<br/>(continuous confidence)"]
-    Phi --> Diss["Gossip dissemination<br/>(piggybacked, O(log N) rounds)"]
-    Diss --> AE["Anti-entropy + Merkle trees<br/>(eventual convergence safety net)"]
-    AE --> View["Consistent membership view<br/>across the cluster"]
-    View --> Consensus["Feeds leader election<br/>& consensus (Raft/Paxos)"]
+    Probe["Probing / heartbeats<br/>SWIM direct + indirect, leases"] --> Conf["Suspicion level<br/>phi-accrual or suspect state + incarnations"]
+    Conf --> Diss["Gossip dissemination<br/>piggybacked, O(log N) rounds"]
+    Diss --> AE["Anti-entropy + Merkle trees<br/>convergence safety net"]
+    AE --> View["Membership view<br/>(eventually consistent)"]
+    View --> Act["Actions, fenced and quorum-checked<br/>leader election, failover, rebalancing"]
 ```
 
-- **SWIM** provides scalable, accuracy-preserving detection with indirect probes.
-- **Phi-accrual** (or SWIM's suspicion subprotocol) converts noisy timing into a tunable confidence signal instead of a brittle boolean.
-- **Gossip** disseminates the resulting membership deltas in `O(log N)` rounds at constant per-node cost.
-- **Anti-entropy + Merkle trees** guarantee that even with lost rumors, replicas eventually converge while transferring only the differences.
+- **Probing** with indirect checks keeps accuracy acceptable on lossy networks.
+- **Accrual or suspicion** turns noisy timing into a graded, refutable signal rather than a brittle yes/no.
+- **Gossip** spreads the resulting membership changes in $O(\log N)$ rounds at constant cost per node.
+- **Anti-entropy** ensures replicas converge even when rumours are lost, transferring only the differences.
+- **Fencing and quorums** keep the actions that follow safe when the detector is wrong.
 
-The output — a reasonably consistent view of who is alive — is the *input* that consensus protocols like [Raft and Paxos](../advanced/distributed-systems-theory/) assume when they elect leaders and require a majority of "live" nodes to make progress.
+The membership view this produces is an input to consensus, not a replacement for it. Protocols like [Raft and Paxos](consensus-and-coordination.html) use timeouts only for liveness, and their safety never depends on a failure detector being right.
 
 ## See Also
 
-- **[Distributed Systems Hub](./)** — patterns, consensus, and consistency models in context
-- **[Distributed Systems Theory](../advanced/distributed-systems-theory/)** — FLP impossibility, failure-detector classes, and consensus proofs
-- **[Database Design](../technology/database-design/)** — replication and anti-entropy in distributed datastores
-- **[Kubernetes](../technology/kubernetes/)** — liveness/readiness probes as practical pull-based health checks
-- **[Networking](../technology/networking/)** — RTT, jitter, and the timing assumptions detectors rely on
+- **[Distributed Systems Hub](./)**: section index
+- **[Consensus & Coordination](consensus-and-coordination.html)**: FLP, quorums, and how Raft uses timeouts for leader election
+- **[Resilience Patterns](resilience-patterns.html)**: health checks, circuit breakers, distributed locks and fencing
+- **[Service Discovery](service-discovery.html)**: turning a membership view into routable endpoints
+- **[Distributed Systems Theory](../advanced/distributed-systems-theory/#failure-detectors)**: formal failure-detector classes and reductions
+- **[Kubernetes](../technology/kubernetes/)**: node leases and liveness, readiness and startup probes
+- **[Networking](../technology/networking/)**: RTT, jitter, and the timing assumptions detectors depend on
 
 ### Foundational Papers
 
-- Chandra & Toueg, *Unreliable Failure Detectors for Reliable Distributed Systems* (1996)
-- Hayashibara et al., *The φ Accrual Failure Detector* (2004)
-- Das, Gupta & Motivala, *SWIM: Scalable Weakly-consistent Infection-style Process Group Membership* (2002)
 - Demers et al., *Epidemic Algorithms for Replicated Database Maintenance* (1987)
+- Pittel, *On Spreading a Rumor* (1987)
+- Chandra, Toueg, *Unreliable Failure Detectors for Reliable Distributed Systems* (1996)
+- Karp, Schindelhauer, Shenker, Vöcking, *Randomized Rumor Spreading* (2000)
+- Chen, Toueg, Aguilera, *On the Quality of Service of Failure Detectors* (2002)
+- Das, Gupta, Motivala, *SWIM: Scalable Weakly-consistent Infection-style Process Group Membership Protocol* (2002)
+- Hayashibara, Défago, Yared, Katayama, *The φ Accrual Failure Detector* (2004)
+- Huang et al., *Gray Failure: The Achilles' Heel of Cloud-Scale Systems* (HotOS 2017)
+- Gunawi et al., *Fail-Slow at Scale: Evidence of Hardware Performance Faults in Large Production Systems* (FAST 2018)
+- Dadgar, Phillips, Currey, *Lifeguard: Local Health Awareness for More Accurate Failure Detection* (2018)

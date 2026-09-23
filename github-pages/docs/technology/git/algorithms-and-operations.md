@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Git Internals: Algorithms & Advanced Operations"
+description: "How Git finds merge bases, performs three-way merges with the ort strategy, replays commits in rebase, cherry-pick and replay, binary-searches history with bisect, and runs hooks."
 permalink: /docs/technology/git/algorithms-and-operations.html
 toc: true
 toc_sticky: true
@@ -8,81 +9,136 @@ toc_sticky: true
 
 [Git Internals](./) ›
 
-This page covers the *algorithms* at the heart of Git's history manipulation and the operations layered on top of them. For everyday command syntax see the [Git Command Reference](../git-reference.html); for higher-level workflow models see [Branching Strategies](../branching.html); and for resolving conflicts and recovering lost work see [Conflicts &amp; Recovery](conflict-and-recovery.html).
+Every command that combines or rewrites history in Git reduces to a few graph and diff algorithms over the [object store](object-model.html): find a **merge base**, run a **three-way merge** of trees, and **replay** commits onto a new parent. This page describes those algorithms and the operations built on them: merge strategies, rebase and the sequencer, the newer `git replay` and `git history` commands, bisect, cherry-pick, stash, reset, revert, and hooks. Command syntax is in the [Git Command Reference](../git-reference.html); resolving conflicts and recovering lost work is covered in [Conflict Resolution & Recovery](conflict-and-recovery.html).
 
-## Three-Way Merge Algorithm
+## Merge bases
 
-Git's three-way merge combines changes from two branches using their common ancestor as a reference point. The third "way" — the ancestor — is what lets Git tell *who changed what* and so resolve non-conflicting changes automatically. A naive two-way diff cannot: if a line differs between the two branches, a two-way merge has no way to know which side changed it.
-
-**Algorithm steps:**
-
-1. Find the common ancestor (the **merge base**) of the two tips.
-2. Compute two diffs: base→ours and base→theirs.
-3. For each region, apply the change automatically when only one side touched it (or both made the *same* change).
-4. Mark regions where both sides changed the same lines differently as a **conflict** for manual resolution.
-
-**The three outcomes for any region:**
-
-- **No conflict** — the two sides changed different files, or different parts of the same file. Both changes are kept.
-- **Auto-resolved** — both sides made the *identical* change. Git keeps one copy.
-- **Conflict** — both sides changed the same lines differently. Git writes conflict markers and stops.
-
-**Conflict markers** delimit the two competing versions so you can pick or combine them:
-
-```
-<<<<<<< ours
-Our changes
-=======
-Their changes
->>>>>>> theirs
-```
-
-The marked region between `<<<<<<<` and `=======` is your side; between `=======` and `>>>>>>>` is theirs. With `merge.conflictStyle = diff3` (or `zdiff3`) Git also inserts the merge-base text in a `|||||||` section, which usually makes the *intent* of each side obvious.
-
-> **Code Reference**: For a complete three-way merge implementation with conflict detection and advanced merge strategies, see [`three_way_merge.py`](../../../code-examples/technology/git/three_way_merge.py).
-
-## Merge Strategies
-
-A merge *strategy* decides how Git computes the merge base(s) and combines trees. The strategy matters most when history has more than one merge base or when files were renamed or moved.
-
-| Strategy | Use it for | Notes |
-|----------|-----------|-------|
-| **ort** | The default since Git 2.34 | "Ostensibly Recursive's Twin." Handles multiple merge bases by recursively merging them into a virtual base; faster than the old `recursive` and far better at renames and directory moves. |
-| **recursive** | Legacy default (pre-2.34) | Same multiple-base handling as `ort` but slower; superseded by `ort`. |
-| **resolve** | A simple, fast two-head merge | Picks a single merge base; no recursion. Rarely needed today. |
-| **octopus** | Merging *more than two* branches at once | Used automatically for ≥3 heads; refuses to merge if any branch conflicts. Good for integration branches, not for resolving conflicts. |
-| **ours** | Recording that a branch is superseded | Produces a merge commit but keeps the current tree verbatim, discarding the other branch's content. Do not confuse with the `-X ours` *option* below. |
-| **subtree** | Merging a project into a subdirectory | A `recursive`/`ort` variant that adjusts for a shifted directory prefix. |
-
-**Strategy options** (`-X`) tune a strategy rather than replacing it:
-
-- `-X ours` / `-X theirs` — auto-resolve *conflicting hunks* in favor of one side (the rest still merges normally). This is different from the `ours` strategy, which ignores the other tree entirely.
-- `-X ignore-all-space`, `-X renormalize`, `-X find-renames=<n>` — control whitespace, line-ending normalization, and rename detection sensitivity.
+A **merge base** is a best common ancestor of two commits: a commit reachable from both that is not an ancestor of any other common ancestor. Git computes it by walking the commit graph backwards from both tips in generation-number order (using the commit-graph file when present) and painting commits as reachable from one side, the other, or both.
 
 ```bash
-git merge <branch>               # fast-forward if possible, else a real merge
-git merge --no-ff <branch>       # always create a merge commit (preserve the branch)
-git merge --squash <branch>      # combine the branch into staged changes, no commit yet
-git merge -s ort <branch>        # explicit default strategy
-git merge -s ours <branch>       # keep current tree, mark branch as merged
-git merge -s octopus b1 b2 b3    # merge several branches at once
-git merge -X theirs <branch>     # prefer their side on conflicting hunks
+git merge-base main feature           # one best common ancestor
+git merge-base --all main feature     # every best common ancestor
+git merge-base --is-ancestor A B      # exit 0 if A is an ancestor of B
+git merge-base --fork-point main      # where the branch forked, using main's reflog
 ```
 
-> **Code Reference**: For complete merge-strategy implementations including recursive, octopus, and subtree strategies, see [`merge_strategies.py`](../../../code-examples/technology/git/merge_strategies.py).
-
-### Merge vs. Rebase
-
-Both `merge` and `rebase` integrate work from one branch into another, but they produce different histories. A **merge** preserves the true topology by creating a merge commit with two parents; a **rebase** rewrites your commits so they appear to have been built on top of the latest base, yielding a linear history. The diagrams below show a feature branch `B1 → B2` integrated into `main` (`M1 → M2 → M3`).
+In a simple branch there is exactly one merge base. A **criss-cross merge**, where two branches have each merged the other, leaves *two* equally good bases, and neither is an ancestor of the other:
 
 ```mermaid
 flowchart LR
-    subgraph Merge["git merge (preserves topology)"]
+    A((A)) --> B1((B1)) --> M1((M1)) --> X((ours))
+    A --> C1((C1)) --> M2((M2)) --> Y((theirs))
+    B1 --> M2
+    C1 --> M1
+```
+
+Here both `B1` and `C1` are best common ancestors of `ours` and `theirs`. Picking either one arbitrarily can resurrect changes the other side already reverted. Git's `ort` strategy instead merges the merge bases together first, producing a **virtual merge base**, and uses that as the ancestor for the real merge. This is the "recursive" idea that gave the old strategy its name.
+
+## Three-Way Merge Algorithm
+
+A three-way merge compares two versions of a file (**ours** and **theirs**) against their merge base. The base is what makes automatic merging possible: in a two-way comparison, a line that differs between the branches could have been changed by either side, but against the base Git can tell which side changed it.
+
+For each file, and within each file for each region (hunk), Git applies this rule:
+
+| Base | Ours | Theirs | Result |
+|------|------|--------|--------|
+| X | X | X | X (unchanged) |
+| X | Y | X | Y (only ours changed) |
+| X | X | Z | Z (only theirs changed) |
+| X | Y | Y | Y (both made the same change) |
+| X | Y | Z | **Conflict** |
+
+The whole merge proceeds in two levels:
+
+1. **Tree level.** Git diffs base→ours and base→theirs as trees, pairing entries by path and detecting renames (by default, a deleted and an added file that are at least 50% similar are treated as a rename; tune with `-X find-renames=<n>`). Paths changed on only one side are taken wholesale without reading their contents.
+2. **Content level.** For paths changed on both sides, Git runs a line-based three-way merge of the blobs (`xdiff`, using the configured diff algorithm) and applies the table above per hunk.
+
+Conflicts can therefore be **content conflicts** (overlapping hunks) or **structural conflicts** at the tree level: modify/delete, rename/delete, rename/rename to different names, add/add of different content, or directory/file collisions. Both kinds leave the path unmerged in the index; see [Resolving merge conflicts](conflict-and-recovery.html#resolving-merge-conflicts).
+
+Conflicting hunks are written to the working tree with markers. With `merge.conflictStyle=zdiff3` Git also includes the base text, which usually makes the intent of each side obvious:
+
+```
+<<<<<<< HEAD
+timeout = 30
+||||||| merge base
+timeout = 10
+=======
+timeout = 60
+>>>>>>> feature
+```
+
+### Merging without a working tree
+
+Because `ort` works entirely on in-memory trees, a merge can be computed without touching the index or working tree. `git merge-tree --write-tree` (Git 2.38+) prints the resulting tree ID and any conflicts, and exits 0 for a clean merge or 1 for a conflicted one. Forges use this to test mergeability of pull requests on bare repositories, and it is a cheap way to preview a merge locally:
+
+```bash
+git merge-tree --write-tree main feature >/dev/null && echo "merges cleanly"
+```
+
+> **Code reference:** a teaching implementation of three-way merge with conflict detection is in [`three_way_merge.py`](../../../code-examples/technology/git/three_way_merge.py).
+
+## Merge strategies
+
+A merge *strategy* decides how the merge base is chosen and how trees are combined. Git picks a strategy automatically; you override it with `-s`.
+
+| Strategy | Use | Notes |
+|----------|-----|-------|
+| **ort** | Default for two-head merges since Git 2.34 | "Ostensibly Recursive's Twin." Builds a virtual base from multiple merge bases; much faster than its predecessor and better at renames and directory renames. |
+| **recursive** | Legacy name | The default until Git 2.33. Since Git 2.50 `-s recursive` is a synonym for `ort`; the old implementation was removed. |
+| **resolve** | Simple two-head merge | Uses a single merge base, no virtual base, limited rename handling. Rarely needed. |
+| **octopus** | Merging three or more heads | The automatic choice for more than two heads. Refuses any merge that needs manual resolution. |
+| **ours** | Recording that a branch is superseded | Creates a merge commit whose tree is exactly the current tree; the other side's changes are discarded. |
+| **subtree** | Merging a project into a subdirectory | A modified `ort` that shifts one tree to match the other's directory layout. |
+
+**Strategy options** (`-X`) tune `ort` rather than replacing it:
+
+- `-X ours` / `-X theirs`: resolve *conflicting hunks* in favour of one side; non-conflicting changes from both sides still merge. Not the same as `-s ours`, which ignores the other tree entirely.
+- `-X ignore-space-change`, `-X ignore-all-space`, `-X ignore-cr-at-eol`, `-X renormalize`: whitespace and line-ending handling.
+- `-X find-renames=<n>`, `-X no-renames`: rename detection sensitivity.
+- `-X diff-algorithm=histogram`: use the histogram diff, which often aligns code blocks better than the default Myers diff.
+- `-X subtree=<path>`: an explicit subtree prefix.
+
+```bash
+git merge feature                 # fast-forward if possible, else a merge commit
+git merge --no-ff feature         # always create a merge commit
+git merge --ff-only feature       # refuse unless a fast-forward is possible
+git merge --squash feature        # stage the combined changes; no merge commit
+git merge -s ours obsolete        # mark 'obsolete' merged, keep our tree
+git merge b1 b2 b3                # octopus merge
+git merge -X theirs feature       # prefer their side on conflicting hunks
+```
+
+> **Code reference:** teaching implementations of the recursive, octopus and subtree strategies are in [`merge_strategies.py`](../../../code-examples/technology/git/merge_strategies.py).
+
+### Fast-forward versus merge commit
+
+If the current branch is an ancestor of the branch being merged, there is nothing to combine: Git just moves the branch pointer forward (a **fast-forward**). Otherwise, or with `--no-ff`, it creates a merge commit with two parents.
+
+```mermaid
+flowchart LR
+    subgraph FF["Fast-forward: main moves to F2"]
+        direction LR
+        a1((M1)) --> a2((F1)) --> a3((F2))
+    end
+    subgraph NF["--no-ff: new merge commit"]
+        direction LR
+        b1((M1)) --> b4((Merge))
+        b1 --> b2((F1)) --> b3((F2)) --> b4
+    end
+```
+
+### Merge versus rebase
+
+Both integrate one branch's work into another. A **merge** preserves the actual topology with a merge commit; a **rebase** rewrites the branch's commits so they appear to have been made on top of the latest base, giving a linear history.
+
+```mermaid
+flowchart LR
+    subgraph Merge["git merge: topology preserved"]
         direction LR
         m1((M1)) --> m2((M2)) --> m3((M3)) --> mc((Merge))
         m2 --> b1((B1)) --> b2((B2)) --> mc
     end
-    subgraph Rebase["git rebase (linear history)"]
+    subgraph Rebase["git rebase: linear, B1 and B2 rewritten"]
         direction LR
         r1((M1)) --> r2((M2)) --> r3((M3)) --> rb1((B1')) --> rb2((B2'))
     end
@@ -90,223 +146,315 @@ flowchart LR
 
 | | Merge | Rebase |
 |---|-------|--------|
-| History | Non-linear; true graph | Linear, easier to read |
-| Commit hashes | Preserved | Rewritten (new commits) |
-| Traceability | Records when integration happened | Loses the original branch point |
-| Safe on shared branches? | Yes | No — never rebase commits others have pulled |
+| History shape | True graph | Linear |
+| Existing commit hashes | Preserved | Replaced with new commits |
+| Records when integration happened | Yes | No |
+| Conflicts resolved | Once, in the merge commit | Per replayed commit (possibly repeatedly) |
+| Safe on shared branches | Yes | No; never rebase commits others have based work on |
 
-**Golden rule of rebasing**: rebase only commits that exist solely in your local repository. Rewriting published history forces every collaborator to recover manually (see [Conflicts &amp; Recovery](conflict-and-recovery.html) for how they would).
+The rule for rebasing: rewrite only commits that nobody else has built on. Rewriting published history forces every collaborator to recover by hand (see [Undoing a pushed rebase](conflict-and-recovery.html#undoing-a-pushed-rebase-or-force-push)). Team conventions for choosing between the two are covered in [Branching Strategies](../branching.html).
 
-## Rebase Algorithm
+## Rebase and the sequencer
 
-Rebase rewrites history by **replaying** a sequence of commits onto a new base. Conceptually it cherry-picks each commit in turn:
+`git rebase` replays a range of commits onto a new base. It is driven by the **sequencer**, the same engine behind multi-commit cherry-pick and revert, which keeps its state in `.git/rebase-merge/` so a rebase can stop and resume.
 
-1. Determine the commits to replay — those reachable from `HEAD` but not from the new base.
-2. Save the original `HEAD` (recoverable later via `ORIG_HEAD` and the reflog).
-3. Reset onto the target base.
-4. Cherry-pick each saved commit in order, according to the todo list.
-5. Pause for resolution whenever a replay conflicts; resume with `git rebase --continue`.
-6. Move the branch reference to the last replayed commit when the list is exhausted.
+1. Compute the commits to replay: those reachable from the branch but not from the upstream (`upstream..branch`), skipping any whose patch is already upstream (matched by `git patch-id`).
+2. Write a **todo list** and save the original tip as `ORIG_HEAD`.
+3. Detach `HEAD` at the new base.
+4. For each todo entry, cherry-pick the commit: a three-way merge whose base is the commit's parent, "ours" is the current `HEAD`, and "theirs" is the commit.
+5. On conflict, stop; the user resolves and runs `git rebase --continue`.
+6. When the list is empty, point the branch at the final commit and reattach `HEAD`.
 
-Because each replayed commit is a *new* object (new parent → new hash), rebase is a history-rewriting operation, which is why the golden rule above applies.
+Each replayed commit has a new parent and therefore a new hash, which is why rebase rewrites history.
 
-### Interactive Rebase
-
-`git rebase -i` opens a **todo list** of the commits to replay and lets you edit how each is applied:
-
-- **pick** — use the commit as-is.
-- **reword** — keep the changes, edit the message.
-- **edit** — stop after applying so you can amend the snapshot.
-- **squash** — combine into the previous commit, keeping both messages.
-- **fixup** — like `squash` but discard this commit's message.
-- **drop** — remove the commit entirely.
-- **exec** — run a shell command (e.g. tests) at that point in the replay.
-- **label** / **reset** / **merge** — scripting primitives that `--rebase-merges` uses to reconstruct merge topology.
-
-```bash
-git rebase <base-branch>          # replay current branch onto base-branch
-git rebase -i <base-commit>       # interactive: reorder, squash, drop, reword
-git rebase --rebase-merges <base> # preserve merge commits (replaces --preserve-merges)
-git rebase -i --autosquash        # auto-order fixup!/squash! commits before the rebase
-git rebase -s ort -X theirs <base># choose strategy/option for conflict resolution
-git rebase --continue             # resume after resolving a conflict
-git rebase --abort                # bail out and restore the original HEAD
+```mermaid
+stateDiagram-v2
+    [*] --> Planning: git rebase upstream
+    Planning --> Replaying: todo list written, HEAD detached
+    Replaying --> Replaying: pick applies cleanly
+    Replaying --> Stopped: conflict / edit / break
+    Stopped --> Replaying: git rebase --continue or --skip
+    Stopped --> Aborted: git rebase --abort
+    Replaying --> Done: todo list empty
+    Done --> [*]: branch ref updated
+    Aborted --> [*]: branch reset to ORIG_HEAD
 ```
 
-> **Code Reference**: For complete rebase and bisect implementations with conflict handling, see [`rebase_bisect.py`](../../../code-examples/technology/git/rebase_bisect.py).
+### Choosing what to replay: `--onto`
 
-## Bisect: Binary Search Over History
+`git rebase --onto <newbase> <upstream> <branch>` replays `upstream..branch` onto `newbase`. It is the tool for transplanting a branch that was started from the wrong place:
 
-`git bisect` finds the commit that introduced a regression by binary-searching the commit graph. Given a known-good and known-bad commit, it repeatedly checks out a commit roughly halfway between them, you (or a script) test it, and the search space halves each step — so it takes about **log₂(N)** tests to pin down the culprit among N suspect commits.
+```mermaid
+flowchart LR
+    subgraph Before
+        direction LR
+        M1(["M: main"]) --> A1((A)) --> B1(["B: featureB"]) --> T1((T1)) --> T2(["T2: topic"])
+    end
+    subgraph After["After git rebase --onto main featureB topic"]
+        direction LR
+        M2(["M: main"]) --> U1((T1')) --> U2(["T2': topic"])
+    end
+```
 
-**Algorithm:**
+`topic` (T1, T2) was started from `featureB`; after the rebase its two commits sit directly on `main`, without A and B. `featureB` itself is unchanged.
 
-1. Mark a known-good and a known-bad commit.
-2. Of the commits reachable from *bad* but not from *good*, pick the one that best bisects the graph (weighted by reachability so each test eliminates as much as possible).
-3. Check it out; you test and mark it `good` or `bad`.
-4. Repeat on the remaining half.
-5. Stop when only one candidate remains — the first bad commit.
+### Interactive rebase
 
-It handles non-linear history by considering all paths between the endpoints, and lets you `skip` commits that cannot be built or tested.
+`git rebase -i` opens the todo list in an editor before replaying:
+
+| Command | Effect |
+|---------|--------|
+| `pick` | Replay the commit unchanged |
+| `reword` | Replay, then stop to edit the message |
+| `edit` | Replay, then stop so the snapshot can be amended |
+| `squash` | Fold into the previous commit and combine both messages |
+| `fixup` | Fold into the previous commit and keep only the previous message (`fixup -C` keeps this one's message instead) |
+| `drop` | Omit the commit |
+| `exec` | Run a shell command; a non-zero exit stops the rebase |
+| `break` | Stop here; resume with `--continue` |
+| `label`, `reset`, `merge` | Recreate merge topology (generated by `--rebase-merges`) |
+| `update-ref` | Move another branch to this point (generated by `--update-refs`) |
+
+```bash
+git rebase main                        # replay the current branch onto main
+git rebase -i main                     # edit the todo list first
+git rebase -i --autosquash main        # move fixup!/squash! commits next to their targets
+git rebase --rebase-merges main        # keep merge commits (replaced --preserve-merges, removed in 2.34)
+git rebase --update-refs main          # also move branches stacked on top (Git 2.38+)
+git rebase -x "make test" main         # run tests after every replayed commit
+git rebase --continue | --skip | --abort
+```
+
+`--update-refs` (or `rebase.updateRefs=true`) matters for **stacked branches**: when `part-2` is built on `part-1`, rebasing `part-2` also moves `part-1` to its rewritten commit, instead of leaving it pointing at the old history. A worked squash/fixup example is in [Interactive rebase and squashing](conflict-and-recovery.html#interactive-rebase-and-squashing).
+
+> **Code reference:** teaching implementations of rebase and bisect are in [`rebase_bisect.py`](../../../code-examples/technology/git/rebase_bisect.py).
+
+## Rewriting without a working tree: `replay` and `history`
+
+Rebase needs a working tree and replays one commit at a time through it. Two newer, still **experimental** commands rewrite history directly in the object store, which makes them fast and usable in bare repositories on servers:
+
+| Command | Purpose |
+|---------|---------|
+| `git replay` | A plumbing-level rebase for servers and scripts. Replays a revision range with `--onto <newbase>`, `--advance <branch>` (cherry-pick-like), or `--revert <branch>`. Since Git 2.53 it updates all affected refs in one atomic transaction by default; `--ref-action=print` prints `update-ref` commands instead. It stops rather than leaving conflicts to resolve. |
+| `git history` | A user-facing command for common edits to a single past commit: `reword <commit>` changes a message, `split <commit>` interactively splits a commit in two, and `fixup <commit>` (Git 2.55) folds staged changes into it. By default it also moves every descendant branch. It refuses histories containing merges and operations that would conflict, and does not run hooks. |
+
+```bash
+git replay --onto main topic~3..topic           # rebase topic's last 3 commits onto main
+git history reword HEAD~4                       # edit an old commit message
+git history split HEAD~2                        # split a commit into two
+```
+
+Both commands are marked experimental in their documentation, so their options may still change.
+
+## Bisect: binary search over history
+
+`git bisect` finds the commit that introduced a change (usually a regression) by binary search. Given one *bad* and at least one *good* commit, the candidate set is every commit reachable from bad but not from any good commit. Git checks out the candidate that splits that set most evenly, weighted by reachability so that either answer eliminates about half the remaining commits. Finding the culprit among N candidates takes about $\lceil \log_2 N \rceil$ tests: 1,000 commits need about 10 steps.
+
+```mermaid
+flowchart LR
+    G(["good"]) --> c1((1)) --> c2(["2: test 2 = good"]) --> c3(["3: test 3 = bad<br/>first bad commit"]) --> c4(["4: test 1 = bad"]) --> c5((5)) --> c6((6)) --> c7((7)) --> B(["bad"])
+```
 
 ```bash
 git bisect start
-git bisect bad <bad-commit>       # often just: git bisect bad   (current HEAD)
-git bisect good <good-commit>
-# Git checks out a midpoint; test it, then:
-git bisect good                   # this commit is fine
-git bisect bad                    # this commit is broken
-git bisect skip                   # cannot test this commit
-git bisect run ./test.sh          # automate: script exits 0=good, non-zero=bad
-git bisect reset                  # return to the original branch when done
+git bisect bad                    # current HEAD is broken
+git bisect good v2.4.0            # this release was fine
+# Git checks out a midpoint; test it and report:
+git bisect good | bad | skip
+git bisect run ./test.sh          # automate the whole search
+git bisect log > bisect.log       # save the session; git bisect replay bisect.log redoes it
+git bisect reset                  # return to the original branch
 ```
 
-`git bisect run` is the payoff: hand it a test script and Git drives the entire search unattended, leaving you at the first bad commit.
+Details worth knowing:
 
-## Cherry-Pick
+- **`git bisect run` exit codes:** 0 means good, 125 means skip (untestable), 1 to 127 other than 125 mean bad, and anything else aborts the bisect. A script that fails to *build* should exit 125, not 1.
+- **Terms:** when hunting for a change that is not a bug (such as a performance improvement), `git bisect start --term-old=slow --term-new=fast`, or use the built-in `old`/`new` terms, avoids mental inversion.
+- **`--first-parent`:** `git bisect start --first-parent` follows only the first parent of merges, so the search identifies which merged pull request introduced the change rather than descending into its commits.
+- **Paths:** `git bisect start bad good -- src/net/` restricts candidates to commits touching those paths.
 
-Cherry-pick applies the *change introduced by* one or more commits onto the current branch, creating new commits. It is the same replay machinery rebase uses, exposed directly — useful for backporting a fix to a release branch or grabbing one commit from another branch without merging the rest.
+## Cherry-pick
+
+Cherry-pick applies the change introduced by existing commits onto the current branch as new commits. Internally it is a three-way merge with the picked commit's parent as base, the current `HEAD` as ours, and the picked commit as theirs, the same step rebase repeats for every commit. Typical uses are backporting a fix to a release branch and salvaging one commit from an abandoned branch.
 
 ```bash
-git cherry-pick <sha>             # apply one commit's change as a new commit
-git cherry-pick <sha1>..<sha2>    # apply a range (exclusive of sha1)
-git cherry-pick -n <sha>          # apply but do not commit (stage only)
-git cherry-pick -x <sha>          # append "(cherry picked from …)" to the message
-git cherry-pick --continue        # resume after resolving a conflict
-git cherry-pick --abort           # undo the in-progress cherry-pick
+git cherry-pick <sha>              # apply one commit
+git cherry-pick A..B               # commits after A up to B (A excluded)
+git cherry-pick A^..B              # A through B inclusive
+git cherry-pick -x <sha>           # add "(cherry picked from commit …)" to the message
+git cherry-pick -n <sha>           # apply to index and working tree only
+git cherry-pick -m 1 <merge-sha>   # pick a merge, diffing against parent 1
+git cherry-pick --continue | --skip | --abort
 ```
 
-Because each pick is a new commit with a new hash, cherry-picking the *same* change onto two branches and later merging them can produce duplicate-looking commits; `-x` leaves a breadcrumb so the relationship is traceable.
+Because each pick is a new commit, picking the same change onto two branches and later merging them yields two commits with the same patch. The merge is usually clean, and `-x` records the relationship for anyone reading the history later. When rebasing, such duplicates are dropped automatically because their `patch-id` matches.
 
-## Workflow Models
+## Stash
 
-The state-machine view of Git workflows — GitFlow, GitHub Flow, GitLab Flow, and trunk-based/monorepo patterns, with their branch structures and promotion rules — is documented in depth on its own page.
+A stash entry is an ordinary commit stored under `refs/stash`, with the stack of entries kept in that ref's reflog. Each entry is a merge-shaped commit:
 
-See [Branching Strategies](../branching.html) for GitFlow, GitHub Flow, GitLab Flow, and trunk-based development, including when to choose each and how they map branches to environments.
-
-## Practical Operations
-
-The commands below build directly on the algorithms above. Each entry notes *when* to reach for it. For the exhaustive flag-by-flag listing, see the [Git Command Reference](../git-reference.html).
-
-### Stash: Park Work Without Committing
-
-Stash saves your uncommitted changes (and optionally untracked files) and reverts the working tree to a clean state, so you can switch contexts and come back later.
-
-**When to use:** you need to switch branches, pull, or run a quick experiment but your current work is not ready to commit. Prefer a throwaway WIP commit over stash if you might forget the stash exists or need it on a shared machine — stashes are easy to lose.
-
-```bash
-git stash push -m "wip: refactor parser"   # stash with a label
-git stash push -p                          # interactively choose hunks to stash
-git stash push -- <pathspec>               # stash only specific files
-git stash list                             # see the stash stack
-git stash show -p stash@{0}                # view a stash as a diff
-git stash apply stash@{0}                  # restore changes, keep the stash
-git stash pop                              # restore and drop the top stash
-git stash branch <name> stash@{0}          # start a branch from a stash
-git stash drop stash@{0}                   # delete one stash
-git stash clear                            # delete all stashes
+```mermaid
+flowchart RL
+    W["W: working-tree state<br/>(stash@{0})"] --> H["H: HEAD when stashed"]
+    W --> I["I: index state"]
+    I --> H
+    W -.-> U["U: untracked files<br/>(only with -u)"]
 ```
 
-`git stash branch` is the safe escape hatch when a stash no longer applies cleanly to the current tree: it recreates the original base, applies the stash there, and drops it only on success.
-
-### Reset: Move HEAD (and Maybe the Index/Tree)
-
-Reset moves the current branch to point at another commit and, depending on the mode, also rewrites the index and working tree. The three modes form a ladder of how much they touch:
-
-| Mode | Moves HEAD | Resets index | Resets working tree | Use when |
-|------|:----------:|:------------:|:-------------------:|----------|
-| `--soft`  | ✅ | ❌ | ❌ | Re-commit the same changes differently (e.g. squash the last *n* commits into one — the changes stay staged). |
-| `--mixed` *(default)* | ✅ | ✅ | ❌ | Unstage everything but keep your edits (undo a premature `git add`). |
-| `--hard`  | ✅ | ✅ | ✅ | Throw away local changes entirely and match a commit exactly. **Destructive** — uncommitted work is lost. |
+`W`'s first parent is the commit you were on, its second parent `I` records the staged changes, and an optional third parent records untracked files. This structure is why a dropped stash can be recovered with `git fsck` (see [Recovering a dropped stash](conflict-and-recovery.html#fsck-finding-commits-the-reflog-forgot)).
 
 ```bash
-git reset --soft  HEAD~3   # collapse last 3 commits, keep their changes staged
-git reset --mixed HEAD     # unstage everything, keep edits in the working tree
-git reset --hard  origin/main   # discard local commits and edits; match the remote
+git stash push -m "wip: parser"        # stash tracked changes with a label
+git stash push -u                      # include untracked files
+git stash push -p                      # choose hunks interactively
+git stash push -- path/to/file         # stash only some paths
+git stash list
+git stash show -p stash@{1}            # view an entry as a patch
+git stash apply stash@{1}              # restore, keep the entry
+git stash pop                          # restore and drop the top entry
+git stash branch fix-parser stash@{0}  # new branch at the stash's base, then apply
+git stash export --to-ref refs/stashes/backup   # turn the stash stack into pushable commits
+git stash import refs/stashes/backup            # restore an exported stack
 ```
 
-**Caution:** `--hard` discards uncommitted work without confirmation. If you reset away *committed* work by mistake, it is recoverable via the reflog — see [Conflicts &amp; Recovery](conflict-and-recovery.html).
+`git stash branch` is the reliable path when a stash no longer applies cleanly: it recreates the original base commit, applies the stash there, and drops it only on success. `export` and `import` (added in Git 2.51) convert the stash stack into a normal commit chain that can be pushed and fetched, so stashes can move between machines. For anything long-lived, a WIP commit on a branch is still easier to find than a stash.
 
-### Revert: Undo Safely on Shared History
+## Reset, restore, and switch
 
-Revert creates a *new* commit that applies the inverse of a target commit. Unlike reset and rebase, it does not rewrite history, so it is the correct tool on branches others have already pulled.
+`git reset` moves the current branch to another commit and, depending on mode, overwrites the index and working tree. The modes are a ladder of how much they touch:
 
-**When to use:** you need to back out a change that is already pushed/shared. Reach for reset/rebase only on private, unpublished history.
+| Mode | Moves branch | Resets index | Resets working tree | Typical use |
+|------|:---:|:---:|:---:|-------------|
+| `--soft` | Yes | No | No | Squash the last *n* commits: changes stay staged for a new commit |
+| `--mixed` (default) | Yes | Yes | No | Unstage everything but keep edits |
+| `--keep` | Yes | Yes | Only files that differ between the commits | Move the branch but abort rather than lose local edits |
+| `--hard` | Yes | Yes | Yes | Discard all local changes; **uncommitted work is lost** |
 
 ```bash
-git revert <commit>            # create a commit that undoes <commit>
-git revert -n <commit>         # stage the inverse without committing (batch several)
-git revert -m 1 <merge-commit> # revert a merge, keeping parent #1's line of history
+git reset --soft HEAD~3        # collapse the last three commits into staged changes
+git reset                      # unstage everything
+git reset --hard origin/main   # match the remote exactly
 ```
 
-Reverting a merge needs `-m` to tell Git which parent to treat as "mainline." Note that reverting a merge does not un-merge the branch — to bring it in again later you may need to revert the revert.
+Commits "lost" to a reset remain reachable through the reflog; see [Reflog: recovering lost commits](conflict-and-recovery.html#reflog-recovering-lost-commits). Uncommitted changes discarded by `--hard` are not recoverable unless they were once staged, in which case `git fsck --lost-found` may find their blobs.
 
-### History &amp; Inspection
+Two commands introduced in Git 2.23 split `git checkout`'s overloaded roles and are the clearer choice for everyday work:
 
-Read-only commands for understanding what happened. None of these change history, so they are always safe to run.
+| Task | `checkout` form | Newer form |
+|------|-----------------|------------|
+| Switch branches | `git checkout topic` | `git switch topic` |
+| Create and switch | `git checkout -b topic` | `git switch -c topic` |
+| Discard working-tree edits to a file | `git checkout -- file` | `git restore file` |
+| Unstage a file | `git reset file` | `git restore --staged file` |
+| Restore a file from another commit | `git checkout abc123 -- file` | `git restore --source=abc123 file` |
+
+## Revert
+
+`git revert` creates a new commit that applies the inverse of an existing one. It does not rewrite history, so it is the correct way to undo a change on a shared branch.
 
 ```bash
-git log --oneline --graph --all     # compact topology of every branch
-git log --follow <file>             # history of a file across renames
-git log -p                          # show the patch for each commit
-git log --since="2 weeks ago" --author="pattern"
-
-git diff                            # working tree vs. index
-git diff --staged                   # index vs. last commit
-git diff HEAD~2 HEAD                # between two commits
-git diff branch1..branch2           # between two branches
-
-git blame <file>                    # who last changed each line
-git blame -L 10,20 <file>           # restrict to a line range
+git revert <sha>                  # new commit undoing <sha>
+git revert -n A..B                # stage the inverse of a range, commit once
+git revert -m 1 <merge-sha>       # undo a merge relative to its first parent
 ```
 
-## Git Hooks
+Reverting a merge needs `-m` to name the mainline parent. The revert undoes the merge's *content*, but the merged commits remain in history as ancestors, so a later attempt to merge the same branch again brings in only changes made after the original merge. To reintroduce the whole branch, revert the revert first.
 
-Hooks are executable scripts in `.git/hooks/` (or a shared `core.hooksPath` directory) that Git runs at defined points in its lifecycle. A non-zero exit from a *pre-* hook aborts the operation, which is what makes them useful as guardrails. Client-side hooks are **not** copied on clone, so teams distribute them via a tool (pre-commit, Husky, Lefthook) or a tracked hooks directory.
+## Inspecting history
 
-**Client-side hooks** fire on local actions:
-
-- `pre-commit` — validate the snapshot (lint, run fast tests) before a commit is created.
-- `prepare-commit-msg` / `commit-msg` — pre-fill or validate the commit message (e.g. enforce a format).
-- `post-commit` — notify or trigger follow-up work after a commit.
-- `pre-rebase` — guard against rebasing branches that should not be rewritten.
-- `post-rewrite` — react after `commit --amend` or `rebase` rewrites commits.
-- `pre-push` — final gate before history leaves the machine (run the full test suite).
-
-**Server-side hooks** fire on the receiving end of a push and are the enforcement point you cannot bypass locally:
-
-- `pre-receive` — validate the entire push atomically; reject all refs or none.
-- `update` — validate each ref update individually.
-- `post-receive` — trigger deployment, CI, or notifications after a successful push.
-- `post-update` — legacy notification hook (largely superseded by `post-receive`).
-
-**Example `pre-commit` hook** rejecting a commit that fails linting or leaves debug output behind:
+These commands are read-only and always safe.
 
 ```bash
+git log --oneline --graph --all          # topology of every branch
+git log --follow -- path                 # one file's history across renames
+git log -S 'retryCount'                  # commits that add or remove the string ("pickaxe")
+git log -G 'retry[A-Z][a-z]+'            # commits whose diff matches a regex
+git log -L :parse_header:src/http.c      # history of one function
+git log main..feature                    # commits on feature not yet on main
+git log main...feature --left-right      # commits unique to each side
+
+git diff --staged                        # index vs HEAD
+git range-diff main old-feature feature  # compare two versions of a rebased branch
+
+git blame -L 40,60 path                  # line authorship for a range
+git blame --ignore-revs-file .git-blame-ignore-revs path   # skip bulk reformatting commits
+```
+
+`git range-diff` is the standard way to review what changed between two iterations of a rebased branch, since ordinary diffs between rewritten branches are dominated by upstream changes. An `.git-blame-ignore-revs` file listing mass-reformatting commits (set `blame.ignoreRevsFile` to use it by default; GitHub's blame view honours it too) keeps `blame` pointing at meaningful changes.
+
+## Hooks
+
+Hooks are programs Git runs at defined points in its workflow. A non-zero exit from a `pre-*` hook (and a few others such as `commit-msg`) aborts the operation, which makes hooks useful as guardrails. They are not copied by `clone`, so teams distribute them through a framework (pre-commit, Husky, Lefthook), a tracked directory selected with `core.hooksPath`, or configuration.
+
+**Client-side hooks**
+
+| Hook | Runs | Common use |
+|------|------|------------|
+| `pre-commit` | Before the commit message is requested | Lint and format staged files, run fast tests, scan for secrets |
+| `prepare-commit-msg` | Before the editor opens | Pre-fill a template or ticket number |
+| `commit-msg` | After the message is written | Enforce a message format such as Conventional Commits |
+| `post-commit` | After the commit is created | Notifications |
+| `pre-rebase` | Before a rebase starts | Refuse to rebase protected branches |
+| `post-checkout`, `post-merge` | After checkout/switch and merge | Reinstall dependencies, regenerate files |
+| `post-rewrite` | After `commit --amend` and rebase | Update external references to old hashes |
+| `pre-push` | Before objects are sent | Run the full test suite |
+
+**Server-side hooks** run on the receiving repository during a push and cannot be bypassed by the client:
+
+| Hook | Runs | Common use |
+|------|------|------------|
+| `pre-receive` | Once per push, before any ref is updated | Policy checks on the whole push; reject all refs or none |
+| `update` | Once per ref being updated | Per-branch permission checks |
+| `post-receive` | After all refs are updated | Trigger CI, deployments, notifications |
+| `reference-transaction` | At each stage of every ref transaction | Auditing and replication of ref changes |
+
+Hosted forges do not let you install arbitrary server hooks; they provide the same guarantees through branch protection rules, required status checks, push rulesets and secret-scanning push protection.
+
+### Config-based hooks
+
+Since Git 2.54 hooks can also be declared in configuration, which allows several commands per event and central management through system or global config. Git 2.55 added optional parallel execution.
+
+```ini
+[hook "linter"]
+    event = pre-commit
+    event = pre-push
+    command = ~/bin/linter --staged
+
+[hook "msgcheck"]
+    event = commit-msg
+    command = ~/bin/check-message
+```
+
+```bash
+git hook list pre-commit          # hooks configured for an event, including .git/hooks
+git hook run pre-commit           # run them by hand
+```
+
+Each hook can be disabled with `hook.<name>.enabled=false`, and `hook.<name>.parallel=true` together with `hook.jobs` lets independent hooks run concurrently.
+
+### Example `pre-commit` hook
+
+```sh
 #!/bin/sh
-# .git/hooks/pre-commit
+# .git/hooks/pre-commit: reject commits that fail lint or add debug output
+set -e
 
-# Run linting
-if ! npm run lint; then
-    echo "Linting failed. Please fix errors before committing."
+npm run --silent lint || { echo "Lint failed; commit aborted." >&2; exit 1; }
+
+if git diff --cached -U0 | grep -E '^\+.*console\.(log|debug)\(' >/dev/null; then
+    echo "Remove console.log/debug calls before committing." >&2
     exit 1
 fi
-
-# Block stray debugging statements
-if git diff --cached | grep -E "console\.(log|debug)" > /dev/null; then
-    echo "Remove console statements before committing."
-    exit 1
-fi
-
-exit 0
 ```
 
-## See Also
+The check examines only added lines of the staged diff (`^\+`), so existing debug statements elsewhere in a file do not block unrelated commits. Any hook can be bypassed locally with `git commit --no-verify`, so treat client-side hooks as convenience and enforce policy on the server or in CI.
 
-- [Object Model &amp; Storage](object-model.html) — the commit graph and object store these algorithms operate on.
-- [Conflicts &amp; Recovery](conflict-and-recovery.html) — resolving merge/rebase conflicts and recovering lost commits with the reflog and `fsck`.
-- [Protocols, Packs &amp; Performance](protocols-and-performance.html) — the wire protocol, pack/index formats, and performance tuning.
-- [Branching Strategies](../branching.html) — GitFlow, GitHub Flow, GitLab Flow, and trunk-based development.
-- [Git Command Reference](../git-reference.html) — full syntax for merge, rebase, stash, reset, and the rest.
+## See also
 
-**Previous:** [← Protocols, Packs & Performance](protocols-and-performance.html). **Next:** [Conflicts & Recovery →](conflict-and-recovery.html) — resolving conflicts and rescuing lost work with reflog and fsck.
+- [Object Model & Storage](object-model.html): the commit graph and object store these algorithms operate on
+- [Conflict Resolution & Recovery](conflict-and-recovery.html): resolving conflicts and recovering lost commits
+- [Protocols, Packs & Performance](protocols-and-performance.html): the commit-graph file, pack formats, and maintenance
+- [Branching Strategies](../branching.html): GitHub Flow, GitLab Flow, Git Flow and trunk-based development
+- [Git Command Reference](../git-reference.html): full syntax for merge, rebase, stash, reset and the rest
+
+**Previous:** [Protocols, Packs & Performance](protocols-and-performance.html) · **Next:** [Conflict Resolution & Recovery](conflict-and-recovery.html)

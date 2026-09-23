@@ -12,255 +12,206 @@ toc_icon: "cog"
 
 [AI/ML Documentation](./) &raquo; Base Models Comparison
 
-The hub for picking a base model. Start with the comparison table and selection guide here, then dive into a per-family page — <a href="sdxl-guide.html">SDXL</a>, <a href="sd3-guide.html">SD3</a>, <a href="flux-guide.html">FLUX</a>, or the <a href="pony-and-finetunes.html">Pony / community fine-tunes</a> — for the full architecture, settings, and ecosystem treatment.
+This page compares the open-weight text-to-image model families as of late 2026: Stable Diffusion 1.5 and SDXL, Stable Diffusion 3.5, FLUX.1 and FLUX.2, Qwen-Image, Z-Image, HiDream, and the SDXL community fine-tunes. It covers architecture, text encoders, hardware needs, licensing, and a selection guide. For architecture, settings, and workflows in depth, see the per-family pages: [SDXL](sdxl-guide.html), [SD3](sd3-guide.html), [FLUX](flux-guide.html), and [Pony and community fine-tunes](pony-and-finetunes.html).
 
-## Choosing a Base Model
+The base model (checkpoint) is the most consequential choice in an image-generation setup. It sets the quality ceiling, the working resolution, the VRAM requirement, the prompting style, the license terms, and which LoRAs and ControlNets can be used. No single model is best on every axis:
 
-The base model (checkpoint) is the single most important choice you make — it sets the ceiling for quality, the resolution you work at, the VRAM you need, and which LoRAs and ControlNets you can use. This page compares the major families so you can match a model to your task, hardware, and ecosystem. If you only remember one thing: **SDXL is the safest all-rounder**, and the rest are specializations around it.
+- **Two architectural generations.** The U-Net line (SD 1.5, SDXL, and its fine-tunes) predicts noise and reads the prompt with CLIP. The transformer line (SD3.5, FLUX, Qwen-Image, Z-Image, HiDream) uses a diffusion transformer trained with flow matching and, increasingly, a full language model as its text encoder. Add-ons do not transfer between families.
+- **The open-weight frontier has moved past Stability AI.** Since 2025 the strongest open models have come from Black Forest Labs (FLUX) and Alibaba (Qwen-Image, Z-Image). SDXL remains the best-supported model for fine-tunes and add-ons.
+- **Licenses differ sharply.** Some are Apache-2.0 or MIT, some are free only below a revenue threshold, and some are non-commercial. Read the license before building a product on a model.
 
-- **No Single Winner.** Match the model to your task, hardware, and ecosystem — SDXL is the safest all-rounder.
-- **Two Lineages.** U-Net (SD 1.5/2.x/SDXL/Pony) vs. transformer flow-matching (SD3/FLUX). Add-ons don't cross between them.
-- **VRAM Decides.** 4-6 GB favors SD 1.5; 8-12 GB suits SDXL; FLUX wants 12 GB+ (or a quantized build).
+## Comparison Table
 
-## The Comparison Table
+| Model | Released | Denoiser params | Architecture | Text encoder(s) | Native res. | License |
+|-------|----------|-----------------|--------------|-----------------|-------------|---------|
+| **SD 1.5** | 2022 | ~0.86B | U-Net, noise prediction | CLIP ViT-L | 512² | CreativeML OpenRAIL-M |
+| **SDXL 1.0** | Jul 2023 | ~2.6B U-Net (3.5B with encoders) | Enlarged U-Net | CLIP ViT-L + OpenCLIP bigG | 1024² | CreativeML OpenRAIL++-M |
+| **SD 3.5** (Medium / Large) | Oct 2024 | 2.5B / 8.1B | MM-DiT, rectified flow | CLIP-L + CLIP-G + T5-XXL | ~1 MP (Medium: 0.25–2 MP) | Stability Community License (free under US$1M annual revenue) |
+| **FLUX.1** (dev / schnell) | Aug 2024 | 12B | Hybrid MM-DiT, rectified flow, guidance-distilled | CLIP-L + T5-XXL | ~1 MP, flexible | dev: FLUX.1 non-commercial; schnell: Apache-2.0 |
+| **FLUX.2 [dev]** | Nov 2025 | 32B | Flow transformer, unified generation and multi-reference editing | Mistral Small 3.2 (24B) | up to ~4 MP | FLUX non-commercial |
+| **FLUX.2 [klein]** (4B / 9B) | Jan 2026 | 4B / 9B | Size-distilled from FLUX.2; 4-step and base variants | Qwen3 (4B / 8B) | ~1–4 MP | 4B: Apache-2.0; 9B: FLUX non-commercial |
+| **Qwen-Image** (incl. 2512 update) | Aug 2025 | 20B | MM-DiT, flow matching | Qwen2.5-VL (7B) | ~1.3 MP, flexible | Apache-2.0 |
+| **Z-Image** (Turbo / Base) | Nov 2025 / Jan 2026 | ~6B | Single-stream DiT (S3-DiT) | Qwen3-4B | ~1 MP, flexible | Apache-2.0 |
+| **HiDream-I1** | Apr 2025 | 17B | Sparse (mixture-of-experts) DiT | CLIP-L + CLIP-G + T5-XXL + Llama-3.1-8B | 1024² | MIT (text encoders keep their own licenses) |
+| **Chroma1** | 2025 | 8.9B | Modified FLUX.1-schnell | T5-XXL | ~1 MP | Apache-2.0 |
+| **Pony / Illustrious / NoobAI** | 2024–2025 | as SDXL | SDXL fine-tunes | as SDXL | 1024² | Inherit SDXL license, plus model-specific terms |
 
-The single most useful view: every major family side by side, by the dimensions that actually drive a choice — scale, architecture, license, and where each one shines.
+Notes on reading the table:
 
-| Model | Params | Architecture | Native res. | Min VRAM | License | Strengths |
-|-------|--------|--------------|-------------|----------|---------|-----------|
-| **SD 1.5** | ~860M | U-Net + CLIP ViT-L | 512×512 | 4 GB | CreativeML OpenRAIL-M (permissive) | Huge legacy ecosystem; fastest; runs anywhere |
-| **SD 2.x** | ~865M | U-Net + OpenCLIP ViT-H | 768×768 | 6 GB | CreativeML OpenRAIL++-M | Higher res, cleaner data — but sparse ecosystem; largely skipped |
-| **SDXL** | ~3.5B base (+~3.5B refiner) | Enlarged U-Net + dual CLIP | 1024×1024 | 8 GB | CreativeML OpenRAIL++-M (permissive) | Best all-rounder; strong composition; deepest mature add-ons |
-| **SD3 / 3.5** | 2B (Medium) – 8B (Large) | MM-DiT + CLIP×2 + T5 | 1024×1024 (→2048) | 10 GB | Stability Community License (restrictions above a revenue cap) | Excellent prompt adherence; legible text; modern at lower cost |
-| **FLUX.1** | ~12B | DiT, flow matching + T5 + CLIP | 1024×1024 (→2048) | 12 GB (fp8) | dev: non-commercial · schnell: Apache-2.0 | State-of-the-art quality; reliable anatomy; readable text |
-| **Pony / Illustrious** | SDXL fine-tune (~3.5B) | SDXL U-Net (fine-tuned) | 1024×1024 | 8 GB | Inherits SDXL (OpenRAIL++-M) | Best-in-class anime/stylized; strong character recall |
+- **Parameter counts are for the denoiser only.** The text encoder can be as large as the denoiser, or larger. FLUX.2 [dev] pairs a 32B transformer with a 24B language model, and Qwen-Image pairs a 20B transformer with a 7B vision-language model. Both count toward memory and load time.
+- **SD 2.x (2022, OpenCLIP, 768²)** is omitted. It broke compatibility with SD 1.5 add-ons, never built an ecosystem, and has no remaining niche. Use SD 1.5 for a small footprint and SDXL or newer for resolution.
+- **Release dates and versions change quickly.** Qwen-Image received monthly updates (Qwen-Image-2512, and the Qwen-Image-Edit-2509 and -2511 editors), and the 7B Qwen-Image-2.1 (September 2026) moved to a research-only license. Check the model card for the exact checkpoint you download.
 
-A few reading notes:
+## The Two Lineages
 
-- **Params are the denoiser size**, not counting the VAE or text encoders (FLUX's T5-XXL alone adds several GB to the working set).
-- **License is the easy trap.** SD 1.5/SDXL are permissive OpenRAIL variants; SD3 carries Stability's community license (free below a revenue threshold), and **FLUX.1-dev is non-commercial** — use **schnell (Apache-2.0)** for commercial work.
-- **"Min VRAM"** assumes fp16 (or fp8 for FLUX) with sensible optimizations; quantized GGUF builds push every floor lower.
+The families fall into two technical generations. The arrows in the diagram show chronological and conceptual influence, not weight inheritance. SD3, FLUX, Qwen-Image, and Z-Image were trained from scratch, and only the fine-tunes (Pony, Illustrious, NoobAI) and Chroma continue an existing checkpoint.
 
-### Quick Operating Profile
+```mermaid
+flowchart LR
+    subgraph UNET["U-Net + CLIP, noise prediction"]
+        SD15["SD 1.5<br/>2022"] --> SDXL["SDXL<br/>2023"]
+        SDXL --> FT["Pony / Illustrious /<br/>NoobAI fine-tunes"]
+    end
+    subgraph DIT["Diffusion transformer, flow matching"]
+        SD3["SD3 / 3.5<br/>2024"]
+        F1["FLUX.1<br/>2024"] --> F2["FLUX.2 dev<br/>2025"]
+        F2 --> KL["FLUX.2 klein<br/>2026"]
+        F1 --> CH["Chroma1<br/>(from schnell)"]
+        HD["HiDream-I1<br/>2025"]
+        QI["Qwen-Image<br/>2025"]
+        ZI["Z-Image<br/>2025-26"]
+    end
+    SDXL -.->|"architecture shift"| SD3
+    SDXL -.-> F1
+```
 
-The same families, viewed as a day-to-day operating profile rather than a spec sheet:
+In practice, **LoRAs, ControlNets, and IP-Adapters are tied to one base architecture**. An SD 1.5 LoRA does not work on SDXL, an SDXL LoRA does not work on FLUX, and a FLUX.1 LoRA does not work on FLUX.2. Fine-tunes of the same base, such as Pony and Illustrious on SDXL, share most add-ons, although style LoRAs trained on one fine-tune often transfer imperfectly to another.
 
-| Model | Quality | Speed | Flexibility | Release |
-|-------|---------|-------|-------------|---------|
-| SD 1.5 | Good | Fast | Excellent | 2022 |
-| SD 2.1 | Better | Medium | Good | 2022 |
-| SDXL | Excellent | Slow | Very Good | 2023 |
-| SD3 / 3.5 | Superior | Medium | Excellent | 2024 |
-| Pony | Excellent* | Medium | Specialized | 2024 |
-| FLUX | State-of-art | Slow | Excellent | 2024 |
+## Architectural Differences
 
-*Excellent for anime/stylized content
+Most behavioral differences in the comparison table come from three design changes: the denoiser backbone, the training objective, and the text encoder.
 
-## The Lineage
+| Aspect | U-Net generation (SD 1.5, SDXL) | Transformer generation (SD3.5, FLUX, Qwen-Image, Z-Image) |
+|--------|---------------------------------|-----------------------------------------------------------|
+| Backbone | Convolutional U-Net with cross-attention blocks | Diffusion transformer over patchified latents (MM-DiT, or a single-stream variant) |
+| Text injection | Cross-attention from image features to text tokens | Joint attention over concatenated image and text tokens |
+| Training objective | Noise prediction ($\epsilon$) or v-prediction, DDPM schedule | Rectified flow / flow matching (velocity prediction) |
+| Text encoder | CLIP (77-token limit per chunk) | T5-XXL, or a full LLM or VLM (Mistral, Qwen) with long context |
+| Latent space | 4-channel SD VAE (8× downsampling) | 16-channel VAEs (SD3, FLUX.1), newer higher-fidelity VAEs (FLUX.2, Qwen-Image) |
+| Guidance | True CFG, 2 forward passes per step | True CFG (SD3.5, Qwen-Image base) or distilled guidance, 1 pass per step (FLUX dev, Turbo variants) |
+| Positional encoding | Implicit in the convolutional grid | Rotary embeddings (RoPE), flexible aspect ratio and resolution |
 
-The major models split into two architectural lineages — the original U-Net diffusion line and the newer transformer-based (DiT) flow-matching line:
+Consequences:
+
+- **Prompt adherence and text rendering.** Joint attention and a language-model encoder let the transformer models follow long, compositional, natural-language prompts and render multi-line typography. Qwen-Image and Z-Image also render Chinese text. CLIP, with its 77-token window and bag-of-words behavior, is the main reason SD 1.5 and SDXL cannot do this reliably.
+- **Steps and guidance.** Flow-matching paths are close to straight, so the base models need roughly 20–50 steps, and distilled variants (FLUX.1 schnell, FLUX.2 klein, Z-Image-Turbo) need 4–8. Guidance-distilled models such as FLUX.1 [dev] run with `cfg = 1.0` and take a separate `guidance` value (about 3.5). Setting an SDXL-style CFG of 7 on them produces burnt, oversaturated images.
+- **Latent capacity.** A 16-channel VAE retains much finer detail than the 4-channel SD VAE. This is a large part of why small text and hands improved between generations.
+- **Unified generation and editing.** Newer families treat editing as conditioning on reference images rather than as a separate inpainting model: FLUX.1 Kontext, FLUX.2's multi-reference input, Qwen-Image-Edit, and klein's built-in editing. See [Inpainting and Editing](inpainting-editing.html).
+
+The underlying math, the forward and reverse diffusion process and flow matching, is covered in [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html).
+
+## The Families
+
+### Stable Diffusion 1.5
+
+SD 1.5 (2022, ~0.86B, 512², CLIP ViT-L) is the smallest and fastest model here. It runs on 4 GB GPUs and has the largest legacy library of LoRAs, embeddings, and ControlNets. Its limits come from its age: low native resolution, a weak text encoder, poor text rendering, and frequent anatomy errors. Typical settings are 512×512 (or 512×768), 20–30 steps, CFG 6–8, `dpmpp_2m` with `karras`, and CLIP skip 2 on anime checkpoints. Use it for low-VRAM hardware, fast experiments, or when a specific legacy add-on is required.
+
+### SDXL and its fine-tunes
+
+SDXL (2023) scales up the U-Net, reads the prompt with two CLIP encoders, and conditions on image size and crop, which gives it much better framing than SD 1.5. The optional refiner is rarely used now, because modern fine-tunes look finished without it. SDXL runs on 8 GB, generates quickly, and still has the deepest ecosystem of LoRAs, ControlNets, IP-Adapters, and training tools. The anime and illustration fine-tunes Pony Diffusion V6, Illustrious XL, and NoobAI-XL are all SDXL models and share that ecosystem. Pony V7 moved to the AuraFlow architecture and is therefore *not* compatible with SDXL add-ons. → [SDXL guide](sdxl-guide.html), [Pony and fine-tunes](pony-and-finetunes.html)
+
+### Stable Diffusion 3.5
+
+SD3 introduced the MM-DiT with rectified flow and triple text encoding (two CLIPs and T5-XXL). The original SD3 Medium (June 2024) was widely criticized for anatomy failures and its initial license. The October 2024 **SD 3.5** release (Large 8.1B, Large Turbo, Medium 2.5B) fixed most of those problems and moved to the Stability Community License, which is free below US$1M in annual revenue. SD 3.5 has good style range and uses true CFG with negative prompts, but community adoption has been modest compared with FLUX and Qwen-Image. → [SD3 guide](sd3-guide.html)
+
+### FLUX.1
+
+FLUX.1 (Black Forest Labs, August 2024) is a 12B hybrid MM-DiT with guidance distillation. It set the open-model quality bar in 2024 and 2025: reliable hands, readable text, and strong photorealism. It comes in **[dev]** (guidance-distilled, non-commercial weights, the most widely used variant), **[schnell]** (timestep-distilled for 1–4 steps, Apache-2.0), and later **Kontext [dev]** (instruction editing) and **Krea [dev]** (an aesthetics-focused variant). It has a large LoRA and ControlNet ecosystem and remains a practical choice on 12–16 GB GPUs when run in fp8 or GGUF quantization. → [FLUX guide](flux-guide.html)
+
+### FLUX.2
+
+FLUX.2 (November 2025) is a new architecture, not an update of FLUX.1. **[dev]** is a 32B flow transformer with a 24B Mistral Small 3.2 vision-language text encoder. A single model handles text-to-image and editing with up to ten reference images, and output reaches about 4 MP. It leads the open-weight field on prompt fidelity and multi-reference consistency. At full precision it needs data-center hardware, and consumer use depends on fp8 or 4-bit quantization plus offloading. **[klein]** (January 2026) distills FLUX.2 to 4B and 9B, each in a 4-step distilled form and an undistilled "base" form for fine-tuning. BFL states that the 4B model fits in about 13 GB of VRAM, and it is Apache-2.0. The 9B model uses the non-commercial license.
+
+### Qwen-Image
+
+Qwen-Image (Alibaba Qwen team, August 2025) is a 20B MM-DiT conditioned on the Qwen2.5-VL vision-language model. It is the strongest open model for **text rendering**, including long passages, complex layouts, and English and Chinese, and it is Apache-2.0. Companion checkpoints cover instruction editing (Qwen-Image-Edit, revised as -2509 and -2511) and layer decomposition (Qwen-Image-Layered). The December 2025 **Qwen-Image-2512** update improved photorealism and skin and texture detail. It is heavy: about 40 GB of weights in bf16, so consumer GPUs need fp8 or GGUF builds. Lightning LoRAs reduce sampling to 4–8 steps.
+
+### Z-Image
+
+Z-Image (Alibaba Tongyi Lab) is a ~6B single-stream DiT with a Qwen3-4B text encoder. It targets high quality at low cost. **Z-Image-Turbo** (November 2025) is distilled to about 8 steps with Decoupled-DMD, runs in under 16 GB, and produces photorealistic, bilingual-text-capable images at a fraction of FLUX's cost. **Z-Image-Base** (January 2026) is the undistilled checkpoint, run with 30–50 steps and CFG 3–5, and is intended for fine-tuning. Both are Apache-2.0. Z-Image has become a popular community base because it combines a small footprint, a permissive license, and trainability.
+
+### HiDream-I1 and Chroma
+
+**HiDream-I1** (April 2025) is a 17B sparse mixture-of-experts DiT with four text encoders, including Llama-3.1-8B-Instruct. It is MIT-licensed and strong on compositional benchmarks, but its size and multiple encoders make it expensive to run, and it has largely been overtaken by Qwen-Image and FLUX.2. **Chroma1** is a community model: an 8.9B, heavily modified FLUX.1-schnell retrained on a broad dataset. It is Apache-2.0, uncensored, and intended as a fine-tuning base with true CFG and negative prompts.
+
+## Hardware and Cost
+
+Relative cost depends on three factors: denoiser size, the number of forward passes per step (true CFG doubles it), and step count. The VRAM figures below are approximate floors for 1024² generation with the commonly used quantized builds and ComfyUI's automatic offloading. More memory buys speed and headroom.
+
+| Model | Typical steps | Passes / step | Approx. VRAM floor | Notes |
+|-------|---------------|---------------|--------------------|-------|
+| SD 1.5 | 20–30 | 2 | 4 GB | fp16; fastest per image |
+| SDXL (and fine-tunes) | 25–35 | 2 | 8 GB | fp16; Lightning/Hyper/DMD2 LoRAs give 4–8 steps |
+| SD 3.5 Medium / Large | 28–40 | 2 | ~10 GB / ~16 GB (fp8) | Large Turbo: 4 steps |
+| FLUX.1 [dev] | 20–30 | 1 (distilled guidance) | ~12 GB (fp8 or GGUF Q8) | Nunchaku 4-bit builds run on 8 GB |
+| FLUX.1 [schnell] | 1–4 | 1 | ~12 GB (fp8) | Apache-2.0 |
+| FLUX.2 [klein] 4B | 4 (distilled) / ~50 (base) | 1 / 2 | ~13 GB | Apache-2.0 |
+| FLUX.2 [dev] | ~28–50 | 1 | 24 GB with fp8/4-bit and offloading | Full bf16 needs ~80 GB-class GPUs |
+| Qwen-Image | 20–50 (4–8 with Lightning) | 2 | ~20–24 GB (fp8); less with GGUF | Largest text-rendering gains |
+| Z-Image-Turbo | ~8 | 1 | ~12–16 GB | Near real time on high-end GPUs |
+
+Tools for reducing these floors, including fp8, GGUF, NVFP4, SVDQuant 4-bit, attention kernels, and caching, are covered in [Advanced Techniques](advanced-techniques.html#performance-and-memory) and the [Optimization Guide](optimization-guide.html).
+
+## Selecting a Model
+
+### By use case
+
+| Use case | First choice | Alternatives |
+|----------|--------------|--------------|
+| General-purpose, best quality | FLUX.2 [dev] | Qwen-Image-2512, FLUX.1 [dev] |
+| Photorealism on a mid-range GPU | Z-Image-Turbo | FLUX.1 [dev] (fp8), SDXL photoreal fine-tunes |
+| Text, signage, posters, infographics | Qwen-Image | FLUX.2, Z-Image |
+| Anime and illustration | Illustrious / NoobAI (SDXL) | Pony V6, Z-Image or Chroma fine-tunes |
+| Editing with reference images | FLUX.2 (multi-reference), Qwen-Image-Edit-2511 | FLUX.1 Kontext [dev], FLUX.2 [klein] |
+| Commercial product, permissive license | Qwen-Image, Z-Image, FLUX.2 [klein] 4B | FLUX.1 [schnell], SDXL |
+| Real-time or interactive | FLUX.2 [klein] 4B, Z-Image-Turbo | SDXL + DMD2/Lightning LoRA |
+| Low VRAM (4–8 GB) | SDXL (8 GB), SD 1.5 (4 GB) | FLUX.1 via Nunchaku 4-bit |
+| Largest add-on ecosystem | SDXL | SD 1.5, FLUX.1 |
+| Fine-tuning base | Z-Image-Base, FLUX.2 [klein] base | SDXL, Chroma1 |
+
+### Decision path
 
 ```mermaid
 flowchart TD
-    SD15["SD 1.5 (2022)<br/>U-Net, 512px"] --> SD21["SD 2.1 (2022)<br/>768px, OpenCLIP"]
-    SD21 --> SDXL["SDXL (2023)<br/>1024px, dual encoders"]
-    SDXL --> Pony["Pony / Illustrious<br/>SDXL fine-tunes"]
-    SDXL --> SD3["SD3 (2024)<br/>MM-DiT, rectified flow"]
-    SD3 --> FLUX["FLUX (2024)<br/>DiT, flow matching, T5"]
-    classDef unet fill:#e3f2fd,stroke:#1976d2;
-    classDef dit fill:#f3e5f5,stroke:#7b1fa2;
-    class SD15,SD21,SDXL,Pony unet;
-    class SD3,FLUX dit;
+    Start["Choosing a base model"] --> Lic{"Commercial use<br/>of the weights?"}
+    Lic -->|"Yes"| Perm{"VRAM?"}
+    Lic -->|"No / personal"| Any{"VRAM?"}
+    Perm -->|"8-12 GB"| PSmall["Z-Image-Turbo or<br/>FLUX.2 klein 4B (quantized)"]
+    Perm -->|"16-24 GB"| PText{"Heavy text or<br/>layout work?"}
+    PText -->|"Yes"| QI["Qwen-Image"]
+    PText -->|"No"| ZI["Z-Image / FLUX.2 klein 4B"]
+    Any -->|"4-8 GB"| Low["SDXL or SD 1.5<br/>(plus fine-tunes)"]
+    Any -->|"12-16 GB"| Mid{"Stylized / anime?"}
+    Mid -->|"Yes"| Anime["Illustrious / NoobAI"]
+    Mid -->|"No"| F1["FLUX.1 dev or Z-Image"]
+    Any -->|"24 GB+"| Top["FLUX.2 dev<br/>(fp8 / 4-bit)"]
 ```
 
-Blue = U-Net diffusion lineage; purple = transformer/flow-matching lineage. The arrows are conceptual/chronological, not literal weight inheritance — SD3 and FLUX are trained from scratch with a new backbone, not continued from SDXL. The one thing the diagram *does* tell you literally: **LoRAs and ControlNets are tied to their lineage**, which is why SD 1.5 add-ons don't work on SDXL, and SDXL add-ons don't work on FLUX.
-
-## Architectural Differences: U-Net vs DiT/Transformer
-
-The lineage split is not just branding — the two families denoise differently, and that difference explains almost every behavioral gap in the comparison table. The U-Net line uses a convolutional encoder/decoder with cross-attention to the text, trained to predict the noise added to an image. The transformer line replaces the U-Net with a **Diffusion Transformer (DiT)** that processes image and text tokens *together* (joint multimodal attention) and is trained with **rectified flow** — learning a velocity field that transports noise to data along near-straight paths rather than predicting noise step by step.
-
-| Aspect | U-Net line (SD 1.5 / SDXL / Pony) | Transformer line (SD3 / FLUX) |
-|--------|------------------------------------|-------------------------------|
-| Backbone | Convolutional U-Net | Diffusion Transformer (DiT / MM-DiT) |
-| Text injected via | Cross-attention layers | Joint image+text attention (tokens mixed) |
-| Training objective | Noise prediction (DDPM) | Velocity / rectified flow matching |
-| Text encoder(s) | CLIP (one or two) | CLIP + a large T5 language encoder |
-| Guidance | CFG scale (~5-9), two forward passes/step | Distilled/embedded guidance (CFG often pinned at 1.0), one pass/step |
-| Position encoding | Fixed convolutional grid | Rotary embeddings (RoPE), resolution-flexible |
-| Practical effect | Mature add-on ecosystem, fast on low VRAM | Stronger prompt adherence and text rendering, heavier |
-
-The consequences are exactly what the table predicts:
-
-- **Prompt adherence and text rendering.** Mixing image and text tokens in joint attention, plus a large T5 encoder, is why SD3 and FLUX follow long natural-language prompts and render legible words far better than the U-Net models, whose single/dual CLIP encoders inject text only through cross-attention.
-- **Steps and guidance.** Because rectified flow learns near-straight transport paths, the transformer models integrate in fewer steps and bake guidance into the weights — so FLUX runs **`cfg = 1.0`** with a separate `guidance` scalar, while U-Net models need a real CFG of ~5-9.
-- **Ecosystem.** A LoRA or ControlNet is trained against a *specific backbone's* layers. U-Net add-ons target convolutional/cross-attention blocks; DiT add-ons target the transformer's attention/MLP projections. They are structurally incompatible, which is why **add-ons never cross the lineage boundary**.
-
-If you understand the [forward/reverse diffusion process and flow matching](stable-diffusion-fundamentals.html), this section is the one-line summary of why the newer models behave differently. For the full treatment of each backbone, see the per-family pages below.
-
-## The Families in One Paragraph Each
-
-Just enough on each family to choose; follow the link for the deep dive.
-
-### Stable Diffusion 1.5 (summarized)
-
-SD 1.5 (2022, ~860M params, 512×512, CLIP ViT-L) remains the most widely supported model thanks to its balance of quality, speed, and compatibility. It runs on 4 GB cards, generates in 20-30 fast steps, and sits on the largest legacy collection of LoRAs, embeddings, and tools in existence. Its weaknesses are exactly its age: low native resolution, poor text rendering, and trouble with hands and complex poses. Typical settings: 512×512, 20-30 steps, `cfg 7-9`, `euler_a` or `dpmpp_2m`, CLIP skip 2 on anime checkpoints. **Reach for SD 1.5** for quick prototyping, low-VRAM machines, and access to its enormous legacy ecosystem.
-
-### Stable Diffusion 2.x (summarized)
-
-SD 2.x (2022, ~865M params, 768×768) swapped CLIP for **OpenCLIP**, trained on a cleaner NSFW-filtered dataset, and raised native resolution to 768×768 with improved attention. The result was *technically* better but *aesthetically* divisive — the filtered data and new encoder changed the default "look," and because it broke compatibility with SD 1.5 add-ons, the community largely skipped it. It needs a different prompting style and stronger negative prompts than 1.5. **In practice SD 2.x is superseded:** if you want SD 1.5's footprint, use 1.5; if you want higher resolution, jump to SDXL.
-
-### SDXL — the default all-rounder
-
-SDXL (2023, ~3.5B base, 1024×1024) keeps the U-Net but scales it up, reads the prompt with **two** text encoders (CLIP ViT-L + OpenCLIP bigG), and conditions on image **size and crop** so it frames subjects better than SD 1.5. An optional **refiner** finishes the last ~20% of denoising, though most modern fine-tunes look excellent base-only. It runs on 8 GB cards and anchors the deepest mature ecosystem outside the SD 1.5 legacy world. → **[Full SDXL guide](sdxl-guide.html)**
-
-### SD3 / 3.5 — modern architecture, lower cost
-
-SD3 (2024) moves the lineage to a **Multimodal Diffusion Transformer (MM-DiT)** trained with rectified flow, with **triple text encoding** (two CLIP encoders plus a large T5) that drives strong prompt adherence and legible in-image text. The Medium variant runs comfortably on ~10 GB. Use the **SD3.5** refresh rather than the original SD3 Medium — it fixed much of the launch-day anatomy and licensing criticism and is the practical SD3-family choice today. → **[Full SD3 guide](sd3-guide.html)**
-
-### FLUX — state of the art
-
-FLUX.1 (2024, ~12B params) from Black Forest Labs abandons the U-Net for a large **flow-matching transformer** with **guidance distillation** baked in. It rarely botches hands, renders legible text, follows long natural-language prompts, and sets the open-model quality bar — at the cost of 12 GB+ VRAM and 2-3× SDXL's runtime. Keep **`cfg = 1.0`** and steer with `guidance` (~3.5); use **schnell (Apache-2.0)** for commercial work, **dev** for top-quality local work. → **[Full FLUX guide](flux-guide.html)**
-
-### Pony & SDXL Fine-Tunes — specialized excellence
-
-Pony Diffusion, Illustrious, and NoobAI are all **fine-tunes of SDXL**, not new architectures, so they share SDXL's LoRAs, ControlNets, and tooling — you adopt a new *dialect* of prompting, not a new ecosystem. Pony's signature is **score-based prompting** (`score_9, score_8_up, ...`); Illustrious and NoobAI use plain danbooru tags. They are best-in-class for anime/stylized art and biased toward that content. → **[Full Pony & fine-tunes guide](pony-and-finetunes.html)**
-
-## Per-Family Guides
-
-Once you have chosen a family, these pages cover its architecture, optimal settings, ecosystem, and migration notes in full depth.
-
-- **[SDXL Guide](sdxl-guide.html)** — dual text encoders, size/crop conditioning, the base+refiner pipeline, and the fine-tune ecosystem built on SDXL.
-- **[SD3 Guide](sd3-guide.html)** — the MM-DiT backbone, triple text encoding, rectified-flow training, in-image text, and SD3.5 licensing.
-- **[FLUX Guide](flux-guide.html)** — flow matching, guidance distillation, dev / schnell / pro variants, and the FLUX node workflow.
-- **[Pony & Fine-Tunes](pony-and-finetunes.html)** — Pony, Illustrious, NoobAI, and Animagine: score/tag conventions and when to pick a fine-tune over a base.
-
-## Model Selection Guide
-
-### By Use Case
-
-| Use Case | Recommended Model | Alternative |
-|----------|------------------|-------------|
-| Quick prototypes | SD 1.5 | FLUX-schnell |
-| Photorealism | FLUX | SDXL |
-| Anime/Manga | Pony / Illustrious | SD 1.5 + LoRA |
-| Game assets | SDXL | SD 1.5 |
-| Product renders | FLUX | SDXL |
-| Artistic styles | SD 1.5 | SDXL |
-| Text in images | FLUX | SD3 (SDXL limited) |
-| Low VRAM (4-6GB) | SD 1.5 | SD 2.1 |
-| Commercial use | SDXL / FLUX-schnell | SD 1.5 |
-| Best quality | FLUX | SDXL + Refiner |
-
-### By Hardware
-
-| VRAM | Optimal Model | Settings |
-|------|--------------|----------|
-| 4GB | SD 1.5 | 512×512, FP16 |
-| 6GB | SD 2.1 | 768×768, FP16 |
-| 8GB | SDXL | 1024×1024, FP16, no refiner |
-| 10-12GB | SD3 Medium / FLUX-fp8 | 1024×1024, optimized |
-| 16GB+ | Any model | Full quality |
-
-### A Decision Path
-
-```mermaid
-flowchart TD
-    Start["Choosing a base model"] --> VRAM{"VRAM budget?"}
-    VRAM -->|"4-6 GB"| SD15["SD 1.5 (512px, fast)"]
-    VRAM -->|"8-12 GB"| Task{"Primary task?"}
-    VRAM -->|"12 GB+"| Quality{"Need top quality / text?"}
-    Task -->|"Anime / stylized"| Pony["Pony / Illustrious"]
-    Task -->|"General / realism"| SDXL["SDXL (safe default)"]
-    Quality -->|"Yes, commercial"| Schnell["FLUX.1-schnell (Apache-2.0)"]
-    Quality -->|"Yes, local best"| FluxDev["FLUX.1-dev"]
-    Quality -->|"Lower cost, strong prompts"| SD3["SD3.5 Medium"]
-    classDef unet fill:#e3f2fd,stroke:#1976d2;
-    classDef dit fill:#f3e5f5,stroke:#7b1fa2;
-    class SD15,Pony,SDXL unet;
-    class Schnell,FluxDev,SD3 dit;
-```
+"Commercial use" in the diagram refers to the weights' license. For hosted services and products that bundle a model, the model's license governs. For images generated locally, several non-commercial licenses (including FLUX.1 [dev]'s) contain separate clauses about outputs, so read the actual text rather than relying on a summary.
 
 ## Prompting Across Families
 
-Moving between families means changing both *how you prompt* and *which settings apply*. The two recurring shifts are tags→natural-language (SD 1.5 → SDXL/FLUX) and CFG→guidance (SDXL → FLUX). The per-family guides cover full migration tables; the essentials:
+Moving between families changes both the prompt style and the sampler settings.
 
-| Model | Prompt Style | Example |
-|-------|--------------|---------|
-| SD 1.5 | Tag-based | "1girl, red hair, blue eyes, smile, outdoors" |
-| SDXL | Natural + tags | "A girl with red hair and blue eyes smiling outdoors, masterpiece" |
-| Pony | Score + tags | "score_9, 1girl, red hair, blue eyes, smile, outdoors" |
-| SD3 / FLUX | Natural language | "A cheerful young woman with vibrant red hair and striking blue eyes" |
+| Family | Prompt style | Example | Key settings |
+|--------|--------------|---------|--------------|
+| SD 1.5 | Comma-separated tags, quality tags help | `1girl, red hair, blue eyes, smile, outdoors, masterpiece` | CFG 6–8, negative prompt matters |
+| SDXL | Short sentences plus tags | `A girl with red hair and blue eyes smiling outdoors, soft light` | CFG 5–7 |
+| Pony V6 | Score tags plus Danbooru tags | `score_9, score_8_up, 1girl, red hair, outdoors` | CFG 6–7, CLIP skip 2 |
+| Illustrious / NoobAI | Danbooru tags, artist tags | `1girl, red hair, blue eyes, outdoors, masterpiece, best quality` | CFG 5–7 |
+| SD 3.5 | Natural language | `A cheerful young woman with vivid red hair...` | CFG 4–5 |
+| FLUX.1 [dev] | Natural language, descriptive | as above; no negative prompt | `cfg 1.0`, `guidance` ~3.5 |
+| FLUX.2, Qwen-Image, Z-Image | Detailed natural language, quoted text for typography, structured or JSON-like prompts accepted | `A poster that reads "OPEN LATE" in bold serif type...` | Follow the model card; distilled variants use CFG 1 |
 
-The two traps worth memorizing: SDXL's **dual encoders reward sentences** over SD 1.5 quality-spam tags, and FLUX must run at **`cfg = 1.0`** with a separate `guidance ≈ 3.5` — leaving CFG at an SDXL-style 7.5 wrecks FLUX output. See the [SDXL](sdxl-guide.html) and [FLUX](flux-guide.html) guides for the full migration walkthroughs.
+Two recurring mistakes: quality-tag spam (`masterpiece, 8k, trending on artstation`) helps SD 1.5 but does nothing or harm on LLM-encoded models, and running a guidance-distilled model at an SDXL-style CFG wrecks the output.
 
-## Performance Comparison
+## Trends
 
-### Generation Speed (RTX 4090)
-
-> **Note:** These figures are approximate and highly hardware-dependent (VRAM, precision, attention backend, and software version all matter). Treat them as rough relative comparisons rather than exact benchmarks.
-
-| Model | Resolution | Steps | Time | It/s |
-|-------|------------|-------|------|------|
-| SD 1.5 | 512×512 | 25 | 3s | 8.3 |
-| SD 2.1 | 768×768 | 30 | 6s | 5.0 |
-| SDXL | 1024×1024 | 30 | 15s | 2.0 |
-| SD3-M | 1024×1024 | 28 | 20s | 1.4 |
-| Pony | 1024×1024 | 25 | 12s | 2.1 |
-| FLUX | 1024×1024 | 25 | 40s | 0.6 |
-| FLUX-schnell | 1024×1024 | 4 | 2s | 2.0 |
-
-### Quality Metrics
-
-> **Caveat:** The numbers below are illustrative/approximate for relative comparison only — they are not the result of a controlled benchmark and should not be cited as measured scores.
-
-| Model | FID Score | CLIP Score | User Preference |
-|-------|-----------|------------|-----------------|
-| SD 1.5 | 12.6 | 31.7 | 72% |
-| SD 2.1 | 10.2 | 32.5 | 78% |
-| SDXL | 8.1 | 33.8 | 86% |
-| SD3 | 7.5 | 34.5 | 89% |
-| Pony | 9.2* | 32.1* | 91%** |
-| FLUX | 6.3 | 35.2 | 94% |
-
-*On anime dataset **Among target audience
-
-## Future Considerations
-
-### Emerging Trends
-
-1. **Smaller, faster models**: Distillation techniques (LCM, Turbo, schnell)
-2. **Better architectures**: DiT and flow-based models dominating
-3. **Multi-modal**: Combined image/video/3D generation
-4. **Real-time generation**: Sub-second inference becoming standard
-5. **Mobile deployment**: On-device generation with quantization
-6. **Open alternatives**: Models like PixArt-α (Würstchen v3 / Stable Cascade was an earlier cascaded approach, now largely superseded)
-
-### Choosing Future-Proof Models
-
-- **FLUX**: Current best for quality and capabilities; its LoRA and ControlNet ecosystem has matured rapidly and is no longer a reason to avoid it.
-- **SD3.5**: The 3.5 Large/Medium refresh addressed many launch-day criticisms of the original SD3 Medium (anatomy, licensing) and is the practical SD3-family choice today.
-- **SDXL**: Stable choice with the deepest mature ecosystem; fine-tunes like Pony and Illustrious keep it highly relevant for stylized art.
-- **SD 1.5**: Will remain relevant for specialized uses, fastest iteration, and low-resource scenarios.
-
-## Key Takeaways
-
-- **There is no single "best" model** — match the model to your task, hardware, and required ecosystem.
-- **Default to SDXL** for the best balance of quality, speed, and mature LoRA/ControlNet support.
-- **Choose FLUX** for state-of-the-art photorealism, coherence, and text rendering when you have the VRAM (12 GB+); use **schnell** if you need a commercial license.
-- **Keep SD 1.5** for low-VRAM setups, fastest iteration, and access to its enormous legacy ecosystem.
-- **Two lineages, two add-on ecosystems:** U-Net (SD 1.5/2.x/SDXL/Pony) vs. transformer flow-matching (SD3/FLUX). LoRAs and ControlNets do not cross between them.
-- **Mind the license:** SD 1.5/SDXL are permissive; SD3 carries a revenue-capped community license; **FLUX.1-dev is non-commercial** while schnell is Apache-2.0.
+- **Language models as text encoders.** CLIP gave way to T5, and T5 is giving way to full LLMs and VLMs (Qwen2.5-VL, Qwen3, Mistral Small). Prompts are read as instructions, which improves layout, counting, and text.
+- **Generation and editing in one model.** Reference-image conditioning (FLUX.1 Kontext, FLUX.2, Qwen-Image-Edit, klein) is replacing separate inpainting checkpoints and many IP-Adapter and ControlNet workflows.
+- **Distillation as a default release.** Families now ship a few-step distilled model next to an undistilled base for fine-tuning (FLUX.2 klein and klein base, Z-Image-Turbo and Z-Image-Base).
+- **Low-bit inference.** fp8 is standard, and 4-bit formats (NVFP4 on Blackwell GPUs, SVDQuant/Nunchaku, GGUF) bring 12–32B models onto consumer cards.
+- **Licensing drift.** Terms change between versions. Qwen-Image moved from Apache-2.0 to a research license with 2.1, and FLUX.2 [klein] 4B is Apache-2.0 while the 9B is not. Treat each checkpoint's license separately.
 
 ## See Also
 
-- [SDXL Guide](sdxl-guide.html) - The safe-default all-rounder in depth
-- [SD3 Guide](sd3-guide.html) - The MM-DiT transformer family
-- [FLUX Guide](flux-guide.html) - State-of-the-art flow-matching transformer
-- [Pony & Community Fine-Tunes](pony-and-finetunes.html) - SDXL anime/stylized fine-tunes
-- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html) - Core concepts explained
-- [Model Types](model-types.html) - Understanding LoRAs, VAEs, embeddings
-- [ComfyUI Guide](comfyui-guide.html) - Visual workflow creation
-- [LoRA Training](lora-training.html) - Train custom models
-- [ControlNet](controlnet.html) - Precise control over generation
-- [Advanced Techniques](advanced-techniques.html) - Cutting-edge workflows
-- [AI/ML Documentation Hub](./) - Complete AI/ML documentation index
+- [SDXL Guide](sdxl-guide.html): the U-Net generation's flagship and its ecosystem
+- [SD3 Guide](sd3-guide.html): the MM-DiT architecture and SD 3.5
+- [FLUX Guide](flux-guide.html): flow matching and guidance distillation in depth
+- [Pony and Community Fine-Tunes](pony-and-finetunes.html): SDXL anime and stylized fine-tunes
+- [Stable Diffusion Fundamentals](stable-diffusion-fundamentals.html): diffusion, flow matching, samplers, and CFG
+- [Model Types](model-types.html): checkpoints, LoRAs, VAEs, and embeddings
+- [Inpainting and Editing](inpainting-editing.html): mask-based and instruction-based editing
+- [ComfyUI Guide](comfyui-guide.html): running these models in node workflows
+- [Advanced Techniques](advanced-techniques.html): distillation, guidance variants, and performance
+- [AI/ML Documentation Hub](./)

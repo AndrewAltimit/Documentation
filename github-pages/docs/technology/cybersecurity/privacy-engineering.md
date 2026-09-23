@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Cybersecurity: Privacy Engineering"
+description: "Turning privacy law into architecture: privacy by design, data minimization and retention, PII discovery and masking/tokenization, differential privacy, consent, and the GDPR/CCPA obligations engineers must build for."
 permalink: /docs/technology/cybersecurity/privacy-engineering.html
 toc: true
 toc_sticky: true
@@ -14,6 +15,23 @@ hide_title: true
 Security keeps attackers out; privacy controls what the organization itself does with the data it legitimately holds. Privacy engineering is the discipline of translating abstract legal principles — GDPR's "data protection by design and by default," the CCPA's consumer rights — into concrete architecture: schemas that collect less, pipelines that mask and tokenize, queries that add calibrated noise, and consent records that gate every downstream use. This page covers privacy-by-design, data minimization and retention, PII discovery and masking/tokenization, differential privacy in practice, consent management, and the operational reality of GDPR and CCPA/CPRA.
 
 > **Privacy ≠ security.** A perfectly encrypted, breach-free system can still violate privacy by collecting too much, keeping it too long, or using it for purposes the subject never agreed to. Privacy engineering targets *what you do with data*, not just *who can steal it*.
+
+The controls on this page attach to a data lifecycle: each stage has a corresponding technique that limits exposure.
+
+```mermaid
+flowchart LR
+    A["Collect"] --> B["Store"]
+    B --> C["Use / analyze"]
+    C --> D["Share"]
+    D --> E["Retain"]
+    E --> F["Delete"]
+    A -.- a["Minimization,<br/>consent, purpose binding"]
+    B -.- b["Encryption,<br/>tokenization, access control"]
+    C -.- c["Masking,<br/>differential privacy"]
+    D -.- d["Consent check,<br/>opt-out / GPC"]
+    E -.- e["Retention schedule,<br/>legal hold"]
+    F -.- f["Erasure,<br/>crypto-shredding"]
+```
 
 ## Privacy by Design
 
@@ -52,20 +70,19 @@ class UserProfile:
 
 ### The Privacy Threat Model: LINDDUN
 
-Where security threat modeling uses STRIDE, privacy engineering uses **LINDDUN**, a mnemonic for seven privacy threat categories that map onto a data-flow diagram of the system:
+Where security threat modeling uses STRIDE, privacy engineering uses **LINDDUN**, a mnemonic for seven privacy threat categories checked against every element of a system's data-flow diagram:
 
-```mermaid
-flowchart LR
-    L["Linking<br/>(correlate records to one person)"]
-    I["Identifying<br/>(re-identify a 'pseudonym')"]
-    N["Non-repudiation<br/>(can't deny an action)"]
-    D["Detecting<br/>(infer presence from observables)"]
-    DD["Data Disclosure<br/>(excessive exposure)"]
-    U["Unawareness<br/>(subject can't act on rights)"]
-    NC["Non-compliance<br/>(policy vs. practice gap)"]
-```
+| Threat | The risk |
+|--------|----------|
+| **L**inking | Correlating records back to one person across sources |
+| **I**dentifying | Re-identifying someone behind a "pseudonym" |
+| **N**on-repudiation | A subject cannot plausibly deny an action they wanted private |
+| **D**etecting | Inferring that someone is in the dataset from observable side effects |
+| **D**ata disclosure | Excessive or unnecessary exposure of personal data |
+| **U**nawareness | The subject cannot understand or act on their rights |
+| **N**on-compliance | The system's practice diverges from its stated policy or the law |
 
-For each data flow, store, and process, you ask "which of these can happen here?" and add a control. *Linking* and *Identifying* are the engine behind most re-identification scandals — the 1990s Massachusetts GIC release, "anonymized" Netflix Prize ratings, and AOL search logs were all defeated by joining quasi-identifiers across datasets.
+For each data flow, store, and process, you ask "which of these can happen here?" and add a control. *Linking* and *Identifying* are the engine behind most re-identification scandals — the 1990s Massachusetts GIC release, the "anonymized" Netflix Prize ratings, and AOL search logs were all defeated by joining quasi-identifiers across datasets. The LINDDUN project now also publishes a lightweight card-deck variant (LINDDUN GO) for faster workshops.
 
 ## Data Minimization and Retention
 
@@ -207,7 +224,7 @@ class TokenVault:
 # Application & analytics see only "tok_..."; raw PANs never leave the vault.
 ```
 
-**Format-preserving encryption (FPE)** (e.g., NIST FF1/FF3-1) is a middle ground: ciphertext that keeps the original format (a 16-digit "card number" maps to another 16-digit string), useful when legacy schemas demand a specific shape but you still need reversibility under a key.
+**Format-preserving encryption (FPE)** is a middle ground: ciphertext that keeps the original format (a 16-digit "card number" maps to another 16-digit string), useful when a legacy schema demands a specific shape but you still need reversibility under a key. NIST specifies FPE in SP 800-38G. Note the moving target here: after Betül Durak and colleagues, and later Ohad Amon, Orr Dunkelman, and Eyal Ronen, showed practical attacks against the **FF3/FF3-1** tweak schedule, NIST's 2025 draft revision (SP 800-38G Rev. 1) **removes FF3-1 entirely** and retains only **FF1**, tightening it to a minimum domain of one million values. New designs should use FF1 over a large domain, or prefer tokenization where the format constraint is the only reason FPE was considered.
 
 ## Differential Privacy in Practice
 
@@ -223,11 +240,13 @@ $$
 
 Intuitively: whether or not *your* record is in the dataset, the distribution of outputs barely changes — so the output cannot reveal much about you specifically. The **privacy budget** ε is the knob: small ε (e.g., 0.1) means strong privacy and noisier answers; large ε (e.g., 10) means weak privacy and accurate answers. ε is consumed across queries and **composes additively**, so a fixed total budget must be allocated carefully.
 
-The relaxed (ε, δ)-DP allows a small failure probability δ:
+The relaxed (ε, δ)-DP allows a small failure probability δ (kept far below $1/n$ for a dataset of $n$ people):
 
 $$
 \Pr[M(D) \in S] \le e^{\varepsilon} \cdot \Pr[M(D') \in S] + \delta
 $$
+
+This relaxation is what the **Gaussian mechanism** (adding normally-distributed noise) satisfies, and it is the basis for the tight composition accounting — Rényi DP and the "moments accountant" — that makes training ML models with DP-SGD practical. For choosing and defending ε in a real deployment, NIST published **SP 800-226, *Guidelines for Evaluating Differential Privacy Guarantees*** (2025), which catalogs the common "DP hazards" (mis-set neighboring definitions, floating-point leaks, unbounded sensitivity) that quietly void the guarantee in practice.
 
 ### The Laplace Mechanism
 
@@ -267,7 +286,7 @@ def dp_mean(values, lower, upper, epsilon):
 ### Local vs. Central DP, and Real Deployments
 
 - **Central DP** trusts a curator to hold raw data and add noise to released aggregates (smaller noise, used by the **US Census Bureau** for the 2020 redistricting data).
-- **Local DP** has each *user* randomize their own value before it ever leaves the device (larger noise, but no trusted curator). Apple's keyboard/emoji telemetry and Google's **RAPPOR** in Chrome use local DP.
+- **Local DP** has each *user* randomize their own value before it ever leaves the device (larger noise, but no trusted curator). Apple's keyboard/emoji telemetry uses local DP, and Google's **RAPPOR** in Chrome pioneered the approach for browser statistics.
 
 > **DP is not a silver bullet.** A tight ε is hard to spend across many queries, choosing ε is a policy decision with real utility cost, and DP protects against inference — it does not replace access control, encryption, or minimization. Use it *with* the other controls.
 
@@ -317,7 +336,7 @@ def send_marketing_email(subject_id, ledger):
     ...
 ```
 
-The CCPA/CPRA model inverts the default: most processing is permitted, but consumers have a **right to opt out** of the "sale" or "sharing" of personal information, surfaced through a "Do Not Sell or Share My Personal Information" link and honored automatically via the **Global Privacy Control (GPC)** browser signal. A robust CMP handles both the GDPR opt-in world and the CCPA opt-out world from one consent ledger.
+The CCPA/CPRA model inverts the default: most processing is permitted, but consumers have a **right to opt out** of the "sale" or "sharing" of personal information, surfaced through a "Do Not Sell or Share My Personal Information" link and honored automatically via the **Global Privacy Control (GPC)** browser signal. GPC is now a legally binding universal opt-out signal in a growing list of states — California, Colorado, Connecticut, New Jersey (from mid-2025), and Oregon (from January 2026) among them — and regulators have enforced it: California settlements include Sephora ($1.2M, 2022), Healthline ($1.55M, 2025), and Disney ($2.75M, 2026) for failing to honor opt-outs. California's **AB 566** goes further, requiring browsers sold in the state to offer a built-in opt-out-signal control starting **January 1, 2027**, which will push GPC from an opt-in extension toward a default. A robust CMP handles both the GDPR opt-in world and the CCPA opt-out world from one consent ledger.
 
 ## The Practical Side of GDPR and CCPA
 
@@ -368,7 +387,9 @@ Two operational obligations bridge privacy and the [incident response](incident-
 | **Key control** | Lawful basis + explicit consent | "Do Not Sell or Share" + GPC |
 | **Erasure** | Right to be forgotten | Right to delete (with exceptions) |
 | **Breach window** | 72 hours to authority | Varies; "without unreasonable delay" |
-| **Penalty ceiling** | Up to €20M or 4% of global turnover | Per-violation fines (higher for minors) |
+| **Penalty ceiling** | Up to €20M or 4% of global turnover | ~$2,663 per violation, ~$7,988 if intentional or involving a minor (CPI-adjusted) |
+
+New for engineering teams: the California Privacy Protection Agency's **ADMT, risk-assessment, and cybersecurity-audit regulations** were finalized in September 2025 and took effect **January 1, 2026** (with phased compliance deadlines). They add three concrete obligations beyond the rights above — a documented **risk assessment** before certain high-risk processing, an **annual independent cybersecurity audit** for qualifying businesses, and consumer rights to **access and opt out of automated decision-making technology (ADMT)** — which pull DPIA-style documentation and audit trails firmly into the US regime, not just the EU one.
 
 The architectural takeaway: build for the *stricter* regime (GDPR's opt-in, purpose-bound, minimized model) and the looser one falls out almost for free, while a single consent ledger and DSAR orchestrator serve every jurisdiction you operate in.
 

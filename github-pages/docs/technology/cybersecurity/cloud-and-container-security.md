@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Cybersecurity: Cloud & Container Security"
+description: "Shared responsibility, cloud IAM and workload identity, posture management, container image hardening, runtime confinement and detection, and Kubernetes admission control."
 permalink: /docs/technology/cybersecurity/cloud-and-container-security.html
 toc: true
 toc_sticky: true
@@ -11,280 +12,422 @@ hide_title: true
 
 # Cloud & Container Security
 
-The cloud revolutionized how we build and deploy applications, but it moved the most common breach vector from the network perimeter to identity and configuration. This page covers the shared-responsibility model, cloud IAM and least privilege, cloud security posture management (CSPM), container image hardening, container and Kubernetes runtime security (Falco, AppArmor, SELinux, seccomp), and admission-control policy engines (OPA, Kyverno).
+**Cloud and container security** covers the controls that protect workloads running on infrastructure someone else operates. In the cloud the dominant breach vector moved from the network perimeter to **identity and configuration**: a public storage bucket, an over-permissive role, or a leaked long-lived key does more damage than most exploits. This page covers the shared-responsibility model, cloud IAM and workload identity, posture management (CSPM/CNAPP), container image hardening, runtime confinement and detection, and Kubernetes security including admission control with policy as code.
 
-## Cloud Security: New Challenges, New Solutions
+## Why misconfiguration dominates
 
-The cloud revolutionized how we build and deploy applications, but it also introduced new security challenges. You're no longer protecting a physical server in your data center—you're securing resources that exist "somewhere" in someone else's infrastructure.
+Cloud providers' own infrastructure is rarely the weak link; the customer's configuration of it usually is. Resources are created by API call, often hundreds per day, by many engineers and automation pipelines. Any one of them can open a security group to `0.0.0.0/0`, attach `AdministratorAccess` to a CI role, or disable encryption. Because the control plane is reachable from the internet, **a valid credential is equivalent to network access** — no exploit is needed. Most of this page follows from that observation: minimize what each identity can do, eliminate long-lived secrets, and check configuration continuously and preventively.
 
-The headline statistic of the cloud era is that the overwhelming majority of cloud breaches are caused not by sophisticated zero-days but by **customer misconfiguration**: a storage bucket left public, an over-permissive IAM role, a security group open to `0.0.0.0/0`. The cloud provider's infrastructure is rarely the weak link — your configuration of it is. Everything below follows from that observation.
+## The shared-responsibility model
 
-### The Shared Responsibility Model
+Providers secure the cloud itself ("security *of* the cloud"); customers secure what they put in it ("security *in* the cloud"). Where the line falls depends on the service model:
 
-Understanding who secures what is crucial. Cloud providers operate a **shared responsibility model**: they secure the cloud itself, while you secure what you put *in* the cloud. The exact dividing line shifts depending on the service model (IaaS, PaaS, SaaS), and misunderstanding where it falls is itself a leading cause of breaches.
+| Layer | On-prem | IaaS (EC2, Compute Engine) | Containers-as-a-service (EKS/GKE nodes you manage) | PaaS / serverless (RDS, Lambda) | SaaS (M365, Workspace) |
+|-------|---------|------------------|---------------------|-----------------|-------------|
+| Data, classification, retention | Customer | Customer | Customer | Customer | Customer |
+| Identity and access | Customer | Customer | Customer | Customer | Customer |
+| Application code and dependencies | Customer | Customer | Customer | Customer | Provider |
+| Runtime, middleware, container images | Customer | Customer | Customer | Provider | Provider |
+| Guest OS and patching | Customer | **Customer** | Shared (node images) | Provider | Provider |
+| Network controls (security groups, firewalls) | Customer | Customer | Customer | Shared | Provider |
+| Virtualization, hardware, facilities | Customer | Provider | Provider | Provider | Provider |
 
-```python
-# Cloud Provider Secures ("security OF the cloud"):
-# - Physical data centers and badge access
-# - Network infrastructure and backbone
-# - Hypervisor / virtualization layer
-# - Physical storage media and disposal
+The two rows that never move to the provider — **data** and **identity** — are where most incidents originate. Outsourcing infrastructure never outsources the question of who can reach the data.
 
-# You Secure ("security IN the cloud"):
-# - Your data (classification, encryption, retention)
-# - Identity and access management (who can do what)
-# - Application code and dependencies
-# - Operating system + patches (in IaaS)
-# - Network traffic controls (security groups, NACLs)
-# - Encryption keys and secrets management
+## IAM: The Keys to Your Kingdom
+
+In a cloud account, identity *is* the perimeter. Identity and Access Management (IAM) determines which principals (users, roles, service accounts, workloads) may perform which actions on which resources, under which conditions.
+
+**Least privilege** is the governing principle: start every identity at zero and grant narrowly, rather than granting broadly and trying to claw permissions back later. Provider tooling helps find the gap between granted and used permissions: AWS IAM Access Analyzer (unused-access findings and policy generation from CloudTrail activity), Google Cloud's IAM recommender, and Microsoft Entra access reviews.
+
+### Policy evaluation
+
+On AWS, a request is allowed only if every applicable policy layer permits it and none denies it. The layers act as successive filters:
+
+```mermaid
+flowchart TD
+    REQ["API request"] --> D{"Explicit Deny<br/>in any policy?"}
+    D -->|yes| DENY["Denied"]
+    D -->|no| SCP{"Organization SCPs<br/>and RCPs allow?"}
+    SCP -->|no| DENY
+    SCP -->|yes| RB{"Resource-based policy<br/>allows principal?"}
+    RB -->|"yes (same account)"| ALLOW["Allowed"]
+    RB -->|no / none| PB{"Permission boundary<br/>allows? (if set)"}
+    PB -->|no| DENY
+    PB -->|yes| SP{"Session policy<br/>allows? (if set)"}
+    SP -->|no| DENY
+    SP -->|yes| ID{"Identity policy<br/>allows?"}
+    ID -->|no| DENY
+    ID -->|yes| ALLOW
 ```
 
-The boundary moves with the service model:
+This is a simplification (cross-account access requires *both* the identity and resource policy to allow it), but it captures the design: **guardrails set a ceiling, grants operate beneath it, and an explicit deny anywhere wins.**
 
-| Layer | On-Prem | IaaS (EC2/VMs) | PaaS (App Engine, RDS) | SaaS (Workspace, M365) |
-|-------|---------|----------------|------------------------|------------------------|
-| Data & access | You | You | You | You |
-| Application | You | You | You | Provider |
-| Runtime / middleware | You | You | Provider | Provider |
-| OS & patching | You | **You** | Provider | Provider |
-| Virtualization | You | Provider | Provider | Provider |
-| Physical | You | Provider | Provider | Provider |
+- **Service control policies (SCPs)** cap what principals in member accounts may do — for example, "nobody may stop CloudTrail" or "no resources outside approved regions."
+- **Resource control policies (RCPs)**, added in late 2024, cap what may be done *to* resources such as S3 buckets, KMS keys, and secrets, regardless of which principal asks — the natural home for an organization-wide "no access from outside our organization" rule.
+- **Permission boundaries** cap what a single role can ever be granted, which makes it safe to let teams create their own roles.
 
-The two rows that *never* shift to the provider — **data** and **identity/access** — are exactly where most real-world incidents occur. No matter how much you outsource, you always own who can reach your data.
+### A worked example: bucket policies
 
-### IAM: The Keys to Your Kingdom
-
-In the cloud, Identity and Access Management (IAM) is your most critical security control. A misconfigured IAM policy can expose your entire infrastructure. Where a traditional network had a firewall as its perimeter, a cloud account's perimeter *is* its identity layer — an attacker with valid credentials walks straight in, no exploit required.
-
-**The principle of least privilege** is the foundation: every identity (user, role, service account, workload) should hold the *minimum* permissions needed to do its job, and nothing more. In practice this means starting from zero and granting narrowly, rather than starting broad and trying to claw permissions back.
-
-**Modern IAM Practices**:
-- **Zero Trust Architecture**: Never trust, always verify (covered in full under [Attacks & Network Defense](attacks-and-defense.html#zero-trust-never-trust-always-verify))
-- **Just-In-Time (JIT) Access**: Temporary elevated privileges granted on request and automatically revoked, so no standing admin access exists to steal
-- **Passwordless Authentication**: Passkeys and FIDO2 standards remove phishable shared secrets
-- **Policy Intelligence**: Provider tooling (AWS IAM Access Analyzer, GCP Policy Analyzer) that flags unused permissions and recommends tightening
-- **CNAPP**: Cloud-Native Application Protection Platforms that unify posture, identity, and workload security
-
-The classic worked example is an S3 bucket policy. The first version below is the single most common cloud misconfiguration in the world; the second shows what least privilege actually looks like:
+The overly broad policy below grants every principal on the internet every S3 action on every object:
 
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [{
     "Effect": "Allow",
-    "Principal": "*",      // DANGER: Anyone on the internet can access!
-    "Action": "s3:*",       // DANGER: All permissions, including delete!
+    "Principal": "*",
+    "Action": "s3:*",
     "Resource": "arn:aws:s3:::my-bucket/*"
   }]
 }
 ```
 
+A least-privilege version names one role, one action, one prefix, and requires that requests arrive through the organization's VPC endpoint:
+
 ```json
-// Secure version: a specific principal, one action, scoped resource,
-// and a network condition.
 {
   "Version": "2012-10-17",
   "Statement": [{
     "Effect": "Allow",
-    "Principal": {"AWS": "arn:aws:iam::123456789012:role/MyAppRole"},
-    "Action": ["s3:GetObject"],  // Minimum necessary permission
-    "Resource": "arn:aws:s3:::my-bucket/public/*",
+    "Principal": { "AWS": "arn:aws:iam::123456789012:role/ReportReader" },
+    "Action": "s3:GetObject",
+    "Resource": "arn:aws:s3:::my-bucket/reports/*",
     "Condition": {
-      "IpAddress": {"aws:SourceIp": "203.0.113.0/24"}  // IP restriction
+      "StringEquals": { "aws:SourceVpce": "vpce-0a1b2c3d4e5f67890" }
     }
   }]
 }
 ```
 
-**Roles over long-lived keys.** The most resilient pattern is to avoid static credentials entirely. Instead of embedding an access key in an application, attach a *role* to the compute (an EC2 instance profile, an EKS IRSA service account, a GCP workload identity). The platform mints short-lived credentials automatically, so there is no long-lived secret to leak. A leaked role session token expires in minutes; a leaked access key lives until someone notices.
+Provider defaults have improved: since April 2023, new S3 buckets have **Block Public Access** enabled and ACLs disabled by default, so the first policy above would be rejected unless someone deliberately turned those protections off. Enforce Block Public Access at the account or organization level so it cannot be undone per bucket.
 
-**Permission boundaries and SCPs.** Even least-privilege grants can drift. Guardrails like AWS *permission boundaries* (a ceiling on what a role can be granted) and *Service Control Policies* (account-wide deny rules across an organization) ensure that no individual misconfiguration can exceed an organizational limit — for example, "no one, ever, can disable CloudTrail" or "no resources outside approved regions."
+### Workload identity and the metadata service
 
-### Cloud Security Posture Management (CSPM)
+The most resilient pattern is to have **no long-lived credentials at all**. Instead of embedding an access key, attach an identity to the compute and let the platform mint short-lived credentials:
 
-Least privilege is a goal; **posture management** is how you continuously verify you are still meeting it. A cloud account is not a static artifact — engineers create resources hourly, and any one of them can introduce a public bucket, an unencrypted database, or an open security group. CSPM tools (AWS Security Hub, GCP Security Command Center, Wiz, Prisma Cloud, the open-source Prowler/ScoutSuite) continuously scan your accounts and compare the live configuration against a baseline of best practices and compliance frameworks (CIS Benchmarks, PCI-DSS, SOC 2).
+| Workload | Mechanism |
+|----------|-----------|
+| VM | AWS instance profile; GCP attached service account; Azure managed identity |
+| Kubernetes pod | EKS Pod Identity or IRSA; GKE Workload Identity Federation; AKS Workload Identity |
+| CI/CD pipeline | OIDC federation: the CI provider issues a signed token that the cloud exchanges for a role session (e.g. GitHub Actions → AWS `AssumeRoleWithWebIdentity`) |
+| On-prem or other cloud | IAM Roles Anywhere (X.509), GCP/Azure workload identity federation |
 
-CSPM answers questions like:
-- Which storage buckets are publicly readable or writable?
-- Which IAM roles grant `*:*` or have not been used in 90 days?
-- Which databases or volumes are unencrypted at rest?
-- Which security groups expose SSH (22) or RDP (3389) to the entire internet?
-- Is audit logging (CloudTrail / Cloud Audit Logs) enabled and immutable?
+A leaked session credential expires within hours at most; a leaked access key works until someone notices. Trust policies for federated roles must pin the token's subject (repository, branch, environment) — a trust policy that accepts any token from a CI provider lets any of that provider's customers assume the role.
 
-The strongest posture management is **preventive**, not just detective. Detecting a public bucket after it has been created still leaves a window of exposure. Embedding policy checks into the deployment pipeline — scanning Terraform/CloudFormation with tools like `checkov`, `tfsec`, or `terrascan` *before* `apply` — stops the misconfiguration from ever reaching production:
+On VMs, these credentials are served by the **instance metadata service** at `169.254.169.254`, which makes it the prime target of [SSRF](application-and-cloud-security.html#server-side-request-forgery-ssrf). On AWS, require **IMDSv2**, which demands a session token obtained with a `PUT` request and sets an IP hop limit, defeating simple SSRF and most forwarding tricks. Set IMDSv2-only as the account default and enforce it with an SCP condition (`ec2:MetadataHttpTokens`).
+
+### Human access
+
+- **Federate** humans through a single identity provider (SSO) instead of creating cloud-native users with passwords and keys.
+- **Phishing-resistant MFA** (passkeys, security keys) on the identity provider and on any break-glass root credentials.
+- **Just-in-time elevation** for administrative roles: time-boxed, approved, and logged, so there is no standing admin access to steal.
+- **Zero Trust** principles apply to every request regardless of network origin; see [Attacks &amp; Network Defense](attacks-and-defense.html#zero-trust-never-trust-always-verify).
+
+## Posture management
+
+Least privilege is a goal; **posture management** continuously checks whether it is still being met. Cloud security products have converged into a few overlapping categories, typically sold together as a **cloud-native application protection platform (CNAPP)**:
+
+| Category | Question it answers | Examples |
+|----------|---------------------|----------|
+| **CSPM** (cloud security posture management) | Is any resource misconfigured against a baseline (CIS Benchmarks, PCI DSS, SOC 2)? | AWS Security Hub, Google Security Command Center, Microsoft Defender for Cloud, Prowler |
+| **CIEM** (cloud infrastructure entitlement management) | Which identities hold permissions they never use, or can escalate privilege? | Access Analyzer, commercial CNAPPs |
+| **CWPP** (cloud workload protection) | Are running VMs, containers, and functions vulnerable or behaving maliciously? | Agent- or eBPF-based runtime sensors |
+| **KSPM** | Are Kubernetes clusters configured safely? | kube-bench, Kubescape |
+| **DSPM** (data security posture management) | Where does sensitive data live, and who can reach it? | Data discovery and classification tools |
+| **IaC scanning** | Will this Terraform/CloudFormation/Helm change introduce a misconfiguration? | Checkov, Trivy (`trivy config`, which absorbed tfsec), KICS |
+
+Typical CSPM findings: publicly readable buckets; roles with `*:*` or unused for 90 days; unencrypted volumes and snapshots; security groups exposing SSH (22) or RDP (3389) to the internet; audit logging (CloudTrail, Cloud Audit Logs) disabled or writable by the accounts it monitors.
+
+Detection after deployment still leaves a window of exposure, so the strongest posture programs are **preventive**: scan infrastructure-as-code in CI and fail the build before `apply`.
 
 ```bash
-# Shift posture checks left: scan infrastructure-as-code in CI before deploy
-checkov -d ./terraform --quiet --compact
-# Example finding:
-#   CKV_AWS_18: "Ensure the S3 bucket has access logging enabled"
-#   CKV_AWS_53: "Ensure S3 bucket has block public ACLs enabled"
-# Fail the pipeline so the misconfiguration never reaches the cloud.
+# Scan Terraform in CI; a non-zero exit fails the pipeline
+checkov -d ./terraform --compact --quiet
+trivy config --severity HIGH,CRITICAL --exit-code 1 ./terraform
 ```
 
-This is the same "policy as code" philosophy that, as we will see, governs Kubernetes admission — catch the bad configuration at the gate rather than chasing it at runtime.
+Organization-level guardrails (SCPs, RCPs, GCP organization policies, Azure Policy) are the other half of prevention: they make whole classes of misconfiguration impossible rather than merely detectable. The same "policy as code, enforced at the gate" idea reappears in Kubernetes [admission control](#admission-control-and-policy-as-code).
 
-## Container Security: Shipping Code Safely
+## Container security
 
-Containers add another layer of complexity. You're not just securing an application—you're securing the entire environment it runs in: the base image, every OS package and language dependency baked into it, the runtime that executes it, and the orchestrator that schedules it. Security spans the whole lifecycle, conventionally split into **build-time** (what goes into the image) and **runtime** (what the container is allowed to do once running).
+A container is an ordinary Linux process isolated with namespaces and cgroups; it **shares the host kernel**. Container security therefore spans the whole lifecycle — what goes into the image, which images are allowed to run, what the running process may do, and what it is observed doing:
 
-### Image Hardening: Shrinking the Attack Surface
+```mermaid
+flowchart LR
+    B["Build<br/>minimal base, non-root,<br/>scan, SBOM"] --> S["Sign<br/>cosign + provenance"]
+    S --> R["Registry<br/>immutable digests,<br/>continuous rescans"]
+    R --> A["Admit<br/>signature + policy check"]
+    A --> RUN["Run<br/>seccomp, AppArmor/SELinux,<br/>no capabilities, user namespaces"]
+    RUN --> O["Observe<br/>Falco / eBPF detection,<br/>audit logs"]
+```
 
-Every binary, library, and tool inside an image is a potential vulnerability and a potential tool for an attacker who gets a shell. The guiding principle is *minimalism*: include only what the application needs to run.
+### Image hardening
 
-**Container Security Best Practices**:
-- **Run as non-root**: A container process running as root that escapes the container is root on the host. Always create and switch to an unprivileged user.
-- **Pin specific versions**: `:latest` is non-reproducible and silently pulls in new, unvetted packages. Pin a tag or, better, a digest.
-- **Minimal / distroless base images**: Distroless and `scratch` images contain no shell, no package manager, no `curl` — dramatically reducing what an attacker can do after a breakout.
-- **Software Bill of Materials (SBOM)**: A machine-readable inventory of every component in the image (generated by `syft`, `trivy`), increasingly required by regulation and essential for responding to the next Log4Shell-style disclosure.
-- **Image scanning**: Tools like `trivy`, `grype`, and Clair scan images for known CVEs in OS packages and language dependencies, run in CI to block vulnerable images.
-- **Sigstore / image signing**: Sign images (`cosign`) and verify the signature at deploy time so only images your pipeline actually built can run.
+Every binary in an image is both a potential vulnerability and a tool for an attacker who gets a shell. The guiding principle is minimalism.
+
+| Practice | Why |
+|----------|-----|
+| Minimal or distroless base (`distroless`, Chainguard/Wolfi, Alpine, `scratch`) | No shell, package manager, or `curl` for an intruder; far fewer CVEs to triage |
+| Pin by digest (`image@sha256:…`), not `:latest` | Reproducible builds; a tag can be moved, a digest cannot |
+| Run as a non-root UID | Limits damage if the process is compromised or escapes |
+| Multi-stage builds | Compilers and build tools never reach the runtime image |
+| No secrets in layers | Anything `COPY`'d or `ENV`'d persists in image history; use BuildKit secret mounts |
+| Scan in CI and continuously in the registry | New CVEs are disclosed against images that were clean when built |
+| Generate an SBOM and sign the image | Answer "are we affected?" in minutes; admit only images your pipeline built |
 
 ```dockerfile
-# Insecure Dockerfile
-FROM ubuntu:latest          # Non-reproducible "latest" tag
-USER root                    # Running as root!
+# Before: mutable tag, root user, extra packages
+FROM ubuntu:latest
 RUN apt-get update && apt-get install -y curl
 COPY app /app
 CMD ["/app"]
 
-# Secure Dockerfile
-FROM ubuntu:22.04           # Specific version
-RUN apt-get update && apt-get install -y curl && \
-    rm -rf /var/lib/apt/lists/*  # Clean up package metadata
-RUN useradd -m appuser      # Create non-root user
-USER appuser                # Switch to non-root
+# After: pinned base, no recommended extras, cleaned cache, unprivileged user
+FROM ubuntu:24.04
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && useradd --uid 10001 --no-create-home appuser
 COPY --chown=appuser:appuser app /app
+USER 10001
 CMD ["/app"]
 ```
 
-For compiled languages, a **multi-stage build** lets you compile in a full toolchain image and then copy only the resulting binary into a distroless or `scratch` final image, so the build tools never ship to production:
+For compiled languages, a multi-stage build ships only the binary:
 
 ```dockerfile
-# Stage 1: build with the full toolchain
-FROM golang:1.22 AS build
+FROM golang:1.26 AS build
 WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -o /app ./cmd/server
+RUN CGO_ENABLED=0 go build -trimpath -o /out/server ./cmd/server
 
-# Stage 2: ship only the static binary on a distroless base
-FROM gcr.io/distroless/static:nonroot
-COPY --from=build /app /app
-USER nonroot:nonroot        # distroless "nonroot" runs as UID 65532
-ENTRYPOINT ["/app"]
-# No shell, no apt, no curl — almost nothing for an attacker to use.
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=build /out/server /server
+USER nonroot:nonroot
+ENTRYPOINT ["/server"]
 ```
 
 ```bash
-# Scan the finished image before it can be deployed
-trivy image --severity HIGH,CRITICAL --exit-code 1 myregistry/app:1.4.2
-# Generate an SBOM for incident response and supply-chain tracking
-syft myregistry/app:1.4.2 -o spdx-json > app.sbom.json
-# Sign and later verify, so only pipeline-built images run
-cosign sign myregistry/app:1.4.2
-cosign verify --key cosign.pub myregistry/app:1.4.2
+# Fail the build on serious, fixable vulnerabilities
+trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 registry.example/app:1.4.2
+
+# Produce an SBOM for incident response
+syft registry.example/app:1.4.2 -o spdx-json > app.spdx.json
+
+# Keyless signing in CI (identity comes from the pipeline's OIDC token) ...
+cosign sign --yes registry.example/app@sha256:<digest>
+
+# ... and verification that pins *who* signed it
+cosign verify \
+  --certificate-identity-regexp '^https://github.com/example-org/app/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  registry.example/app@sha256:<digest>
 ```
 
-### Runtime Security: Falco, seccomp, AppArmor & SELinux
+SBOM formats, SLSA provenance, and the Sigstore components are covered in more depth under [supply-chain defense](attacks-and-defense.html#supply-chain-defense-knowing-and-trusting-what-you-ship).
 
-Hardening the image reduces what *can* go wrong; runtime security controls what a container is *allowed* to do once it is running, and detects when it does something it shouldn't. These two halves — *confinement* (Linux kernel controls) and *detection* (behavioral monitoring) — work together.
+### Runtime confinement
 
-**Linux confinement primitives** shrink the container's slice of the kernel:
+Hardening reduces what *can* go wrong; runtime controls limit what a running container is *allowed* to do. Because containers share a kernel, a kernel or runtime bug can become a host compromise — as with the 2024 "Leaky Vessels" runc flaw (CVE-2024-21626), where a leaked file descriptor let a container reach the host filesystem. Each layer below narrows the kernel surface available to such an exploit:
 
-- **seccomp** (secure computing mode) filters which **syscalls** a process may make. The default Docker/Kubernetes seccomp profile blocks roughly 40+ dangerous syscalls (such as `mount`, `ptrace`, `keyctl`). A tightly scoped custom profile can allow only the handful of syscalls an application actually uses, so a breakout cannot invoke the rest of the kernel API.
-- **AppArmor** is a *path-based* Mandatory Access Control system (default on Debian/Ubuntu). A profile declares exactly which files a container may read or write and which capabilities it holds — e.g., deny all writes outside `/tmp` and `/app/data`.
-- **SELinux** is a *label-based* MAC system (default on RHEL/Fedora). Every process and file carries a security label, and policy governs which label may access which — the model behind container isolation on OpenShift. It is more granular and more complex than AppArmor but enforces the same idea: confine the container to a least-privilege policy independent of Unix file permissions.
-- **Linux capabilities**: Rather than the all-or-nothing root, drop every capability and add back only what is needed (`--cap-drop=ALL --cap-add=NET_BIND_SERVICE`).
+| Control | What it restricts | Notes |
+|---------|-------------------|-------|
+| **Linux capabilities** | Splits root's powers into ~40 units | Drop `ALL`; add back only what is needed (e.g. `NET_BIND_SERVICE`) |
+| **seccomp** | Which system calls the process may make | Docker's default profile blocks several dozen rarely needed, dangerous syscalls (e.g. `kexec_load`, `init_module`, `open_by_handle_at`); Kubernetes applies it only when `RuntimeDefault` is set |
+| **AppArmor** | File paths, capabilities, and network access, by profile | Path-based MAC; default on Debian/Ubuntu and SUSE. Configured via `securityContext.appArmorProfile` (GA since Kubernetes 1.30) |
+| **SELinux** | Access between labeled processes and files | Label-based MAC; default on RHEL/Fedora and the basis of OpenShift container isolation |
+| **User namespaces** | Maps container UID 0 to an unprivileged host UID | `hostUsers: false` in the pod spec; stable since Kubernetes 1.36. A process that escapes is not root on the host |
+| **Read-only root filesystem** | Writes to the image | Prevents dropping tools or modifying binaries; mount `emptyDir` for scratch space |
+| **Sandboxed runtimes** | The shared-kernel assumption itself | gVisor (user-space kernel) or Kata Containers (lightweight VM) for untrusted or multi-tenant code; see [Container Runtimes](../container-runtimes.html) |
 
 ```yaml
-# Kubernetes securityContext applying several runtime controls at once
-securityContext:
-  runAsNonRoot: true
-  runAsUser: 65532
-  allowPrivilegeEscalation: false   # block setuid escalation
-  readOnlyRootFilesystem: true      # container cannot modify its own image
-  capabilities:
-    drop: ["ALL"]                   # start from zero
-    add: ["NET_BIND_SERVICE"]       # add back only what is needed
-  seccompProfile:
-    type: RuntimeDefault            # apply the default syscall filter
+# Pod-level and container-level hardening in one manifest
+apiVersion: v1
+kind: Pod
+metadata:
+  name: api
+spec:
+  hostUsers: false                  # user namespace: root in pod != root on node
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    seccompProfile:
+      type: RuntimeDefault
+    appArmorProfile:
+      type: RuntimeDefault
+  containers:
+    - name: api
+      image: registry.example/app@sha256:<digest>
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
 ```
 
-**Behavioral detection** watches what containers actually do at runtime. **Falco** (a CNCF project, the de-facto standard) taps the kernel via eBPF to observe syscalls and raises alerts when behavior violates a rule — for example, "a shell was spawned inside a container," "a sensitive file like `/etc/shadow` was read," or "an unexpected outbound network connection was made." Where seccomp/AppArmor/SELinux *prevent* actions, Falco *detects and alerts* on the actions that policy did not anticipate:
+### Runtime detection
+
+Confinement prevents what policy anticipated; **detection** catches what it did not. **Falco** (a CNCF graduated project) observes system calls through an eBPF probe and evaluates them against rules such as "a shell started in a container," "a process read `/etc/shadow`," or "a container opened an unexpected outbound connection." Commercial CWPP sensors and other eBPF tools (Tetragon, Tracee) work similarly; Tetragon can also *enforce*, killing a process at the offending syscall.
 
 ```yaml
-# Falco rule: alert when an interactive shell starts inside a container
+# Falco rule: interactive shell inside a container
 - rule: Terminal shell in container
-  desc: A shell was spawned in a container — often a sign of an intrusion
+  desc: An interactive shell was spawned inside a container
   condition: >
-    container.id != host and proc.name in (bash, sh, zsh)
+    spawned_process and container
+    and proc.name in (bash, sh, zsh, ash)
     and proc.tty != 0
   output: >
-    Shell opened in container (user=%user.name container=%container.name
-    command=%proc.cmdline)
+    Shell in container (user=%user.name container=%container.name
+    image=%container.image.repository cmdline=%proc.cmdline)
   priority: WARNING
+  tags: [container, shell, mitre_execution]
 ```
 
-Together these form defense in depth: image hardening removes the tools, capabilities/seccomp/AppArmor/SELinux remove the privileges, and Falco catches whatever still slips through.
+Detection is only useful if someone acts on it; route alerts to the SOC's pipeline (see [Security Operations](security-operations.html)).
 
-## Kubernetes Security
+## Kubernetes security
 
-Kubernetes magnifies every container concern because it adds a powerful control plane — the API server — that schedules workloads, holds secrets, and grants access across the whole cluster. Securing Kubernetes means securing both the workloads *and* the orchestrator that commands them. The major control surfaces are:
+Kubernetes adds a powerful control plane: the API server schedules workloads, stores secrets, and grants access across the cluster. Compromising it, or any identity with broad rights on it, compromises every workload. The main control surfaces:
 
-- **RBAC (Role-Based Access Control)**: The same least-privilege discipline as cloud IAM, applied to the Kubernetes API. Bind `Roles`/`ClusterRoles` narrowly; never grant `cluster-admin` to application service accounts. Disable automatic mounting of the service-account token in pods that do not call the API.
-- **Network Policies**: By default every pod can talk to every other pod. A `NetworkPolicy` enforces a default-deny posture and whitelists only the connections each workload legitimately needs — micro-segmentation inside the cluster.
-- **Secrets management**: Kubernetes `Secret` objects are only base64-encoded, not encrypted, by default. Enable encryption-at-rest for etcd and prefer an external store (Vault, cloud secret managers, External Secrets Operator) so secrets are never sitting in plaintext in etcd.
-- **Pod Security Standards**: The successor to the deprecated PodSecurityPolicy. The built-in admission controller enforces `baseline` or `restricted` profiles per namespace — for instance, the `restricted` profile forbids privileged pods, host networking, and running as root.
-- **Securing the control plane**: Restrict access to the API server and etcd, rotate certificates, and audit-log every API request.
-
-### Admission Control & Policy as Code (OPA & Kyverno)
-
-The control point that ties cloud posture and Kubernetes security together is the **admission controller** — a webhook the API server consults *before* persisting any object. Admission control is the cluster's gate: it can reject or mutate a resource at creation time, which is exactly the "prevent, don't just detect" principle of CSPM applied to Kubernetes. This is **policy as code**: rules live in version control, are reviewed like any other change, and are enforced automatically.
-
-Two policy engines dominate:
-
-- **OPA / Gatekeeper**: The **Open Policy Agent** is a general-purpose policy engine; **Gatekeeper** is its Kubernetes admission integration. Policies are written in OPA's declarative **Rego** language and can express arbitrarily complex logic. OPA is widely used beyond Kubernetes too (API authorization, Terraform validation), so the same engine governs many layers.
-- **Kyverno**: A Kubernetes-native engine whose policies are written as ordinary Kubernetes YAML resources — no new language to learn. Kyverno can `validate` (reject), `mutate` (inject defaults like a `securityContext`), and `generate` (auto-create resources such as default NetworkPolicies in new namespaces).
-
-A representative Kyverno policy that blocks privileged containers cluster-wide:
+| Surface | Default | Hardened configuration |
+|---------|---------|------------------------|
+| **API access (RBAC)** | Whatever cluster roles you bind | Narrow `Role`s per namespace; no `cluster-admin` for workloads; watch for escalation verbs (`escalate`, `bind`, `impersonate`) and pod-creation rights, which imply access to any secret in the namespace |
+| **Service-account tokens** | Projected, short-lived token mounted in every pod | `automountServiceAccountToken: false` unless the pod calls the API |
+| **Network** | Every pod can reach every pod | Default-deny `NetworkPolicy` per namespace, then allow specific flows (requires a CNI that enforces policy) |
+| **Secrets** | Base64-encoded in etcd, not encrypted | Encryption at rest with a KMS provider (KMS v2); or an external store via External Secrets Operator or the Secrets Store CSI driver |
+| **Pod security** | No restrictions | Pod Security Admission: `restricted` for applications, `baseline` at minimum |
+| **Audit** | Off unless configured | API audit policy shipped to the SIEM |
+| **Nodes and control plane** | Varies by distribution | CIS Kubernetes Benchmark (kube-bench); private API endpoint; rotate certificates |
 
 ```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+# Default-deny ingress and egress for every pod in the namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
 metadata:
-  name: disallow-privileged-containers
+  name: default-deny
+  namespace: payments
 spec:
-  validationFailureAction: Enforce   # reject violating pods at admission
-  rules:
-    - name: privileged-containers
-      match:
-        any:
-          - resources:
-              kinds: ["Pod"]
-      validate:
-        message: "Privileged containers are not allowed."
-        pattern:
-          spec:
-            containers:
-              - =(securityContext):
-                  =(privileged): "false"
+  podSelector: {}
+  policyTypes: ["Ingress", "Egress"]
 ```
 
-With this policy admitted, any attempt to create a privileged pod — whether by an honest mistake or a compromised CI account — is rejected by the API server before it ever runs. Combined with image scanning and signing in CI, runtime confinement (seccomp/AppArmor/SELinux), and Falco detection, the cluster has controls at every stage: what you build, what you admit, what you run, and what you observe.
+### Pod Security Standards
+
+PodSecurityPolicy was removed in Kubernetes 1.25; its replacement is the built-in **Pod Security Admission** controller, which enforces three standard profiles per namespace via labels:
+
+| Profile | Intent | Blocks, among others |
+|---------|--------|----------------------|
+| `privileged` | Unrestricted; system and infrastructure components only | Nothing |
+| `baseline` | Prevent known privilege escalations with minimal friction | Privileged containers, host namespaces (`hostNetwork`, `hostPID`), `hostPath` volumes, added dangerous capabilities |
+| `restricted` | Current pod-hardening best practice | Everything in baseline, plus running as root, privilege escalation, any capability other than `NET_BIND_SERVICE`, and a missing seccomp profile |
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: payments
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/warn: restricted
+```
+
+### Admission control and policy as code
+
+An **admission controller** runs after authentication and authorization but before the API server persists an object, and can reject or mutate it. Admission is the cluster's gate — the Kubernetes equivalent of IaC scanning — and policies written as code are version-controlled, reviewed, and tested like any other change.
+
+```mermaid
+flowchart LR
+    K["kubectl / CI / controller"] --> AUTHN["Authentication"]
+    AUTHN --> AUTHZ["Authorization (RBAC)"]
+    AUTHZ --> MUT["Mutating admission<br/>(inject defaults)"]
+    MUT --> SCH["Schema validation"]
+    SCH --> VAL["Validating admission<br/>(PSA, ValidatingAdmissionPolicy,<br/>Kyverno, Gatekeeper,<br/>image-signature checks)"]
+    VAL --> ETCD[("etcd")]
+```
+
+The main options:
+
+| Engine | Policy language | Characteristics |
+|--------|-----------------|-----------------|
+| **ValidatingAdmissionPolicy** | CEL, evaluated in the API server | Built in (GA since Kubernetes 1.30); no webhook to operate or fail. A mutating counterpart, MutatingAdmissionPolicy, is newer |
+| **Kyverno** | Kubernetes-native resources; CEL-based `ValidatingPolicy`, `MutatingPolicy`, `GeneratingPolicy`, and `ImageValidatingPolicy` | Validates, mutates, generates resources, and verifies image signatures. Kyverno 1.19 (August 2026) made the CEL policy types the primary API and formally deprecated the older `ClusterPolicy` |
+| **OPA Gatekeeper** | Rego (Open Policy Agent) | General-purpose engine also used for API authorization and Terraform checks; policies as `ConstraintTemplate`s plus `Constraint`s |
+| **Sigstore policy-controller** | Image policy resources | Admits only images with valid signatures or attestations from specified identities |
+
+A built-in ValidatingAdmissionPolicy that rejects privileged containers:
+
+```yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: disallow-privileged
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  validations:
+    - expression: >-
+        object.spec.containers.all(c,
+          !c.?securityContext.?privileged.orValue(false))
+      message: "Privileged containers are not allowed."
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: disallow-privileged
+spec:
+  policyName: disallow-privileged
+  validationActions: ["Deny"]
+```
+
+The same rule as a Kyverno `ValidatingPolicy`, which uses the same CEL but adds Kyverno features such as background scanning of existing resources and policy reports:
+
+```yaml
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: disallow-privileged
+spec:
+  validationActions: ["Deny"]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  validations:
+    - expression: >-
+        object.spec.containers.all(c,
+          !c.?securityContext.?privileged.orValue(false))
+      message: "Privileged containers are not allowed."
+```
+
+In production, extend the check to `initContainers` and `ephemeralContainers`, and roll new policies out in audit or warn mode before switching to deny. With admission policy in place, a privileged pod is rejected whether it came from an honest mistake or a compromised CI credential. Combined with image scanning and signing, runtime confinement, and detection, the cluster has a control at every stage: what is built, what is admitted, what runs, and what is observed.
 
 ---
 
 <div class="page-nav">
-  <span class="page-nav-prev"><a href="application-and-cloud-security.html">← Web Application Security</a></span>
+  <span class="page-nav-prev"><a href="application-and-cloud-security.html">← Application Security</a></span>
   <span class="page-nav-next"><a href="attacks-and-defense.html">Attacks &amp; Network Defense →</a></span>
 </div>
 
-## See Also
+## See also
 
-- [Web Application Security](application-and-cloud-security.html) — injection, XSS, authentication, and JWTs in the app layer
-- [Cryptography](cryptography.html) — the encryption and signing that underpins image signing and secrets-at-rest
-- [Attacks & Network Defense](attacks-and-defense.html) — firewalls, VPNs, supply-chain attacks, and Zero Trust in full
-- [Operations & Incident Response](operations-and-response.html) — detecting and responding when a runtime alert fires
-- [AWS](../aws/) — cloud IAM and the shared-responsibility model in practice
-- [Docker](../docker/) — container fundamentals and image building
-- [Kubernetes](../kubernetes/) — orchestrating and securing containers at scale
+- [Application Security](application-and-cloud-security.html) — injection, XSS, SSRF, authentication, OAuth, and JWTs
+- [Cryptography](cryptography.html) — the primitives behind image signing and secrets at rest
+- [Attacks &amp; Network Defense](attacks-and-defense.html) — Zero Trust, supply-chain attacks, SBOM/SLSA/Sigstore
+- [Security Operations &amp; Response](operations-and-response.html) — acting on runtime alerts
+- [AWS Security](../aws/security.html) — IAM, encryption, and detection on AWS specifically
+- [Docker Storage &amp; Security](../docker/storage-security.html) — container fundamentals and Docker-level hardening
+- [Kubernetes](../kubernetes/) — cluster architecture and operations
+- [Container Runtimes](../container-runtimes.html) — runc, containerd, gVisor, Kata, and isolation trade-offs
+- [CI/CD Security and Operations](../ci-cd/security-and-operations.html) — securing the pipeline that builds images

@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Event-Driven Architecture"
+description: "Events vs. commands, choreography vs. orchestration, asynchronous decoupling, and routes into message brokers and event-driven patterns."
 permalink: /docs/event-driven/
 toc: false
 hide_title: true
@@ -11,154 +12,164 @@ hide_title: true
   <p style="font-size: 1.25rem; margin-top: 1rem; opacity: 0.9;">Building systems that react to facts — events, brokers, choreography, and the patterns that keep async systems sane</p>
 </div>
 
-<div class="code-example" markdown="1">
-An event-driven system is one whose components communicate by announcing that *something happened* rather than by calling each other to *make something happen*. A producer emits an event — "order placed," "payment captured," "user deleted" — onto a broker, and any number of consumers react on their own schedule. The producer neither knows nor cares who is listening. That single inversion — from "tell the other service to act" to "broadcast a fact and let interested parties decide" — is what buys event-driven systems their decoupling, their elasticity, and their resilience, and it is also the source of their hardest problems: eventual consistency, out-of-order delivery, and debugging a flow no single service owns. This hub frames the core mental models — events versus commands, choreography versus orchestration, asynchronous decoupling — and routes you into focused pages on the message brokers that carry events and the patterns that tame them.
-</div>
+In an **event-driven architecture (EDA)**, components communicate by announcing that *something happened* rather than by calling each other to *make something happen*. A producer publishes an event such as "order placed" or "payment captured" to a broker, and any number of consumers react on their own schedule without the producer knowing who they are. That inversion is the source of EDA's decoupling, elasticity, and resilience, and also of its hardest problems: eventual consistency, duplicate and out-of-order delivery, and flows that no single service owns. This hub defines the core concepts (events versus commands, the kinds of event, choreography versus orchestration, and what asynchrony buys and costs) and links to the detailed pages on [message brokers](message-brokers.html) and [event-driven patterns](patterns.html).
 
-## Overview
+## Request-Driven vs. Event-Driven
 
-In a request-driven system, control flows by command: service A calls service B and waits, B calls C and waits, and the whole chain is only as available as its weakest link. **Event-driven architecture inverts that flow.** Instead of issuing commands down a call stack, components publish *events* — immutable records of things that have happened — and other components subscribe to the ones they care about. The result is a system wired together by a stream of facts rather than a web of synchronous calls.
+In a request-driven system, control flows by command: service A calls B and waits, B calls C and waits, and the chain is only as available as its weakest link. Event-driven architecture replaces the call chain with a stream of facts. Components publish immutable records of what happened, and other components subscribe to the ones they care about.
 
-**What you'll get:** a working mental model of event-driven thinking — how events differ from commands, when to let services choreograph themselves versus orchestrate them centrally, and what asynchronous decoupling actually buys and costs — plus curated links into the brokers that move events and the patterns that make them reliable.
+```mermaid
+flowchart LR
+    subgraph Sync["Request-driven: a call chain"]
+        direction LR
+        O1["Order"] -->|"call, wait"| P1["Payment"]
+        P1 -->|"call, wait"| I1["Inventory"]
+        I1 -->|"call, wait"| E1["Email"]
+    end
+    subgraph Async["Event-driven: a stream of facts"]
+        direction LR
+        O2["Order"] -->|"OrderPlaced"| B[("Broker")]
+        B --> P2["Payment"]
+        B --> I2["Inventory"]
+        B --> E2["Email"]
+    end
+```
 
-**Assumed background:** comfort with services, HTTP/JSON, and at least one programming language. No prior experience with Kafka, queues, or event sourcing is required — each child page builds from first principles.
+In the call chain, an outage in Email fails the whole order and every added step adds latency. In the event-driven version, Order returns as soon as the event is durably stored, and a failed Email service only delays emails.
 
-### Events vs. Commands
+## Events vs. Commands
 
-The single most important distinction in this entire area is the difference between an **event** and a **command**. They look superficially similar — both are messages on a wire — but they carry opposite intent, and conflating them is the most common way event-driven designs go wrong.
+The most important distinction in this area is between an **event** and a **command**. Both are messages, but they carry opposite intent, and confusing them is the most common way event-driven designs go wrong.
 
-A **command** is an imperative: *do this*. It names a specific handler, expects exactly one recipient to act, and usually anticipates a result or an acknowledgment. `ChargeCard`, `SendEmail`, `ReserveInventory` are commands. The sender is coupled to the receiver's existence and is, in effect, still giving orders down a call chain — just over a message bus instead of a function call.
-
-An **event** is a notification: *this happened*. It is phrased in the past tense, names no recipient, and expects no reply. `CardCharged`, `EmailSent`, `InventoryReserved` are events. The emitter is asserting a fact about the world; whether zero, one, or fifty consumers react to it is none of its concern.
+- A **command** is an imperative: *do this*. It is addressed to one handler, which owns the outcome and usually replies. `ChargeCard`, `SendEmail`, and `ReserveInventory` are commands. The sender depends on the receiver existing.
+- An **event** is a notification: *this happened*. It is named in the past tense, addressed to no one, and expects no reply. `CardCharged`, `EmailSent`, and `InventoryReserved` are events. Whether zero or fifty consumers react is not the emitter's concern.
 
 | Aspect | Command | Event |
 |--------|---------|-------|
-| **Intent** | "Do this" (imperative) | "This happened" (declarative) |
-| **Tense** | Present/imperative (`ReserveSeat`) | Past (`SeatReserved`) |
+| **Intent** | "Do this" | "This happened" |
+| **Naming** | Imperative (`ReserveSeat`) | Past tense (`SeatReserved`) |
 | **Recipients** | Exactly one handler | Zero to many subscribers |
 | **Coupling** | Sender knows the receiver | Emitter knows no one |
-| **Reply** | Often expects a result | Expects nothing |
-| **Ownership** | Owned by the receiver (it defines what it accepts) | Owned by the emitter (it defines what it publishes) |
-| **Effect of new consumers** | Requires the sender to route to them | Transparent — emitter is unchanged |
+| **Reply** | Often expects a result | None |
+| **Schema owned by** | The receiver (what it accepts) | The emitter (what it publishes) |
+| **Can be rejected?** | Yes, by the handler | No; it already happened |
+| **Adding a consumer** | Sender must route to it | Emitter is unchanged |
 
-The practical consequence: **commands keep coupling, events shed it.** When you find yourself naming an "event" in the imperative — `OrderShipmentRequested` aimed at exactly one shipping service — you have actually written a command wearing an event's clothes, and you will pay for the disguise the first time you need a second consumer. Both message types are legitimate; mature systems use commands where one party must act and own the outcome, and events where a fact should be broadcast for anyone to react to. The discipline is calling each what it is.
+Commands keep coupling; events shed it. An "event" named in the imperative and aimed at one service, such as `OrderShipmentRequested` consumed only by shipping, is a command in disguise, and the disguise costs you the first time a second consumer appears. Both are legitimate: use commands where one party must act and own the result, and events where a fact should be broadcast. The discipline is naming each for what it is.
+
+## What an Event Carries
+
+Martin Fowler distinguishes several patterns that are all called "event-driven" but make different trade-offs:
+
+| Pattern | Event contains | Consumers | Trade-off |
+|---------|----------------|-----------|-----------|
+| **Event notification** | A minimal signal: type, ID, timestamp | Call back to the source for details | Small, stable events; consumers re-couple through the callback |
+| **Event-carried state transfer** | The changed state itself | Keep a local copy of the data they need | Consumers work when the source is down; data is duplicated and eventually consistent |
+| **Event sourcing** | Every state change, as the system of record | Rebuild state by replaying events | Full history and audit trail; replay, versioning, and snapshots add complexity |
+| **CQRS** | Events feed separate read models | Query-optimized projections | Reads and writes scale independently; read models lag the write side |
+
+The first two concern *messages between services*; the last two concern *how a service stores its own state*. They combine freely. [Event-Driven Patterns](patterns.html) covers event sourcing, CQRS, and projections in depth.
+
+Because events are an interface between teams, their shape is a public contract. Standard envelopes such as [CloudEvents](../api-design/async-and-events.html#describing-events-cloudevents) and a schema registry with compatibility rules keep producers and consumers evolving independently; see [Event Versioning & Schema Registry](patterns.html#event-versioning--schema-registry).
+
+## Choreography vs. Orchestration
+
+When a business process spans several services (place order, charge card, reserve stock, ship), someone has to drive the sequence. There are two answers.
+
+**Choreography** has no conductor. Each service subscribes to the events it cares about, does its work, and emits its own event, which the next service listens for. The flow emerges from who listens to what. This maximizes decoupling and makes adding a reaction easy, but the end-to-end process exists only implicitly, spread across subscriptions, which makes it hard to see, monitor, and change.
+
+**Orchestration** introduces a coordinator that holds the process definition explicitly. It sends commands, waits for replies, and decides what happens next, including **compensating** earlier steps when a later one fails. The flow lives in one place where it can be read and monitored, at the cost of a central component coupled to every step. **Durable execution** engines such as Temporal, Restate, and AWS Step Functions have made orchestration much cheaper to build correctly, because they persist the workflow's progress and resume it after crashes; see [Durable Execution](../distributed-systems/microservices-and-event-driven.html#durable-execution).
 
 ```mermaid
-flowchart LR
-    subgraph Command["Command — coupled"]
-        A["Order Service"] -->|"ChargeCard"| B["Payment Service"]
-        B -.->|"result"| A
-    end
-    subgraph Event["Event — decoupled"]
-        P["Order Service"] -->|"OrderPlaced"| Broker[("Broker")]
-        Broker --> C1["Payment"]
-        Broker --> C2["Email"]
-        Broker --> C3["Analytics"]
-    end
+sequenceDiagram
+    participant O as Order
+    participant C as Saga coordinator
+    participant P as Payment
+    participant W as Warehouse
+    Note over O,W: Orchestration, with a compensation on failure
+    O->>C: start PlaceOrder
+    C->>P: ChargeCard (command)
+    P-->>C: CardCharged
+    C->>W: ReserveStock (command)
+    W-->>C: OutOfStock
+    C->>P: RefundCard (compensation)
+    P-->>C: CardRefunded
+    C-->>O: OrderRejected
 ```
 
-### Choreography vs. Orchestration
-
-Once components talk in events, a second question appears: when a multi-step business process spans several services — place order → charge card → reserve stock → ship — **who drives the sequence?** There are two answers, and the choice is one of the defining decisions of an event-driven system.
-
-**Choreography** has no conductor. Each service subscribes to the events it cares about, does its work, and emits its own event, which the next service happens to be listening for. The order service emits `OrderPlaced`; the payment service reacts and emits `PaymentCaptured`; the warehouse reacts to *that* and emits `StockReserved`; and so on. The overall flow is an emergent property of who-listens-to-what — no single component knows the whole story. This maximizes decoupling and lets you add steps by simply subscribing a new consumer, but the end-to-end process exists only implicitly, scattered across subscriptions, which makes it hard to see, hard to monitor, and hard to reason about when something stalls.
-
-**Orchestration** introduces a coordinator — an orchestrator or saga manager — that holds the process definition explicitly. It sends commands (`ChargeCard`, then `ReserveStock`, then `Ship`), waits for each to report back, and decides what happens next, including compensation if a step fails. The flow lives in one place where you can read it, monitor it, and visualize it, at the cost of reintroducing a central component that every step depends on and that becomes coupled to all of them.
+In the choreographed version of the same flow, Payment reacts to `OrderPlaced`, Warehouse reacts to `CardCharged`, and on failure Warehouse emits `StockReservationFailed`, to which Payment reacts by refunding. Every service must know which failure events concern it, which is manageable for two steps and hard to follow for ten.
 
 | | Choreography | Orchestration |
 |--|--------------|---------------|
-| **Control** | Distributed — each service decides | Centralized — coordinator decides |
-| **Communication** | Events ("this happened") | Commands ("do this") + replies |
-| **Coupling** | Lowest; services don't know the flow | Coordinator coupled to every step |
-| **Visibility** | Flow is implicit and scattered | Flow is explicit in one place |
-| **Adding a step** | Subscribe a new consumer | Edit the coordinator |
-| **Failure handling** | Each service compensates locally | Coordinator runs compensation |
-| **Best for** | Simple, loosely related reactions | Complex, long-lived, multi-step transactions |
+| **Control** | Distributed; each service decides | Centralized in a coordinator |
+| **Messages** | Events | Commands and replies |
+| **Coupling** | Lowest; no service knows the whole flow | Coordinator coupled to every step |
+| **Visibility** | Implicit; reconstructed from traces | Explicit; the workflow definition |
+| **Adding a step** | Subscribe a new consumer | Change the coordinator |
+| **Failure handling** | Each service compensates on failure events | Coordinator runs compensations |
+| **Best for** | Independent side effects, few steps | Long-running, multi-step transactions with ordering and timeouts |
 
-Neither is universally correct. A good rule of thumb: **choreograph the simple, orchestrate the complex.** Loosely related side-effects — "when an order is placed, also update analytics and send a receipt" — are a natural fit for choreography. A genuine distributed transaction with ordering, timeouts, and compensation — the canonical [saga](../distributed-systems/resilience-patterns.html) — is usually clearer as an orchestration. Many real systems mix both, choreographing across bounded contexts and orchestrating the critical path inside one.
+A useful rule of thumb is **choreograph the simple, orchestrate the complex**. Independent side effects ("when an order is placed, update analytics and send a receipt") suit choreography. A distributed transaction with ordering, timeouts, and compensation, the [saga](patterns.html#the-saga-pattern), is usually clearer as an orchestration. Many systems use both: choreography between bounded contexts, orchestration for the critical path inside one.
 
-```mermaid
-flowchart TD
-    subgraph Choreo["Choreography — no conductor"]
-        O1["Order"] -->|OrderPlaced| Pay1["Payment"]
-        Pay1 -->|PaymentCaptured| Stock1["Warehouse"]
-        Stock1 -->|StockReserved| Ship1["Shipping"]
-    end
-    subgraph Orch["Orchestration — central coordinator"]
-        Coord["Saga<br/>Coordinator"] -->|ChargeCard| Pay2["Payment"]
-        Coord -->|ReserveStock| Stock2["Warehouse"]
-        Coord -->|Ship| Ship2["Shipping"]
-        Pay2 -.->|ok| Coord
-        Stock2 -.->|ok| Coord
-    end
-```
+## Asynchronous Decoupling
 
-### Asynchronous Decoupling
-
-The deepest benefit of event-driven design is **temporal decoupling**: the producer and the consumer do not have to be available at the same time. In a synchronous call, the caller blocks until the callee answers — they are coupled in time, in availability, and in throughput. The moment a broker sits between them, those couplings dissolve. The producer writes an event and returns immediately; the broker holds it durably; the consumer reads it whenever it is ready, possibly seconds or hours later, possibly after recovering from a crash.
-
-That single change cascades into several concrete properties:
-
-1. **Load leveling.** A traffic spike that would overwhelm a synchronous downstream service simply lengthens the queue. The broker absorbs the burst and the consumer drains it at its own sustainable rate, turning a thundering-herd outage into a temporary lag.
-2. **Failure isolation.** If a consumer crashes, the producer is unaffected — events accumulate safely until the consumer returns and catches up. A synchronous dependency, by contrast, would propagate the failure straight back up the call chain.
-3. **Independent scaling.** Producers and consumers scale separately. You can run one producer and twenty consumers, or scale the consumer fleet up and down based on queue depth, without the producer knowing or caring.
-4. **Fan-out for free.** Because an event names no recipient, adding a new consumer is invisible to everyone else. The same `OrderPlaced` event can feed fulfillment, billing, analytics, and fraud detection, each added independently.
-5. **Replayability.** Log-based brokers retain events, so a new or fixed consumer can rewind and reprocess history — invaluable for rebuilding a projection or recovering from a bug.
-
-These gains are not free. Asynchrony means **eventual consistency**: there is a window where the order exists but the invoice does not, and the system as a whole is only "correct" once all consumers have caught up. It means **harder reasoning**: a single user action becomes a cascade of events across services with no stack trace tying them together, so you lean on correlation IDs and distributed tracing instead. And it forces every consumer to be **idempotent**, because the practical delivery guarantee is *at-least-once* — the same event will, eventually, arrive twice. These costs and the patterns that pay them down are the subject of the [Patterns](patterns.html) page; the infrastructure that makes the decoupling possible is the subject of [Message Brokers](message-brokers.html).
+The central benefit of event-driven design is **temporal decoupling**: producer and consumer need not be available at the same time. A synchronous caller is coupled to its callee in time, availability, and throughput. With a broker in between, the producer writes an event and returns; the broker holds it durably; the consumer processes it when ready, possibly after recovering from a crash.
 
 ```mermaid
 flowchart LR
-    Prod["Producer<br/>(returns immediately)"] --> Q[("Broker / Log<br/>durable buffer")]
-    Q --> C1["Consumer A<br/>(its own pace)"]
-    Q --> C2["Consumer B<br/>(may be offline,<br/>catches up later)"]
-    Q --> C3["Consumer C<br/>(replays from start)"]
+    Prod["Producer<br/>(returns immediately)"] --> Q[("Broker or log<br/>durable buffer")]
+    Q --> C1["Consumer A<br/>(keeping up)"]
+    Q --> C2["Consumer B<br/>(was offline, catching up)"]
+    Q --> C3["Consumer C<br/>(new, replaying history)"]
 ```
 
-### When Event-Driven Earns Its Keep
+That change yields several properties:
 
-Event-driven architecture is a tool, not a default. It shines when you have **multiple independent reactions to the same fact**, **spiky or unpredictable load** that benefits from buffering, **long-running or background work** that should not block a user, or **bounded contexts that must stay decoupled** so teams can evolve independently. It is the wrong reflex when you need an **immediate synchronous answer** (a price quote, an authorization decision), when a **strong, read-your-writes consistency** guarantee is non-negotiable, or when the system is small enough that a direct call is simply clearer. As always, the honest answer is "it depends" — and the rest of this hub makes the dependencies concrete.
+1. **Load leveling.** A traffic spike lengthens the queue instead of overwhelming the downstream service, which drains it at a sustainable rate.
+2. **Failure isolation.** A crashed consumer does not affect the producer; events accumulate until it returns.
+3. **Independent scaling.** Producers and consumers scale separately, and consumers can autoscale on backlog.
+4. **Cheap fan-out.** New consumers attach without any change to the producer.
+5. **Replay.** Log-based brokers retain events, so a new or fixed consumer can reprocess history to build or rebuild a view.
 
-## Explore the Topics
+These gains have costs:
 
-The two pages below split the area into *infrastructure* and *patterns*: first the brokers that physically carry events, then the design patterns that make event-driven systems correct and maintainable.
+| Cost | Consequence | Mitigation |
+|------|-------------|------------|
+| **Eventual consistency** | The order exists before the invoice does; reads may be stale. | Design read paths and UIs to tolerate lag; show pending states. |
+| **Duplicate delivery** | At-least-once delivery means the same event arrives more than once. | [Idempotent consumers](patterns.html#idempotent-consumers). |
+| **Reordering** | Events for different keys interleave; retries and redelivery reorder. | Key by entity ID; carry version numbers and discard stale updates. |
+| **Dual writes** | Updating a database and publishing an event are two operations that can partially fail. | The [transactional outbox](patterns.html#the-outbox--inbox-patterns) or change data capture. |
+| **Lost traceability** | One user action becomes a cascade of events with no stack trace. | Correlation IDs and distributed tracing with context propagated in message headers ([Observability](../distributed-systems/observability.html)). |
+| **Poison messages** | A message that always fails blocks its queue or partition. | Bounded retries and [dead-letter queues](message-brokers.html#dead-letter-queues). |
+
+## When Event-Driven Is the Right Choice
+
+Event-driven architecture is a tool, not a default. It fits well when there are **multiple independent reactions to the same fact**, **spiky or unpredictable load** that benefits from buffering, **long-running or background work** that should not block a user, **integration across teams or bounded contexts** that must evolve independently, or a need for an **audit trail or replayable history**.
+
+It is a poor fit when the caller needs an **immediate answer** (a price quote, an authorization decision), when **read-your-writes consistency** is required across services, or when the system is small enough that a direct call is simply clearer. A common, sound design is synchronous requests at the edge for queries and user-facing decisions, with events carrying state changes between services behind it.
+
+## Topics in This Section
 
 | Page | What it covers |
 |------|----------------|
-| [Message Brokers](message-brokers.html) | Queue vs. log semantics, Apache Kafka, RabbitMQ, NATS, and managed brokers (SQS/SNS, Pub/Sub, EventBridge); partitions, consumer groups, offsets, retention, and at-least-once vs. exactly-once delivery |
-| [Event-Driven Patterns](patterns.html) | Publish/subscribe, event notification vs. event-carried state transfer, event sourcing, CQRS, choreographed and orchestrated sagas, the transactional outbox, idempotency keys, and dead-letter queues |
+| [Message Brokers & Streaming](message-brokers.html) | Queue vs. log storage; Apache Kafka 4.x (KRaft, share groups, transactions), RabbitMQ 4.x (quorum queues, streams), NATS JetStream, Pulsar; SQS, SNS, EventBridge, Kinesis, and Google Pub/Sub; ordering, delivery semantics, exactly-once, backpressure, and dead-letter queues |
+| [Event-Driven Patterns](patterns.html) | Event sourcing, CQRS, projections, choreographed and orchestrated sagas, the transactional outbox and inbox, idempotent consumers, schema versioning, and eventual consistency |
 
-## Learning Path
-
-There is no single correct route, but the following order builds each idea on the one before it:
-
-1. **Internalize the mental models.** This hub's distinctions — events vs. commands, choreography vs. orchestration, async decoupling — are the vocabulary every later page assumes.
-2. **Learn what carries the events.** [Message Brokers](message-brokers.html) explains the two broker families (transient queues vs. durable logs) and the delivery guarantees that determine how careful your consumers must be.
-3. **Make it correct.** [Event-Driven Patterns](patterns.html) supplies the patterns — idempotency, the outbox, sagas, event sourcing, CQRS — that turn raw messaging into a reliable system.
-
-For how these ideas sit inside a broader service architecture, branch into [Microservices & Event-Driven](../distributed-systems/microservices-and-event-driven.html); for the synchronous-versus-asynchronous API trade-off, see [Async & Event-Driven APIs](../api-design/async-and-events.html).
-
-## Key Takeaways
-
-- **Name events as facts.** Past tense, no recipient, no demand. If it reads like an order to one specific service, it's a command — call it one and accept the coupling deliberately.
-- **Decoupling is the payoff.** Producers and consumers never reference each other, so you add, remove, or scale consumers without touching producers — and a slow consumer never stalls the source.
-- **Choreograph simple, orchestrate complex.** Let loosely related reactions self-organize through events; give genuine multi-step transactions an explicit coordinator you can read and monitor.
-- **Async buys resilience, costs immediacy.** Brokers buffer spikes and isolate failures, but the system is only eventually consistent — design every read path to tolerate lag.
-- **Assume at-least-once delivery.** The same event will arrive twice. Make every consumer idempotent so a duplicate is a harmless no-op, not a double charge.
-- **Restore the lost trace.** One action becomes a cascade with no stack trace. Correlation IDs and distributed tracing are how you see the whole flow again.
+A suggested reading order is this page for vocabulary, then [Message Brokers](message-brokers.html) for the infrastructure and its delivery guarantees, then [Event-Driven Patterns](patterns.html) for the techniques that make event-driven systems correct.
 
 ## See Also
 
-- **[Microservices & Event-Driven](../distributed-systems/microservices-and-event-driven.html)** — how event-driven messaging fits into a system of independently deployable services, with Kafka, event sourcing, and CQRS in context.
-- **[Async & Event-Driven APIs](../api-design/async-and-events.html)** — the synchronous-vs-asynchronous decision at the API boundary: queues vs. streams, delivery guarantees, and webhooks.
-- **[Resilience Patterns](../distributed-systems/resilience-patterns.html)** — sagas, idempotency, and distributed locks: the reliability mechanisms event-driven flows depend on.
-- **[Distributed Systems](../distributed-systems/)** — the consistency models, partial-failure realities, and coordination limits that shape every async design.
-- **[Database Design](../technology/database-design/)** — the data stores your events project into and the outbox table that bridges writes to the broker.
+- **[Microservices & Event-Driven](../distributed-systems/microservices-and-event-driven.html)**: event-driven messaging within a microservice architecture, including durable execution and the outbox pattern
+- **[Async & Event-Driven APIs](../api-design/async-and-events.html)**: webhooks, server-sent events, CloudEvents, and AsyncAPI at the API boundary
+- **[Resilience Patterns](../distributed-systems/resilience-patterns.html)**: retries, backoff, idempotency, and sagas with compensation
+- **[Testing Distributed Systems](../distributed-systems/testing-distributed-systems.html)**: fault injection and consistency checking for asynchronous systems
+- **[Distributed Systems](../distributed-systems/)**: consistency models, partial failure, and coordination limits
+- **[Database Design](../technology/database-design/)**: the stores events project into and the outbox table that bridges writes to the broker
 
 ### Further Reading
 
-- "Designing Data-Intensive Applications" by Martin Kleppmann — the definitive treatment of logs, streams, and derived data
-- "Building Event-Driven Microservices" by Adam Bellemare
-- "Enterprise Integration Patterns" by Gregor Hohpe & Bobby Woolf — the canonical messaging-pattern catalog
-- [Martin Fowler: What do you mean by "Event-Driven"?](https://martinfowler.com/articles/201701-event-driven.html)
-- [The Log: What every software engineer should know about real-time data's unifying abstraction](https://engineering.linkedin.com/distributed-systems/log-what-every-software-engineer-should-know-about-real-time-datas-unifying)
+- Martin Kleppmann, *Designing Data-Intensive Applications*: logs, streams, and derived data
+- Adam Bellemare, *Building Event-Driven Microservices*
+- Gregor Hohpe and Bobby Woolf, *Enterprise Integration Patterns*: the canonical messaging-pattern catalog
+- [Martin Fowler, "What do you mean by 'Event-Driven'?"](https://martinfowler.com/articles/201701-event-driven.html)
+- [Jay Kreps, "The Log: What every software engineer should know about real-time data's unifying abstraction"](https://engineering.linkedin.com/distributed-systems/log-what-every-software-engineer-should-know-about-real-time-datas-unifying)

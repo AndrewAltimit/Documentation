@@ -8,67 +8,91 @@ hide_title: true
 
 <div class="hero-section" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 1.5rem 2rem; margin: -2rem -3rem 2rem -3rem; text-align: center;">
   <h1 style="color: white; margin: 0; font-size: 2rem;">Networking</h1>
-  <p style="margin-top: 0.5rem; opacity: 0.9;">TCP/IP protocols, routing, and modern network architecture</p>
+  <p style="margin-top: 0.5rem; opacity: 0.9;">TCP/IP protocols, routing, performance, and modern network architecture</p>
 </div>
 
-<!-- Custom styles are now loaded via main.scss -->
+This hub covers computer networking from the protocol stack up to programmable, cloud, and wireless networks. It starts with a single request traced end to end, then maps each step of that request onto the page that explains it. The pages form a rough progression: vocabulary and addressing first, then how data moves (transport and routing), then how well it moves and how it is defended (performance and security), and finally how modern networks are built and where research is heading.
 
-Every web page, message, and video travels through an intricate network of connections. This hub follows a single packet's journey, then descends into the layers beneath it: the protocol stack, addressing and routing, queueing and congestion control, performance and security, and finally modern architecture (edge, 5G, and software-defined networking). Start with the end-to-end packet story below, then work through the pages in the order suggested at the bottom.
+## Anatomy of a Web Request
 
-## The Journey of a Network Packet
-
-Let's start with something familiar: what happens when you type a URL and press Enter? This simple action triggers a cascade of network operations that this guide uses to explore fundamental concepts.
-
-First, your browser needs to find the server. It sends a DNS query to translate the domain name into an IP address. This query itself is a network packet that must navigate through routers, switches, and servers to reach its destination. Along the way, it encounters the same challenges that all network traffic faces: congestion, routing decisions, and potential delays.
+Typing a URL and pressing Enter exercises most of the stack. The browser resolves a name, opens an encrypted transport connection, and exchanges HTTP messages; every arrow below is one or more IP packets forwarded hop by hop through routers that know nothing about the web.
 
 ```mermaid
 sequenceDiagram
     participant B as Browser
-    participant D as DNS Resolver
-    participant S as Web Server
-    B->>D: DNS query: example.com?
-    D-->>B: 93.184.216.34
-    B->>S: TCP SYN (open connection)
-    S-->>B: SYN-ACK
-    B->>S: ACK + TLS handshake
-    B->>S: HTTP GET /
+    participant R as DNS resolver
+    participant S as Web server
+    B->>R: Query A/AAAA/HTTPS records for example.com
+    R-->>B: 203.0.113.10 (+ "h3" advertised)
+    alt HTTP/2 over TCP + TLS 1.3
+        B->>S: TCP SYN
+        S-->>B: SYN-ACK
+        B->>S: ACK + TLS ClientHello
+        S-->>B: ServerHello ... Finished
+        B->>S: HTTP GET /
+    else HTTP/3 over QUIC
+        B->>S: QUIC Initial (TLS ClientHello inside)
+        S-->>B: Handshake ... Finished
+        B->>S: HTTP GET /
+    end
     S-->>B: 200 OK + HTML
-    Note over B,S: Each arrow is one or more packets routed hop-by-hop
+    Note over B,S: TCP+TLS 1.3 costs 2 round trips before the request, QUIC costs 1
 ```
 
-Each arrow in that diagram unpacks into a whole subject. The DNS lookup and TLS handshake are [application and transport protocols](transport-and-protocols.html); "routed hop-by-hop" is [routing and switching](routing.html); the layered headers that wrap the data are [the stack and addressing](fundamentals.html); and how fast it all completes is a [performance](performance-and-security.html) question. The pages below follow that progression.
+Each part of the exchange maps to a page in this section:
 
-## Explore Networking
+| Step in the request | What is happening | Covered in |
+|---|---|---|
+| Name lookup | DNS query over UDP, TCP, or an encrypted transport (DoH/DoT) | [Transport & Application Protocols](transport-and-protocols.html) |
+| Connection setup | TCP or QUIC handshake, TLS 1.3 key exchange | [Transport & Application Protocols](transport-and-protocols.html) |
+| Headers and addresses | Encapsulation through the layers; IPv4/IPv6 addressing | [Layers & Addressing](fundamentals.html) |
+| Hop-by-hop delivery | Longest-prefix-match forwarding, OSPF inside a network, BGP between networks | [Routing & Switching](routing.html) |
+| How fast it completes | Queueing delay, loss, and congestion at bottleneck links | [Performance, QoS & Security](performance-and-security.html) |
+| Where the server lives | VPCs, load balancers, CDNs, anycast | [Cloud Networking](cloud-networking.html) |
+| The first hop | Wi-Fi or cellular radio access | [Wireless & Mobile](wireless-and-mobile.html) |
 
-| Page | What it covers |
-|------|----------------|
+## Pages in This Section
+
+| Page | Scope |
+|------|-------|
 | [Layers & Addressing](fundamentals.html) | OSI and TCP/IP models, encapsulation, IPv4/IPv6, CIDR subnetting |
-| [Transport & Application Protocols](transport-and-protocols.html) | TCP congestion control, TCP vs UDP, HTTP/DNS/DHCP/SSH, well-known ports |
-| [Routing & Switching](routing.html) | Shortest-path and max-flow algorithms, BGP, OSPF, static/dynamic routing, NAT, VLANs |
-| [Performance, QoS & Security](performance-and-security.html) | Queueing models, firewalls, VPNs, ACLs, QoS, troubleshooting, SNMP/NetFlow |
-| [Modern & Future Networking](modern-architecture.html) | Hub: how networks evolve, plus research frontiers (ICN, quantum, 6G) |
-| [Programmable Networks](programmable-networks.html) | SDN, NFV, P4, MPLS, and segment routing (SR/SRv6) |
+| [Transport & Application Protocols](transport-and-protocols.html) | TCP congestion control (Reno, BBR), TCP vs UDP, HTTP, DNS, DHCP, SSH, well-known ports |
+| [Routing & Switching](routing.html) | Shortest-path and max-flow algorithms, BGP, OSPF, static and dynamic routing, NAT, VLANs |
+| [Performance, QoS & Security](performance-and-security.html) | Queueing models, bufferbloat and AQM, QoS/DiffServ, firewalls and VPNs, troubleshooting, flow and streaming telemetry |
+| [Modern Architecture & Frontiers](modern-architecture.html) | Realistic traffic models, AI-cluster fabrics, and research directions: ICN, network coding, quantum networking, 6G |
+| [Programmable Networks](programmable-networks.html) | SDN and OpenFlow, P4, eBPF/XDP, NFV, MPLS, Segment Routing and SRv6, IPv6 transition |
 | [Cloud Networking](cloud-networking.html) | VPCs, subnets, route tables, load balancers, CDNs, NAT, shared responsibility |
 | [Wireless & Mobile](wireless-and-mobile.html) | Wi-Fi (802.11), 4G/5G, the 5G core, spectrum, modulation, mobility |
 
-<div class="tip-card">
-  <h4>Suggested reading order</h4>
-  <p>Read <a href="fundamentals.html">Layers &amp; Addressing</a> first to fix the vocabulary, then <a href="transport-and-protocols.html">Transport &amp; Application Protocols</a> and <a href="routing.html">Routing &amp; Switching</a> for how data actually moves, followed by <a href="performance-and-security.html">Performance, QoS &amp; Security</a>. With those foundations, start the <a href="modern-architecture.html">Modern &amp; Future Networking</a> hub, then dive into its three deep dives — <a href="programmable-networks.html">Programmable Networks</a>, <a href="cloud-networking.html">Cloud Networking</a>, and <a href="wireless-and-mobile.html">Wireless &amp; Mobile</a> — in any order.</p>
-</div>
+### Reading Order
 
-## Key Takeaways
+```mermaid
+flowchart LR
+    F["Layers & Addressing"] --> T["Transport & Protocols"]
+    F --> R["Routing & Switching"]
+    T --> P["Performance, QoS & Security"]
+    R --> P
+    P --> M["Modern Architecture & Frontiers"]
+    M --> PN["Programmable Networks"]
+    M --> C["Cloud Networking"]
+    M --> W["Wireless & Mobile"]
+```
 
-- **Layers separate concerns.** The OSI/TCP-IP stack lets each layer evolve independently — the same browser works over Wi-Fi, fiber, or cellular.
-- **IP routes, TCP/UDP deliver.** IP gets packets to the right host hop-by-hop; transport-layer ports and reliability decide which app gets them and how.
-- **Performance is a queueing problem.** Latency, jitter, and loss come from queues filling at bottleneck links — congestion control exists to keep them stable.
-- **Congestion control keeps the net alive.** Algorithms like Reno (loss-based) and BBR (model-based) continuously match sending rate to available capacity.
-- **Routing scales hierarchically.** OSPF optimizes paths inside an organization; BGP exchanges policy-driven routes between the internet's autonomous systems.
-- **Networks are becoming software.** SDN, NFV, P4, and eBPF move forwarding logic into programmable software, enabling 5G slicing and in-network computing.
+The three pages on the right are independent deep dives and can be read in any order once the foundations are in place.
+
+## Core Ideas
+
+- **Layering separates concerns.** Each layer depends only on the service of the layer below, so the same browser works over Wi-Fi, fibre, or 5G, and new transports such as QUIC can be deployed over unchanged IP networks.
+- **IP forwards, transport delivers.** IP moves datagrams hop by hop with no guarantees; TCP, UDP, and QUIC decide which application receives them and whether they arrive reliably and in order.
+- **Performance is a queueing problem.** Latency, jitter, and loss are dominated by queues at bottleneck links. Congestion control at the hosts and active queue management in the network exist to keep those queues short.
+- **Routing is hierarchical and policy-driven.** Interior protocols such as OSPF and IS-IS optimize paths inside one organization; BGP exchanges policy-constrained reachability between the tens of thousands of autonomous systems that make up the internet.
+- **Networks are becoming software.** SDN, P4, eBPF, NFV, and SRv6 move decisions that used to be fixed in vendor hardware into programs that operators write, test, and deploy like any other code.
 
 ## See Also
 
-- [Cybersecurity](../cybersecurity/) — network security and zero-trust architecture
-- [AWS](../aws/) — cloud networking, VPC, and Direct Connect
-- [Docker](../docker/) — container networking and overlay networks
-- [Kubernetes](../kubernetes/) — cluster networking and CNI plugins
-- [Quantum Computing](../quantumcomputing.html) — quantum networking and QKD
+- [Cybersecurity](../cybersecurity/) — threat models, zero trust, and security operations built on the network primitives here
+- [AWS](../aws/) — VPC, Direct Connect, and managed load balancing in a production cloud
+- [Docker](../docker/) — bridge, overlay, and host networking for containers
+- [Kubernetes](../kubernetes/) — cluster networking, Services, and CNI plugins
+- [Observability](../../observability/) — metrics, logs, and traces across distributed systems
+- [Quantum Computing](../quantumcomputing.html) — the computing side of quantum networking and QKD

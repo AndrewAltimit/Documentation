@@ -9,143 +9,187 @@ hide_title: true
 
 [Observability](./) &raquo; Distributed Tracing
 
-Traces, spans, and context propagation — following one request across every service it touches.
+**Distributed tracing** records the path of a single request through every service, queue, and datastore it touches, and reassembles that path into one timeline. This page covers the trace data model, context propagation (W3C Trace Context), OpenTelemetry and its Collector, the major open-source backends, head- and tail-based sampling, and how traces connect to metrics, logs, and profiles. It reflects OpenTelemetry and backend behavior as of late 2026.
 
 ## Why Distributed Tracing
 
-In a monolith, a stack trace tells you the whole story of a request: every function call on the path is on one stack, in one process. The moment you split that monolith into services, the stack trace fragments. A single user click now fans out across an API gateway, an auth service, a cart service, a payment service, and three databases — each on a different host, with its own logs and its own clock. When the request is slow, no single machine holds the answer; the *latency lives in the interaction between services*, and the interaction is exactly what a per-process stack trace cannot see.
+In a monolith, a stack trace tells the whole story of a request: every call on the path sits on one stack in one process. Split the monolith into services and that story fragments. A single click fans out across a gateway, an auth service, a cart service, a payment service, and several databases, each on a different host with its own logs and clock. When the request is slow, no single machine holds the answer, because the latency lives in the *interaction* between services.
 
-**Distributed tracing** reconstructs that cross-service stack trace. It stitches together the work done across every service into a single, navigable picture of one request, answering the two questions metrics and logs alone cannot: *where did the time go?* and *where did the error happen?* — across process boundaries, for this specific request.
+Tracing reconstructs a cross-service stack trace. For one specific request it answers the two questions that aggregated metrics and scattered logs cannot: *where did the time go?* and *where did the error originate?*
 
-Tracing is one of the [three pillars of observability](./), and it sits at the high-cardinality, per-request end of the spectrum:
-
-| Pillar | Question it answers | Cardinality | Cost profile |
+| Signal | Question it answers | Cardinality | Cost profile |
 |--------|---------------------|-------------|--------------|
-| **Traces** | *Where* did the time go / the error happen, across services, for one request? | High (per-request) | Sampled; storage-heavy |
-| [**Metrics**](./metrics.html) | *How much / how often* is happening, aggregated over time? | Low (aggregated) | Cheap, constant-size |
-| [**Logs**](./logging.html) | *What exactly* happened in this event, with full detail? | Very high | Expensive at volume |
+| **Traces** | Where did the time go, or the error happen, across services, for one request? | High (per request) | Sampled; storage-heavy |
+| [**Metrics**](./metrics.html) | How much and how often, aggregated over time? | Low (aggregated) | Cheap, constant size |
+| [**Logs**](./logging.html) | What exactly happened in this event? | Very high | Expensive at volume |
+| **Profiles** | Which *code* consumed the CPU or memory? | High (per stack) | Sampled; continuous |
 
-Metrics tell you *that* p99 latency spiked; a trace tells you *which* downstream call caused it; the logs on that span tell you *why*. The rest of this page is about producing, propagating, sampling, storing, and correlating traces well.
+Metrics tell you *that* p99 latency spiked; a trace tells you *which* downstream call caused it; the logs and profile attached to that span tell you *why*.
+
+The idea dates to Google's **Dapper** paper (2010). Twitter's **Zipkin** (open-sourced 2012) and Uber's **Jaeger** (2016) brought it to open source, the competing OpenTracing and OpenCensus APIs merged into **OpenTelemetry** in 2019, and OpenTelemetry is now the default instrumentation layer for new systems.
 
 ## Traces and Spans
 
-A **trace** captures the full lifecycle of a single request as it propagates through a distributed system. It is a tree — more precisely a directed acyclic graph — of **spans**, where each span is one unit of work: an HTTP handler, a database query, a call to a downstream service, a publish to a message queue.
+A **trace** is the record of one request. It is a tree of **spans** (more generally a directed acyclic graph, once span links are included), where each span is one timed unit of work: an HTTP handler, a database query, an outgoing RPC, a message publish.
 
 ### The Span Data Model
 
-Every span carries, at minimum:
+| Field | Meaning |
+|-------|---------|
+| **Trace ID** | 16 bytes (32 hex chars), shared by every span in the trace. The join key for the whole request. |
+| **Span ID** | 8 bytes (16 hex chars), unique to this span. |
+| **Parent span ID** | The span that caused this one; empty on the root span. Parent links turn a flat list into a tree. |
+| **Name** | A low-cardinality operation label: `GET /orders/{id}`, `SELECT orders`. Never the raw URL with IDs in it. |
+| **Start time, end time** | Wall-clock timestamps on the emitting host. |
+| **Kind** | `SERVER`, `CLIENT`, `PRODUCER`, `CONSUMER`, or `INTERNAL`. A `CLIENT` span in one service pairs with a `SERVER` span in the next, which is how backends infer the service graph. |
+| **Attributes** | Typed key/value pairs such as `http.request.method` or `db.system.name`, named by the [semantic conventions](#semantic-conventions). |
+| **Events** | Timestamped annotations inside the span ("cache miss", an exception). See the note on the [Span Events API deprecation](#span-events-and-the-logs-api). |
+| **Links** | References to spans outside the parent chain, for example a batch consumer linking to each producer span. |
+| **Status** | `UNSET`, `OK`, or `ERROR`. |
+| **Resource** | Attributes describing the *emitter* (`service.name`, host, pod, cloud region), shared by all its spans. |
 
-- A **trace ID** — a globally unique identifier (16 bytes / 32 hex chars) shared by *every* span in the request. This is the join key that stitches the distributed picture together.
-- A **span ID** — unique to this span (8 bytes / 16 hex chars).
-- A **parent span ID** — the span that caused this one (empty for the root span). Parent links are what turn a flat list of spans into a tree.
-- A **name** — a low-cardinality operation label (`GET /orders/{id}`, `SELECT orders`), *not* the full templated URL with IDs.
-- A **start time** and **duration**.
-- A **span kind** — `SERVER`, `CLIENT`, `PRODUCER`, `CONSUMER`, or `INTERNAL`. Kinds let the backend infer the topology: a `CLIENT` span in one service pairs with a `SERVER` span in the next.
-- **Attributes** (key/value tags) — `http.request.method`, `db.system`, `server.address`, etc.
-- **Events** — timestamped log lines scoped to the span ("cache miss", "retry 1 of 3").
-- **Links** — references to other spans not in the parent chain (e.g. a batch consumer span linking to each producing span).
-- A **status** — `UNSET`, `OK`, or `ERROR`.
+### Reading a Trace
 
-Visualized, a trace becomes a waterfall (flame graph) where the horizontal axis is wall-clock time and nesting shows the call hierarchy:
+Backends render a trace as a **waterfall**: the horizontal axis is time, and nesting shows the call hierarchy.
 
 ```
-trace_id = 4bf92f3577b34da6
-[ frontend: GET /checkout ........................................ 220ms ]
-   [ auth: verify_token ...... 18ms ]
-   [ cart: get_items .......................... 95ms ]
-       [ db: SELECT items ........... 60ms ]
-       [ cache: GET cart:42 .. 5ms ]
-   [ payment: charge ........................... 90ms ]   <-- critical path
-       [ stripe: POST /charges ............ 82ms ]
+trace_id 4bf92f3577b34da6a3ce929d0e0e4736                     0ms        110ms       220ms
+frontend  GET /checkout            SERVER  |==========================================|
+auth        verify_token           CLIENT  |===|                                        18ms
+cart        get_items              SERVER      |===================|                    95ms
+db            SELECT items         CLIENT        |===========|                          60ms
+cache         GET cart:42          CLIENT                     |=|                        5ms
+payment     charge                 SERVER                          |=================|  90ms  <- critical path
+stripe        POST /v1/charges     CLIENT                           |===============|   82ms
 ```
 
-The **critical path** — the chain of spans whose durations sum to the total latency — is what you optimize. A span that runs in parallel and finishes early does not lengthen the request even if it is individually slow. Reading a trace is largely the discipline of finding the critical path and asking why the longest span on it took as long as it did.
+The **critical path** is the chain of spans whose durations determine end-to-end latency. A span that runs in parallel and finishes early does not lengthen the request, however slow it is individually. Reading a trace mostly means finding the critical path, then asking why the longest span on it took as long as it did. Gaps *between* child spans are also informative: they are time spent in the parent's own code, in queues, or in un-instrumented calls.
+
+The same trace as a span tree:
 
 ```mermaid
 flowchart TD
-    Root["Span A — frontend GET /checkout<br/>(root, no parent)"]
-    Root --> B["Span B — auth verify_token<br/>parent=A"]
-    Root --> C["Span C — cart get_items<br/>parent=A"]
-    Root --> D["Span D — payment charge<br/>parent=A"]
-    C --> E["Span E — db SELECT items<br/>parent=C"]
-    C --> F["Span F — cache GET<br/>parent=C"]
-    D --> G["Span G — stripe POST /charges<br/>parent=D"]
+    A["A: frontend GET /checkout<br/>root span"]
+    A --> B["B: auth verify_token"]
+    A --> C["C: cart get_items"]
+    A --> D["D: payment charge"]
+    C --> E["E: db SELECT items"]
+    C --> F["F: cache GET cart:42"]
+    D --> G["G: stripe POST /v1/charges"]
 ```
 
-### Span Lifecycle and Error Handling
+### Span Lifecycle
 
-A span is **started** when work begins, **ended** when it completes, and its status set to `ERROR` if it failed. The cardinal rule is that *every started span must be ended* — a leaked span produces a trace that never finishes and may break tail-based sampling. Most SDKs solve this with scope guards (`with` blocks in Python, `defer` in Go, `using` in C#) so the span ends even when an exception unwinds the stack.
+A span is started when work begins and ended when it completes; its status is set to `ERROR` if the work failed. Every started span must be ended. A leaked span never reaches the exporter, leaves a hole in the trace, and can stall tail-based sampling while the collector waits for it. SDKs make this hard to get wrong with scope guards: `with` blocks in Python, `defer span.End()` in Go, `using` in C#, try-with-resources in Java.
+
+Because span timestamps come from different hosts, clock skew can make a child appear to start before its parent. Most backends apply skew adjustment in the UI; keep hosts NTP- or PTP-synchronized regardless.
 
 ## Context Propagation
 
-The single hardest part of tracing is **context propagation**: making the trace ID and the current span ID flow from one operation to the next, including across process and network boundaries. Get this wrong and your trace shatters into disconnected single-service fragments.
+**Context propagation** carries the trace ID and the current span ID from one operation to the next. It is the part of tracing most likely to break, and when it does the trace shatters into disconnected single-service fragments.
 
-There are two regimes:
-
-- **In-process propagation.** Within one service, the "current span" is stored in thread-local / async-local / goroutine-local storage so that any code can ask "what span am I in?" and parent its child spans correctly without passing the span explicitly down every function signature.
-- **Cross-process propagation.** When a request crosses a network boundary, the context must be **injected** into the outgoing carrier (HTTP headers, gRPC metadata, message attributes) on the caller side and **extracted** on the callee side, where it becomes the parent of the next server span.
-
-### W3C Trace Context
-
-The vendor-neutral standard — and OpenTelemetry's default — is **W3C Trace Context**, which defines two HTTP headers:
-
-```
-traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
-             │  └── trace-id (16 bytes) ─────┘ └ parent-id (8B) ┘ │
-             version                                         trace-flags (01 = sampled)
-tracestate:  vendorA=opaque,vendorB=opaque   (per-vendor key/value continuation)
-```
-
-- **`traceparent`** carries the version, trace ID, the parent (the caller's span ID), and trace-flags. The low bit of trace-flags is the **sampled flag**, which propagates the head-sampling decision so every service in the trace agrees to keep or drop it consistently.
-- **`tracestate`** is an ordered, vendor-specific key/value list that lets multiple tracing systems pass extra state without clobbering each other.
-
-Older systems may use **B3** headers (`b3` or `X-B3-TraceId` / `X-B3-SpanId` / `X-B3-Sampled`), popularized by Zipkin. OpenTelemetry can be configured to propagate B3 alongside or instead of W3C for interop with legacy Zipkin/Istio meshes. **Baggage** is a separate W3C standard (`baggage` header) for propagating arbitrary application key/values (e.g. `tenant.id`) alongside trace context — useful, but keep it small since it is copied onto every hop.
-
-### Propagating Across Every Boundary
-
-For message queues the trace context is stamped into message headers/metadata so the consumer can continue the trace asynchronously (usually as a span with a *link* to the producer rather than a strict parent, since the consumer may process a batch). The golden rule: **propagate context everywhere a request crosses a boundary** — HTTP clients, gRPC, Kafka/RabbitMQ producers and consumers, background jobs, cron triggers — or the trace breaks into disconnected fragments.
+- **In-process.** The "current span" lives in a context object stored in thread-local, async-local (`contextvars` in Python, `AsyncLocalStorage` in Node.js), or explicitly passed storage (`context.Context` in Go). Any code can ask for the active span and parent new spans under it.
+- **Cross-process.** At a network boundary the caller **injects** the context into the carrier (HTTP headers, gRPC metadata, message headers), and the callee **extracts** it and uses it as the parent of its server span.
 
 ```mermaid
 sequenceDiagram
     participant C as Client
     participant F as Frontend
     participant P as Payment
-    C->>F: GET /checkout
-    Note over F: extract context (none) -> start root span<br/>trace_id=T, span=A
+    C->>F: GET /checkout (no traceparent)
+    Note over F: no incoming context:<br/>start root span A in new trace T
     F->>P: POST /charge<br/>traceparent: 00-T-A-01
-    Note over P: extract context -> child span<br/>trace_id=T, span=B, parent=A
-    P-->>F: 200
-    F-->>C: 200
-    Note over F,P: both spans share trace_id=T -> one trace
+    Note over P: extract context:<br/>start span B, parent = A, trace = T
+    P-->>F: 200 OK
+    F-->>C: 200 OK
+    Note over F,P: A and B share trace T, so the backend joins them
 ```
+
+### W3C Trace Context
+
+The vendor-neutral standard, and OpenTelemetry's default propagator, is **W3C Trace Context**. It defines two HTTP headers:
+
+```
+traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+             |  |                                |                |
+             |  trace-id (16 bytes)              parent-id (8 B)  trace-flags
+             version                                              (bit 0 = sampled)
+
+tracestate:  ot=th:c,vendorB=opaque-value
+```
+
+- **`traceparent`** carries the version, trace ID, the caller's span ID, and **trace-flags**. Bit 0 is the **sampled** flag: it carries the upstream keep/drop decision so downstream services agree.
+- **`tracestate`** is an ordered list of vendor key/value entries that lets several tracing systems carry their own state without clobbering one another. OpenTelemetry uses the `ot` key.
+
+**Trace Context Level 2** (a W3C Candidate Recommendation Draft) adds a **random** flag in bit 1 of trace-flags. When set, it guarantees that at least the rightmost 7 bytes of the trace ID are uniformly random, which lets any service make a consistent sampling decision from the trace ID alone (see [consistent probability sampling](#consistent-probability-sampling)).
+
+Other formats you will meet:
+
+| Format | Headers | Where it appears |
+|--------|---------|------------------|
+| **W3C Trace Context** | `traceparent`, `tracestate` | OpenTelemetry default; most current tooling |
+| **B3** (Zipkin) | `b3` single header, or `X-B3-TraceId` / `X-B3-SpanId` / `X-B3-Sampled` | Zipkin, older Istio/Envoy meshes |
+| **Jaeger** | `uber-trace-id` | Legacy Jaeger client libraries (retired) |
+| **AWS X-Ray** | `X-Amzn-Trace-Id` | AWS load balancers, Lambda, API Gateway |
+| **W3C Baggage** | `baggage` | Application key/values (for example `tenant.id`) carried alongside the trace |
+
+OpenTelemetry can run several propagators at once (`OTEL_PROPAGATORS=tracecontext,baggage,b3multi`) to bridge legacy services. Keep baggage small: it is copied onto every downstream hop, and it is visible to any service (and any third party) you call, so never put secrets or PII in it.
+
+### Propagating Across Every Boundary
+
+Propagate context everywhere a request crosses a boundary: HTTP and gRPC clients, message producers and consumers, background jobs, scheduled tasks, and thread pools or executors inside a process. Each one missed is a place the trace breaks.
+
+Messaging is the awkward case. The producer writes the context into message headers. A consumer that processes one message at a time can parent its span on the producer span; a consumer that processes a batch starts its own span and adds a **link** to each message's producer span, because a span can have only one parent.
 
 ## OpenTelemetry
 
-**OpenTelemetry (OTel)** is the CNCF standard — the merger of the earlier OpenTracing and OpenCensus projects — that unifies the instrumentation layer across traces, metrics, and logs. Its central promise is *instrument once, export anywhere*: you write vendor-neutral instrumentation and choose (or change) your backend without touching application code. It is the de facto standard for new tracing work, so the rest of this page is OTel-centric.
+**OpenTelemetry (OTel)** is the CNCF project that standardizes how telemetry is produced and shipped: traces, metrics, logs, and (in alpha) profiles. Its promise is *instrument once, export anywhere*. Application code depends only on the vendor-neutral API; the backend is chosen, and changed, in configuration.
 
-### The Components
-
-OpenTelemetry is several pieces that are easy to conflate:
+### Components
 
 | Component | Role |
 |-----------|------|
-| **API** | The minimal surface application code calls (`start_span`, `set_attribute`). Stable, dependency-light; a no-op if no SDK is installed. |
-| **SDK** | The implementation behind the API: sampling, span processors, batching, exporters. Configured once at startup. |
-| **Instrumentation libraries** | Auto-instrumentation for popular frameworks (Flask, Express, gRPC, SQLAlchemy, Kafka) that creates spans and propagates context with no manual code. |
-| **OTLP** | The **OpenTelemetry Protocol** — the wire format (gRPC or HTTP/protobuf) for shipping telemetry to a collector or backend. |
-| **Collector** | A standalone process that receives, processes, and exports telemetry. |
-| **Semantic conventions** | A standardized attribute vocabulary (below) so data is portable across tools. |
+| **API** | The surface application and library code calls (`start_span`, `set_attribute`). Dependency-light; a no-op unless an SDK is installed, so libraries can instrument themselves safely. |
+| **SDK** | The implementation: samplers, span processors, batching, exporters. Configured once at process start. |
+| **Instrumentation libraries** | Plug-ins for frameworks and clients (Flask, Express, Spring, gRPC, SQLAlchemy, Kafka) that create spans and propagate context without manual code. |
+| **Zero-code agents** | Attach instrumentation at startup (Java agent, `opentelemetry-instrument` for Python, the .NET and Node.js auto-instrumentation packages) or from the kernel via eBPF (below). |
+| **OTLP** | The OpenTelemetry Protocol: protobuf over gRPC (port 4317) or HTTP (port 4318). |
+| **Collector** | A standalone pipeline that receives, processes, and exports telemetry. |
+| **Semantic conventions** | The shared vocabulary of attribute and span names. |
 
 ### The Collector
 
-The **OpenTelemetry Collector** is a vendor-agnostic proxy and pipeline for telemetry. Instead of every service knowing how to talk to Jaeger *and* Tempo *and* a SaaS, services emit OTLP to a local Collector, and the Collector fans the data out. Its pipeline has three stages:
+The **OpenTelemetry Collector** decouples applications from backends. Services send OTLP to a nearby Collector; the Collector batches, enriches, filters, samples, and fans out to one or more backends. A pipeline has three stage types:
 
-- **Receivers** ingest data (OTLP, Jaeger, Zipkin, Prometheus scrape, …).
-- **Processors** transform it in flight — `batch` (group for efficient export), `memory_limiter` (backpressure), `tail_sampling` (decide after the full trace arrives), `attributes`/`resource` (add or redact fields, e.g. strip PII).
-- **Exporters** send it onward to one or more backends.
+- **Receivers** ingest data: OTLP, Jaeger, Zipkin, Kafka, Prometheus scrape, host metrics.
+- **Processors** transform it in flight: `memory_limiter` (backpressure), `batch`, `k8sattributes` (add pod and namespace metadata), `resource`/`attributes`/`transform` (add, rename, or redact fields such as PII), `filter`, and `tail_sampling`.
+- **Exporters** send it on: OTLP to any OTLP-speaking backend, Kafka, files, vendor-specific exporters.
+
+Collectors are usually deployed in two tiers:
+
+```mermaid
+flowchart LR
+    subgraph Node1["Node / pod"]
+        A1["Service A<br/>OTel SDK"] --> AG1["Agent Collector<br/>(DaemonSet or sidecar)"]
+    end
+    subgraph Node2["Node / pod"]
+        B1["Service B<br/>OTel SDK"] --> AG2["Agent Collector"]
+    end
+    AG1 --> LB["loadbalancing exporter<br/>routes by trace ID"]
+    AG2 --> LB
+    LB --> G1["Gateway Collector 1<br/>tail_sampling"]
+    LB --> G2["Gateway Collector 2<br/>tail_sampling"]
+    G1 --> T[("Tempo / Jaeger /<br/>vendor backend")]
+    G2 --> T
+```
+
+- The **agent** tier runs next to the application, adds host and Kubernetes metadata, and batches cheaply.
+- The **gateway** tier is a horizontally scaled pool that does expensive work such as tail sampling and export. Tail sampling needs every span of a trace on the same instance, so the agents use the `loadbalancing` exporter with trace ID as the routing key.
+
+A gateway configuration that receives OTLP, tail-samples, and fans out to two backends:
 
 ```yaml
-# otel-collector-config.yaml — receive OTLP, batch, tail-sample, fan out
+# otel-collector-gateway.yaml
 receivers:
   otlp:
     protocols:
@@ -153,13 +197,13 @@ receivers:
       http: { endpoint: 0.0.0.0:4318 }
 
 processors:
-  memory_limiter:
+  memory_limiter:            # first in the pipeline: refuse data before OOM
     check_interval: 1s
     limit_percentage: 80
-  batch:
-    timeout: 5s
-  tail_sampling:                 # decide AFTER the whole trace is buffered
+    spike_limit_percentage: 20
+  tail_sampling:             # decide after the whole trace has arrived
     decision_wait: 10s
+    num_traces: 100000
     policies:
       - name: keep-errors
         type: status_code
@@ -167,15 +211,17 @@ processors:
       - name: keep-slow
         type: latency
         latency: { threshold_ms: 500 }
-      - name: sample-rest
+      - name: baseline
         type: probabilistic
         probabilistic: { sampling_percentage: 5 }
+  batch:
+    timeout: 5s
 
 exporters:
-  otlp/tempo:                    # Grafana Tempo over OTLP
+  otlp/tempo:
     endpoint: tempo:4317
-    tls: { insecure: true }
-  otlp/jaeger:                   # Jaeger also speaks OTLP natively
+    tls: { insecure: true }  # plaintext inside the cluster only
+  otlp/jaeger:               # Jaeger v2 accepts OTLP natively
     endpoint: jaeger:4317
     tls: { insecure: true }
 
@@ -187,215 +233,295 @@ service:
       exporters:  [otlp/tempo, otlp/jaeger]
 ```
 
-Run the Collector as an **agent** (a sidecar/DaemonSet next to each app, doing cheap local batching) and/or as a **gateway** (a central cluster doing tail sampling and export). Tail sampling must run in the gateway tier because it needs *all* spans of a trace in one place — which also means a trace's spans must be routed to the same collector instance (`loadbalancing` exporter, keyed on trace ID).
+Tail-sampling policies are OR-ed: a trace is kept if any policy says keep. Here every error trace and every trace over 500 ms survives, plus a 5% baseline of everything else.
 
 ### Semantic Conventions
 
-The value of portable telemetry collapses if every team names the same attribute differently (`httpMethod` vs `http.method` vs `verb`). **Semantic conventions** are OpenTelemetry's standardized, versioned dictionary of attribute names and span-naming rules for common operations, so backends and dashboards can rely on stable keys.
+Portable telemetry is worthless if every team spells the same attribute differently (`httpMethod`, `http.method`, `verb`). The **semantic conventions** are OpenTelemetry's versioned dictionary of attribute names, span names, and span kinds for common operations.
 
-A few stabilized examples (the conventions are still evolving — `http.method` was renamed to `http.request.method` in the 1.x stabilization, which is why you see both in the wild):
+| Domain | Key attributes | Example values | Status (late 2026) |
+|--------|---------------|----------------|--------------------|
+| HTTP | `http.request.method`, `http.route`, `http.response.status_code`, `url.path`, `server.address`, `error.type` | `GET`, `/orders/{id}`, `200` | Stable |
+| Database | `db.system.name`, `db.namespace`, `db.operation.name`, `db.collection.name`, `db.query.text` | `postgresql`, `orders`, `SELECT`, `items` | Stable |
+| RPC | `rpc.system`, `rpc.service`, `rpc.method` | `grpc`, `OrderService`, `Charge` | Development |
+| Messaging | `messaging.system`, `messaging.destination.name`, `messaging.operation.type` | `kafka`, `orders`, `send` / `process` | Development |
+| Resource | `service.name`, `service.version`, `deployment.environment.name` | `order-service`, `1.4.0`, `production` | Stable |
 
-| Domain | Attribute | Example |
-|--------|-----------|---------|
-| HTTP server | `http.request.method`, `http.route`, `http.response.status_code`, `url.path` | `GET`, `/orders/{id}`, `200` |
-| Database | `db.system`, `db.namespace`, `db.query.text` | `postgresql`, `orders`, `SELECT ...` |
-| RPC | `rpc.system`, `rpc.service`, `rpc.method` | `grpc`, `OrderService`, `Charge` |
-| Messaging | `messaging.system`, `messaging.destination.name`, `messaging.operation` | `kafka`, `orders`, `publish` |
-| Resource | `service.name`, `service.version`, `deployment.environment` | `order-service`, `1.4.0`, `prod` |
+Several names changed on the way to stability, which is why older dashboards and instrumentations still emit the previous forms: `http.method` became `http.request.method`, `http.status_code` became `http.response.status_code`, `db.system` became `db.system.name`, `db.statement` became `db.query.text`, and `deployment.environment` became `deployment.environment.name`. Instrumentation libraries typically offer a transition setting (`OTEL_SEMCONV_STABILITY_OPT_IN`) to emit the old names, the new names, or both during migration.
 
-The special **Resource** attributes (`service.name`, `service.version`, host/k8s/cloud identity) describe the *emitter* and are attached to every span it produces — they are how the backend attributes a span to a service.
+**Resource** attributes describe the emitter rather than the operation and are attached to everything it produces. `service.name` is the one attribute every service must set; without it, backends group spans under `unknown_service`.
 
 ### Instrumenting a Service
 
-Wiring up OTel has three parts: configure the SDK once at startup, let auto-instrumentation handle the framework, and add manual spans on the business logic you care about.
+Instrumentation has three layers: configure the SDK once at startup, let instrumentation libraries cover frameworks and clients, and add manual spans only around business operations worth naming.
+
+**Configuration first.** Most settings can come from the environment, so the same build runs everywhere:
+
+```bash
+export OTEL_SERVICE_NAME=order-service
+export OTEL_RESOURCE_ATTRIBUTES=service.version=1.4.0,deployment.environment.name=production
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+export OTEL_TRACES_SAMPLER=parentbased_traceidratio
+export OTEL_TRACES_SAMPLER_ARG=0.25
+
+# Zero-code: instrument installed frameworks, HTTP clients, and DB drivers
+pip install opentelemetry-distro opentelemetry-exporter-otlp
+opentelemetry-bootstrap -a install      # installs instrumentations for detected libraries
+opentelemetry-instrument python app.py
+```
+
+OpenTelemetry also defines a **declarative configuration** file format, whose schema is now stable (per-language SDK support is still maturing). It is selected with `OTEL_CONFIG_FILE` and expresses samplers, processors, and exporters as YAML instead of dozens of environment variables:
+
+```yaml
+file_format: "1.2"
+tracer_provider:
+  sampler:
+    parent_based:
+      root:
+        always_on:
+  processors:
+    - batch:
+        exporter:
+          otlp_http:
+            endpoint: http://otel-collector:4318/v1/traces
+```
+
+**Manual setup in code**, for when you need programmatic control:
 
 ```python
 from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.sdk.resources import Resource
-# Modern OTel exports via OTLP to a Collector, which fans out to Jaeger/Tempo/etc.
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
-# Resource: identify this service so spans are attributed correctly in the backend
 resource = Resource.create({
     "service.name": "order-service",
     "service.version": "1.4.0",
-    "deployment.environment": "prod",
+    "deployment.environment.name": "production",
 })
-trace.set_tracer_provider(TracerProvider(resource=resource))
-tracer = trace.get_tracer(__name__)
+provider = TracerProvider(resource=resource)
+# BatchSpanProcessor exports asynchronously in batches. SimpleSpanProcessor
+# exports synchronously on span end and belongs only in tests.
+provider.add_span_processor(
+    BatchSpanProcessor(OTLPSpanExporter(endpoint="http://otel-collector:4317", insecure=True))
+)
+trace.set_tracer_provider(provider)
+tracer = trace.get_tracer("order-service")
 
-# BatchSpanProcessor buffers spans and exports them in batches over OTLP to the
-# local Collector (which forwards to Tempo/Jaeger). Never use SimpleSpanProcessor
-# in production — it exports synchronously and adds latency to every request.
-otlp_exporter = OTLPSpanExporter(endpoint="http://otel-collector:4317", insecure=True)
-trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(otlp_exporter))
 
-
-async def process_request(request_id):
-    # start_as_current_span sets the active span; child spans auto-link as parent->child
-    with tracer.start_as_current_span("process_request") as span:
-        span.set_attribute("request.id", request_id)
+async def process_order(order_id: str):
+    # start_as_current_span makes this the active span, so the child spans
+    # below (and any spans created by instrumented libraries) nest under it.
+    with tracer.start_as_current_span("process_order") as span:
+        span.set_attribute("app.order.id", order_id)
 
         with tracer.start_as_current_span("validate"):
-            await validate_request(request_id)
+            await validate(order_id)
 
-        with tracer.start_as_current_span("process"):
-            result = await process_data(request_id)
+        with tracer.start_as_current_span("charge"):
+            receipt = await charge(order_id)
 
-        with tracer.start_as_current_span("persist") as persist_span:
+        # An exception escaping a start_as_current_span block is recorded on the
+        # span and sets status ERROR by default; set it explicitly only when you
+        # handle the error yourself and still want the span marked failed.
+        with tracer.start_as_current_span("persist") as persist:
             try:
-                await save_result(result)
-            except Exception as exc:
-                # Record the error on the span so it surfaces in the trace UI
-                persist_span.record_exception(exc)
-                persist_span.set_status(trace.Status(trace.StatusCode.ERROR))
-                raise
+                await save(receipt)
+            except TimeoutError as exc:
+                persist.set_status(trace.Status(trace.StatusCode.ERROR, "save timed out"))
+                persist.set_attribute("error.type", type(exc).__qualname__)
+                await enqueue_retry(receipt)
 
-        return result
+        return receipt
 ```
 
-Cross-service propagation uses OTel's `inject`/`extract` on the configured propagator. Most HTTP and gRPC instrumentation libraries do this automatically once installed; the manual form makes the mechanism explicit:
+Custom attributes should use your own namespace (`app.` or a company prefix) so they never collide with future semantic conventions.
+
+**Propagation by hand.** Instrumented HTTP and gRPC clients inject and extract automatically; the manual form shows the mechanism, and is what you write for a custom transport:
 
 ```python
 from opentelemetry.propagate import inject, extract
 
-# --- Caller side: inject current context into outgoing headers ---
-headers = {}
-inject(headers)                       # adds 'traceparent' / 'tracestate'
+# Caller: write the active context into outgoing headers
+headers: dict[str, str] = {}
+inject(headers)                        # adds traceparent (and tracestate, baggage)
 await http_client.post(url, headers=headers, json=payload)
 
-# --- Callee side: extract context, continue the same trace ---
-ctx = extract(incoming_request.headers)
-with tracer.start_as_current_span("handle_charge", context=ctx):
+# Callee: read the context and continue the same trace
+ctx = extract(request.headers)
+with tracer.start_as_current_span("handle_charge", context=ctx,
+                                  kind=trace.SpanKind.SERVER):
     ...
 ```
 
-For most services you do far less than this: `opentelemetry-instrument python app.py` (zero-code auto-instrumentation) wires up the framework, HTTP client, and DB driver, propagates context, and exports — and you add manual spans only on the business operations worth naming.
+### eBPF-Based Instrumentation
 
-## Tracing Backends: Jaeger, Tempo, Zipkin
+**OpenTelemetry eBPF Instrumentation (OBI)** instruments processes from the Linux kernel instead of inside the application. It observes HTTP/S, HTTP/2, gRPC, Kafka, and common database protocols at the socket and runtime level, emits OTel spans and metrics, and can propagate trace context, with no code or image changes. It is useful for services you cannot modify or for a fast baseline across a fleet. The trade-off is depth: it sees protocol boundaries, not business operations, so SDK instrumentation remains the way to name the spans that matter.
 
-A tracing **backend** ingests spans, stores them, indexes them for search, and renders the waterfall UI. Three open-source options dominate; all three speak OTLP today.
+### Span Events and the Logs API
+
+OpenTelemetry has two ways to attach a timestamped event to a request: span events (`span.add_event`, `span.record_exception`) and log records emitted through the Logs API while a span is active. In 2026 the project announced the deprecation of the **Span Events API** in favor of **log-based events**, on the principle that "events are logs with names emitted via the Logs API, correlated with traces and metrics through context."
+
+The change is gradual. Span events remain part of the OTLP trace data model, existing data stays valid, instrumentations migrate in their next major versions, and SDKs offer compatibility options that copy log-based events back onto spans for backends that expect them. For new code, prefer emitting events through the logging pipeline with trace context attached.
+
+## Tracing Backends
+
+A **backend** ingests spans, stores them, lets you find them, and renders the waterfall. All three open-source mainstays accept OTLP.
 
 | | **Jaeger** | **Grafana Tempo** | **Zipkin** |
 |---|---|---|---|
-| Origin | Uber (CNCF graduated) | Grafana Labs | Twitter (the original, 2012) |
-| Storage | Cassandra / Elasticsearch / OpenSearch / Badger | Object storage (S3/GCS) only | In-memory / Cassandra / Elasticsearch / MySQL |
-| Indexing | Indexes spans for rich attribute search | **No span index** — find traces by ID; search is via metrics/logs (exemplars, TraceQL) | Indexes for service/operation/tag search |
-| Cost model | Higher storage + index cost | **Very cheap** — trace ID lookup against cheap object storage | Lightweight, simple |
-| UI | Standalone Jaeger UI | Grafana (integrated with metrics/logs) | Standalone Zipkin UI |
-| Best for | Standalone tracing with full-text trace search | Cost-efficient tracing tightly integrated with Grafana metrics/logs | Simple setups, legacy B3 ecosystems |
+| Origin | Uber, 2016; CNCF graduated | Grafana Labs, 2020 | Twitter, 2012 |
+| Architecture | v2 is built on the OpenTelemetry Collector framework | Microservices or single binary; object storage only | Single Java service |
+| Storage | Elasticsearch, OpenSearch, Cassandra, Badger, memory, or a remote storage plugin | S3, GCS, Azure Blob (columnar Parquet blocks) | Memory, Cassandra, Elasticsearch, MySQL |
+| Finding traces | Indexed search by service, operation, tags, duration | TraceQL queries over Parquet columns; trace-ID lookup; arrival via exemplars and logs | Indexed search by service, span name, tags |
+| Cost at scale | Dominated by the search index cluster | Low; storage is object storage | Low at small scale |
+| UI | Jaeger UI | Grafana (Explore, Traces Drilldown) | Zipkin UI |
+| Best for | Standalone tracing with rich ad hoc search | High-volume tracing tied to Grafana metrics and logs | Small setups, B3-based ecosystems |
 
-The key architectural split is **Tempo's bet that you should not index spans at all**. Indexing every span's attributes is the dominant cost of tracing at scale. Tempo instead stores raw traces cheaply in object storage and assumes you arrive at the right trace ID *from elsewhere* — a metric **exemplar**, a log line's `trace_id`, or a TraceQL query — making it dramatically cheaper but reliant on good metric/log correlation. Jaeger and Zipkin index spans so you can search "all error traces for `order-service` tagged `region=eu`" directly, at the cost of an Elasticsearch/Cassandra cluster.
+**Jaeger v2** re-implemented Jaeger as a distribution of the OpenTelemetry Collector: the same binary can receive OTLP, run Collector processors, and write to Jaeger storage. The 1.x line is now archived and the Jaeger-specific client libraries were retired in favor of OpenTelemetry SDKs, so new deployments should use v2 fed by OTel instrumentation.
 
-Whichever you pick, point the Collector's exporter at it. Migrating backends is a one-line Collector change, not a redeploy of every service — which is precisely the portability OTel buys you.
+**Tempo** takes the opposite design point from Jaeger's indexed search. It does not maintain a separate per-attribute index; instead it writes traces to object storage in a columnar Parquet format and answers **TraceQL** queries by scanning the relevant columns. TraceQL selects spans by attributes, structure, and timing:
 
-## Sampling Strategies
+```
+{ resource.service.name = "payment" && span.http.response.status_code >= 500 }
 
-Tracing every request at high volume is expensive in CPU (span creation), network (export), and storage (indexing). **Sampling** keeps a representative subset. The decision is *where* and *when* to make it.
-
-### Head-Based Sampling
-
-**Head-based sampling** decides at the root span, before the trace runs, and propagates that decision in the `traceparent` sampled flag so every downstream service honors it. This keeps a trace whole — either all of its spans are kept or none are.
-
-- **Pros:** cheap (decide once, up front); unsampled spans are never created or exported; the decision is consistent across services for free.
-- **Cons:** it is blind. A flat 1% rate discards 99% of traces *including* the rare slow and error traces you most want to keep.
-
-```python
-from opentelemetry.sdk.trace.sampling import TraceIdRatioBased, ParentBased
-
-# Keep 5% of root traces; always honor an upstream service's keep/drop decision.
-# ParentBased ensures consistency: if the caller sampled the trace, we keep our spans.
-sampler = ParentBased(root=TraceIdRatioBased(0.05))
-TracerProvider(resource=resource, sampler=sampler)
+{ span.db.system.name = "postgresql" && duration > 200ms } | count() > 3
 ```
 
-`TraceIdRatioBased` makes the keep/drop decision a deterministic hash of the trace ID, so independently-configured services reach the *same* decision for the same trace even without communicating — the foundation of consistent head sampling.
+TraceQL metrics can also compute RED-style rates and latency quantiles directly from stored spans. The design keeps storage cheap but relies on good correlation, since the common workflow is to arrive at a trace from a metric exemplar or a log line.
 
-### Tail-Based Sampling
+Managed options (AWS X-Ray, Google Cloud Trace, Azure Monitor, and commercial APM vendors) accept OTLP as well. Because the Collector sits in between, switching or dual-writing backends is a configuration change, not a redeploy of every service.
 
-**Tail-based sampling** buffers all of a trace's spans and decides *after* the trace completes, so the policy can see the whole trace: keep 100% of error traces and slow traces, sample the boring fast ones.
+## Sampling
 
-- **Pros:** keeps exactly the interesting traces; the right tradeoff for most production systems.
-- **Cons:** every span must be created, emitted, and buffered until the trace finishes (more CPU/network than head sampling), and it requires a stateful collector tier that holds spans in memory and routes all spans of a trace to the same instance.
+Tracing every request at high volume costs CPU to create spans, network to export them, and storage to keep them. **Sampling** keeps a representative subset. The design questions are *where* the keep/drop decision is made and *how much* of the trace the decision can see.
 
-The `tail_sampling` processor in the Collector config above is the canonical implementation: probabilistically keep ~5% baseline, but force-keep any trace containing an error or exceeding 500ms.
-
-### Picking a Strategy
-
-A common, robust production setup combines both: light head sampling to bound the volume of spans created, plus tail sampling in the gateway Collector to guarantee error and slow traces survive. Tune so that (a) you always capture failures, (b) you keep enough successful traces to characterize the *normal* baseline (you cannot tell "slow" from "typical" with only error traces), and (c) cost stays bounded. Keep the sampling rate in `tracestate`/resource attributes so dashboards can scale sampled counts back up to true rates.
-
-## Correlating Traces, Metrics, and Logs
-
-A trace in isolation is useful; a trace *connected to* the metric that alerted you and the logs that explain it is the whole point of observability. The connective tissue is the **trace ID**, shared across all three pillars.
+| | Head-based | Tail-based |
+|---|---|---|
+| Decision point | At the root span, before the work happens | After the trace completes, in a Collector |
+| Sees | Only the trace ID and root attributes | Every span: errors, latency, attributes |
+| Keeps errors and slow outliers | Only by chance, at the base rate | Reliably, by policy |
+| Overhead of dropped traces | None; unsampled spans are never recorded | Every span is created, exported, and buffered |
+| Infrastructure | None beyond the SDK | Stateful gateway tier with trace-ID routing |
+| Failure mode | Misses rare interesting traces | Late or orphaned spans arrive after the decision |
 
 ```mermaid
 flowchart LR
-    Alert["Metric alert<br/>p99 latency up"] --> Trace["Open a trace<br/>find slow span"]
-    Trace --> Log["Read span logs<br/>find root cause"]
-    Log --> Fix["Fix / mitigate"]
-    Trace -. trace_id .-> Log
-    Alert -. exemplar .-> Trace
+    subgraph Head["Head-based"]
+        R1["Root span starts"] --> D1{"Sample?<br/>(trace ID)"}
+        D1 -->|"yes: sampled flag = 1"| K1["All services record<br/>and export"]
+        D1 -->|"no: sampled flag = 0"| X1["Nothing recorded"]
+    end
+    subgraph Tail["Tail-based"]
+        R2["All spans exported"] --> B2["Gateway buffers<br/>by trace ID"]
+        B2 --> D2{"Policy after<br/>decision_wait"}
+        D2 -->|"error, slow, or baseline"| K2["Keep trace"]
+        D2 -->|"otherwise"| X2["Drop trace"]
+    end
 ```
 
-**Metrics -> traces, via exemplars.** An **exemplar** is a trace ID attached to a specific sample in a histogram bucket — a pointer from an aggregate to a concrete example. When a Grafana panel shows p99 latency spiking, the exemplar markers on that line are one click away from an *actual slow trace* that contributed to the spike. Exemplars are how Tempo's "no span index" model stays usable: you arrive at the trace ID from the metric.
+### Head-Based Sampling
 
-**Traces -> logs, via trace_id on every log line.** Emit the active trace and span IDs on *every* structured log line. Once your logs carry `trace_id`, you pivot directly from a slow span to every log line that span produced, and from an error log back to the full trace. The three pillars become one navigable surface.
+The root service decides and records the decision in the `traceparent` sampled flag. A **parent-based** sampler in every downstream service honors that flag, so traces stay complete: all spans kept or none.
 
-This logger auto-injects the *current* trace/span IDs from the active OpenTelemetry context, so callers never thread IDs by hand:
+```python
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.sampling import ParentBased, TraceIdRatioBased
+
+# Sample 5% of new traces at the root; downstream, follow the caller's decision.
+sampler = ParentBased(root=TraceIdRatioBased(0.05))
+provider = TracerProvider(resource=resource, sampler=sampler)
+```
+
+### Consistent Probability Sampling
+
+`TraceIdRatioBased` derives its decision from the trace ID so that services sampling independently at the same rate agree. Its exact algorithm was never specified, however, so different SDKs could disagree, and the sampling rate was not recorded anywhere a backend could read it. The specification now deprecates it (SDKs must keep it working until at least January 2027) in favor of the composable **`ProbabilitySampler`**, currently in development status:
+
+- It relies on the Trace Context Level 2 **random** flag, which guarantees 56 random bits in the trace ID.
+- It compares those bits with a **rejection threshold** and records the threshold in `tracestate` as `ot=th:<hex>`.
+- Any service or backend can read `th` to learn the exact sampling probability, so sampled counts can be scaled back up to true request rates, and different services can sample at different rates while remaining consistent.
+
+### Tail-Based Sampling
+
+Tail sampling buffers all spans of a trace in a gateway Collector and decides after `decision_wait`, when the whole trace is visible. The configuration in [The Collector](#the-collector) keeps all error traces, all traces over 500 ms, and 5% of the rest. Operational points:
+
+- **Route by trace ID.** Every span of a trace must reach the same gateway instance (`loadbalancing` exporter). Scaling the gateway pool reshuffles routing, so expect a short period of split decisions during scale events.
+- **Size `decision_wait` to your slowest normal trace.** Spans that arrive after the decision (long async work, retries) are handled by a late-span policy or dropped.
+- **Budget memory.** The buffer holds `num_traces` complete traces; `memory_limiter` must sit in front of `tail_sampling`.
+
+### Choosing a Strategy
+
+A common production setup combines both: generous head sampling (or none) to bound the span volume created, then tail sampling at the gateway to guarantee that errors and slow traces survive. Tune so that you always capture failures, keep enough successful traces to characterize *normal* latency (you cannot recognize "slow" from error traces alone), and cap cost. Generate RED metrics from **all** spans before sampling, either with the Collector's `spanmetrics` connector or in the backend, so dashboards stay accurate regardless of the sample rate.
+
+## Correlating Traces, Metrics, Logs, and Profiles
+
+A trace in isolation is useful; a trace connected to the metric that paged you and the logs and profile that explain it is the point of observability. The connective tissue is the **trace ID** (and span ID), carried by all signals.
+
+```mermaid
+flowchart LR
+    M["Metric alert<br/>p99 latency burn rate"] -->|"exemplar"| T["Trace<br/>find the slow span"]
+    T -->|"trace_id, span_id"| L["Logs<br/>error details"]
+    T -->|"span_id"| P["Profile<br/>hot code in that span"]
+    L -->|"trace_id"| T
+```
+
+- **Metrics to traces, via exemplars.** An [exemplar](./metrics.html) is a trace ID attached to an individual observation in a histogram bucket. On a latency panel, exemplar markers link from the spike straight to a real slow trace. Exemplars are what make Tempo's storage model practical.
+- **Traces to logs, via IDs on every log line.** When every structured log line carries `trace_id` and `span_id`, you can jump from a slow span to the logs it produced and from an error log back to the full trace.
+- **Traces to profiles.** The OpenTelemetry **profiles** signal (public alpha) and its eBPF-based profiling agent collect continuous CPU and memory profiles and correlate samples with the active span, so a slow span can open onto the stack frames that consumed its time. Several backends (Grafana Pyroscope among them) already offer span-to-profile links.
+
+### Stamping Trace IDs on Logs
+
+With the OpenTelemetry logging bridge (`opentelemetry-instrumentation-logging` in Python, or the equivalent appenders for Log4j, Logback, and others), trace and span IDs are injected automatically. The mechanism is simple enough to show directly:
 
 ```python
 import logging
-from pythonjsonlogger import jsonlogger
+from pythonjsonlogger import jsonlogger   # python-json-logger
 from opentelemetry import trace
-
-handler = logging.StreamHandler()
-handler.setFormatter(jsonlogger.JsonFormatter())
-root = logging.getLogger()
-root.addHandler(handler)
-root.setLevel(logging.INFO)
 
 
 class TraceContextFilter(logging.Filter):
-    """Stamp the active trace_id/span_id onto every record automatically."""
-    def filter(self, record):
+    """Stamp the active trace_id/span_id onto every log record."""
+    def filter(self, record: logging.LogRecord) -> bool:
         ctx = trace.get_current_span().get_span_context()
         if ctx.is_valid:
-            # 32-/16-hex-char IDs that match exactly what Jaeger/Tempo show
+            # Same 32- and 16-hex-character forms that tracing UIs display
             record.trace_id = format(ctx.trace_id, "032x")
             record.span_id = format(ctx.span_id, "016x")
         return True
 
 
+handler = logging.StreamHandler()
+handler.setFormatter(jsonlogger.JsonFormatter())
 handler.addFilter(TraceContextFilter())
-log = logging.getLogger("order")
+logging.basicConfig(level=logging.INFO, handlers=[handler])
 
-# trace_id/span_id are injected automatically; just log structured fields
+log = logging.getLogger("order")
 log.info("Order processed", extra={"order_id": "12345"})
-# -> {"message": "Order processed", "order_id": "12345",
-#     "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736", "span_id": "00f067aa0ba902b7"}
+# {"message": "Order processed", "order_id": "12345",
+#  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736", "span_id": "00f067aa0ba902b7"}
 ```
 
-With this in place a single incident flows as one investigation: a **burn-rate alert** on an SLO fires from RED **metrics**, an **exemplar** jumps you to a representative slow **trace**, the slow **span** links to the **logs** it produced (joined by `trace_id`), and those logs reveal the exception. That pivot — metric -> trace -> log, anchored by a shared trace ID — is the payoff of instrumenting all three pillars consistently.
+An incident then flows as one investigation: a burn-rate alert fires on an SLO built from RED metrics; an exemplar opens a representative slow trace; the slowest span on the critical path links to its logs, which show a timeout; its profile shows where the CPU went.
 
-## Instrumenting Services: Practical Guidance
+## Instrumentation Guidelines
 
-- **Prefer auto-instrumentation first.** Install the OTel instrumentation libraries for your framework and DB driver before writing any manual spans; they cover HTTP/gRPC/DB and propagate context correctly for free.
-- **Add manual spans on business operations,** not on every function. A span per *meaningful* unit of work (validate, charge, persist) reads well; a span per helper call drowns the waterfall.
-- **Use the route template, never the raw path,** in span names and `http.route` (`/orders/{id}`, not `/orders/12345`) to keep operation cardinality bounded.
-- **Follow semantic conventions** for attribute names so your data is portable across backends and dashboards.
-- **Record exceptions and set ERROR status** on the span where the failure occurred so error traces are findable and tail sampling keeps them.
-- **Propagate context across *every* boundary** — including async jobs and message queues — or traces fragment.
-- **Keep baggage small.** Anything in baggage is copied onto every hop of every request.
-- **Never put high-cardinality identifiers in metric labels;** put them in span attributes and logs instead, where per-request detail belongs.
+- **Start with instrumentation libraries or zero-code agents.** They cover HTTP, gRPC, messaging, and database clients, and they propagate context correctly.
+- **Add manual spans for business operations,** not every function. A span per meaningful unit of work (validate, charge, persist) produces a readable waterfall; a span per helper call buries it.
+- **Keep span names low-cardinality.** Use the route template (`/orders/{id}`), never the raw path, in span names and `http.route`.
+- **Follow semantic conventions** and put custom attributes under your own namespace.
+- **Mark failures where they happen.** Set `ERROR` status (and `error.type`) on the span where the failure occurred so error traces are searchable and tail sampling keeps them.
+- **Propagate across every boundary,** including queues, background jobs, and thread pools.
+- **Keep baggage small and non-sensitive.**
+- **Put per-request identifiers in spans and logs, not metric labels.** High-cardinality detail belongs in traces; metric labels should stay bounded.
+- **Redact at the Collector.** Strip PII and secrets (query parameters, `db.query.text` literals, auth headers) with Collector processors so the policy lives in one place.
 
 ## See Also
 
-- **[Observability Hub](./)** — the three pillars, observability vs monitoring, and SLOs
-- **[Observability: Metrics & Monitoring](./metrics.html)** — counters, histograms, Prometheus/PromQL, RED & USE, exemplars
-- **[Observability: Logging](./logging.html)** — structured logging, correlation IDs, ELK/Loki, sampling and PII
-- **[Distributed Systems: Observability](../distributed-systems/observability.html)** — tracing, metrics, and SLOs framed inside distributed-system design
-- **[Kubernetes](../technology/kubernetes/)** — where most traced services run; Collector as a sidecar/DaemonSet
-- **[Networking](../technology/networking/)** — the latency and failure modes traces expose
-- **[Database Design](../technology/database-design/)** — instrumenting and tracing data-tier calls
+- [Observability Hub](./): the signals, observability versus monitoring, and SLOs
+- [Metrics and Monitoring](./metrics.html): counters, histograms, Prometheus and PromQL, RED and USE, exemplars
+- [Logging](./logging.html): structured logging, correlation IDs, log pipelines, PII handling
+- [Distributed Systems: Observability](../distributed-systems/observability.html): tracing and SLOs in the context of distributed-system design
+- [Kubernetes](../technology/kubernetes/): where most traced services run, and where Collectors run as DaemonSets and gateways
+- [Networking](../technology/networking/): the latency and failure modes traces expose
+- [Database Design](../technology/database-design/): the data-tier calls that dominate many traces

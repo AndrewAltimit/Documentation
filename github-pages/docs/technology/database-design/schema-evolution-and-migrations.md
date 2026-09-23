@@ -1,6 +1,7 @@
 ---
 layout: docs
 title: "Database Design: Schema Evolution & Migrations"
+description: "Changing a live database schema safely: versioned and declarative migration tools, the real cost of ALTER TABLE in PostgreSQL and MySQL, expand–contract for zero-downtime changes, batched backfills, online schema change tools, CI checks, and rollback strategy."
 permalink: /docs/technology/database-design/schema-evolution-and-migrations.html
 toc: true
 toc_sticky: true
@@ -11,80 +12,71 @@ hide_title: true
 
 # Schema Evolution & Migrations
 
-## Why Schemas Change
+A schema is never finished: features add columns, growth demands indexes, refactors split tables, and yesterday's `VARCHAR(50)` turns out to be too short. Writing the `ALTER TABLE` is easy. Changing a schema that a *running* application depends on — often a table with hundreds of millions of rows — without dropping requests or corrupting data is the hard part. This page covers the discipline that makes schema change routine: **migration tooling** that versions the schema like code, the actual **locking and rewrite cost** of DDL in PostgreSQL and MySQL, the **expand–contract** pattern for zero-downtime changes, safe **backfills**, **online schema change** tools, CI/CD integration, and **rollback** strategy.
 
-A schema is never finished. New features need new columns, growth forces new indexes, refactors split and merge tables, and yesterday's "temporary" `VARCHAR(50)` turns out to be too small. The hard part is not writing the `ALTER TABLE` — it is changing a schema that a *running* application depends on, often against a table holding hundreds of millions of rows, without dropping requests or corrupting data.
-
-This page covers the discipline that makes schema change routine instead of terrifying: **versioned migrations** managed by tooling, the **expand–contract** pattern for zero-downtime changes, **backfills** that don't melt the database, **online schema change** mechanics on MySQL and PostgreSQL, and **rollback** strategies that actually work.
-
-> **Mental model.** Treat the schema as code. Every change is a small, ordered, reviewed, version-controlled script that runs forward in every environment in the same sequence. The database's current shape is fully described by *which migrations have been applied*.
+> **Mental model.** Treat the schema as code. Every change is a small, reviewed, version-controlled step that runs in the same order in every environment, and the database's current shape is fully described by which steps have been applied.
 
 ## Migrations as Version Control for the Database
 
-A **migration** is a discrete, ordered change to the schema (and sometimes the data) expressed as a script. A migration tool records which migrations a given database has applied, so any environment — a developer laptop, CI, staging, production — can be brought from its current version to the latest by replaying the missing migrations in order.
-
-The tool maintains a bookkeeping table inside the database itself. In Flyway it is `flyway_schema_history`; in Alembic it is `alembic_version`; in Rails/ActiveRecord it is `schema_migrations`. Conceptually:
+A **migration** is a discrete, ordered change to the schema (and sometimes the data), expressed as a script. A migration tool records which migrations each database has applied in a bookkeeping table inside that database — `flyway_schema_history` for Flyway, `DATABASECHANGELOG` for Liquibase, `alembic_version` for Alembic, `schema_migrations` for Rails — so a developer laptop, CI, staging, and production can each be brought to the latest version by applying whatever is missing, in order.
 
 ```sql
+-- Conceptually, every tool keeps something like this
 CREATE TABLE schema_migrations (
-    version      VARCHAR(255) PRIMARY KEY,  -- e.g. "0042" or a hash
-    description  TEXT,
-    checksum     VARCHAR(64),               -- detects edits to already-applied scripts
-    applied_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    success      BOOLEAN NOT NULL
+    version      varchar(255) PRIMARY KEY,   -- "0042" or a revision hash
+    description  text,
+    checksum     varchar(64),                -- detects edits to already-applied scripts
+    applied_at   timestamptz NOT NULL DEFAULT now(),
+    success      boolean NOT NULL
 );
 ```
 
-Two broad styles exist:
+Tools differ in how they order migrations and in whether you write the steps or the end state:
 
-- **Versioned / sequential migrations** (Flyway, Liquibase, golang-migrate, Rails): each migration has a monotonic version (`V1__`, `V2__`, …). The tool applies anything newer than the recorded high-water mark. Order is total and deterministic.
-- **Revision-graph migrations** (Alembic, Django): each migration names its parent revision, forming a directed acyclic graph. This handles parallel feature branches gracefully — two branches each add a migration whose `down_revision` is the same ancestor, and a later **merge migration** reconciles them — but you must resolve "multiple heads" before deploying.
+- **Versioned, sequential** (Flyway, golang-migrate, dbmate, Rails): each migration has a monotonic version (`V1__`, `V2__`, or a timestamp). Order is total and deterministic; parallel branches that pick the same number must renumber before merging.
+- **Revision graph** (Alembic, Django): each migration names its parent(s), forming a DAG. Parallel feature branches each add a child of the same parent; the resulting "multiple heads" must be joined by a **merge migration** before deploying.
+- **Declarative / state-based** (Atlas, Skeema, SQL Server DACPAC, Prisma `db push`): you edit the desired schema, and the tool diffs it against the database to *plan* the migration. Most teams using this style still commit the generated plan as a versioned migration, so production changes remain reviewed and reproducible.
 
-### Golden rules of migrations
+### Rules That Prevent Most Incidents
 
-1. **Migrations are immutable once merged.** Never edit a migration that has run anywhere beyond your own laptop. Checksums exist precisely to catch this; editing a shipped migration means environments silently diverge. To fix a mistake, write a *new* migration.
-2. **Migrations are ordered and idempotent at the tool level.** Re-running the suite must be a no-op once everything is applied.
-3. **Every migration is reviewed like code** — in a pull request, with the same scrutiny as application changes, because a bad `ALTER` can lock a production table for hours.
-4. **Schema and data migrations are separated where possible.** Mixing a giant `UPDATE` into a DDL migration ties a slow backfill to a transaction that may hold locks.
-5. **Forward-only in production is a valid policy.** Many teams never run `down` migrations against production (see [Rollbacks](#rollbacks-and-recovery)); they roll *forward* with a corrective migration instead.
+1. **Migrations are immutable once shared.** Never edit a migration that has run anywhere beyond your own machine; checksums exist to catch this. Fix mistakes with a new migration.
+2. **Review migrations like code** — a one-line `ALTER` can lock a production table for an hour.
+3. **Separate schema changes from data changes.** A large `UPDATE` inside a DDL migration ties a slow backfill to a transaction that may hold locks.
+4. **Every migration must be compatible with the application version already running** (the compatibility rule, below).
+5. **Forward-only in production is a legitimate policy** (see [Rollbacks and Recovery](#rollbacks-and-recovery)).
 
 ## The Tooling Landscape
 
-The three most common dedicated tools are **Flyway**, **Liquibase**, and **Alembic**, alongside framework-bundled tools (Rails, Django, Entity Framework) and language-agnostic CLIs (golang-migrate, dbmate). They differ mainly in how migrations are *authored* and how much database-independence they promise.
-
-| Tool | Authoring format | Versioning model | Database abstraction | Typical ecosystem |
+| Tool | Authoring format | Ordering model | Database abstraction | Ecosystem / notes |
 |---|---|---|---|---|
-| **Flyway** | Plain SQL (`.sql`) or Java | Sequential `V{n}__desc.sql` | None — you write native SQL | JVM, polyglot via CLI |
-| **Liquibase** | XML / YAML / JSON / SQL "changesets" | Ordered changelog file | High — abstract change types generate dialect SQL | JVM, enterprise |
-| **Alembic** | Python (`upgrade()`/`downgrade()`) | Revision DAG (`down_revision`) | Via SQLAlchemy `op.*` | Python / SQLAlchemy |
-| **Rails / ActiveRecord** | Ruby DSL | Timestamped sequential | High, via the ORM | Ruby on Rails |
-| **golang-migrate / dbmate** | Paired `.up.sql` / `.down.sql` | Sequential numbered | None | Go, polyglot |
+| **Flyway** (Redgate) | Plain SQL, or Java | Sequential `V{n}__desc.sql`, plus repeatable `R__` | None — native SQL | JVM and CLI; undo (`U`) scripts only in paid editions |
+| **Liquibase** | XML, YAML, JSON, or SQL changesets | Ordered changelog | High — abstract change types generate dialect SQL | JVM and CLI; Community edition moved from Apache 2.0 to the Functional Source License with 5.0 (2025) |
+| **Alembic** | Python `upgrade()` / `downgrade()` | Revision DAG | Via SQLAlchemy `op.*` | Python; autogenerate from models |
+| **Django migrations** | Python operations | Revision DAG per app | Via the ORM | Python; generated by `makemigrations` |
+| **Rails / Active Record** | Ruby DSL | Timestamped sequential | Via the ORM | Ruby |
+| **Atlas** | HCL, SQL, or ORM schema; declarative or versioned | Plans diffs; versioned directory with checksums | Multi-dialect | Go CLI; strong migration linting |
+| **golang-migrate, dbmate** | Paired `.up.sql` / `.down.sql` | Sequential | None | Language-agnostic CLIs |
+| **pgroll** | JSON/YAML operations | Sequential | PostgreSQL only | Automates expand–contract (below) |
 
 ### Flyway
 
-Flyway favors **plain SQL** and convention over configuration. You drop versioned files into a migrations directory and run `flyway migrate`.
+Flyway favours plain SQL and convention over configuration: versioned files go in a migrations directory and `flyway migrate` applies anything newer than the recorded high-water mark.
 
 ```
 db/migration/
   V1__create_users.sql
   V2__add_email_index.sql
   V3__add_orders_table.sql
-  R__refresh_reporting_view.sql   -- repeatable: re-runs whenever its checksum changes
+  R__reporting_views.sql        -- repeatable: re-applied whenever its checksum changes
 ```
 
-```sql
--- V2__add_email_index.sql
-CREATE UNIQUE INDEX CONCURRENTLY idx_users_email ON users (email);
-```
-
-The naming prefix carries the semantics: `V` = versioned (run once, in order), `U` = undo (paid feature), `R` = repeatable (re-applied whenever the file's checksum changes — ideal for views, stored procedures, and grants where you want *the latest definition* rather than a diff). Flyway records each `V` migration's checksum; if you edit a file it has already applied, `flyway validate` fails.
+The prefix carries the semantics: `V` runs once in order; `R` is re-applied whenever the file changes, which suits views, functions, and grants where you want the *latest definition* rather than a diff; `U` is an undo script. `flyway validate` fails if an applied `V` file has been edited. A migration that cannot run in a transaction (such as `CREATE INDEX CONCURRENTLY`) is marked with a per-script config file, `V2__add_email_index.sql.conf`, containing `executeInTransaction=false`.
 
 ### Liquibase
 
-Liquibase models change as a **changelog** of independent **changesets**, each identified by `id` + `author` + file path. Its differentiator is database-agnostic change types: you describe *intent* (`addColumn`, `createIndex`) and Liquibase emits the right dialect SQL.
+Liquibase models change as a **changelog** of **changesets**, each identified by `id`, `author`, and file path. Its distinguishing feature is database-agnostic change types: you describe intent (`addColumn`, `createIndex`) and Liquibase emits dialect-specific SQL.
 
 ```yaml
-# changelog.yaml
 databaseChangeLog:
   - changeSet:
       id: add-phone-to-users
@@ -98,11 +90,11 @@ databaseChangeLog:
         - dropColumn: { tableName: users, columnName: phone }
 ```
 
-Liquibase supports **preconditions** (skip or fail a changeset unless the DB is in an expected state), **contexts/labels** (run subsets per environment), and explicit `rollback` blocks per changeset. The abstraction is powerful for multi-database products but leaks for anything dialect-specific (partial indexes, `CONCURRENTLY`, generated columns), where you fall back to raw `sql` changes anyway.
+Changesets support **preconditions** (skip or fail unless the database is in an expected state), **contexts and labels** (run subsets per environment), and explicit `rollback` blocks. The abstraction pays off for products that ship on several databases, but leaks for dialect-specific features (partial indexes, `CONCURRENTLY`, generated columns), where you drop back to raw `sql` changes.
 
 ### Alembic
 
-Alembic (the migration component of SQLAlchemy) authors migrations in **Python** and links them in a **revision graph**. It can *autogenerate* a migration by diffing your ORM models against the live database — a huge convenience, but the output must always be reviewed (autogenerate misses things like server defaults, `CHECK` constraints, and renames, which it sees as drop+add).
+Alembic, the migration tool for SQLAlchemy, writes migrations in Python linked by `down_revision`. `alembic revision --autogenerate` diffs the ORM models against the live database — convenient, but always review the output: autogenerate cannot detect renames (it emits drop plus add, which loses data) and misses some constraint and server-default changes.
 
 ```python
 # alembic/versions/8f3a_add_status_to_orders.py
@@ -117,216 +109,272 @@ def upgrade():
         "orders",
         sa.Column("status", sa.String(20), nullable=False, server_default="pending"),
     )
-    op.create_index("ix_orders_status", "orders", ["status"])
+    # CREATE INDEX CONCURRENTLY cannot run inside a transaction block
+    with op.get_context().autocommit_block():
+        op.create_index("ix_orders_status", "orders", ["status"],
+                        postgresql_concurrently=True)
 
 def downgrade():
-    op.drop_index("ix_orders_status", table_name="orders")
+    with op.get_context().autocommit_block():
+        op.drop_index("ix_orders_status", table_name="orders",
+                      postgresql_concurrently=True)
     op.drop_column("orders", "status")
 ```
 
-Because revisions form a DAG, two feature branches can each add a migration off the same parent. After merging both, `alembic heads` shows two heads; you reconcile with `alembic merge` to produce an empty merge revision that depends on both, restoring a single head.
+When two branches each add a revision on the same parent, `alembic heads` shows two heads; `alembic merge -m "merge" <rev1> <rev2>` creates an empty revision that depends on both. Make "exactly one head" a CI check.
 
 ## What `ALTER TABLE` Actually Costs
 
-Before designing zero-downtime changes you must know which DDL is cheap and which rewrites the whole table or takes a blocking lock. The answer is engine-specific.
+Before designing a zero-downtime change you need to know, for your engine and version, which DDL is a metadata-only change, which rewrites or scans the table, and which lock it takes.
 
-**PostgreSQL** takes an `ACCESS EXCLUSIVE` lock for most DDL, but many operations are now *metadata-only* and therefore near-instant once the lock is acquired:
+### PostgreSQL
 
-- **Cheap (metadata only):** `ADD COLUMN` with no default *or* with a constant default (PG 11+ stores the default in catalog metadata), `DROP COLUMN`, renaming columns/tables, adding a `CHECK ... NOT VALID` constraint, dropping a constraint.
-- **Expensive (table rewrite):** changing a column type in a way that needs reformatting, `ADD COLUMN ... DEFAULT <volatile expression>`, setting `NOT NULL` on an existing column (pre-PG 12 scans the whole table; PG 12+ can use a validated `CHECK` to skip the scan).
-- **The lock-duration trap:** even a metadata-only change must *acquire* `ACCESS EXCLUSIVE`. If a long-running query holds the table, your `ALTER` queues behind it — and every new query queues behind *your* `ALTER*. Always run DDL with a short `lock_timeout` so it backs off instead of stampeding:
+Most `ALTER TABLE` forms take an `ACCESS EXCLUSIVE` lock, which blocks all reads and writes on the table while held. What matters is how *long* it is held.
+
+| Operation | Cost | Notes |
+|---|---|---|
+| `ADD COLUMN` (nullable, no default) | Metadata only | |
+| `ADD COLUMN ... DEFAULT <constant>` (with or without `NOT NULL`) | Metadata only (PG 11+) | The default is stored in the catalog; existing rows are not rewritten |
+| `ADD COLUMN ... DEFAULT <volatile>` (e.g. `clock_timestamp()`, `gen_random_uuid()`) | Full table rewrite | Add without default, then backfill |
+| `DROP COLUMN` | Metadata only | Space is reclaimed as rows are later rewritten |
+| `RENAME COLUMN` / `RENAME TABLE` | Metadata only | But breaks every running query that uses the old name |
+| `ALTER COLUMN TYPE` | Usually a full rewrite plus index rebuilds | Exceptions: binary-compatible changes such as increasing a `varchar` length or `varchar` to `text` |
+| `SET NOT NULL` | Full scan under the lock | Skipped if a validated `CHECK (col IS NOT NULL)` already proves it (PG 12+) |
+| `ADD CONSTRAINT ... CHECK / FOREIGN KEY ... NOT VALID` | Metadata only | Enforced for new rows immediately; existing rows unchecked |
+| `ADD CONSTRAINT ... NOT NULL col NOT VALID` | Metadata only (PG 18+) | Validate later, as with `CHECK` |
+| `VALIDATE CONSTRAINT` | Full scan, but only a `SHARE UPDATE EXCLUSIVE` lock | Reads and writes continue |
+| `CREATE INDEX` | Blocks writes for the whole build | |
+| `CREATE INDEX CONCURRENTLY` | Two scans, no write blocking | Cannot run in a transaction; a failure leaves an `INVALID` index that must be dropped |
+
+**The lock queue trap.** Even a metadata-only change must *acquire* `ACCESS EXCLUSIVE`. If a long-running query or an idle-in-transaction session holds any lock on the table, the `ALTER` waits — and every query that arrives after it queues behind the `ALTER`, so a "free" DDL statement can take the application down. Always set a short `lock_timeout` and retry:
 
 ```sql
-SET lock_timeout = '3s';
-ALTER TABLE orders ADD COLUMN status TEXT;  -- retried by your migration runner if it times out
+SET lock_timeout = '3s';          -- give up quickly instead of blocking the table
+SET statement_timeout = '15min';  -- for operations that legitimately scan
+ALTER TABLE orders ADD COLUMN status text;
+-- On lock_timeout: back off, check pg_stat_activity for the blocker, retry
 ```
 
-**Indexes** are the classic blocker. A plain `CREATE INDEX` locks writes for the whole build. PostgreSQL's `CREATE INDEX CONCURRENTLY` (and `DROP INDEX CONCURRENTLY`) builds without blocking writes, at the cost of two table scans and the inability to run inside a transaction — so such migrations must be marked non-transactional in your tool (`transactional: false` in Flyway, `op.create_index(..., postgresql_concurrently=True)` with an autocommit block in Alembic).
+PostgreSQL's DDL is **transactional**: a multi-statement migration inside `BEGIN ... COMMIT` applies entirely or not at all. Keep such transactions short, because every lock taken is held until commit.
 
-**MySQL/InnoDB** classifies each DDL as `INSTANT`, `INPLACE`, or `COPY` (the `ALGORITHM=` clause). `INSTANT` (8.0+) adds/drops columns via metadata only; `INPLACE` rebuilds indexes without copying the table but may still block briefly; `COPY` rebuilds the entire table and blocks writes for its duration. The `LOCK=` clause (`NONE`/`SHARED`/`EXCLUSIVE`) controls concurrent DML. When the native `INPLACE`/`INSTANT` path isn't available, teams reach for external online-schema-change tools (below).
+### MySQL / InnoDB
+
+InnoDB classifies each DDL operation by algorithm, which you can request explicitly so that the statement fails rather than silently falling back to something slower:
+
+| `ALGORITHM=` | What happens | Examples |
+|---|---|---|
+| `INSTANT` | Metadata only | Add a column (any position since 8.0.29), drop a column (8.0.29+), rename a column, set or drop a default, extend an `ENUM` |
+| `INPLACE` | Rebuilds in place; concurrent DML allowed for most operations, with brief exclusive metadata locks at start and end | Add a secondary index, change row format |
+| `COPY` | Copies the whole table; writes blocked throughout | Changing a column's data type, most charset conversions |
+
+```sql
+ALTER TABLE orders ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'pending',
+      ALGORITHM=INSTANT;                         -- errors instead of degrading to COPY
+ALTER TABLE orders ADD INDEX ix_status (status), ALGORITHM=INPLACE, LOCK=NONE;
+```
+
+Caveats: a table can take only a limited number of `INSTANT` column changes before it needs a rebuild; MySQL DDL is **not transactional** (each statement commits implicitly, so a multi-statement migration can half-apply); and the metadata lock trap is the same as in PostgreSQL — set `lock_wait_timeout` low. MySQL 8.0 reached end of standard support in April 2026, so new work should target 8.4 LTS or later. When native online DDL is not enough, use an [online schema change tool](#online-schema-change-tools).
 
 ## Zero-Downtime Migrations: The Expand–Contract Pattern
 
-The central technique for changing schema under a live application is **expand–contract** (also called *parallel change* or *expand–migrate–contract*). The insight: you cannot change the schema and the application in the same instant, so you make the change in stages where **old and new code both work against the database** at all times.
+You cannot change the schema and every running instance of the application at the same instant. **Expand–contract** (also called *parallel change*) splits a breaking change into steps such that **the deployed application and the current schema are compatible at every moment**:
 
-```
-Time ──────────────────────────────────────────────────────────►
-
-  [EXPAND]            [MIGRATE / BACKFILL]        [CONTRACT]
-  Add the new,        Dual-write + backfill;      Remove the old
-  backward-           switch reads to new         structure once
-  compatible          once data is consistent     nothing uses it
-  structure
-   │                        │                          │
-   ▼                        ▼                          ▼
- old code OK            old code OK                old code GONE
- new code OK            new code OK                new code OK
+```mermaid
+flowchart LR
+    E["1. Expand<br/>add new structure<br/>(backward compatible)"] --> D["2. Dual-write<br/>app writes old + new"]
+    D --> B["3. Backfill<br/>copy historical rows"]
+    B --> S["4. Switch reads<br/>app reads new only"]
+    S --> X["5. Stop old writes<br/>app ignores old"]
+    X --> C["6. Contract<br/>drop old structure"]
 ```
 
-Each phase is independently deployable and independently reversible, and **at no point** is there a moment where the currently deployed application is incompatible with the current schema. That property is what gives you zero downtime.
+Each arrow is a separate deploy or migration. Every step before *contract* can be abandoned by redeploying the previous application version, because the old structure is still present and populated.
 
-### Worked example: rename `users.name` to `users.full_name`
+### Worked Example: Rename `users.name` to `users.full_name`
 
-A naive `ALTER TABLE users RENAME COLUMN name TO full_name` is fatal: the running app still issues `SELECT name`, which now errors. Expand–contract turns it into five safe, ordered steps:
+`ALTER TABLE users RENAME COLUMN name TO full_name` is instant — and immediately breaks every running instance still selecting `name`. With expand–contract:
 
-1. **Expand (migration).** Add the new column. Cheap metadata change.
-   ```sql
-   ALTER TABLE users ADD COLUMN full_name TEXT;
-   ```
-2. **Dual-write (deploy app v2).** Application writes both columns; reads still come from `name`.
-   ```sql
-   UPDATE users SET name = $1, full_name = $1 WHERE id = $2;
-   ```
-3. **Backfill (migration/job).** Copy historical rows in batches (see next section).
-   ```sql
-   UPDATE users SET full_name = name WHERE full_name IS NULL;  -- batched
-   ```
-4. **Switch reads (deploy app v3).** Reads now use `full_name`; the app stops depending on `name`.
-5. **Contract (migration).** Once no deployed version references `name`, drop it.
-   ```sql
-   ALTER TABLE users DROP COLUMN name;
-   ```
+```mermaid
+sequenceDiagram
+    participant DB as Schema
+    participant App as Application
+    DB->>DB: ADD COLUMN full_name (expand)
+    App->>App: deploy v2: write name and full_name, read name
+    DB->>DB: backfill full_name for old rows (batched job)
+    App->>App: deploy v3: read full_name, still write both
+    App->>App: deploy v4: read and write full_name only
+    DB->>DB: DROP COLUMN name (contract, after a soak period)
+```
 
-If anything looks wrong before step 5, you simply *stop advancing* — the old column is still populated, so rolling back the app is harmless. The contract step is the only irreversible one, and you take it last, after the new path has soaked in production.
+```sql
+-- 1. Expand
+ALTER TABLE users ADD COLUMN full_name text;
 
-### Other changes in the expand–contract frame
+-- 2. Application v2 writes both columns
+UPDATE users SET name = $1, full_name = $1 WHERE id = $2;
 
-- **Adding a `NOT NULL` column:** add it nullable (or with a default) → backfill → add the `NOT NULL` constraint (on PostgreSQL, add a `CHECK (col IS NOT NULL) NOT VALID`, `VALIDATE CONSTRAINT` in a separate step to avoid a long lock, then optionally set `NOT NULL`). Never add `NOT NULL` with no default in one shot against a populated table.
-- **Splitting a column** (`address` → `street`, `city`, `zip`): expand with three new columns, dual-write the parsed parts, backfill, switch reads, contract the old column.
-- **Changing a column's type** (`INT` → `BIGINT` for an id about to overflow): add a new `BIGINT` column, dual-write, backfill, switch reads/writes, then swap. For a primary key this is a major operation; many teams instead provision `BIGINT` ids up front precisely to avoid it.
-- **Moving a column to another table / introducing a foreign key:** add the FK column as nullable and *not validated*, backfill, `VALIDATE CONSTRAINT` separately, then enforce.
+-- 3. Backfill historical rows in batches (see Backfills)
 
-### The compatibility rule
+-- 4-5. Application v3 reads full_name; v4 stops writing name
 
-Expand–contract works only if you respect one rule at every step:
+-- 6. Contract
+ALTER TABLE users DROP COLUMN name;
+```
 
-> **Each deployed version of the application must be compatible with both the schema before and the schema after the migration that ships alongside it.**
+Dual writes can live in the application or in a database trigger that keeps the columns in sync; a trigger catches writes from every client (including scripts and other services) but must be removed during contract.
 
-Concretely: a column you intend to drop must first stop being *read*, then stop being *written*, and only then be dropped — three separate deploys/migrations, never one. Adding a `NOT NULL` column the old code doesn't know about will break the old code's `INSERT`s unless the column has a default. The pattern is mechanical once internalized, and most migration mistakes are simply a violation of this single rule.
+### Common Changes in the Expand–Contract Frame
+
+- **Adding a `NOT NULL` column.** With a constant default, PostgreSQL 11+ and MySQL `INSTANT` do this in one cheap step. Without a suitable default: add it nullable, backfill, then enforce. On PostgreSQL, enforce with `ADD CONSTRAINT ... CHECK (col IS NOT NULL) NOT VALID`, then `VALIDATE CONSTRAINT` (no write blocking), then `SET NOT NULL` (skips the scan because the check proves it), then drop the redundant check. PostgreSQL 18 can add the `NOT NULL` constraint itself as `NOT VALID` and validate it later.
+- **Adding a foreign key.** `ADD CONSTRAINT ... FOREIGN KEY ... NOT VALID`, then `VALIDATE CONSTRAINT` in a separate transaction.
+- **Adding a unique constraint.** `CREATE UNIQUE INDEX CONCURRENTLY`, then `ADD CONSTRAINT ... UNIQUE USING INDEX`.
+- **Splitting a column** (`address` into `street`, `city`, `postcode`): expand with the new columns, dual-write the parsed parts, backfill, switch reads, contract.
+- **Changing a type** (`int` to `bigint` for an ID nearing $2^{31}$): add a `bigint` column, sync it with a trigger, backfill, then swap names in one short transaction; for a primary key also build the new unique index concurrently and swap constraints. This is major surgery on a hot table, which is why new tables should use `bigint` (or UUIDv7) keys from the start.
+- **Renaming or splitting a table.** Expand with the new table and a view or trigger for compatibility, migrate readers and writers, contract.
+
+### The Compatibility Rule
+
+> **Each migration must be compatible with the application version running before it and the version deployed after it.**
+
+In practice: a column is dropped only after it has stopped being read *and* stopped being written, which takes separate deploys; a new column must be nullable or have a default until every writer populates it; and an application must tolerate columns it does not know about (no `SELECT *` mapped positionally, no `INSERT` without a column list). Most migration outages are a violation of this one rule.
+
+### Tools That Automate Expand–Contract
+
+**pgroll** (PostgreSQL) performs expand–contract as a single tool-managed operation: it creates the new columns and triggers to keep old and new in sync, and exposes each schema version as a separate PostgreSQL schema of **views** over the physical table. Old application instances keep using the old version's views, new instances set `search_path` to the new version, and `pgroll complete` performs the contract step once the old version is retired.
 
 ## Backfills
 
-A **backfill** populates a newly added column (or new table) for the rows that already exist. The danger is volume: `UPDATE big_table SET new_col = f(old_col)` as one statement takes a single long transaction that bloats the WAL/undo log, holds locks, blocks autovacuum, and can lock out writers for minutes. Backfills must be **batched, throttled, and resumable**.
+A **backfill** populates a new column or table for existing rows. A single `UPDATE big_table SET new_col = f(old_col)` runs as one long transaction: it holds row locks on every row it touches, generates a burst of WAL that replicas must replay, prevents vacuum from cleaning up, and creates a dead copy of every row (in PostgreSQL). Backfills must be **batched, throttled, and resumable**.
 
 ```python
-# Batched, resumable backfill driven by the primary key.
-# Each batch is its own transaction so locks are released between batches.
+# Keyset-paginated backfill: each batch is its own short transaction.
 BATCH = 5_000
 last_id = 0
-while True:
-    rows = db.execute(
-        """
-        UPDATE users
-           SET full_name = name
-         WHERE id > :last_id
-           AND id <= :last_id + :batch
-           AND full_name IS NULL
-        RETURNING id
-        """,
-        last_id=last_id, batch=BATCH,
-    )
-    if not rows:
-        break
-    last_id += BATCH
-    db.commit()
-    time.sleep(0.05)   # throttle: give other transactions and replication room
+max_id = db.scalar("SELECT max(id) FROM users")
+
+while last_id < max_id:
+    upper = last_id + BATCH
+    with db.transaction():
+        db.execute(
+            """
+            UPDATE users
+               SET full_name = name
+             WHERE id > :lo AND id <= :hi
+               AND full_name IS NULL
+            """,
+            lo=last_id, hi=upper,
+        )
+    last_id = upper
+    save_checkpoint("users_full_name_backfill", last_id)   # resume point
+    throttle_on_replica_lag(max_lag_seconds=5)             # back off if replicas fall behind
+    time.sleep(0.05)
 ```
 
-Key properties of a safe backfill:
+The loop is bounded by the maximum ID rather than stopping at the first empty batch, because ID ranges can have gaps and some ranges may already be filled by dual writes.
 
-- **Bounded batches** keyed on an indexed column (usually the PK) so each statement touches a small, predictable range and releases locks promptly.
-- **Resumable** — if it dies at id 4,000,000 you restart from there; the `WHERE new_col IS NULL` guard keeps it idempotent.
-- **Throttled** with a small sleep and ideally *adaptive* — watch replication lag and back off when replicas fall behind, because a fast backfill on the primary can starve read replicas serving live traffic.
-- **Run outside the DDL migration.** Add the column in a fast migration; run the backfill as a separate job (a one-off script, a worker task, or a dedicated "data migration" your framework distinguishes from schema migrations). This keeps schema deploys fast and lets you pause/resume the slow part.
-- **Mind triggers and dual-writes.** During the migrate phase, new writes already set `new_col`; the backfill only needs to fill *historical* rows. The `IS NULL` predicate naturally avoids fighting concurrent writes.
+A safe backfill is:
 
-For very large tables, consider building the backfilled state in a shadow table and swapping, which is exactly what online-schema-change tools automate.
+- **Bounded** — each statement touches a small, predictable range of an indexed key (usually the primary key) and commits, releasing locks.
+- **Idempotent and resumable** — the `IS NULL` guard makes reruns harmless, and a stored checkpoint lets a crashed job continue where it stopped.
+- **Throttled adaptively** — watch replication lag and database load, and slow down when they rise; a backfill that outruns the replicas causes stale reads everywhere else.
+- **Separate from the DDL migration** — add the column in a fast migration and run the backfill as a job (a script, a worker task, or a framework "data migration"), so it can be paused and resumed without blocking deploys.
+- **Coordinated with dual writes** — new writes already populate the new column, so the backfill only needs historical rows.
+
+On PostgreSQL, also watch table bloat on very large backfills; running `VACUUM` between chunks of the job keeps it under control. For the largest tables, it can be cheaper to build the new state in a shadow table and swap it in, which is what online schema change tools automate.
 
 ## Online Schema Change Tools
 
-When the engine's native online DDL isn't enough — typically a `COPY`-algorithm `ALTER` on a huge MySQL/InnoDB table — external tools perform the change by the **shadow-table-and-swap** method:
+When the engine cannot perform a change online — typically a `COPY`-algorithm `ALTER` on a large MySQL table — external tools use the **shadow table and swap** method:
 
-1. Create an empty **ghost/shadow** table with the *desired* new schema.
-2. Copy existing rows into it in throttled batches.
-3. Capture concurrent changes to the original (via triggers, or by tailing the binary log) and apply them to the ghost table so it stays current.
-4. When the ghost has caught up, perform an **atomic rename** to swap it in for the original; drop the old table.
+```mermaid
+flowchart LR
+    O[("orders<br/>(live)")] -- "1. create empty copy<br/>with new schema" --> G[("_orders_gho<br/>(ghost)")]
+    O -- "2. copy rows<br/>in throttled chunks" --> G
+    O -. "3. stream concurrent changes<br/>(binlog or triggers)" .-> G
+    G -- "4. atomic rename<br/>cut-over" --> N[("orders<br/>(new schema)")]
+```
 
-The two dominant MySQL tools:
+1. Create an empty **ghost** table with the desired schema.
+2. Copy existing rows into it in throttled chunks.
+3. Capture concurrent writes to the original (from the binary log, or with triggers) and apply them to the ghost.
+4. When the ghost has caught up, **atomically rename** it into place and drop (or keep) the old table.
 
-- **pt-online-schema-change** (Percona Toolkit) uses **triggers** on the original table to mirror writes into the ghost table. Simple and battle-tested, but adds trigger overhead to every write and conflicts with pre-existing triggers.
-- **gh-ost** (GitHub) is **triggerless**: it reads the **binary log** to replay changes onto the ghost table, so it imposes no write-path trigger overhead, is more easily **pausable/throttleable**, and can run the copy from a replica. It has become the default choice for large MySQL fleets.
+| Tool | Change capture | Notes |
+|---|---|---|
+| **pt-online-schema-change** (Percona Toolkit) | Triggers on the original table | Mature and simple; adds trigger overhead to every write and conflicts with existing triggers |
+| **gh-ost** (GitHub) | Reads the binary log | Triggerless, pausable, can run from a replica; single-threaded copy |
+| **Spirit** (Block/Cash App) | Reads the binary log | gh-ost reimplementation for MySQL 8.0+ only; multi-threaded copy and apply, resumable checkpoints — faster, at the cost of more replica lag |
+| **Vitess / PlanetScale online DDL** | VReplication | Built into the platform; supports reverting a completed migration |
 
 ```bash
-# gh-ost: add a column to a 500M-row table with no write downtime
+# gh-ost: change a column on a large table without blocking writes.
+# Throttles when Threads_running exceeds 25; cuts over atomically when caught up.
 gh-ost \
-  --host=primary.db --database=shop --table=orders \
-  --alter="ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'pending'" \
-  --max-load=Threads_running=25 \   # throttle when the DB is busy
+  --host=replica1.db --database=shop --table=orders \
+  --alter="MODIFY COLUMN note VARCHAR(1000) NOT NULL DEFAULT ''" \
+  --max-load=Threads_running=25 \
+  --critical-load=Threads_running=100 \
   --chunk-size=1000 \
-  --cut-over=atomic \
+  --max-lag-millis=1500 \
   --execute
 ```
 
-**PostgreSQL** rarely needs this because most changes are metadata-only or covered by `CREATE INDEX CONCURRENTLY`. For the cases it doesn't cover (rewriting a column type on a hot table), `pg_repack` rebuilds tables and indexes online by the same shadow-and-swap idea, and tools like `pgroll` implement expand–contract with versioned views so old and new schema versions are queryable simultaneously during the transition.
+PostgreSQL rarely needs these tools, because most additive changes are metadata-only and indexes can be built concurrently. For the remaining cases — reclaiming bloat, or rewriting a hot table — **pg_repack** rebuilds tables and indexes online by the same shadow-and-swap method, holding an exclusive lock only briefly at the start and end.
 
-> **Trade-off.** Online tools turn a blocking `ALTER` into a slow, throttled background copy. You pay in elapsed time and extra disk (a full second copy of the table) to buy availability. Schedule them off-peak, watch replication lag, and keep the binlog/WAL retention long enough to cover the whole run.
+> **Trade-off.** Online tools turn a blocking `ALTER` into a slow background copy. You pay in elapsed time, extra disk for a full second copy of the table, and replication load, to buy availability. Run them off-peak, watch replication lag, and make sure binlog or WAL retention covers the whole run.
 
-## Versioning, Branching, and CI/CD
+## Migrations in CI/CD
 
-Migrations are part of the deployment pipeline, not a manual afterthought.
-
-- **Single source of order.** Sequential tools enforce a total order by version number; teams on different branches must rebase so versions don't collide. DAG tools (Alembic) tolerate parallel development but require resolving multiple heads before merge — make "no multiple heads" a CI check.
-- **Run migrations in CI** against a throwaway database on every PR: apply all migrations from empty, then assert the resulting schema matches the ORM/models. This catches autogenerate misses and dialect bugs early.
-- **Deploy ordering with expand–contract.** Because each phase ships with compatible code, the natural pipeline is: run *expand* migrations *before* the app deploy that depends on them, run *contract* migrations *after* every old app version is gone. Many teams run migrations as a separate, gated step (a Kubernetes Job/init container, or a manual approval) rather than inside the app boot, so a slow or failed migration doesn't crash-loop every pod.
-- **Guard against destructive DDL.** Lint migrations in CI for dangerous patterns — `DROP COLUMN`/`DROP TABLE`, type changes, `NOT NULL` without default, plain `CREATE INDEX` on big tables. Tools like Squawk (Postgres) and `gh-ost`-aware linters fail the build or require an explicit override.
-- **Pin a `lock_timeout` and `statement_timeout`** in the migration session so a DDL that can't get its lock fails fast and is retried, instead of jamming the table behind a queue of blocked queries.
+- **Run every migration in CI** against a disposable database: apply the full history from empty, then check that the result matches the ORM models or the declared schema. This catches autogenerate misses, dialect bugs, and ordering conflicts.
+- **Lint for dangerous operations.** Tools such as **Squawk** (PostgreSQL), **Atlas** `migrate lint`, and framework plugins such as `strong_migrations` (Rails) and `django-migration-linter` flag table rewrites, blocking index builds, `NOT NULL` without a default, unsafe renames and drops, and missing `lock_timeout`; the build fails unless the author explicitly acknowledges the risk.
+- **Order migrations around deploys.** Expand migrations run *before* the application version that needs them; contract migrations run *after* every instance of the old version is gone — often a release or more later.
+- **Run migrations as their own step**, not at application start-up. With many replicas starting at once, start-up migrations race each other, and a slow migration makes every pod fail its health check. Use a pipeline stage, a Kubernetes Job or Helm pre-upgrade hook, or an approval gate for destructive changes.
+- **Test against production-scale data** for anything that scans or rewrites: a migration that takes 200 ms on a developer database may take an hour in production. Database branching services and restored snapshots make this practical.
+- **Pin timeouts** (`lock_timeout`, `statement_timeout`, MySQL `lock_wait_timeout`) in the migration session.
 
 ## Rollbacks and Recovery
 
-When a migration goes wrong, you have three recovery strategies, in rough order of preference.
+When a migration goes wrong there are three recovery strategies, in order of preference.
 
-### 1. Roll forward (preferred)
+### 1. Roll Forward
 
-Most mature teams treat production migrations as **forward-only**: they do not run `down`/`downgrade` scripts in production. If a change is bad, they write and deploy a *new* corrective migration. The reasons are practical:
+Many mature teams run production migrations **forward-only**: they never execute `down` scripts in production, and fix a bad change with a new corrective migration. The reasons:
 
-- `down` scripts are written but rarely *tested* against production-scale data, so they fail exactly when you need them most.
-- Many forward changes are not cleanly reversible: a backfill that has lost the original values, a dropped column whose data is gone, a merge that can't be un-merged.
-- Expand–contract already gives you a safe abort: if you haven't reached the *contract* step, the old structure is intact and you simply redeploy the previous app version. No DDL undo needed.
+- `down` scripts are rarely tested against production-scale data, so they tend to fail exactly when needed.
+- Many changes are not reversible: a dropped column's data is gone, and a lossy type change or merge cannot be undone.
+- Expand–contract already provides a safe abort: until the contract step, the old structure is intact and redeploying the previous application version is enough.
 
-### 2. Reverse migration (`down`)
+### 2. Reverse Migration
 
-Versioned and DAG tools support paired down-migrations (`downgrade()` in Alembic, `.down.sql` in golang-migrate, `rollback` blocks in Liquibase). These are genuinely useful in development and CI — `alembic downgrade -1` to step back, test, redo. In production they work only when the change is *truly* reversible and *no data has been lost*: dropping an index you just added, removing a still-empty column. Treat a down-migration as a convenience for additive changes, not a safety net for destructive ones.
+Paired down-migrations (`downgrade()` in Alembic, `.down.sql` in golang-migrate, `rollback` blocks in Liquibase, Flyway undo scripts) are valuable in development and CI — `alembic downgrade -1`, adjust, re-run. In production they are safe only for changes that lost no data, such as dropping an index or a column that has never held anything. Treat them as a convenience for additive changes, not a safety net for destructive ones.
 
-```python
-def downgrade():
-    # Safe to reverse: the column was new and we only ever wrote to it additively.
-    op.drop_index("ix_orders_status", table_name="orders")
-    op.drop_column("orders", "status")
-```
+### 3. Restore from Backup / Point-in-Time Recovery
 
-### 3. Restore from backup / PITR (last resort)
+If a migration destroyed or corrupted data and no forward fix exists, recover from the storage layer: restore a base backup and replay the write-ahead log to just before the migration ran (see [Operations & Monitoring](operations-and-monitoring.html#point-in-time-recovery-pitr) and [Storage Engines & Recovery](storage-internals.html)). Restoring a whole database loses every legitimate write since that point, so the usual approach is to restore to a *separate* instance and copy the lost data back. The discipline this implies: **take a backup or PITR-capable snapshot immediately before any irreversible migration, and know how long a restore takes.**
 
-If a migration *destroyed or corrupted data* and there is no forward fix, you fall back to the storage layer: restore from a backup and replay the write-ahead log to a point in time just before the bad migration (**point-in-time recovery**). This is covered in depth in [Storage Engines &amp; Recovery](storage-internals.html); the relevant discipline here is to **take a backup (or a PITR-capable snapshot) immediately before any irreversible migration**, and to verify you can restore it.
+### Making Rollback Safe by Design
 
-### Making rollback safe by design
+- **Use transactional DDL where available.** In PostgreSQL, wrap related DDL in one transaction so a failure leaves nothing half-applied. In MySQL each DDL statement commits implicitly, so keep one DDL statement per migration and write cleanup by hand.
+- **Isolate irreversible steps.** A migration that drops a column should do nothing else, so its blast radius is exactly one understood change.
+- **Delay destructive changes.** Run the contract step after a soak period — days, not minutes — or rename the old column or table first (for example `name_deprecated_2026_09`) and drop it later, so a mistake is recoverable without a restore.
 
-- **Wrap reversible DDL in a transaction** where the engine allows it. PostgreSQL is *transactional DDL* — `BEGIN; ALTER ...; ALTER ...; COMMIT;` either applies fully or not at all, so a failed multi-statement migration leaves no half-applied mess. MySQL is **not** transactional for DDL: each statement auto-commits, so a multi-statement migration can partially apply and you must hand-write the cleanup. Keep MySQL migrations to one DDL statement where practical.
-- **Never combine the irreversible step with anything else.** A migration that drops a column should drop *only* that column, so its blast radius is exactly one understood change.
-- **Sequence destructive changes last and separately**, after a soak period, so a rollback before that point never has to undo data loss.
+## Checklist
 
-## Best Practices Checklist
-
-- **Treat schema as versioned code.** Every change is an ordered, reviewed, immutable migration recorded in a history table. To fix a mistake, write a new migration — never edit a shipped one.
-- **Expand before you contract.** Add new structure, dual-write, backfill, switch reads, then remove the old structure — across multiple deploys so old and new code always work.
-- **Batch and throttle backfills.** Update in small, resumable, key-ranged batches with their own transactions and a sleep; watch replication lag and back off.
-- **Build indexes concurrently.** Use `CREATE INDEX CONCURRENTLY` (Postgres) or gh-ost/pt-osc (MySQL) so index builds don't block writes; mark such migrations non-transactional.
-- **Set a short lock timeout.** DDL must back off rather than stampede. `lock_timeout` stops an `ALTER` from queuing the whole table behind it.
-- **Prefer rolling forward.** Production rollback is a corrective migration or, for data loss, a PITR restore. Down-scripts are for dev; back up before anything irreversible.
+| Before merging a migration, ask | Why |
+|---|---|
+| Is it compatible with the application version currently running? | The compatibility rule |
+| Does it rewrite or scan a large table under a strong lock? | Check the engine's cost table; use `NOT VALID`, `CONCURRENTLY`, `INSTANT`, or an online tool |
+| Does the session set `lock_timeout` / `lock_wait_timeout`? | Avoid the lock queue trap |
+| Is any data change batched and run separately from the DDL? | Long transactions, WAL bursts, replica lag |
+| Is anything irreversible? Is there a fresh backup? | Rollback may require PITR |
+| Has it run against production-sized data? | Duration surprises |
 
 ## See Also
 
-- [Data Modeling & Normalization](modeling.html) — the schema you are evolving and the integrity rules migrations must preserve.
-- [Indexing & Query Execution](indexing-and-queries.html) — why `CREATE INDEX CONCURRENTLY` matters and how indexes are built.
-- [Transactions & Concurrency](transactions-and-concurrency.html) — locking and MVCC, the machinery that makes online DDL and backfills safe.
-- [Storage Engines & Recovery](storage-internals.html) — WAL, backups, and point-in-time recovery for migration rollback.
-- [Database Design hub](./) — the rest of the deep-dive series.
+- [Data Modeling & Normalization](modeling.html) — the schema being evolved and the integrity rules migrations must preserve.
+- [Indexing & Query Execution](indexing-and-queries.html) — how indexes are built and why concurrent builds matter.
+- [Transactions & Concurrency](transactions-and-concurrency.html) — locking and MVCC, the machinery online DDL and backfills depend on.
+- [Storage Engines & Recovery](storage-internals.html) — table rewrites, WAL, and why large updates create bloat.
+- [Replication & Consensus](replication-and-consensus.html) — replication lag during backfills, and logical replication for major-version upgrades.
+- [ORMs & Data-Access Patterns](orm-patterns.html) — ORM-generated migrations and their pitfalls.
+- **Up:** [Database Design hub](./)
